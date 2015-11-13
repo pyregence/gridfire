@@ -1,0 +1,10 @@
+.nrepl-port
+.nrepl-history
+.lein-repl-history
+target/
+org/GridFire.bbl
+org/GridFire.blg
+org/GridFire.tex
+org/_minted-GridFire/
+org/auto/
+org/missfont.log
