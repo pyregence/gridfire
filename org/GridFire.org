@@ -75,12 +75,12 @@ rich API for manipulating both raster and vector layers through SQL.
 See http://postgis.net for more information.
 
 *License Notice*: All code presented in this document is solely the
-work of the author (Copyright 2011-2015 Gary W. Johnson, Ph.D.) and is
-made available by SIG under the GNU General Public License version 3.0
-(GPLv3) https://www.gnu.org/licenses/gpl.html. Please contact Gary
-Johnson (gjohnson@sig-gis.com), David Saah (dsaah@sig-gis.com), or Max
-Moritz (mmoritz@sig-gis.com) for further information about this
-software.
+work of the authors (Copyright 2011-2015 Gary W. Johnson, Ph.D., David
+Saah, Ph.D., Max Moritz, Ph.D.) and is made available by SIG under the
+GNU General Public License version 3.0 (GPLv3)
+https://www.gnu.org/licenses/gpl.html. Please contact Gary Johnson
+(gjohnson@sig-gis.com), David Saah (dsaah@sig-gis.com), or Max Moritz
+(mmoritz@sig-gis.com) for further information about this software.
 
 * Setting Up the Clojure Environment with Leiningen
 
