@@ -22,7 +22,7 @@
   (let [landfire-layers (reduce (fn [amap layer]
                                   (let [table (layer->table layer)]
                                     (assoc amap layer
-                                           (postgis-raster-to-matrix db-spec table nil nil))))
+                                           (postgis-raster-to-matrix db-spec table))))
                                 {}
                                 [:elevation
                                  :slope
