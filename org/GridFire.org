@@ -1084,9 +1084,9 @@ ft/min.
 
 If trees are present and the surface fire line intensity is greater
 than the critical intensity ($I > I^{*}$), then crown fire initiation
-occurs. If the the surface fire spread rate is greater than the
-critical spread rate ($R > R^{*}$), then the crown fire will be
-active, otherwise passive.
+occurs. If the surface fire spread rate is greater than the critical
+spread rate ($R > R^{*}$), then the crown fire will be active,
+otherwise passive.
 
 #+name: van-wagner-crown-fire-initiation
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/crown_fire.clj :padline no
