@@ -13,12 +13,12 @@
   ([db-spec table-name]
    (let [data-query (str "SELECT ST_DumpValues(rast,1) AS matrix FROM " table-name)]
      (jdbc/with-db-transaction [conn db-spec]
-       (->> (jdbc/query conn [data-query])
-            first
-            :matrix
-            (#(.getArray ^Jdbc4Array %))
-            (m/emap #(or % -1.0))
-            m/matrix))))
+       (when-let [result (seq (jdbc/query conn [data-query]))]
+         (->> (first result)
+              :matrix
+              (#(.getArray ^Jdbc4Array %))
+              (m/emap #(or % -1.0))
+              m/matrix)))))
   ([db-spec table-name resolution threshold]
    (let [rescale-query   (if resolution
                            (format "ST_Rescale(rast,%s,-%s,'NearestNeighbor')"
@@ -32,11 +32,10 @@
                            rescale-query)
          data-query      (format "SELECT ST_DumpValues(%s,1) AS matrix FROM %s"
                                  threshold-query table-name)]
-     ;; (println data-query)
      (jdbc/with-db-transaction [conn db-spec]
-       (->> (jdbc/query conn [data-query])
-            first
-            :matrix
-            (#(.getArray ^Jdbc4Array %))
-            (m/emap #(or % -1.0))
-            m/matrix)))))
+       (when-let [result (seq (jdbc/query conn [data-query]))]
+         (->> (first result)
+              :matrix
+              (#(.getArray ^Jdbc4Array %))
+              (m/emap #(or % -1.0))
+              m/matrix))))))

@@ -1791,12 +1791,12 @@ the REPL or indirectly through GridFire's command line interface.
   ([db-spec table-name]
    (let [data-query (str "SELECT ST_DumpValues(rast,1) AS matrix FROM " table-name)]
      (jdbc/with-db-transaction [conn db-spec]
-       (->> (jdbc/query conn [data-query])
-            first
-            :matrix
-            (#(.getArray ^Jdbc4Array %))
-            (m/emap #(or % -1.0))
-            m/matrix))))
+       (when-let [result (seq (jdbc/query conn [data-query]))]
+         (->> (first result)
+              :matrix
+              (#(.getArray ^Jdbc4Array %))
+              (m/emap #(or % -1.0))
+              m/matrix)))))
   ([db-spec table-name resolution threshold]
    (let [rescale-query   (if resolution
                            (format "ST_Rescale(rast,%s,-%s,'NearestNeighbor')"
@@ -1810,14 +1810,13 @@ the REPL or indirectly through GridFire's command line interface.
                            rescale-query)
          data-query      (format "SELECT ST_DumpValues(%s,1) AS matrix FROM %s"
                                  threshold-query table-name)]
-     ;; (println data-query)
      (jdbc/with-db-transaction [conn db-spec]
-       (->> (jdbc/query conn [data-query])
-            first
-            :matrix
-            (#(.getArray ^Jdbc4Array %))
-            (m/emap #(or % -1.0))
-            m/matrix)))))
+       (when-let [result (seq (jdbc/query conn [data-query]))]
+         (->> (first result)
+              :matrix
+              (#(.getArray ^Jdbc4Array %))
+              (m/emap #(or % -1.0))
+              m/matrix))))))
 #+end_src
 
 ** Command Line Interface
@@ -2012,7 +2011,7 @@ This concludes our discussion of GridFire's command line interface.
 (m/set-current-implementation :vectorz)
 
 (defn postprocess-simulation-results
-  [wrf-cell-id lon lat output-directory results-table]
+  [wrf-cell-id lon lat cell-offset-in-neighborhood output-directory results-table]
   (let [num-fires (count results-table)]
     (with-open [out-file (io/writer (io/file output-directory (str "all-fires-" wrf-cell-id ".csv")))]
       (csv/write-csv out-file
@@ -2024,7 +2023,7 @@ This concludes our discussion of GridFire's command line interface.
                                               equilibrium-moisture lw-moisture eaf fire-size flame-length-mean
                                               ;; flame-length-stddev fire-volume fire-shape]}]
                                               fire-volume fire-shape]}]
-                                   (let [local-site     (mop/- ignition-site [66 66])
+                                   (let [local-site     (mop/- ignition-site cell-offset-in-neighborhood)
                                          wrf-percentile (- 100.0 (/ weather-sample 36.0))]
                                      [wrf-cell-id
                                       lon
@@ -2168,7 +2167,6 @@ This concludes our discussion of GridFire's command line interface.
      (jdbc/with-db-transaction [conn db-spec]
        (vec (jdbc/query conn [query])))))
 
-;; Need to nil-proof this function
 (defn fetch-landfire-data
   "Returns a map of LANDFIRE rasters as core.matrix 2D double arrays:
    {:elevation          m
@@ -2180,14 +2178,17 @@ This concludes our discussion of GridFire's command line interface.
     :crown-bulk-density kg/m^3
     :canopy-cover       % (0-100)}"
   [db-spec wrf-cell-id]
-  {:elevation          (postgis-raster-to-matrix db-spec (str "landfire.dem_wrf_tiles                WHERE j_i='" wrf-cell-id "'"))
-   :slope              (postgis-raster-to-matrix db-spec (str "landfire.slp_wrf_tiles                WHERE j_i='" wrf-cell-id "'"))
-   :aspect             (postgis-raster-to-matrix db-spec (str "landfire.asp_wrf_tiles                WHERE j_i='" wrf-cell-id "'"))
-   :fuel-model         (postgis-raster-to-matrix db-spec (str "fuel_model.fmod_iet_veg2015_wrf_tiles WHERE j_i='" wrf-cell-id "'"))
-   :canopy-height      (postgis-raster-to-matrix db-spec (str "landfire.ch_wrf_tiles                 WHERE j_i='" wrf-cell-id "'"))
-   :canopy-base-height (postgis-raster-to-matrix db-spec (str "landfire.cbh_wrf_tiles                WHERE j_i='" wrf-cell-id "'"))
-   :crown-bulk-density (postgis-raster-to-matrix db-spec (str "landfire.cbd_wrf_tiles                WHERE j_i='" wrf-cell-id "'"))
-   :canopy-cover       (postgis-raster-to-matrix db-spec (str "landfire.cc_wrf_tiles                 WHERE j_i='" wrf-cell-id "'"))})
+  (let [landfire-data
+        {:elevation          (postgis-raster-to-matrix db-spec (str "landfire.dem_wrf_tiles                WHERE j_i='" wrf-cell-id "'"))
+         :slope              (postgis-raster-to-matrix db-spec (str "landfire.slp_wrf_tiles                WHERE j_i='" wrf-cell-id "'"))
+         :aspect             (postgis-raster-to-matrix db-spec (str "landfire.asp_wrf_tiles                WHERE j_i='" wrf-cell-id "'"))
+         :fuel-model         (postgis-raster-to-matrix db-spec (str "fuel_model.fmod_iet_veg2015_wrf_tiles WHERE j_i='" wrf-cell-id "'"))
+         :canopy-height      (postgis-raster-to-matrix db-spec (str "landfire.ch_wrf_tiles                 WHERE j_i='" wrf-cell-id "'"))
+         :canopy-base-height (postgis-raster-to-matrix db-spec (str "landfire.cbh_wrf_tiles                WHERE j_i='" wrf-cell-id "'"))
+         :crown-bulk-density (postgis-raster-to-matrix db-spec (str "landfire.cbd_wrf_tiles                WHERE j_i='" wrf-cell-id "'"))
+         :canopy-cover       (postgis-raster-to-matrix db-spec (str "landfire.cc_wrf_tiles                 WHERE j_i='" wrf-cell-id "'"))}]
+    (if (not-any? nil? (vals landfire-data))
+      landfire-data)))
 
 (defn read-wrf-cells-list [clj-file start end]
   (-> (slurp clj-file)
@@ -2204,29 +2205,30 @@ This concludes our discussion of GridFire's command line interface.
   ;;    4. Randomly select 1000 distinct LANDFIRE ignition-sites as a sequence of [i j] points
   ;;    5. Run run-monte-carlo-fire-spread for this WRF cell
   ;;    6. Write results-table to disk as a CSV
-  (let [landfire-cell-size        98.425 ;; ft
-        calfire-burn-duration     60.0   ;; mins
-        max-wrf-sample-index      73
-        ellipse-adjustment-factor 1.0]
+  (let [landfire-cell-size          98.425 ;; ft
+        calfire-burn-duration       60.0   ;; mins
+        max-wrf-sample-index        73
+        ellipse-adjustment-factor   1.0
+        cell-offset-in-neighborhood [84 83]
+        num-ignitions               1000]
     (->> (read-wrf-cells-list wrf-cells-file start end)
          (r/filter (fn [{:keys [wrf_cell_id]}]
                      (not (.exists (io/file output-directory (str "all-fires-" wrf_cell_id ".csv"))))))
          (r/map (fn [{:keys [wrf_cell_id lon lat lw_moisture]}]
-                  (let [weather-readings (fetch-extreme-weather-readings db-spec wrf_cell_id)
-                        landfire-data    (fetch-landfire-data db-spec wrf_cell_id)
-                        ignition-sites   (into []
-                                               (comp (distinct) (take 1000))
-                                               (repeatedly #(mop/+ [66 66] (random-cell 67 67))))]
-                    (->> (run-monte-carlo-fire-spread landfire-data landfire-cell-size ignition-sites weather-readings lw_moisture
-                                                      max-wrf-sample-index calfire-burn-duration ellipse-adjustment-factor)
-                         (postprocess-simulation-results wrf_cell_id lon lat output-directory)))))
-         ;;(into [])
-         (r/fold 25 r/cat r/append!)
+                  (let [ignition-sites   (into []
+                                              (comp (distinct) (take num-ignitions))
+                                              (repeatedly #(mop/+ cell-offset-in-neighborhood (random-cell 84 83))))
+                        weather-readings (fetch-extreme-weather-readings db-spec wrf_cell_id)]
+                    (when-let [landfire-data (fetch-landfire-data db-spec wrf_cell_id)]
+                      (->> (run-monte-carlo-fire-spread landfire-data landfire-cell-size ignition-sites weather-readings lw_moisture
+                                                        max-wrf-sample-index calfire-burn-duration ellipse-adjustment-factor)
+                           (postprocess-simulation-results wrf_cell_id lon lat cell-offset-in-neighborhood output-directory))))))
+         (r/remove nil?)
+         (r/fold fold-bin-size r/cat r/append!)
          (cons "wrf_cell_id,lon,lat,fire_size,flame_length,fire_volume,fire_shape")
          (spit (io/file output-directory "all-fires-summary.csv")))))
 
 (comment
-  ;; Run this on iwap03. Then scp this file to iwap04 and iwap05.
   (spit "/data/CALFIRE_MAP1_RUN2/inputs/wrf_cells_to_process.clj"
         (fetch-wrf-cell-ids {:classname   "org.postgresql.Driver"
                              :subprotocol "postgresql"
