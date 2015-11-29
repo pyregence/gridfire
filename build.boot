@@ -3,7 +3,7 @@
        :version     "1.0.0"
        :description "SIG's Raster-based Fire Spread and Severity Model"}
  repl {:eval        '(set! *warn-on-reflection* true)
-       :init-ns     'gridfire.fire-spread}
+       :init-ns     'gridfire.monte-carlo}
  aot  {:namespace   '#{gridfire.cli}}
  jar  {:main        'gridfire.cli})
 
@@ -11,6 +11,7 @@
  :source-paths   #{"src"}
  :resource-paths #{"resources"}
  :dependencies   '[[org.clojure/clojure                 "1.7.0"]
+                   [org.clojure/data.csv                "0.1.3"]
                    [org.clojure/java.jdbc               "0.4.2"]
                    [postgresql/postgresql               "9.3-1102.jdbc41"]
                    [net.mikera/core.matrix              "0.42.0"]
