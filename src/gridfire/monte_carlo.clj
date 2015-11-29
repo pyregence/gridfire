@@ -236,7 +236,6 @@
                              :subname     "//iwap03:5432/calfire"
                              :user        "gjohnson"}))
 
-  ;; Run this on each machine with the appropriate start, end, and fold-bin-size parameters.
   (launch-calfire-monte-carlo-simulation
    {:classname   "org.postgresql.Driver"
     :subprotocol "postgresql"
@@ -244,4 +243,22 @@
     :user        "gjohnson"}
    "/data/CALFIRE_MAP1_RUN2/outputs"
    "/data/CALFIRE_MAP1_RUN2/inputs/wrf_cells_to_process.clj"
-   0 1000 50))
+   0 40000 500)
+
+  (launch-calfire-monte-carlo-simulation
+   {:classname   "org.postgresql.Driver"
+    :subprotocol "postgresql"
+    :subname     "//iwap03:5432/calfire"
+    :user        "gjohnson"}
+   "/data/CALFIRE_MAP1_RUN2/outputs"
+   "/data/CALFIRE_MAP1_RUN2/inputs/wrf_cells_to_process.clj"
+   40000 80000 500)
+
+  (launch-calfire-monte-carlo-simulation
+   {:classname   "org.postgresql.Driver"
+    :subprotocol "postgresql"
+    :subname     "//iwap03:5432/calfire"
+    :user        "gjohnson"}
+   "/data/CALFIRE_MAP1_RUN2/outputs"
+   "/data/CALFIRE_MAP1_RUN2/inputs/wrf_cells_to_process.clj"
+   80000 120000 500))
