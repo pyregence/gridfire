@@ -1821,7 +1821,9 @@ the REPL or indirectly through GridFire's command line interface.
 ** Command Line Interface
 
 The entire GridFire system is available for use directly from the
-Clojure REPL. However, if you just want to simulate an individual
+Clojure REPL. This enables straightforward analysis and introspection
+of the fire behavior functions and their results over a range of
+inputs. However, if you just want to simulate an individual
 ignition event, GridFire comes with a simple command line interface
 that can be parameterized by a single configuration file, specifying
 the ignition location, burn duration, weather values, and the location
