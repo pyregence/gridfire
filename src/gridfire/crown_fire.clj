@@ -2,13 +2,15 @@
   (:require [gridfire.surface-fire :refer [byram-fire-line-intensity byram-flame-length]]))
 
 (defn van-wagner-crown-fire-initiation
-  "- canopy-base-height (ft)
+  "- canopy-cover (0-100 %)
+   - canopy-base-height (ft)
    - crown-bulk-density (lb/ft^3)
    - foliar-moisture (lb moisture/lb ovendry weight)
    - spread-rate (ft/min)
    - fire-line-intensity (Btu/ft*s)"
-  [canopy-base-height crown-bulk-density foliar-moisture spread-rate fire-line-intensity]
-  (if (and (pos? canopy-base-height)
+  [canopy-cover canopy-base-height crown-bulk-density foliar-moisture spread-rate fire-line-intensity]
+  (if (and (pos? canopy-cover)
+           (pos? canopy-base-height)
            (pos? crown-bulk-density))
     (let [heat-of-ignition (+ 197.8 (* 1118.0 foliar-moisture)) ;; Btu/lb
           critical-intensity (Math/pow (* 0.002048
@@ -16,7 +18,8 @@
                                           heat-of-ignition)
                                        1.5) ;; Btu/ft*s
           critical-spread-rate (/ 0.61445 crown-bulk-density)] ;; ft/min
-      (if (> fire-line-intensity critical-intensity)
+      (if (and (> canopy-cover 40.0)
+               (> fire-line-intensity critical-intensity))
         ;; crown fire initiation occurs
         (if (> spread-rate critical-spread-rate)
           :active-crown-fire

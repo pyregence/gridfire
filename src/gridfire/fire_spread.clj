@@ -138,6 +138,7 @@
         fire-line-intensity (byram-fire-line-intensity (:reaction-intensity spread-info-min)
                                                        flame-depth)
         fire-type           (van-wagner-crown-fire-initiation
+                             canopy-cover
                              canopy-base-height
                              crown-bulk-density
                              foliar-moisture
