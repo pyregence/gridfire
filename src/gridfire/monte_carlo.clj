@@ -183,8 +183,8 @@
         {:elevation          (postgis-raster-to-matrix db-spec (str "landfire.dem_wrf_tiles                WHERE j_i='" wrf-cell-id "'"))
          :slope              (postgis-raster-to-matrix db-spec (str "landfire.slp_wrf_tiles                WHERE j_i='" wrf-cell-id "'"))
          :aspect             (postgis-raster-to-matrix db-spec (str "landfire.asp_wrf_tiles                WHERE j_i='" wrf-cell-id "'"))
-         ;; :fuel-model         (postgis-raster-to-matrix db-spec (str "fuel_model.fmod_iet_veg2015_wrf_tiles WHERE j_i='" wrf-cell-id "'"))
-         :fuel-model         (postgis-raster-to-matrix db-spec (str "fuel_model.fmod_reax_v2005_wrf_tiles  WHERE j_i='" wrf-cell-id "'"))
+         :fuel-model         (postgis-raster-to-matrix db-spec (str "fuel_model.fmod_iet_veg2015_wrf_tiles WHERE j_i='" wrf-cell-id "'"))
+         ;; :fuel-model         (postgis-raster-to-matrix db-spec (str "fuel_model.fmod_reax_v2005_wrf_tiles  WHERE j_i='" wrf-cell-id "'"))
          :canopy-height      (postgis-raster-to-matrix db-spec (str "landfire.ch_wrf_tiles                 WHERE j_i='" wrf-cell-id "'"))
          :canopy-base-height (postgis-raster-to-matrix db-spec (str "landfire.cbh_wrf_tiles                WHERE j_i='" wrf-cell-id "'"))
          :crown-bulk-density (postgis-raster-to-matrix db-spec (str "landfire.cbd_wrf_tiles                WHERE j_i='" wrf-cell-id "'"))
@@ -217,14 +217,15 @@
          (r/filter (fn [{:keys [wrf_cell_id]}]
                      (not (.exists (io/file output-directory (str "all-fires-" wrf_cell_id ".csv"))))))
          (r/map (fn [{:keys [wrf_cell_id lon lat lw_moisture]}]
-                  (let [ignition-sites   (into []
-                                              (comp (distinct) (take num-ignitions))
-                                              (repeatedly #(mop/+ cell-offset-in-neighborhood (random-cell 84 83))))
-                        weather-readings (fetch-extreme-weather-readings db-spec wrf_cell_id)]
-                    (when-let [landfire-data (fetch-landfire-data db-spec wrf_cell_id)]
-                      (->> (run-monte-carlo-fire-spread landfire-data landfire-cell-size ignition-sites weather-readings lw_moisture
-                                                        max-wrf-sample-index calfire-burn-duration ellipse-adjustment-factor)
-                           (postprocess-simulation-results wrf_cell_id lon lat cell-offset-in-neighborhood output-directory))))))
+                  (try (let [ignition-sites   (into []
+                                                    (comp (distinct) (take num-ignitions))
+                                                    (repeatedly #(mop/+ cell-offset-in-neighborhood (random-cell 84 83))))
+                             weather-readings (fetch-extreme-weather-readings db-spec wrf_cell_id)]
+                         (when-let [landfire-data (fetch-landfire-data db-spec wrf_cell_id)]
+                           (->> (run-monte-carlo-fire-spread landfire-data landfire-cell-size ignition-sites weather-readings lw_moisture
+                                                             max-wrf-sample-index calfire-burn-duration ellipse-adjustment-factor)
+                                (postprocess-simulation-results wrf_cell_id lon lat cell-offset-in-neighborhood output-directory))))
+                       (catch Exception e (println "Exception in" wrf_cell_id "->" (class e))))))
          (r/remove nil?)
          (r/fold fold-bin-size r/cat r/append!)
          (cons "wrf_cell_id,lon,lat,fire_size,flame_length,fire_volume,fire_shape")
@@ -232,11 +233,14 @@
 
 (comment
   (spit "/data/CALFIRE_MAP1_RUN2/inputs/wrf_cells_to_process.clj"
-        (fetch-wrf-cell-ids {:classname   "org.postgresql.Driver"
-                             :subprotocol "postgresql"
-                             :subname     "//iwap03:5432/calfire"
-                             :user        "gjohnson"}))
+        (filterv (fn [{:keys [wrf_cell_id]}]
+                   (not (.exists (io/file "/data/CALFIRE_MAP1_RUN2/reax_fuel_model_results/outputs" (str "all-fires-" wrf_cell_id ".csv")))))
+                 (fetch-wrf-cell-ids {:classname   "org.postgresql.Driver"
+                                      :subprotocol "postgresql"
+                                      :subname     "//iwap03:5432/calfire"
+                                      :user        "gjohnson"})))
 
+  ;; iwap02
   (launch-calfire-monte-carlo-simulation
    {:classname   "org.postgresql.Driver"
     :subprotocol "postgresql"
@@ -244,8 +248,19 @@
     :user        "gjohnson"}
    "/data/CALFIRE_MAP1_RUN2/outputs"
    "/data/CALFIRE_MAP1_RUN2/inputs/wrf_cells_to_process.clj"
-   0 40000 500)
+   1500 2000 5)
 
+  ;; iwap03
+  (launch-calfire-monte-carlo-simulation
+   {:classname   "org.postgresql.Driver"
+    :subprotocol "postgresql"
+    :subname     "//localhost:5432/calfire"
+    :user        "gjohnson"}
+   "/data/CALFIRE_MAP1_RUN2/outputs"
+   "/data/CALFIRE_MAP1_RUN2/inputs/wrf_cells_to_process.clj"
+   2000 4000 40)
+
+  ;; iwap04
   (launch-calfire-monte-carlo-simulation
    {:classname   "org.postgresql.Driver"
     :subprotocol "postgresql"
@@ -253,8 +268,9 @@
     :user        "gjohnson"}
    "/data/CALFIRE_MAP1_RUN2/outputs"
    "/data/CALFIRE_MAP1_RUN2/inputs/wrf_cells_to_process.clj"
-   40000 80000 500)
+   4000 6000 40)
 
+  ;; iwap05
   (launch-calfire-monte-carlo-simulation
    {:classname   "org.postgresql.Driver"
     :subprotocol "postgresql"
@@ -262,4 +278,34 @@
     :user        "gjohnson"}
    "/data/CALFIRE_MAP1_RUN2/outputs"
    "/data/CALFIRE_MAP1_RUN2/inputs/wrf_cells_to_process.clj"
-   80000 120000 500))
+   6000 7649 40)
+
+  ;; iwap06
+  (launch-calfire-monte-carlo-simulation
+   {:classname   "org.postgresql.Driver"
+    :subprotocol "postgresql"
+    :subname     "//iwap03:5432/calfire"
+    :user        "gjohnson"}
+   "/data/CALFIRE_MAP1_RUN2/outputs"
+   "/data/CALFIRE_MAP1_RUN2/inputs/wrf_cells_to_process.clj"
+   0 500 20)
+
+  ;; iwap07
+  (launch-calfire-monte-carlo-simulation
+   {:classname   "org.postgresql.Driver"
+    :subprotocol "postgresql"
+    :subname     "//iwap03:5432/calfire"
+    :user        "gjohnson"}
+   "/data/CALFIRE_MAP1_RUN2/outputs"
+   "/data/CALFIRE_MAP1_RUN2/inputs/wrf_cells_to_process.clj"
+   500 1000 20)
+
+  ;; iwap08
+  (launch-calfire-monte-carlo-simulation
+   {:classname   "org.postgresql.Driver"
+    :subprotocol "postgresql"
+    :subname     "//iwap03:5432/calfire"
+    :user        "gjohnson"}
+   "/data/CALFIRE_MAP1_RUN2/outputs"
+   "/data/CALFIRE_MAP1_RUN2/inputs/wrf_cells_to_process.clj"
+   1000 1500 20))
