@@ -6,7 +6,7 @@
                                            rothermel-surface-fire-spread-max
                                            rothermel-surface-fire-spread-any
                                            anderson-flame-depth byram-fire-line-intensity
-                                           byram-flame-length]]
+                                           byram-flame-length wind-adjustment-factor]]
             [gridfire.crown-fire :refer [van-wagner-crown-fire-initiation
                                          cruz-passive-crown-fire-spread
                                          cruz-active-crown-fire-spread
@@ -84,21 +84,6 @@
    [ 1 -1] 225.0   ; SW
    [ 0 -1] 270.0   ; W
    [-1 -1] 315.0}) ; NW
-
-(defn wind-adjustment-factor
-  [fuel-bed-depth canopy-height canopy-cover]
-  (cond
-    ;; null value
-    (neg? canopy-cover) nil
-
-    ;; unsheltered: equation 6 H_F = H (Andrews 2012)
-    (zero? canopy-cover)
-    (/ 1.83 (Math/log (/ (+ 20.0 (* 0.36 fuel-bed-depth)) (* 0.13 fuel-bed-depth))))
-
-    ;; sheltered: equation 2 based on CC and CH, CR=1 (Andrews 2012)
-    (pos? canopy-cover)
-    (/ 0.555 (* (Math/sqrt (* (/ canopy-cover 300.0) canopy-height))
-                (Math/log (/ (+ 20.0 (* 0.36 canopy-height)) (* 0.13 canopy-height)))))))
 
 (defn rothermel-fast-wrapper [fuel-model-number fuel-moisture]
   (let [fuel-model      (-> (build-fuel-model (int fuel-model-number))

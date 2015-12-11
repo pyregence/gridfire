@@ -155,6 +155,21 @@
      :get-phi_S          get-phi_S
      :get-wind-speed     get-wind-speed}))
 
+(defn wind-adjustment-factor
+  [fuel-bed-depth canopy-height canopy-cover]
+  (cond
+    ;; null value
+    (neg? canopy-cover) nil
+
+    ;; unsheltered: equation 6 H_F = H (Andrews 2012)
+    (zero? canopy-cover)
+    (/ 1.83 (Math/log (/ (+ 20.0 (* 0.36 fuel-bed-depth)) (* 0.13 fuel-bed-depth))))
+
+    ;; sheltered: equation 2 based on CC and CH, CR=1 (Andrews 2012)
+    (pos? canopy-cover)
+    (/ 0.555 (* (Math/sqrt (* (/ canopy-cover 300.0) canopy-height))
+                (Math/log (/ (+ 20.0 (* 0.36 canopy-height)) (* 0.13 canopy-height)))))))
+
 (defn almost-zero? [^double x]
   (< (Math/abs x) 0.000001))
 

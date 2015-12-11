@@ -864,6 +864,47 @@ the wind-only and slope-only spread rates independently to calculate
 the effective fire spread direction and
 magnitude.\citep{Peterson2011,Peterson2009,Morais2001,Rothermel1983}
 
+A minor wrinkle is introduced when putting these calculations into
+practice because Rothermel's formulas all expect a measure of midflame
+wind speed. However, wind speed data is often collected at a height 20
+feet above either unsheltered ground or a tree canopy layer if
+present. To convert this 20-ft wind speed to the required midflame
+wind speed value, GridFire uses the *wind adjustment factor* formula
+from Albini & Baughman 1979, parameterized as in BehavePlus, FARSITE,
+FlamMap, FSPro, and FPA according to Andrews
+2012\citep{Albini1979,Andrews2012}. This formula is shown below:
+
+\begin{displaymath}
+  WAF &= \left\{
+    \begin{array}{lr}
+      \frac{1.83}{ \ln(\frac{20.0 + 0.36 FBD}{0.13 FBD}) } & CC = 0 \\
+      \frac{0.555}{ \sqrt(CH (CC/300.0)) \ln(\frac{20 + 0.36 CH}{0.13 CH}) } & CC > 0
+    \end{array}
+  \right.
+\end{displaymath}
+
+where WAF is the unitless wind adjustment factor, FBD is the fuel bed
+depth in feet, CH is the canopy height in ft, and CC is the canopy
+cover percentage (0-100).
+
+#+name: wind-adjustment-factor
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/surface_fire.clj
+(defn wind-adjustment-factor
+  [fuel-bed-depth canopy-height canopy-cover]
+  (cond
+    ;; null value
+    (neg? canopy-cover) nil
+
+    ;; unsheltered: equation 6 H_F = H (Andrews 2012)
+    (zero? canopy-cover)
+    (/ 1.83 (Math/log (/ (+ 20.0 (* 0.36 fuel-bed-depth)) (* 0.13 fuel-bed-depth))))
+
+    ;; sheltered: equation 2 based on CC and CH, CR=1 (Andrews 2012)
+    (pos? canopy-cover)
+    (/ 0.555 (* (Math/sqrt (* (/ canopy-cover 300.0) canopy-height))
+                (Math/log (/ (+ 20.0 (* 0.36 canopy-height)) (* 0.13 canopy-height)))))))
+#+end_src
+
 The midflame wind speed that would be required to produce the combined
 spread rate in a no-slope scenario is termed the effective windspeed
 $U_{\textrm{eff}}$. Following the recommendations given in Appendix
@@ -1409,7 +1450,7 @@ pseudo-code lays out the steps taken in this procedure:
                                            rothermel-surface-fire-spread-max
                                            rothermel-surface-fire-spread-any
                                            anderson-flame-depth byram-fire-line-intensity
-                                           byram-flame-length]]
+                                           byram-flame-length wind-adjustment-factor]]
             [gridfire.crown-fire :refer [van-wagner-crown-fire-initiation
                                          cruz-passive-crown-fire-spread
                                          cruz-active-crown-fire-spread
@@ -1487,21 +1528,6 @@ pseudo-code lays out the steps taken in this procedure:
    [ 1 -1] 225.0   ; SW
    [ 0 -1] 270.0   ; W
    [-1 -1] 315.0}) ; NW
-
-(defn wind-adjustment-factor
-  [fuel-bed-depth canopy-height canopy-cover]
-  (cond
-    ;; null value
-    (neg? canopy-cover) nil
-
-    ;; unsheltered: equation 6 H_F = H (Andrews 2012)
-    (zero? canopy-cover)
-    (/ 1.83 (Math/log (/ (+ 20.0 (* 0.36 fuel-bed-depth)) (* 0.13 fuel-bed-depth))))
-
-    ;; sheltered: equation 2 based on CC and CH, CR=1 (Andrews 2012)
-    (pos? canopy-cover)
-    (/ 0.555 (* (Math/sqrt (* (/ canopy-cover 300.0) canopy-height))
-                (Math/log (/ (+ 20.0 (* 0.36 canopy-height)) (* 0.13 canopy-height)))))))
 
 (defn rothermel-fast-wrapper [fuel-model-number fuel-moisture]
   (let [fuel-model      (-> (build-fuel-model (int fuel-model-number))
