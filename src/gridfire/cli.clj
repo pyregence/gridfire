@@ -78,6 +78,6 @@
     (-> (matrix-to-raster "fire-line-intensity-matrix"
                           (:fire-line-intensity-matrix fire-spread-results)
                           envelope)
-        (write-raster (:fire-line-intensity-outfile fire-spread-results)))
+        (write-raster (:fire-line-intensity-outfile config)))
     (println "Global Clock:" (:global-clock fire-spread-results))
     (println "Ignited Cells:" (count (:ignited-cells fire-spread-results)))))
