@@ -22,6 +22,7 @@
                                :canopy-base-height "landfire.cbh WHERE rid=100"
                                :crown-bulk-density "landfire.cbd WHERE rid=100"
                                :canopy-cover       "landfire.cc WHERE rid=100"}
- :fire-spread-outfile         "fire_spread.png"
- :flame-length-outfile        "flame_length.png"
- :fire-line-intensity-outfile "fire_line_intensity.png"}
+ :srid                        "CALFIRE:900914"
+ :fire-spread-outfile         "fire_spread.tif"
+ :flame-length-outfile        "flame_length.tif"
+ :fire-line-intensity-outfile "fire_line_intensity.tif"}

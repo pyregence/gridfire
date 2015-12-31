@@ -1,15 +1,16 @@
 (ns gridfire.cli
   (:gen-class)
   (:require [clojure.core.matrix :as m]
-            [matrix-viz.core :refer [save-matrix-as-png]]
             [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]
             [gridfire.surface-fire :refer [degrees-to-radians]]
-            [gridfire.fire-spread :refer [run-fire-spread]]))
+            [gridfire.fire-spread :refer [run-fire-spread]]
+            [magellan.core :refer [srid-to-crs make-envelope
+                                   matrix-to-raster write-raster]]))
 
 (m/set-current-implementation :vectorz)
 
 (defn fetch-landfire-layers
-  "Returns a map of LANDFIRE rasters as core.matrix 2D double arrays:
+  "Returns a map of LANDFIRE rasters with the following units:
    {:elevation          feet
     :slope              vertical feet/horizontal feet
     :aspect             degrees clockwise from north
@@ -32,48 +33,48 @@
                                  :canopy-base-height
                                  :crown-bulk-density
                                  :canopy-cover])]
-    (assoc landfire-layers
-           :elevation          (m/emap #(* % 3.28)
-                                       (landfire-layers :elevation)) ; m -> ft
-           :slope              (m/emap #(Math/tan (degrees-to-radians %))
-                                       (landfire-layers :slope)) ; degrees -> %
-           :canopy-height      (m/emap #(* % 3.28)
-                                       (landfire-layers :canopy-height)) ; m -> ft
-           :canopy-base-height (m/emap #(* % 3.28)
-                                       (landfire-layers :canopy-base-height)) ; m -> ft
-           :crown-bulk-density (m/emap #(* % 0.0624)
-                                       (landfire-layers :crown-bulk-density)))))
-                                       ; kg/m^3 -> lb/ft^3
+    (-> landfire-layers
+        (update-in [:elevation          :matrix] (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
+        (update-in [:slope              :matrix] (fn [matrix] (m/emap #(Math/tan (degrees-to-radians %)) matrix))) ; degrees -> %
+        (update-in [:canopy-height      :matrix] (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
+        (update-in [:canopy-base-height :matrix] (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
+        (update-in [:crown-bulk-density :matrix] (fn [matrix] (m/emap #(* % 0.0624) matrix)))))) ; kg/m^3 -> lb/ft^3
 
 (defn -main
-  "Outputs:
-  {:global-clock               global-clock
-   :initial-ignition-site      initial-ignition-site
-   :ignited-cells              ignited-cells
-   :fire-spread-matrix         (m/emap #(- 1.0 %) ignition-matrix)
-   :flame-length-matrix        flame-length-matrix
-   :fire-line-intensity-matrix fire-line-intensity-matrix}"
   [config-file]
   (let [config              (read-string (slurp config-file))
         landfire-layers     (fetch-landfire-layers (:db-spec config)
                                                    (:landfire-layers config))
+        landfire-rasters    (into {}
+                                  (map (fn [[layer info]] [layer (:matrix info)]))
+                                  landfire-layers)
         fire-spread-results (run-fire-spread (:max-runtime               config)
                                              (:cell-size                 config)
-                                             landfire-layers
+                                             landfire-rasters
                                              (:wind-speed-20ft           config)
                                              (:wind-from-direction       config)
                                              (:fuel-moisture             config)
                                              (:foliar-moisture           config)
                                              (:ellipse-adjustment-factor config)
-                                             (:ignition-site             config))]
-    (save-matrix-as-png :color 4 -1.0
-                        (:fire-spread-matrix fire-spread-results)
-                        (:fire-spread-outfile config))
-    (save-matrix-as-png :color 4 -1.0
-                        (:flame-length-matrix fire-spread-results)
-                        (:flame-length-outfile config))
-    (save-matrix-as-png :color 4 -1.0
-                        (:fire-line-intensity-matrix fire-spread-results)
-                        (:fire-line-intensity-outfile config))
+                                             (:ignition-site             config))
+        envelope            (make-envelope (srid-to-crs (:srid config))
+                                           (landfire-layers :elevation :upperleftx)
+                                           (landfire-layers :elevation :upperlefty)
+                                           (* (landfire-layers :elevation :width)
+                                              (landfire-layers :elevation :scalex))
+                                           (* (landfire-layers :elevation :height)
+                                              (landfire-layers :elevation :scaley)))]
+    (-> (matrix-to-raster "fire-spread-matrix"
+                          (:fire-spread-matrix fire-spread-results)
+                          envelope)
+        (write-raster (:fire-spread-outfile config)))
+    (-> (matrix-to-raster "flame-length-matrix"
+                          (:flame-length-matrix fire-spread-results)
+                          envelope)
+        (write-raster (:flame-length-outfile config)))
+    (-> (matrix-to-raster "fire-line-intensity-matrix"
+                          (:fire-line-intensity-matrix fire-spread-results)
+                          envelope)
+        (write-raster (:fire-line-intensity-outfile fire-spread-results)))
     (println "Global Clock:" (:global-clock fire-spread-results))
     (println "Ignited Cells:" (count (:ignited-cells fire-spread-results)))))

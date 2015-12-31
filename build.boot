@@ -10,13 +10,13 @@
 (set-env!
  :source-paths   #{"src"}
  :resource-paths #{"resources"}
- :dependencies   '[[org.clojure/clojure                 "1.7.0"]
-                   [org.clojure/data.csv                "0.1.3"]
-                   [org.clojure/java.jdbc               "0.4.2"]
-                   [postgresql/postgresql               "9.3-1102.jdbc41"]
-                   [net.mikera/core.matrix              "0.42.0"]
-                   [net.mikera/vectorz-clj              "0.36.0"]
-                   [org.clojars.lambdatronic/matrix-viz "0.1.7"]])
+ :dependencies   '[[org.clojure/clojure    "1.7.0"]
+                   [org.clojure/data.csv   "0.1.3"]
+                   [org.clojure/java.jdbc  "0.4.2"]
+                   [postgresql/postgresql  "9.3-1102.jdbc41"]
+                   [net.mikera/core.matrix "0.42.0"]
+                   [net.mikera/vectorz-clj "0.36.0"]
+                   [lambdatronic/magellan  "0.1.0"]])
 
 (deftask build
   "Build my project."

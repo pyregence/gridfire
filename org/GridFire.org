@@ -98,13 +98,13 @@ shown below.
 #+begin_src clojure :results silent :exports code :tangle ../project.clj :padline no
 (defproject sig-gis/gridfire "1.0.0"
   :description      "SIG's Raster-based Fire Spread and Severity Model"
-  :dependencies     [[org.clojure/clojure                 "1.7.0"]
-                     [org.clojure/data.csv                "0.1.3"]
-                     [org.clojure/java.jdbc               "0.4.2"]
-                     [postgresql/postgresql               "9.3-1102.jdbc41"]
-                     [net.mikera/core.matrix              "0.42.0"]
-                     [net.mikera/vectorz-clj              "0.36.0"]
-                     [org.clojars.lambdatronic/matrix-viz "0.1.7"]]
+  :dependencies     [[org.clojure/clojure    "1.7.0"]
+                     [org.clojure/data.csv   "0.1.3"]
+                     [org.clojure/java.jdbc  "0.4.2"]
+                     [postgresql/postgresql  "9.3-1102.jdbc41"]
+                     [net.mikera/core.matrix "0.42.0"]
+                     [net.mikera/vectorz-clj "0.36.0"]
+                     [lambdatronic/magellan  "0.1.0"]]
   :min-lein-version "2.5.2"
   :aot              [gridfire.cli]
   :main             gridfire.cli
@@ -151,13 +151,13 @@ BOOT_VERSION=2.4.2
 (set-env!
  :source-paths   #{"src"}
  :resource-paths #{"resources"}
- :dependencies   '[[org.clojure/clojure                 "1.7.0"]
-                   [org.clojure/data.csv                "0.1.3"]
-                   [org.clojure/java.jdbc               "0.4.2"]
-                   [postgresql/postgresql               "9.3-1102.jdbc41"]
-                   [net.mikera/core.matrix              "0.42.0"]
-                   [net.mikera/vectorz-clj              "0.36.0"]
-                   [org.clojars.lambdatronic/matrix-viz "0.1.7"]])
+ :dependencies   '[[org.clojure/clojure    "1.7.0"]
+                   [org.clojure/data.csv   "0.1.3"]
+                   [org.clojure/java.jdbc  "0.4.2"]
+                   [postgresql/postgresql  "9.3-1102.jdbc41"]
+                   [net.mikera/core.matrix "0.42.0"]
+                   [net.mikera/vectorz-clj "0.36.0"]
+                   [lambdatronic/magellan  "0.1.0"]])
 
 (deftask build
   "Build my project."
@@ -1801,8 +1801,10 @@ Extracting raster layers from a PostGIS database is performed by a
 single function, called *postgis-raster-to-matrix*, which constructs a
 SQL query for the layer, sends it to the database in a transaction,
 and returns the result as a core.matrix 2D double array with nodata
-values represented as -1.0. This function may be called directly from
-the REPL or indirectly through GridFire's command line interface.
+values represented as -1.0. The georeferencing information associated
+with this tile is also included in the returned results. This function
+may be called directly from the REPL or indirectly through GridFire's
+command line interface.
 
 #+name: postgis-bridge
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/postgis_bridge.clj :padline no
@@ -1814,19 +1816,35 @@ the REPL or indirectly through GridFire's command line interface.
 (m/set-current-implementation :vectorz)
 
 (defn postgis-raster-to-matrix
-  "Send a SQL query to the database given by db-spec for a raster tile from
-   table table-name. Resample the raster to match resolution and set any values
-   below threshold to 0. Return the post-processed raster values as a Clojure
-   matrix using the core.matrix API."
+  "Send a SQL query to the PostGIS database given by db-spec for a
+  raster tile from table table-name. Optionally resample the raster to
+  match resolution and set any values below threshold to 0. Return the
+  post-processed raster values as a Clojure matrix using the
+  core.matrix API along with all of the georeferencing information
+  associated with this tile in a hash-map with the following form:
+  {:srid 900916,
+   :upperleftx -321043.875,
+   :upperlefty -1917341.5,
+   :width 486,
+   :height 534,
+   :scalex 2000.0,
+   :scaley -2000.0,
+   :skewx 0.0,
+   :skewy 0.0,
+   :numbands 1,
+   :matrix #vectorz/matrix Large matrix with shape: [534,486]}"
   ([db-spec table-name]
-   (let [data-query (str "SELECT ST_DumpValues(rast,1) AS matrix FROM " table-name)]
+   (let [meta-query (str "SELECT (ST_Metadata(rast)).* FROM " table-name)
+         data-query (str "SELECT ST_DumpValues(rast,1) AS matrix FROM " table-name)]
      (jdbc/with-db-transaction [conn db-spec]
-       (when-let [result (seq (jdbc/query conn [data-query]))]
-         (->> (first result)
-              :matrix
-              (#(.getArray ^Jdbc4Array %))
-              (m/emap #(or % -1.0))
-              m/matrix)))))
+       (let [metadata (first (jdbc/query conn [meta-query]))
+             matrix   (when-let [result (seq (jdbc/query conn [data-query]))]
+                        (->> (first result)
+                             :matrix
+                             (#(.getArray ^Jdbc4Array %))
+                             (m/emap #(or % -1.0))
+                             m/matrix))]
+         (assoc metadata :matrix matrix)))))
   ([db-spec table-name resolution threshold]
    (let [rescale-query   (if resolution
                            (format "ST_Rescale(rast,%s,-%s,'NearestNeighbor')"
@@ -1838,15 +1856,19 @@ the REPL or indirectly through GridFire's command line interface.
                                         " THEN 0.0 ELSE [rast.val] END')")
                                    rescale-query threshold)
                            rescale-query)
+         meta-query      (format "SELECT (ST_Metadata(%s)).* FROM %s"
+                                 threshold-query table-name)
          data-query      (format "SELECT ST_DumpValues(%s,1) AS matrix FROM %s"
                                  threshold-query table-name)]
      (jdbc/with-db-transaction [conn db-spec]
-       (when-let [result (seq (jdbc/query conn [data-query]))]
-         (->> (first result)
-              :matrix
-              (#(.getArray ^Jdbc4Array %))
-              (m/emap #(or % -1.0))
-              m/matrix))))))
+       (let [metadata (first (jdbc/query conn [meta-query]))
+             matrix   (when-let [result (seq (jdbc/query conn [data-query]))]
+                        (->> (first result)
+                             :matrix
+                             (#(.getArray ^Jdbc4Array %))
+                             (m/emap #(or % -1.0))
+                             m/matrix))]
+         (assoc metadata :matrix matrix))))))
 #+end_src
 
 ** Command Line Interface
@@ -1890,7 +1912,7 @@ should be used, and the other JAR file may be safely ignored.
 When run, the executable connects to the PostGIS database specified in
 the passed-in config file, downloads the necessary raster layers,
 simulates the ignition event for the requested duration, and returns
-three PNG images showing the spatial distributions of fire spread,
+three GeoTIFF files showing the spatial distributions of fire spread,
 flame length, and fire line intensity respectively. It will also print
 out the final clock time from when the simulation was terminated as
 well as the total number of ignited cells on the raster grid.
@@ -1900,15 +1922,16 @@ well as the total number of ignited cells on the raster grid.
 (ns gridfire.cli
   (:gen-class)
   (:require [clojure.core.matrix :as m]
-            [matrix-viz.core :refer [save-matrix-as-png]]
             [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]
             [gridfire.surface-fire :refer [degrees-to-radians]]
-            [gridfire.fire-spread :refer [run-fire-spread]]))
+            [gridfire.fire-spread :refer [run-fire-spread]]
+            [magellan.core :refer [srid-to-crs make-envelope
+                                   matrix-to-raster write-raster]]))
 
 (m/set-current-implementation :vectorz)
 
 (defn fetch-landfire-layers
-  "Returns a map of LANDFIRE rasters as core.matrix 2D double arrays:
+  "Returns a map of LANDFIRE rasters with the following units:
    {:elevation          feet
     :slope              vertical feet/horizontal feet
     :aspect             degrees clockwise from north
@@ -1931,49 +1954,49 @@ well as the total number of ignited cells on the raster grid.
                                  :canopy-base-height
                                  :crown-bulk-density
                                  :canopy-cover])]
-    (assoc landfire-layers
-           :elevation          (m/emap #(* % 3.28)
-                                       (landfire-layers :elevation)) ; m -> ft
-           :slope              (m/emap #(Math/tan (degrees-to-radians %))
-                                       (landfire-layers :slope)) ; degrees -> %
-           :canopy-height      (m/emap #(* % 3.28)
-                                       (landfire-layers :canopy-height)) ; m -> ft
-           :canopy-base-height (m/emap #(* % 3.28)
-                                       (landfire-layers :canopy-base-height)) ; m -> ft
-           :crown-bulk-density (m/emap #(* % 0.0624)
-                                       (landfire-layers :crown-bulk-density)))))
-                                       ; kg/m^3 -> lb/ft^3
+    (-> landfire-layers
+        (update-in [:elevation          :matrix] (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
+        (update-in [:slope              :matrix] (fn [matrix] (m/emap #(Math/tan (degrees-to-radians %)) matrix))) ; degrees -> %
+        (update-in [:canopy-height      :matrix] (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
+        (update-in [:canopy-base-height :matrix] (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
+        (update-in [:crown-bulk-density :matrix] (fn [matrix] (m/emap #(* % 0.0624) matrix)))))) ; kg/m^3 -> lb/ft^3
 
 (defn -main
-  "Outputs:
-  {:global-clock               global-clock
-   :initial-ignition-site      initial-ignition-site
-   :ignited-cells              ignited-cells
-   :fire-spread-matrix         (m/emap #(- 1.0 %) ignition-matrix)
-   :flame-length-matrix        flame-length-matrix
-   :fire-line-intensity-matrix fire-line-intensity-matrix}"
   [config-file]
   (let [config              (read-string (slurp config-file))
         landfire-layers     (fetch-landfire-layers (:db-spec config)
                                                    (:landfire-layers config))
+        landfire-rasters    (into {}
+                                  (map (fn [[layer info]] [layer (:matrix info)]))
+                                  landfire-layers)
         fire-spread-results (run-fire-spread (:max-runtime               config)
                                              (:cell-size                 config)
-                                             landfire-layers
+                                             landfire-rasters
                                              (:wind-speed-20ft           config)
                                              (:wind-from-direction       config)
                                              (:fuel-moisture             config)
                                              (:foliar-moisture           config)
                                              (:ellipse-adjustment-factor config)
-                                             (:ignition-site             config))]
-    (save-matrix-as-png :color 4 -1.0
-                        (:fire-spread-matrix fire-spread-results)
-                        (:fire-spread-outfile config))
-    (save-matrix-as-png :color 4 -1.0
-                        (:flame-length-matrix fire-spread-results)
-                        (:flame-length-outfile config))
-    (save-matrix-as-png :color 4 -1.0
-                        (:fire-line-intensity-matrix fire-spread-results)
-                        (:fire-line-intensity-outfile config))
+                                             (:ignition-site             config))
+        envelope            (make-envelope (srid-to-crs (:srid config))
+                                           (landfire-layers :elevation :upperleftx)
+                                           (landfire-layers :elevation :upperlefty)
+                                           (* (landfire-layers :elevation :width)
+                                              (landfire-layers :elevation :scalex))
+                                           (* (landfire-layers :elevation :height)
+                                              (landfire-layers :elevation :scaley)))]
+    (-> (matrix-to-raster "fire-spread-matrix"
+                          (:fire-spread-matrix fire-spread-results)
+                          envelope)
+        (write-raster (:fire-spread-outfile config)))
+    (-> (matrix-to-raster "flame-length-matrix"
+                          (:flame-length-matrix fire-spread-results)
+                          envelope)
+        (write-raster (:flame-length-outfile config)))
+    (-> (matrix-to-raster "fire-line-intensity-matrix"
+                          (:fire-line-intensity-matrix fire-spread-results)
+                          envelope)
+        (write-raster (:fire-line-intensity-outfile fire-spread-results)))
     (println "Global Clock:" (:global-clock fire-spread-results))
     (println "Ignited Cells:" (count (:ignited-cells fire-spread-results)))))
 #+end_src
@@ -2016,9 +2039,10 @@ relationships.
                                :canopy-base-height "landfire.cbh WHERE rid=100"
                                :crown-bulk-density "landfire.cbd WHERE rid=100"
                                :canopy-cover       "landfire.cc WHERE rid=100"}
- :fire-spread-outfile         "fire_spread.png"
- :flame-length-outfile        "flame_length.png"
- :fire-line-intensity-outfile "fire_line_intensity.png"}
+ :srid                        "CALFIRE:900914"
+ :fire-spread-outfile         "fire_spread.tif"
+ :flame-length-outfile        "flame_length.tif"
+ :fire-line-intensity-outfile "fire_line_intensity.tif"}
 #+end_src
 
 This concludes our discussion of GridFire's command line interface.
