@@ -5,8 +5,7 @@
             [gridfire.surface-fire :refer [degrees-to-radians]]
             [gridfire.fire-spread :refer [run-fire-spread]]
             [magellan.core :refer [register-new-crs-definitions-from-properties-file!
-                                   srid-to-crs make-envelope
-                                   matrix-to-raster write-raster]]))
+                                   make-envelope matrix-to-raster write-raster]]))
 
 (m/set-current-implementation :vectorz)
 
@@ -61,13 +60,13 @@
                                              (:foliar-moisture           config)
                                              (:ellipse-adjustment-factor config)
                                              (:ignition-site             config))
-        envelope            (make-envelope (srid-to-crs (:srid config))
-                                           (landfire-layers :elevation :upperleftx)
-                                           (landfire-layers :elevation :upperlefty)
-                                           (* (landfire-layers :elevation :width)
-                                              (landfire-layers :elevation :scalex))
-                                           (* (landfire-layers :elevation :height)
-                                              (landfire-layers :elevation :scaley)))]
+        envelope            (let [{:keys [upperleftx upperlefty width height scalex scaley]}
+                                  (landfire-layers :elevation)]
+                              (make-envelope (:srid config)
+                                             upperleftx
+                                             (+ upperlefty (* height scaley))
+                                             (* width scalex)
+                                             (* -1.0 height scaley)))]
     (-> (matrix-to-raster "fire-spread-matrix"
                           (:fire-spread-matrix fire-spread-results)
                           envelope)
