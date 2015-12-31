@@ -67,6 +67,12 @@
                                              (+ upperlefty (* height scaley))
                                              (* width scalex)
                                              (* -1.0 height scaley)))]
+    (spit (str (:fire-spread-outfile config) ".clj")
+          (:fire-spread-matrix fire-spread-results))
+    (spit (str (:flame-length-outfile config) ".clj")
+          (:flame-length-matrix fire-spread-results))
+    (spit (str (:fire-line-intensity-outfile config) ".clj")
+          (:fire-line-intensity-matrix fire-spread-results))
     (-> (matrix-to-raster "fire-spread-matrix"
                           (:fire-spread-matrix fire-spread-results)
                           envelope)

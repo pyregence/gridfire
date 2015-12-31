@@ -1993,6 +1993,12 @@ well as the total number of ignited cells on the raster grid.
                                              (+ upperlefty (* height scaley))
                                              (* width scalex)
                                              (* -1.0 height scaley)))]
+    (spit (str (:fire-spread-outfile config) ".clj")
+          (:fire-spread-matrix fire-spread-results))
+    (spit (str (:flame-length-outfile config) ".clj")
+          (:flame-length-matrix fire-spread-results))
+    (spit (str (:fire-line-intensity-outfile config) ".clj")
+          (:fire-line-intensity-matrix fire-spread-results))
     (-> (matrix-to-raster "fire-spread-matrix"
                           (:fire-spread-matrix fire-spread-results)
                           envelope)
@@ -2004,7 +2010,7 @@ well as the total number of ignited cells on the raster grid.
     (-> (matrix-to-raster "fire-line-intensity-matrix"
                           (:fire-line-intensity-matrix fire-spread-results)
                           envelope)
-        (write-raster (:fire-line-intensity-outfile fire-spread-results)))
+        (write-raster (:fire-line-intensity-outfile config)))
     (println "Global Clock:" (:global-clock fire-spread-results))
     (println "Ignited Cells:" (count (:ignited-cells fire-spread-results)))))
 #+end_src
