@@ -7,6 +7,8 @@
                      [net.mikera/core.matrix "0.42.0"]
                      [net.mikera/vectorz-clj "0.36.0"]
                      [lambdatronic/magellan  "0.1.0"]]
+  :repositories     [["java.net"  "http://download.java.net/maven/2"]
+                     ["osgeo.org" "http://download.osgeo.org/webdav/geotools/"]]
   :min-lein-version "2.5.2"
   :aot              [gridfire.cli]
   :main             gridfire.cli

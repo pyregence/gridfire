@@ -16,7 +16,10 @@
                    [postgresql/postgresql  "9.3-1102.jdbc41"]
                    [net.mikera/core.matrix "0.42.0"]
                    [net.mikera/vectorz-clj "0.36.0"]
-                   [lambdatronic/magellan  "0.1.0"]])
+                   [lambdatronic/magellan  "0.1.0"]]
+ :repositories   #(conj %
+                        ["java.net"  "http://download.java.net/maven/2"]
+                        ["osgeo.org" "http://download.osgeo.org/webdav/geotools/"]))
 
 (deftask build
   "Build my project."
