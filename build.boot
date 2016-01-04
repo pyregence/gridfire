@@ -1,6 +1,6 @@
 (task-options!
  pom  {:project     'sig-gis/gridfire
-       :version     "1.0.0"
+       :version     "1.1.0"
        :description "SIG's Raster-based Fire Spread and Severity Model"}
  repl {:eval        '(set! *warn-on-reflection* true)
        :init-ns     'gridfire.monte-carlo}
