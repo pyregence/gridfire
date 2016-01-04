@@ -135,8 +135,9 @@ this case, two files are required: ``boot.properties'' and
 
 #+name: boot.properties
 #+begin_src sh :results silent :exports code :tangle ../boot.properties :padline no
+BOOT_CLOJURE_NAME=org.clojure/clojure
 BOOT_CLOJURE_VERSION=1.7.0
-BOOT_VERSION=2.4.2
+BOOT_VERSION=2.5.5
 #+end_src
 
 #+name: build.boot
