@@ -7,9 +7,8 @@
                                            rothermel-surface-fire-spread-any
                                            anderson-flame-depth byram-fire-line-intensity
                                            byram-flame-length wind-adjustment-factor]]
-            [gridfire.crown-fire :refer [van-wagner-crown-fire-initiation
-                                         cruz-passive-crown-fire-spread
-                                         cruz-active-crown-fire-spread
+            [gridfire.crown-fire :refer [van-wagner-crown-fire-initiation?
+                                         cruz-crown-fire-spread
                                          crown-fire-line-intensity]]))
 
 (m/set-current-implementation :vectorz)
