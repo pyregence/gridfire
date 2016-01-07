@@ -1,59 +1,48 @@
 (ns gridfire.crown-fire
   (:require [gridfire.surface-fire :refer [byram-fire-line-intensity byram-flame-length]]))
 
-(defn van-wagner-crown-fire-initiation
+(defn ft->m [ft] (* 0.3048 ft))
+
+(defn kW-m->Btu-ft-s [kW-m] (* 0.288894658272 kW-m))
+
+(defn van-wagner-crown-fire-initiation?
   "- canopy-cover (0-100 %)
    - canopy-base-height (ft)
-   - crown-bulk-density (lb/ft^3)
    - foliar-moisture (lb moisture/lb ovendry weight)
-   - spread-rate (ft/min)
    - fire-line-intensity (Btu/ft*s)"
-  [canopy-cover canopy-base-height crown-bulk-density foliar-moisture spread-rate fire-line-intensity]
-  (if (and (pos? canopy-cover)
-           (pos? canopy-base-height)
-           (pos? crown-bulk-density))
-    (let [heat-of-ignition (+ 197.8 (* 1118.0 foliar-moisture)) ;; Btu/lb
-          critical-intensity (Math/pow (* 0.002048
-                                          canopy-base-height
-                                          heat-of-ignition)
-                                       1.5) ;; Btu/ft*s
-          critical-spread-rate (/ 0.61445 crown-bulk-density)] ;; ft/min
-      (if (and (> canopy-cover 40.0)
-               (> fire-line-intensity critical-intensity))
-        ;; crown fire initiation occurs
-        (if (> spread-rate critical-spread-rate)
-          :active-crown-fire
-          :passive-crown-fire)
-        ;; no crown fire initiation
-        :surface-fire))
-    ;; no trees to set on fire
-    :surface-fire))
+  [canopy-cover canopy-base-height foliar-moisture fire-line-intensity]
+  (and (> canopy-cover 40.0)
+       (-> (+ 460.0 (* 2600.0 foliar-moisture)) ;; heat-of-ignition = kJ/kg
+           (* 0.01 (ft->m canopy-base-height))
+           (Math/pow 1.5) ;; critical-intensity = kW/m
+           (kW-m->Btu-ft-s)
+           (< fire-line-intensity))))
 
-(defn cruz-active-crown-fire-spread
+(defn mph->km-hr [mph] (* 1.609344 mph))
+
+(defn lb-ft3->kg-m3 [lb-ft3] (* 16.01846 lb-ft3))
+
+(defn m->ft [m] (* 3.281 m))
+
+(defn cruz-crown-fire-spread
   "Returns spread-rate in ft/min given:
    - wind-speed-20ft (mph)
    - crown-bulk-density (lb/ft^3)
    - estimated-fine-fuel-moisture (-> M_f :dead :1hr) (0-1)"
   [wind-speed-20ft crown-bulk-density estimated-fine-fuel-moisture]
-  (let [wind-speed-10m (/ (* 1.609344 wind-speed-20ft) 0.87) ;; km/hr
-        crown-bulk-density (* 16.01846 crown-bulk-density) ;; kg/m^3
-        estimated-fine-fuel-moisture (* 100.0 estimated-fine-fuel-moisture)]
-    (* 36.155
-       (Math/pow wind-speed-10m 0.90)
-       (Math/pow crown-bulk-density 0.19)
-       (Math/exp (* -0.17 estimated-fine-fuel-moisture)))))
-
-(defn cruz-passive-crown-fire-spread
-  "Returns spread-rate in ft/min given:
-   - wind-speed-20ft (mph)
-   - crown-bulk-density (lb/ft^3)
-   - estimated-fine-fuel-moisture (-> M_f :dead :1hr) (0-1)"
-  [wind-speed-20ft crown-bulk-density estimated-fine-fuel-moisture]
-  (let [active-crown-spread-rate (cruz-active-crown-fire-spread wind-speed-20ft
-                                                                crown-bulk-density
-                                                                estimated-fine-fuel-moisture)]
-    (* active-crown-spread-rate
-       (Math/exp (/ (* active-crown-spread-rate crown-bulk-density) -0.61445)))))
+  (let [wind-speed-10m               (/ (mph->km-hr wind-speed-20ft) 0.87) ;; km/hr
+        crown-bulk-density           (lb-ft3->kg-m3 crown-bulk-density) ;; kg/m^3
+        estimated-fine-fuel-moisture (* 100.0 estimated-fine-fuel-moisture)
+        active-spread-rate           (* 11.02
+                                        (Math/pow wind-speed-10m 0.90)
+                                        (Math/pow crown-bulk-density 0.19)
+                                        (Math/exp (* -0.17 estimated-fine-fuel-moisture))) ;; m/min
+        critical-spread-rate         (/ 3.0 crown-bulk-density) ;; m/min
+        criteria-for-active-crowning (/ active-spread-rate critical-spread-rate)]
+    (m->ft
+     (if (> active-spread-rate critical-spread-rate)
+       active-spread-rate
+       (* active-spread-rate (Math/exp (- criteria-for-active-crowning)))))))
 
 ;; heat of combustion is h from the fuel models (generally 8000 Btu/lb)
 (defn crown-fire-line-intensity
