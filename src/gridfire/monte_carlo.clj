@@ -61,10 +61,10 @@
   (let [weather-reading      (get weather-readings weather-sample)
         wind-speed-20ft      (weather-reading :ws)     ;; mph
         wind-from-direction  (weather-reading :wd)     ;; degrees
-        equilibrium-moisture (weather-reading :mparam) ;; 10 * % (0-1000)
-        fuel-moisture        {:dead {:1hr        (* (+ equilibrium-moisture  2) 0.001)
-                                     :10hr       (* (+ equilibrium-moisture 15) 0.001)
-                                     :100hr      (* (+ equilibrium-moisture 25) 0.001)}
+        equilibrium-moisture (weather-reading :mparam) ;; % (0-100)
+        fuel-moisture        {:dead {:1hr        (* (+ equilibrium-moisture 0.2) 0.01)
+                                     :10hr       (* (+ equilibrium-moisture 1.5) 0.01)
+                                     :100hr      (* (+ equilibrium-moisture 2.5) 0.01)}
                               :live {:herbaceous 0.30
                                      :woody      (* lw-moisture 0.01)}}
         foliar-moisture      0.90
@@ -161,7 +161,7 @@
     :wd     degrees from north
     :mparam 10 * % (0-1000)}"
   [db-spec wrf-cell-id]
-  (let [query (str "SELECT rank, 0.87*ows_mph AS ws, wd_deg AS wd, (10*mparam)::int AS mparam"
+  (let [query (str "SELECT rank, 0.87*ows_mph AS ws, wd_deg AS wd, mparam::int AS mparam"
                    "  FROM weather.toptwo_full_daily"
                    "  WHERE j_i_wrf_cacut='" wrf-cell-id "'"
                    "  ORDER BY rank")]
@@ -225,7 +225,7 @@
                            (->> (run-monte-carlo-fire-spread landfire-data landfire-cell-size ignition-sites weather-readings lw_moisture
                                                              max-wrf-sample-index calfire-burn-duration ellipse-adjustment-factor)
                                 (postprocess-simulation-results wrf_cell_id lon lat cell-offset-in-neighborhood output-directory))))
-                       (catch Exception e (println "Exception in" wrf_cell_id "->" (class e))))))
+                       (catch Exception e (println "Exception in" wrf_cell_id "->" e)))))
          (r/remove nil?)
          (r/fold fold-bin-size r/cat r/append!)
          (cons "wrf_cell_id,lon,lat,fire_size,flame_length,fire_volume,fire_shape")
@@ -240,7 +240,7 @@
                                       :subname     "//iwap03:5432/calfire"
                                       :user        "gjohnson"})))
 
-  (spit "/data/CALFIRE_MAP1_RUN3/inputs/wrf_cells_to_process.clj"
+  (spit "/data/CALFIRE_MAP1_RUN4/inputs/wrf_cells_to_process.clj"
         (fetch-wrf-cell-ids {:classname   "org.postgresql.Driver"
                              :subprotocol "postgresql"
                              :subname     "//iwap03:5432/calfire"
@@ -252,9 +252,9 @@
     :subprotocol "postgresql"
     :subname     "//localhost:5432/calfire"
     :user        "gjohnson"}
-   "/data/CALFIRE_MAP1_RUN3/outputs"
-   "/data/CALFIRE_MAP1_RUN3/inputs/wrf_cells_to_process.clj"
-   0 45000 500)
+   "/data/CALFIRE_MAP1_RUN4/outputs"
+   "/data/CALFIRE_MAP1_RUN4/inputs/wrf_cells_to_process.clj"
+   0 40000 500)
 
   ;; iwap04
   (launch-calfire-monte-carlo-simulation
@@ -262,9 +262,9 @@
     :subprotocol "postgresql"
     :subname     "//iwap03:5432/calfire"
     :user        "gjohnson"}
-   "/data/CALFIRE_MAP1_RUN3/outputs"
-   "/data/CALFIRE_MAP1_RUN3/inputs/wrf_cells_to_process.clj"
-   45000 90000 500)
+   "/data/CALFIRE_MAP1_RUN4/outputs"
+   "/data/CALFIRE_MAP1_RUN4/inputs/wrf_cells_to_process.clj"
+   40000 80000 500)
 
   ;; iwap05
   (launch-calfire-monte-carlo-simulation
@@ -272,6 +272,6 @@
     :subprotocol "postgresql"
     :subname     "//iwap03:5432/calfire"
     :user        "gjohnson"}
-   "/data/CALFIRE_MAP1_RUN3/outputs"
-   "/data/CALFIRE_MAP1_RUN3/inputs/wrf_cells_to_process.clj"
-   90000 118780 400))
+   "/data/CALFIRE_MAP1_RUN4/outputs"
+   "/data/CALFIRE_MAP1_RUN4/inputs/wrf_cells_to_process.clj"
+   80000 118780 500))
