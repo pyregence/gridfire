@@ -180,15 +180,15 @@
     :canopy-cover       % (0-100)}"
   [db-spec wrf-cell-id]
   (let [landfire-data
-        {:elevation          (postgis-raster-to-matrix db-spec (str "landfire.dem_wrf_tiles                WHERE j_i='" wrf-cell-id "'"))
-         :slope              (postgis-raster-to-matrix db-spec (str "landfire.slp_wrf_tiles                WHERE j_i='" wrf-cell-id "'"))
-         :aspect             (postgis-raster-to-matrix db-spec (str "landfire.asp_wrf_tiles                WHERE j_i='" wrf-cell-id "'"))
-         :fuel-model         (postgis-raster-to-matrix db-spec (str "fuel_model.fmod_iet_veg2015_wrf_tiles WHERE j_i='" wrf-cell-id "'"))
-         ;; :fuel-model         (postgis-raster-to-matrix db-spec (str "fuel_model.fmod_reax_v2005_wrf_tiles  WHERE j_i='" wrf-cell-id "'"))
-         :canopy-height      (postgis-raster-to-matrix db-spec (str "landfire.ch_wrf_tiles                 WHERE j_i='" wrf-cell-id "'"))
-         :canopy-base-height (postgis-raster-to-matrix db-spec (str "landfire.cbh_wrf_tiles                WHERE j_i='" wrf-cell-id "'"))
-         :crown-bulk-density (postgis-raster-to-matrix db-spec (str "landfire.cbd_wrf_tiles                WHERE j_i='" wrf-cell-id "'"))
-         :canopy-cover       (postgis-raster-to-matrix db-spec (str "landfire.cc_wrf_tiles                 WHERE j_i='" wrf-cell-id "'"))}]
+        {:elevation          (:matrix (postgis-raster-to-matrix db-spec (str "landfire.dem_wrf_tiles                WHERE j_i='" wrf-cell-id "'")))
+         :slope              (:matrix (postgis-raster-to-matrix db-spec (str "landfire.slp_wrf_tiles                WHERE j_i='" wrf-cell-id "'")))
+         :aspect             (:matrix (postgis-raster-to-matrix db-spec (str "landfire.asp_wrf_tiles                WHERE j_i='" wrf-cell-id "'")))
+         :fuel-model         (:matrix (postgis-raster-to-matrix db-spec (str "fuel_model.fmod_iet_veg2015_wrf_tiles WHERE j_i='" wrf-cell-id "'")))
+         ;; :fuel-model         (:matrix (postgis-raster-to-matrix db-spec (str "fuel_model.fmod_reax_v2005_wrf_tiles  WHERE j_i='" wrf-cell-id "'")))
+         :canopy-height      (:matrix (postgis-raster-to-matrix db-spec (str "landfire.ch_wrf_tiles                 WHERE j_i='" wrf-cell-id "'")))
+         :canopy-base-height (:matrix (postgis-raster-to-matrix db-spec (str "landfire.cbh_wrf_tiles                WHERE j_i='" wrf-cell-id "'")))
+         :crown-bulk-density (:matrix (postgis-raster-to-matrix db-spec (str "landfire.cbd_wrf_tiles                WHERE j_i='" wrf-cell-id "'")))
+         :canopy-cover       (:matrix (postgis-raster-to-matrix db-spec (str "landfire.cc_wrf_tiles                 WHERE j_i='" wrf-cell-id "'")))}]
     (if (not-any? nil? (vals landfire-data))
       landfire-data)))
 
