@@ -1,6 +1,6 @@
 #+TITLE: The GridFire Fire Spread and Severity Model
 #+AUTHOR: Gary W. Johnson, Ph.D., David Saah, Ph.D., Max Moritz, Ph.D.
-#+DATE: Copyright 2011-2015 Spatial Informatics Group, LLC
+#+DATE: Copyright 2011-2016 Spatial Informatics Group, LLC
 #+OPTIONS: ^:{} toc:nil h:3
 #+LATEX_CLASS: article
 #+LATEX_CLASS_OPTIONS: [11pt]
