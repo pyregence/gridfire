@@ -1551,42 +1551,41 @@ pseudo-code lays out the steps taken in this procedure:
         spread-info-max     (rothermel-surface-fire-spread-max
                              spread-info-min midflame-wind-speed wind-from-direction
                              slope aspect ellipse-adjustment-factor)
-        fire-line-intensity (byram-fire-line-intensity
-                             (:reaction-intensity spread-info-min)
-                             (anderson-flame-depth (:max-spread-rate spread-info-max)
-                                                   (:residence-time spread-info-min)))
-        crown-fire?         (van-wagner-crown-fire-initiation? canopy-cover canopy-base-height
-                                                               foliar-moisture fire-line-intensity)
-        crown-spread-rate   (if crown-fire?
-                              (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density
-                                                      (-> fuel-moisture :dead :1hr))
-                              0.0)
-        spread-info-max     (update spread-info-max :max-spread-rate max crown-spread-rate)
-        fire-line-intensity (if crown-fire?
-                              (+ fire-line-intensity
-                                 (crown-fire-line-intensity
-                                  crown-spread-rate
-                                  crown-bulk-density
-                                  canopy-height
-                                  canopy-base-height
-                                  (-> fuel-model :h :dead :1hr)))
-                              fire-line-intensity)
-        flame-length        (byram-flame-length fire-line-intensity)]
-    (m/mset! flame-length-matrix        i j flame-length)
-    (m/mset! fire-line-intensity-matrix i j fire-line-intensity)
+        crown-spread-rate   (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density
+                                                    (-> fuel-moisture :dead :1hr))
+        crown-intensity     (crown-fire-line-intensity
+                             crown-spread-rate
+                             crown-bulk-density
+                             canopy-height
+                             canopy-base-height
+                             (-> fuel-model :h :dead :1hr))]
     (into []
           (comp
            (filter #(and (in-bounds? num-rows num-cols %)
                          (burnable? fire-spread-matrix (:fuel-model landfire-layers) %)))
            (map (fn [neighbor]
-                  (let [trajectory  (mop/- neighbor here)
-                        spread-rate (rothermel-surface-fire-spread-any
-                                     spread-info-max (offset-to-degrees trajectory))]
+                  (let [trajectory          (mop/- neighbor here)
+                        spread-rate         (rothermel-surface-fire-spread-any
+                                             spread-info-max (offset-to-degrees trajectory))
+                        fire-line-intensity (byram-fire-line-intensity
+                                             (:reaction-intensity spread-info-min)
+                                             (anderson-flame-depth spread-rate (:residence-time spread-info-min)))
+                        crown-fire?         (van-wagner-crown-fire-initiation? canopy-cover canopy-base-height
+                                                                               foliar-moisture fire-line-intensity)
+                        spread-rate         (if crown-fire?
+                                              (max spread-rate crown-spread-rate)
+                                              spread-rate)
+                        fire-line-intensity (if crown-fire?
+                                              (+ fire-line-intensity crown-intensity)
+                                              fire-line-intensity)
+                        flame-length        (byram-flame-length fire-line-intensity)]
                     {:cell                neighbor
                      :trajectory          trajectory
                      :terrain-distance    (distance-3d (:elevation landfire-layers)
                                                        cell-size here neighbor)
                      :spread-rate         spread-rate
+                     :flame-length        flame-length
+                     :fire-line-intensity fire-line-intensity
                      :fractional-distance (volatile! (if (= trajectory overflow-trajectory)
                                                        overflow-heat
                                                        0.0))}))))
@@ -1679,19 +1678,22 @@ pseudo-code lays out the steps taken in this procedure:
                                    (- max-runtime global-clock)
                                    dt)
                  ignition-events (->> (for [[source destinations] ignited-cells
-                                            {:keys [cell trajectory terrain-distance spread-rate fractional-distance]} destinations]
+                                            {:keys [cell trajectory terrain-distance spread-rate flame-length
+                                                    fire-line-intensity fractional-distance]} destinations]
                                         (let [new-spread-fraction (/ (* spread-rate timestep) terrain-distance)
                                               new-total           (vreset! fractional-distance (+ @fractional-distance new-spread-fraction))]
                                           (if (>= new-total 1.0)
-                                            {:cell cell :trajectory trajectory :fractional-distance @fractional-distance})))
+                                            {:cell cell :trajectory trajectory :fractional-distance @fractional-distance
+                                             :flame-length flame-length :fire-line-intensity fire-line-intensity})))
                                       (remove nil?)
                                       (group-by :cell)
                                       (map (fn [[cell trajectories]] (apply max-key :fractional-distance trajectories)))
-                                      (into []))] ;; [{:cell :trajectory :fractional-distance} ...]
-             ;; mark all ignition-events in the fire-spread-matrix
-             (doseq [{:keys [cell]} ignition-events]
+                                      (into []))] ;; [{:cell :trajectory :fractional-distance :flame-length :fire-line-intensity} ...]
+             (doseq [{:keys [cell flame-length fire-line-intensity]} ignition-events]
                (let [[i j] cell]
-                 (m/mset! fire-spread-matrix i j 1.0)))
+                 (m/mset! fire-spread-matrix         i j 1.0)
+                 (m/mset! flame-length-matrix        i j flame-length)
+                 (m/mset! fire-line-intensity-matrix i j fire-line-intensity)))
              (recur (+ global-clock timestep)
                     (->> (for [{:keys [cell trajectory fractional-distance]} ignition-events]
                            [cell (compute-neighborhood-fire-spread-rates!
