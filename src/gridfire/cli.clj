@@ -4,6 +4,7 @@
             [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]
             [gridfire.surface-fire :refer [degrees-to-radians]]
             [gridfire.fire-spread :refer [run-fire-spread]]
+            [matrix-viz.core :refer [save-matrix-as-png]]
             [magellan.core :refer [register-new-crs-definitions-from-properties-file!
                                    make-envelope matrix-to-raster write-raster]]))
 
@@ -67,20 +68,20 @@
                                              (+ upperlefty (* height scaley))
                                              (* width scalex)
                                              (* -1.0 height scaley)))]
-    (doseq [[layer info] landfire-layers]
-      (-> (matrix-to-raster (name layer) (:matrix info) envelope)
-          (write-raster (str (name layer) (:outfile-suffix config)))))
-    (-> (matrix-to-raster "fire-spread"
-                          (:fire-spread-matrix fire-spread-results)
-                          envelope)
-        (write-raster (str "fire_spread" (:outfile-suffix config))))
-    (-> (matrix-to-raster "flame-length"
-                          (:flame-length-matrix fire-spread-results)
-                          envelope)
-        (write-raster (str "flame_length" (:outfile-suffix config))))
-    (-> (matrix-to-raster "fire-line-intensity"
-                          (:fire-line-intensity-matrix fire-spread-results)
-                          envelope)
-        (write-raster (str "fire_line_intensity" (:outfile-suffix config))))
+    (when (:output-landfire-inputs? config)
+      (doseq [[layer info] landfire-layers]
+        (-> (matrix-to-raster (name layer) (:matrix info) envelope)
+            (write-raster (str (name layer) (:outfile-suffix config) ".tif")))))
+    (when (:output-geotiffs? config)
+      (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
+                            ["flame_length"        :flame-length-matrix]
+                            ["fire_line_intensity" :fire-line-intensity-matrix]]]
+        (-> (matrix-to-raster name (fire-spread-results layer) envelope)
+            (write-raster (str name (:outfile-suffix config) ".tif")))))
+    (when (:output-pngs? config)
+      (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
+                            ["flame_length"        :flame-length-matrix]
+                            ["fire_line_intensity" :fire-line-intensity-matrix]]]
+        (save-matrix-as-png :color 4 -1.0 (fire-spread-results layer) (str name (:outfile-suffix config) ".png"))))
     (println "Global Clock:" (:global-clock fire-spread-results))
     (println "Ignited Cells:" (count (:ignited-cells fire-spread-results)))))

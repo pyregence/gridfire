@@ -23,4 +23,7 @@
                                :crown-bulk-density "landfire.cbd WHERE rid=100"
                                :canopy-cover       "landfire.cc WHERE rid=100"}
  :srid                        "CALFIRE:900914"
- :outfile-suffix              "_run_1000.tif"}
+ :outfile-suffix              "_run_1000"
+ :output-landfire-inputs?     true
+ :output-geotiffs?            true
+ :output-pngs?                true}

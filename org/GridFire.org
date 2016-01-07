@@ -96,15 +96,16 @@ shown below.
 
 #+name: project.clj
 #+begin_src clojure :results silent :exports code :tangle ../project.clj :padline no
-(defproject sig-gis/gridfire "1.1.0"
+(defproject sig-gis/gridfire "1.2.0-SNAPSHOT"
   :description      "SIG's Raster-based Fire Spread and Severity Model"
-  :dependencies     [[org.clojure/clojure    "1.7.0"]
-                     [org.clojure/data.csv   "0.1.3"]
-                     [org.clojure/java.jdbc  "0.4.2"]
-                     [postgresql/postgresql  "9.3-1102.jdbc41"]
-                     [net.mikera/core.matrix "0.42.0"]
-                     [net.mikera/vectorz-clj "0.36.0"]
-                     [sig-gis/magellan       "0.1.0"]]
+  :dependencies     [[org.clojure/clojure                 "1.7.0"]
+                     [org.clojure/data.csv                "0.1.3"]
+                     [org.clojure/java.jdbc               "0.4.2"]
+                     [postgresql/postgresql               "9.3-1102.jdbc41"]
+                     [net.mikera/core.matrix              "0.42.0"]
+                     [net.mikera/vectorz-clj              "0.36.0"]
+                     [sig-gis/magellan                    "0.1.0"]
+                     [org.clojars.lambdatronic/matrix-viz "0.1.7"]]
   :repositories     [["java.net"  "http://download.java.net/maven/2"]
                      ["osgeo.org" "http://download.osgeo.org/webdav/geotools/"]]
   :min-lein-version "2.5.2"
@@ -144,7 +145,7 @@ BOOT_VERSION=2.5.5
 #+begin_src clojure :results silent :exports code :tangle ../build.boot :padline no
 (task-options!
  pom  {:project     'sig-gis/gridfire
-       :version     "1.1.0"
+       :version     "1.2.0-SNAPSHOT"
        :description "SIG's Raster-based Fire Spread and Severity Model"}
  repl {:eval        '(set! *warn-on-reflection* true)
        :init-ns     'gridfire.cli}
@@ -154,13 +155,14 @@ BOOT_VERSION=2.5.5
 (set-env!
  :source-paths   #{"src"}
  :resource-paths #{"resources"}
- :dependencies   '[[org.clojure/clojure    "1.7.0"]
-                   [org.clojure/data.csv   "0.1.3"]
-                   [org.clojure/java.jdbc  "0.4.2"]
-                   [postgresql/postgresql  "9.3-1102.jdbc41"]
-                   [net.mikera/core.matrix "0.42.0"]
-                   [net.mikera/vectorz-clj "0.36.0"]
-                   [sig-gis/magellan       "0.1.0"]]
+ :dependencies   '[[org.clojure/clojure                 "1.7.0"]
+                   [org.clojure/data.csv                "0.1.3"]
+                   [org.clojure/java.jdbc               "0.4.2"]
+                   [postgresql/postgresql               "9.3-1102.jdbc41"]
+                   [net.mikera/core.matrix              "0.42.0"]
+                   [net.mikera/vectorz-clj              "0.36.0"]
+                   [sig-gis/magellan                    "0.1.0"]
+                   [org.clojars.lambdatronic/matrix-viz "0.1.7"]]
  :repositories   #(conj %
                         ["java.net"  "http://download.java.net/maven/2"]
                         ["osgeo.org" "http://download.osgeo.org/webdav/geotools/"]))
@@ -1446,9 +1448,8 @@ pseudo-code lays out the steps taken in this procedure:
                                            rothermel-surface-fire-spread-any
                                            anderson-flame-depth byram-fire-line-intensity
                                            byram-flame-length wind-adjustment-factor]]
-            [gridfire.crown-fire :refer [van-wagner-crown-fire-initiation
-                                         cruz-passive-crown-fire-spread
-                                         cruz-active-crown-fire-spread
+            [gridfire.crown-fire :refer [van-wagner-crown-fire-initiation?
+                                         cruz-crown-fire-spread
                                          crown-fire-line-intensity]]))
 
 (m/set-current-implementation :vectorz)
@@ -1881,10 +1882,18 @@ should be used, and the other JAR file may be safely ignored.
 When run, the executable connects to the PostGIS database specified in
 the passed-in config file, downloads the necessary raster layers,
 simulates the ignition event for the requested duration, and returns
-three GeoTIFF files showing the spatial distributions of fire spread,
-flame length, and fire line intensity respectively. It will also print
-out the final clock time from when the simulation was terminated as
-well as the total number of ignited cells on the raster grid.
+2D maps showing the spatial distributions of fire spread, flame
+length, and fire line intensity respectively. Finally, it prints out
+the final clock time from when the simulation was terminated as well
+as the total number of ignited cells on the raster grid at that point.
+
+Which maps are created (and in what formats) may be configured by
+setting the following options in GridFire's input config.clj file to
+true or false:
+
+- :output-landfire-inputs?
+- :output-geotiffs?
+- :output-pngs?
 
 #+name: command-line-interface
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/cli.clj :padline no
@@ -1894,6 +1903,7 @@ well as the total number of ignited cells on the raster grid.
             [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]
             [gridfire.surface-fire :refer [degrees-to-radians]]
             [gridfire.fire-spread :refer [run-fire-spread]]
+            [matrix-viz.core :refer [save-matrix-as-png]]
             [magellan.core :refer [register-new-crs-definitions-from-properties-file!
                                    make-envelope matrix-to-raster write-raster]]))
 
@@ -1957,21 +1967,21 @@ well as the total number of ignited cells on the raster grid.
                                              (+ upperlefty (* height scaley))
                                              (* width scalex)
                                              (* -1.0 height scaley)))]
-    (doseq [[layer info] landfire-layers]
-      (-> (matrix-to-raster (name layer) (:matrix info) envelope)
-          (write-raster (str (name layer) (:outfile-suffix config)))))
-    (-> (matrix-to-raster "fire-spread"
-                          (:fire-spread-matrix fire-spread-results)
-                          envelope)
-        (write-raster (str "fire_spread" (:outfile-suffix config))))
-    (-> (matrix-to-raster "flame-length"
-                          (:flame-length-matrix fire-spread-results)
-                          envelope)
-        (write-raster (str "flame_length" (:outfile-suffix config))))
-    (-> (matrix-to-raster "fire-line-intensity"
-                          (:fire-line-intensity-matrix fire-spread-results)
-                          envelope)
-        (write-raster (str "fire_line_intensity" (:outfile-suffix config))))
+    (when (:output-landfire-inputs? config)
+      (doseq [[layer info] landfire-layers]
+        (-> (matrix-to-raster (name layer) (:matrix info) envelope)
+            (write-raster (str (name layer) (:outfile-suffix config) ".tif")))))
+    (when (:output-geotiffs? config)
+      (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
+                            ["flame_length"        :flame-length-matrix]
+                            ["fire_line_intensity" :fire-line-intensity-matrix]]]
+        (-> (matrix-to-raster name (fire-spread-results layer) envelope)
+            (write-raster (str name (:outfile-suffix config) ".tif")))))
+    (when (:output-pngs? config)
+      (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
+                            ["flame_length"        :flame-length-matrix]
+                            ["fire_line_intensity" :fire-line-intensity-matrix]]]
+        (save-matrix-as-png :color 4 -1.0 (fire-spread-results layer) (str name (:outfile-suffix config) ".png"))))
     (println "Global Clock:" (:global-clock fire-spread-results))
     (println "Ignited Cells:" (count (:ignited-cells fire-spread-results)))))
 #+end_src
@@ -2015,7 +2025,10 @@ relationships.
                                :crown-bulk-density "landfire.cbd WHERE rid=100"
                                :canopy-cover       "landfire.cc WHERE rid=100"}
  :srid                        "CALFIRE:900914"
- :outfile-suffix              "_run_1000.tif"}
+ :outfile-suffix              "_run_1000"
+ :output-landfire-inputs?     true
+ :output-geotiffs?            true
+ :output-pngs?                true}
 #+end_src
 
 This concludes our discussion of GridFire's command line interface.
