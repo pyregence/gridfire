@@ -60,7 +60,7 @@
    ellipse-adjustment-factor ignition-site weather-sample]
   (let [weather-reading      (get weather-readings weather-sample)
         wind-speed-20ft      (weather-reading :ws)     ;; mph
-        wind-from-direction  (weather-reading :wd)     ;; degrees
+        wind-from-direction  (mod (+ 15 (weather-reading :wd)) 360) ;; degrees (+15 for WRF->AEA warping)
         equilibrium-moisture (weather-reading :mparam) ;; % (0-100)
         fuel-moisture        {:dead {:1hr        (* (+ equilibrium-moisture 0.2) 0.01)
                                      :10hr       (* (+ equilibrium-moisture 1.5) 0.01)
@@ -125,7 +125,7 @@
    - cell-size        cell size of matrices in landfire-layers (ft)
    - ignition-sites   (vector of [i j] points)
    - weather-readings (vector of weather records)
-                      [{:ws mph :wd degrees :mparam 10 * %} ...]
+                      [{:ws mph :wd degrees :mparam %} ...]
    - lw-moisture      live woody fuel moisture % (0-100+)
    - samples-per-site (no-arg fn that produces a sequence of indices into weather-readings)
    - burn-duration    maximum time to allow each fire to spread (mins)
