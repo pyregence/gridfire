@@ -206,7 +206,10 @@
                 (burnable-fuel-model? (m/mget fuel-model-matrix i j))
                 (burnable-neighbors? fire-spread-matrix fuel-model-matrix
                                      num-rows num-cols initial-ignition-site))
-       (m/mset! fire-spread-matrix i j 1.0) ;; initialize the ignition site
+       ;; initialize the ignition site
+       (m/mset! fire-spread-matrix i j 1.0)
+       (m/mset! flame-length-matrix i j 1.0)
+       (m/mset! fire-line-intensity-matrix i j 1.0)
        (loop [global-clock  0.0
               ignited-cells {initial-ignition-site (compute-neighborhood-fire-spread-rates!
                                                     fire-spread-matrix
