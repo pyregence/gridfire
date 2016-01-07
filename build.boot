@@ -3,7 +3,7 @@
        :version     "1.1.0"
        :description "SIG's Raster-based Fire Spread and Severity Model"}
  repl {:eval        '(set! *warn-on-reflection* true)
-       :init-ns     'gridfire.monte-carlo}
+       :init-ns     'gridfire.cli}
  aot  {:namespace   '#{gridfire.cli}}
  jar  {:main        'gridfire.cli})
 

@@ -12,5 +12,5 @@
   :min-lein-version "2.5.2"
   :aot              [gridfire.cli]
   :main             gridfire.cli
-  :repl-options     {:init-ns gridfire.monte-carlo}
+  :repl-options     {:init-ns gridfire.cli}
   :global-vars      {*warn-on-reflection* true})

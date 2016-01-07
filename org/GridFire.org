@@ -110,7 +110,7 @@ shown below.
   :min-lein-version "2.5.2"
   :aot              [gridfire.cli]
   :main             gridfire.cli
-  :repl-options     {:init-ns gridfire.monte-carlo}
+  :repl-options     {:init-ns gridfire.cli}
   :global-vars      {*warn-on-reflection* true})
 #+end_src
 
@@ -147,7 +147,7 @@ BOOT_VERSION=2.5.5
        :version     "1.1.0"
        :description "SIG's Raster-based Fire Spread and Severity Model"}
  repl {:eval        '(set! *warn-on-reflection* true)
-       :init-ns     'gridfire.monte-carlo}
+       :init-ns     'gridfire.cli}
  aot  {:namespace   '#{gridfire.cli}}
  jar  {:main        'gridfire.cli})
 
