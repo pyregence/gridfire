@@ -67,17 +67,20 @@
                                              (+ upperlefty (* height scaley))
                                              (* width scalex)
                                              (* -1.0 height scaley)))]
-    (-> (matrix-to-raster "fire-spread-matrix"
+    (doseq [[layer info] landfire-layers]
+      (-> (matrix-to-raster (name layer) (:matrix info) envelope)
+          (write-raster (str (name layer) "_" (:outfile-suffix config)))))
+    (-> (matrix-to-raster "fire-spread"
                           (:fire-spread-matrix fire-spread-results)
                           envelope)
-        (write-raster (:fire-spread-outfile config)))
-    (-> (matrix-to-raster "flame-length-matrix"
+        (write-raster (str "fire_spread" (:outfile-suffix config))))
+    (-> (matrix-to-raster "flame-length"
                           (:flame-length-matrix fire-spread-results)
                           envelope)
-        (write-raster (:flame-length-outfile config)))
-    (-> (matrix-to-raster "fire-line-intensity-matrix"
+        (write-raster (str "flame_length" (:outfile-suffix config))))
+    (-> (matrix-to-raster "fire-line-intensity"
                           (:fire-line-intensity-matrix fire-spread-results)
                           envelope)
-        (write-raster (:fire-line-intensity-outfile config)))
+        (write-raster (str "fire_line_intensity" (:outfile-suffix config))))
     (println "Global Clock:" (:global-clock fire-spread-results))
     (println "Ignited Cells:" (count (:ignited-cells fire-spread-results)))))

@@ -23,6 +23,4 @@
                                :crown-bulk-density "landfire.cbd WHERE rid=100"
                                :canopy-cover       "landfire.cc WHERE rid=100"}
  :srid                        "CALFIRE:900914"
- :fire-spread-outfile         "fire_spread.tif"
- :flame-length-outfile        "flame_length.tif"
- :fire-line-intensity-outfile "fire_line_intensity.tif"}
+ :outfile-suffix              "_run_1000.tif"}
