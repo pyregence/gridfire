@@ -69,7 +69,7 @@
                                              (* -1.0 height scaley)))]
     (doseq [[layer info] landfire-layers]
       (-> (matrix-to-raster (name layer) (:matrix info) envelope)
-          (write-raster (str (name layer) "_" (:outfile-suffix config)))))
+          (write-raster (str (name layer) (:outfile-suffix config)))))
     (-> (matrix-to-raster "fire-spread"
                           (:fire-spread-matrix fire-spread-results)
                           envelope)
