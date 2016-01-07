@@ -98,7 +98,7 @@
   [ignition-matrix flame-length-matrix fire-line-intensity-matrix landfire-layers
    wind-speed-20ft wind-from-direction fuel-moisture foliar-moisture
    ellipse-adjustment-factor cell-size num-rows num-cols global-clock
-   time-of-first-torch [i j :as here]]
+   [i j :as here]]
   (let [fuel-model-number   (m/mget (:fuel-model         landfire-layers) i j)
         slope               (m/mget (:slope              landfire-layers) i j)
         aspect              (m/mget (:aspect             landfire-layers) i j)
@@ -107,74 +107,50 @@
         crown-bulk-density  (m/mget (:crown-bulk-density landfire-layers) i j)
         canopy-cover        (m/mget (:canopy-cover       landfire-layers) i j)
         [fuel-model spread-info-min] (rothermel-fast-wrapper fuel-model-number fuel-moisture)
-        waf                 (wind-adjustment-factor (:delta fuel-model)
-                                                    canopy-height
-                                                    canopy-cover)
-        midflame-wind-speed (* wind-speed-20ft 88.0 waf) ; mi/hr -> ft/min
+        midflame-wind-speed (* wind-speed-20ft 88.0
+                               (wind-adjustment-factor (:delta fuel-model)
+                                                       canopy-height
+                                                       canopy-cover)) ; mi/hr -> ft/min
         spread-info-max     (rothermel-surface-fire-spread-max
                              spread-info-min midflame-wind-speed wind-from-direction
                              slope aspect ellipse-adjustment-factor)
-        spread-info-max     (assoc spread-info-max :max-spread-rate
-                                   (lautenberger-spread-acceleration
-                                    (spread-info-max :max-spread-rate)
-                                    0 global-clock 10.0))
-        flame-depth         (anderson-flame-depth (:max-spread-rate spread-info-max)
-                                                  (:residence-time spread-info-min))
-        fire-line-intensity (byram-fire-line-intensity (:reaction-intensity spread-info-min)
-                                                       flame-depth)
-        fire-type           (van-wagner-crown-fire-initiation
-                             canopy-cover
-                             canopy-base-height
-                             crown-bulk-density
-                             foliar-moisture
-                             (:max-spread-rate spread-info-max)
-                             fire-line-intensity)]
-    (if (and (nil? @time-of-first-torch) (not= fire-type :surface-fire))
-      (reset! time-of-first-torch global-clock))
-    (let [spread-info-max     (case fire-type
-                                :surface-fire       spread-info-max
-                                :passive-crown-fire
-                                (assoc spread-info-max :max-spread-rate
-                                       (-> (cruz-passive-crown-fire-spread
-                                            wind-speed-20ft
-                                            crown-bulk-density
-                                            (-> fuel-moisture :dead :1hr))
-                                           (lautenberger-spread-acceleration
-                                            @time-of-first-torch global-clock 20.0)))
-                                :active-crown-fire
-                                (assoc spread-info-max :max-spread-rate
-                                       (-> (cruz-active-crown-fire-spread
-                                            wind-speed-20ft
-                                            crown-bulk-density
-                                            (-> fuel-moisture :dead :1hr))
-                                           (lautenberger-spread-acceleration
-                                            @time-of-first-torch global-clock 20.0))))
-          fire-line-intensity (if (= fire-type :surface-fire)
-                                fire-line-intensity
-                                (+ fire-line-intensity
-                                   (crown-fire-line-intensity
-                                    (:max-spread-rate spread-info-max)
-                                    crown-bulk-density
-                                    canopy-height
-                                    canopy-base-height
-                                    (-> fuel-model :h :dead :1hr))))
-          flame-length        (byram-flame-length fire-line-intensity)]
-      (m/mset! flame-length-matrix        i j flame-length)
-      (m/mset! fire-line-intensity-matrix i j fire-line-intensity)
-      (into []
-            (comp
-             (filter #(and (in-bounds? num-rows num-cols %)
-                           (burnable? ignition-matrix (:fuel-model landfire-layers) %)))
-             (map (fn [neighbor]
-                    (let [trajectory  (mop/- neighbor here)
-                          spread-rate (rothermel-surface-fire-spread-any
-                                       spread-info-max (offset-to-degrees trajectory))]
-                      {:cell             neighbor
-                       :trajectory       trajectory
-                       :terrain-distance (distance-3d (:elevation landfire-layers)
-                                                      cell-size here neighbor)
-                       :spread-rate      spread-rate}))))
-            (get-neighbors here)))))
+        fire-line-intensity (byram-fire-line-intensity
+                             (:reaction-intensity spread-info-min)
+                             (anderson-flame-depth (:max-spread-rate spread-info-max)
+                                                   (:residence-time spread-info-min)))
+        crown-fire?         (van-wagner-crown-fire-initiation? canopy-cover canopy-base-height
+                                                               foliar-moisture fire-line-intensity)
+        crown-spread-rate   (if crown-fire?
+                              (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density
+                                                      (-> fuel-moisture :dead :1hr))
+                              0.0)
+        spread-info-max     (update spread-info-max :max-spread-rate max crown-spread-rate)
+        fire-line-intensity (if crown-fire?
+                              (+ fire-line-intensity
+                                 (crown-fire-line-intensity
+                                  crown-spread-rate
+                                  crown-bulk-density
+                                  canopy-height
+                                  canopy-base-height
+                                  (-> fuel-model :h :dead :1hr)))
+                              fire-line-intensity)
+        flame-length        (byram-flame-length fire-line-intensity)]
+    (m/mset! flame-length-matrix        i j flame-length)
+    (m/mset! fire-line-intensity-matrix i j fire-line-intensity)
+    (into []
+          (comp
+           (filter #(and (in-bounds? num-rows num-cols %)
+                         (burnable? ignition-matrix (:fuel-model landfire-layers) %)))
+           (map (fn [neighbor]
+                  (let [trajectory  (mop/- neighbor here)
+                        spread-rate (rothermel-surface-fire-spread-any
+                                     spread-info-max (offset-to-degrees trajectory))]
+                    {:cell             neighbor
+                     :trajectory       trajectory
+                     :terrain-distance (distance-3d (:elevation landfire-layers)
+                                                    cell-size here neighbor)
+                     :spread-rate      spread-rate}))))
+          (get-neighbors here))))
 
 (defn update-ignition-matrix!
   [ignition-matrix fuel-model-matrix burn-front timestep num-rows num-cols]
@@ -269,7 +245,6 @@
                 (burnable-neighbors? ignition-matrix fuel-model-matrix
                                      num-rows num-cols initial-ignition-site))
        (loop [global-clock               0.0
-              time-of-first-torch        (atom nil)
               ignited-cells              #{initial-ignition-site}
               ignition-matrix            (doto ignition-matrix (m/mset! i j 0.0))
               flame-length-matrix        (m/zero-matrix num-rows num-cols)
@@ -291,10 +266,12 @@
                                             num-rows
                                             num-cols
                                             global-clock
-                                            time-of-first-torch
                                             %))
                                   ignited-cells)
-                 timestep (/ cell-size (transduce (map :spread-rate) max 0.0 burn-front))]
+                 timestep   (let [dt (/ cell-size (transduce (map :spread-rate) max 0.0 burn-front))]
+                              (if (> (+ global-clock dt) max-runtime)
+                                (- max-runtime global-clock)
+                                dt))]
              ;; (println "Clock:"         global-clock
              ;;          "Timestep:"      timestep
              ;;          "Ignited Cells:" (count ignited-cells)
@@ -302,7 +279,6 @@
              (update-ignition-matrix! ignition-matrix fuel-model-matrix burn-front
                                       timestep num-rows num-cols)
              (recur (+ global-clock timestep)
-                    time-of-first-torch
                     (update-ignited-cells ignition-matrix fuel-model-matrix burn-front
                                           ignited-cells num-rows num-cols)
                     ignition-matrix
@@ -324,10 +300,8 @@
                 num-rows
                 num-cols
                 global-clock
-                time-of-first-torch
                 cell))
              {:global-clock               global-clock
-              :time-of-first-torch        @time-of-first-torch
               :initial-ignition-site      initial-ignition-site
               :ignited-cells              ignited-cells
               :fire-spread-matrix         (m/emap #(- 1.0 %) ignition-matrix)
