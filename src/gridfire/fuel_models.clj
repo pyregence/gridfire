@@ -160,7 +160,7 @@
   (let [live-herbaceous-load (-> w_o :live :herbaceous)]
     (if (and (> number 100) (pos? live-herbaceous-load))
       ;; dynamic fuel model
-      (let [fraction-green (max 0.0 (min 1.0 (- (/ (-> M_f :live :herbaceous) 0.9) 0.33333)))
+      (let [fraction-green (max 0.0 (min 1.0 (- (/ (-> M_f :live :herbaceous) 0.9) 1/3)))
             fraction-cured (- 1.0 fraction-green)]
         (-> fuel-model
             (assoc-in [:M_f   :dead :herbaceous] (-> M_f :dead :1hr))
@@ -223,7 +223,7 @@
                                           dead-to-live-ratio
                                           (- 1.0 (/ dead-fuel-moisture M_x-dead)))
                                        0.226))
-                               0.0)]
+                               M_x-dead)]
     (-> fuel-model
         (assoc-in [:M_x :live :herbaceous] M_x-live)
         (assoc-in [:M_x :live :woody]      M_x-live))))
