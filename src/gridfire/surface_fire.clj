@@ -86,6 +86,8 @@
         I_R        (* Gamma' (category-sum (fn [i] (* (W_n_i i) (h_i i)
                                                       (eta_M_i i) (eta_S_i i)))))
 
+        I_R        (if (pos? (-> M_f :dead :herbaceous)) (* 1.5 I_R) I_R) ;; temporary hack
+
         ;; Propagating flux ratio
         xi         (/ (Math/exp (* (+ 0.792 (* 0.681 (Math/pow sigma' 0.5)))
                                    (+ beta 0.1)))
