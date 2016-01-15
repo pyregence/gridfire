@@ -110,44 +110,48 @@
         spread-info-max     (rothermel-surface-fire-spread-max
                              spread-info-min midflame-wind-speed wind-from-direction
                              slope aspect ellipse-adjustment-factor)
-        crown-spread-rate   (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density
-                                                    (-> fuel-moisture :dead :1hr))
-        crown-intensity     (crown-fire-line-intensity
-                             crown-spread-rate
-                             crown-bulk-density
-                             canopy-height
-                             canopy-base-height
-                             (-> fuel-model :h :dead :1hr))]
+        crown-spread-max    (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density
+                                                    (-> fuel-moisture :dead :1hr))]
     (into []
           (comp
            (filter #(and (in-bounds? num-rows num-cols %)
                          (burnable? fire-spread-matrix (:fuel-model landfire-layers) %)))
            (map (fn [neighbor]
                   (let [trajectory          (mop/- neighbor here)
-                        spread-rate         (rothermel-surface-fire-spread-any
-                                             spread-info-max (offset-to-degrees trajectory))
-                        fire-line-intensity (byram-fire-line-intensity
-                                             (:reaction-intensity spread-info-min)
-                                             (anderson-flame-depth spread-rate (:residence-time spread-info-min)))
+                        spread-direction    (offset-to-degrees trajectory)
+                        surface-spread-rate (rothermel-surface-fire-spread-any spread-info-max spread-direction)
+                        surface-intensity   (->> (anderson-flame-depth surface-spread-rate (:residence-time spread-info-min))
+                                                 (byram-fire-line-intensity (:reaction-intensity spread-info-min)))
                         crown-fire?         (van-wagner-crown-fire-initiation? canopy-cover canopy-base-height
-                                                                               foliar-moisture fire-line-intensity)
+                                                                               foliar-moisture surface-intensity)
+                        crown-spread-rate   (if crown-fire?
+                                              (rothermel-surface-fire-spread-any
+                                               (assoc spread-info-max :max-spread-rate crown-spread-max)
+                                               spread-direction))
+                        crown-intensity     (if crown-fire?
+                                              (crown-fire-line-intensity
+                                               crown-spread-rate
+                                               crown-bulk-density
+                                               canopy-height
+                                               canopy-base-height
+                                               (-> fuel-model :h :dead :1hr))) ;; Chris uses 18000 kJ/kg here
                         spread-rate         (if crown-fire?
-                                              (max spread-rate crown-spread-rate)
-                                              spread-rate)
+                                              (max surface-spread-rate crown-spread-rate)
+                                              surface-spread-rate)
                         fire-line-intensity (if crown-fire?
-                                              (+ fire-line-intensity crown-intensity)
-                                              fire-line-intensity)
+                                              (+ surface-intensity crown-intensity)
+                                              surface-intensity)
                         flame-length        (byram-flame-length fire-line-intensity)]
                     {:cell                neighbor
                      :trajectory          trajectory
                      :terrain-distance    (distance-3d (:elevation landfire-layers)
                                                        cell-size here neighbor)
                      :spread-rate         spread-rate
-                     :flame-length        flame-length
                      :fire-line-intensity fire-line-intensity
+                     :flame-length        flame-length
                      :fractional-distance (volatile! (if (= trajectory overflow-trajectory)
                                                        overflow-heat
-                                                       0.0))}))))
+                                                       0.0))})))) ;; FIXME: this might be causing those burn-free islands
           (get-neighbors here))))
 
 (defn burnable-neighbors?
