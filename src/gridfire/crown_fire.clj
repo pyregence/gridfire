@@ -53,6 +53,26 @@
         heat-of-combustion)
      60.0))
 
+;; ELMFIRE:
+;;
+;; CANOPY_HPUA = CBD(IX,IY) * (CH(IX,IY) - CBH(IX,IY)) * 18000. !kJ/m2
+;; FLIN(IX,IY) = FLIN(IX,IY) + (VELOCITY(IX,IY) * 0.3048 / 60.) * CANOPY_HPUA
+;;
+;; Here VELOCITY is the spread rate parallel to the slope in units of ft/min.
+;; Fireline intensity is tabulated in kW/m. Am open to doing something fancier
+;; here.
+
+(defn crown-fire-line-intensity-elmfire ;; kW/m
+  [fire-line-intensity crown-spread-rate crown-bulk-density canopy-height canopy-base-height]
+  (let [heat-of-combustion 18000] ;; kJ/m^2
+    (+ fire-line-intensity ;; kW/m
+       (/ (* 0.3048 ;; m/ft
+             crown-spread-rate ;; ft/min
+             crown-bulk-density ;; kg/m^3
+             (- canopy-height canopy-base-height) ;; m
+             heat-of-combustion) ;; kJ/kg
+          60.0)))) ;; s/min
+
 (defn crown-flame-length
   [reaction-intensity flame-depth crown-spread-rate crown-bulk-density
    canopy-height canopy-base-height heat-of-combustion]

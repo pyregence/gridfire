@@ -157,6 +157,7 @@
      :get-wind-speed     get-wind-speed}))
 
 (defn wind-adjustment-factor
+  "ft ft 0-100"
   [fuel-bed-depth canopy-height canopy-cover]
   (cond
     ;; null value
@@ -170,6 +171,27 @@
     (pos? canopy-cover)
     (/ 0.555 (* (Math/sqrt (* (/ canopy-cover 300.0) canopy-height))
                 (Math/log (/ (+ 20.0 (* 0.36 canopy-height)) (* 0.13 canopy-height)))))))
+
+(defn wind-adjustment-factor-elmfire
+  "ft m 0-1"
+  [fuel-bed-depth canopy-height canopy-cover]
+  (cond
+    ;; sheltered WAF
+    (and (pos? canopy-cover)
+         (pos? canopy-height))
+    (* (/ 1.0 (Math/log (/ (+ 20.0 (* 0.36 (/ canopy-height 0.3048))) (* 0.13 (/ canopy-height 0.3048)))))
+       (/ 0.555 (Math/sqrt (* (/ canopy-cover 3.0) (/ canopy-height 0.3048)))))
+
+    ;; unsheltered WAF
+    (pos? fuel-bed-depth)
+    (* (/ (+ 1.0 (/ 0.36 1.0))
+          (Math/log (/ (+ 20.0 (* 0.36 fuel-bed-depth))
+                       (* 0.13 fuel-bed-depth))))
+       (- (Math/log (/ (+ 1.0 0.36) 0.13)) 1.0))
+
+    ;; non-burnable fuel model
+    :otherwise
+    0.0))
 
 (defn almost-zero? [^double x]
   (< (Math/abs x) 0.000001))
@@ -191,6 +213,8 @@
      :effective-wind-speed max-wind-speed}
     spread-properties))
 
+;; Chris recently implemented L/W = 1 + 0.125 * U20
+;; Morais2001 implements L/W = 1 + 0.5592 * U_eff, with U_eff in m/s
 (defn add-eccentricity
   [{:keys [effective-wind-speed] :as spread-properties} ellipse-adjustment-factor]
   (let [length-width-ratio (+ 1.0 (* 0.002840909
