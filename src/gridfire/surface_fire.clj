@@ -19,8 +19,9 @@
    - M_x [moisture content of extinction (lb moisture/lb ovendry wood)]
    - M_f [fuel particle moisture content (lb moisture/lb ovendry wood)]
    - f_ij [percent of load per size class (%)]
-   - f_i [percent of load per category (%)]"
-  [{:keys [number delta w_o sigma h rho_p S_T S_e M_x M_f f_ij f_i] :as fuel-model}]
+   - f_i [percent of load per category (%)]
+   - g_ij [percent of load per size class from Albini_1976_FIREMOD, page 20]"
+  [{:keys [number delta w_o sigma h rho_p S_T S_e M_x M_f f_ij f_i g_ij] :as fuel-model}]
   (let [S_e_i      (size-class-sum (fn [i j] (* (-> f_ij i j) (-> S_e i j))))
 
         ;; Mineral damping coefficient
@@ -48,7 +49,7 @@
         h_i        (size-class-sum (fn [i j] (* (-> f_ij i j) (-> h i j))))
 
         ;; Net fuel loading (lb/ft^2)
-        W_n_i      (size-class-sum (fn [i j] (* (-> f_ij i j)
+        W_n_i      (size-class-sum (fn [i j] (* (-> g_ij i j)
                                                 (-> w_o i j)
                                                 (- 1.0 (-> S_T i j)))))
 
@@ -85,8 +86,6 @@
         ;; Reaction intensity (Btu/ft^2*min)
         I_R        (* Gamma' (category-sum (fn [i] (* (W_n_i i) (h_i i)
                                                       (eta_M_i i) (eta_S_i i)))))
-
-        I_R        (if (pos? (-> M_f :dead :herbaceous)) (* 1.5 I_R) I_R) ;; temporary hack
 
         ;; Propagating flux ratio
         xi         (/ (Math/exp (* (+ 0.792 (* 0.681 (Math/pow sigma' 0.5)))

@@ -187,10 +187,31 @@
 
         f_i  (map-category (fn [i] (if (pos? A_T)
                                      (/ (-> A_i i) A_T)
-                                     0.0)))]
+                                     0.0)))
+
+        firemod-size-classes (map-size-class
+                              (fn [i j] (condp <= (-> sigma i j)
+                                          1200 1
+                                          192  2
+                                          96   3
+                                          48   4
+                                          16   5
+                                          0    6)))
+
+        firemod-weights (into {}
+                              (for [[category size-classes] firemod-size-classes]
+                                [category
+                                 (apply merge-with +
+                                        (for [[size-class firemod-size-class] size-classes]
+                                          {firemod-size-class (get-in f_ij [category size-class])}))]))
+
+        g_ij (map-size-class (fn [i j]
+                               (let [firemod-size-class (-> firemod-size-classes i j)]
+                                 (get-in firemod-weights [i firemod-size-class]))))]
     (-> fuel-model
         (assoc :f_ij f_ij)
-        (assoc :f_i  f_i))))
+        (assoc :f_i  f_i)
+        (assoc :g_ij g_ij))))
 
 (defn add-live-moisture-of-extinction
   "Equation 88 from Rothermel 1972 adjusted by Albini 1976 Appendix III."
