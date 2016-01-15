@@ -1,6 +1,9 @@
 (ns gridfire.behaveplus-results
   (:require [gridfire.fuel-models :refer [fuel-models]]))
 
+(defn within [a b epsilon]
+  (<= (Math/abs ^double (- a b)) epsilon))
+
 (def sb40-fuel-models (filterv #(> % 100) (sort (keys fuel-models))))
 
 (def test-fuel-moisture
