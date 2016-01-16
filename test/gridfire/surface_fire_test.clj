@@ -116,12 +116,14 @@
           fire-line-intensity                                     (->> (anderson-flame-depth max-spread-rate residence-time)
                                                                        (byram-fire-line-intensity reaction-intensity))
           flame-length                                            (byram-flame-length fire-line-intensity)
-          [ros_max fli fl max_theta eff_wsp]                      (behaveplus5-surface-fire-values-mid-with-cross-wind-and-slope-135-180 (:name gridfire-fuel-model))]
+          [ros_max fli fl max_theta eff_wsp lw]                   (behaveplus5-surface-fire-values-mid-with-cross-wind-and-slope-135-180 (:name gridfire-fuel-model))
+          behaveplus-eccentricity                                 (/ (Math/sqrt (- (Math/pow lw 2.0) 1.0)) lw)]
       (is (within ros_max max-spread-rate-ch-per-hr 1.7))
       (is (within fli fire-line-intensity 25.1))
       (is (within fl flame-length 0.06))
       (is (within max_theta max-spread-direction 0.5))
-      (is (within eff_wsp effective-wind-speed-mph 0.1)))))
+      (is (within eff_wsp effective-wind-speed-mph 0.1))
+      (is (within behaveplus-eccentricity eccentricity 0.01)))))
 
 (deftest wind-adjustment-factor-test
   (doseq [fuel-bed-depth (map second (vals (select-keys fuel-models sb40-fuel-models)))] ;; ft
@@ -131,7 +133,7 @@
                     (wind-adjustment-factor-elmfire fuel-bed-depth (ft->m canopy-height) (* 0.01 canopy-cover))
                     0.001))))))
 
-;; TODO: Add L/W and eccentricity tests, R_theta test
+;; TODO: Add R_theta test
 
 (comment
   (run-tests)
