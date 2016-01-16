@@ -102,7 +102,6 @@
         get-phi_W  (fn [midflame-wind-speed]
                      (if (and (pos? beta) (pos? midflame-wind-speed))
                        (-> midflame-wind-speed
-                           (min (* 0.9 I_R))
                            (Math/pow B)
                            (* C)
                            (/ (Math/pow (/ beta beta_op) E)))
@@ -160,17 +159,19 @@
   "ft ft 0-100"
   [fuel-bed-depth canopy-height canopy-cover]
   (cond
-    ;; null value
-    (neg? canopy-cover) nil
+    ;; sheltered: equation 2 based on CC and CH, CR=1 (Andrews 2012)
+    (and (pos? canopy-cover)
+         (pos? canopy-height))
+    (/ 0.555 (* (Math/sqrt (* (/ canopy-cover 300.0) canopy-height))
+                (Math/log (/ (+ 20.0 (* 0.36 canopy-height)) (* 0.13 canopy-height)))))
 
     ;; unsheltered: equation 6 H_F = H (Andrews 2012)
-    (zero? canopy-cover)
+    (pos? fuel-bed-depth)
     (/ 1.83 (Math/log (/ (+ 20.0 (* 0.36 fuel-bed-depth)) (* 0.13 fuel-bed-depth))))
 
-    ;; sheltered: equation 2 based on CC and CH, CR=1 (Andrews 2012)
-    (pos? canopy-cover)
-    (/ 0.555 (* (Math/sqrt (* (/ canopy-cover 300.0) canopy-height))
-                (Math/log (/ (+ 20.0 (* 0.36 canopy-height)) (* 0.13 canopy-height)))))))
+    ;; non-burnable fuel model
+    :otherwise
+    0.0))
 
 (defn wind-adjustment-factor-elmfire
   "ft m 0-1"
