@@ -73,13 +73,21 @@
              heat-of-combustion) ;; kJ/kg
           60.0)))) ;; s/min
 
-(defn crown-flame-length
-  [reaction-intensity flame-depth crown-spread-rate crown-bulk-density
-   canopy-height canopy-base-height heat-of-combustion]
-  (byram-flame-length
-   (+ (byram-fire-line-intensity reaction-intensity flame-depth)
-      (crown-fire-line-intensity crown-spread-rate
-                                 crown-bulk-density
-                                 canopy-height
-                                 canopy-base-height
-                                 heat-of-combustion))))
+(defn crown-fire-eccentricity
+  "mph"
+  [wind-speed-20ft]
+  (let [length-width-ratio (+ 1.0 (* 0.125 wind-speed-20ft))]
+    (/ (Math/sqrt (- (Math/pow length-width-ratio 2.0) 1.0))
+       length-width-ratio)))
+
+(defn elmfire-length-to-width-ratio
+  "true/false mph int>0 ft/min
+   Crown L/W = min(1.0 + 0.125*U20_mph, L/W_max)
+   Surface L/W = 0.936*e^(0.2566*Ueff_mph) + 0.461*e^(-0.1548*Ueff_mph) - 0.397"
+  [crown-fire? wind-speed-20ft max-length-to-width-ratio effective-wind-speed]
+  (if crown-fire?
+    (min (+ 1.0 (* 0.125 wind-speed-20ft)) max-length-to-width-ratio)
+    (min (+ (* 0.936 (Math/exp (/ (* 0.2566 effective-wind-speed 60.0) 5280.0)))
+            (* 0.461 (Math/exp (/ (* -0.1548 effective-wind-speed 60.0) 5280.0)))
+            -0.397)
+         8.0)))

@@ -9,7 +9,8 @@
                                            byram-flame-length wind-adjustment-factor]]
             [gridfire.crown-fire :refer [van-wagner-crown-fire-initiation?
                                          cruz-crown-fire-spread
-                                         crown-fire-line-intensity]]))
+                                         crown-fire-line-intensity
+                                         crown-fire-eccentricity]]))
 
 (m/set-current-implementation :vectorz)
 
@@ -111,7 +112,8 @@
                              spread-info-min midflame-wind-speed wind-from-direction
                              slope aspect ellipse-adjustment-factor)
         crown-spread-max    (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density
-                                                    (-> fuel-moisture :dead :1hr))]
+                                                    (-> fuel-moisture :dead :1hr))
+        crown-eccentricity  (crown-fire-eccentricity wind-speed-20ft)]
     (into []
           (comp
            (filter #(and (in-bounds? num-rows num-cols %)
@@ -126,7 +128,9 @@
                                                                                foliar-moisture surface-intensity)
                         crown-spread-rate   (if crown-fire?
                                               (rothermel-surface-fire-spread-any
-                                               (assoc spread-info-max :max-spread-rate crown-spread-max)
+                                               (assoc spread-info-max
+                                                      :max-spread-rate crown-spread-max
+                                                      :eccentricity crown-eccentricity)
                                                spread-direction))
                         crown-intensity     (if crown-fire?
                                               (crown-fire-line-intensity
