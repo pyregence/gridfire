@@ -38,3 +38,7 @@
       (is (within gridfire-fraction-cured behaveplus-fraction-cured 0.1)))))
 
 ;; TODO: Add moisturize-test-wet
+
+(comment
+  (run-tests)
+  )

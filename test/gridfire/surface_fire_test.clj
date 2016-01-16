@@ -53,7 +53,7 @@
           slope                                                   0.2 ;; vertical feet/horizontal feet
           {:keys [max-spread-rate max-spread-direction
                   effective-wind-speed eccentricity]}             (rothermel-surface-fire-spread-max (assoc spread-info-min :spread-rate corrected-spread-rate)
-                                                                                                     midflame-wind-speed 0 slope 0 1.0)
+                                                                                                     midflame-wind-speed 0.0 slope 0.0 1.0)
           max-spread-rate-ch-per-hr                               (/ max-spread-rate 1.1)
           phi_W                                                   (get-phi_W midflame-wind-speed)
           phi_S                                                   (get-phi_S slope)
@@ -69,6 +69,60 @@
       (is (within pW phi_W 0.1))
       (is (within pS phi_S 0.05)))))
 
+;; Tests fuel model weighting factors, rothermel equations, and
+;; byram's flame length and fire line intensity under 50% cured
+;; conditions with 10mph wind speed and 20% slope. Also tests max
+;; spread direction and effective wind speed for cross-slope winds.
+(deftest rothermel-surface-fire-spread-with-cross-wind-and-slope-test-mid-90-180
+  (doseq [num sb40-fuel-models]
+    (let [gridfire-fuel-model                                     (moisturize (build-fuel-model num) (test-fuel-moisture :mid))
+          {:keys [spread-rate reaction-intensity residence-time
+                  get-phi_W get-phi_S] :as spread-info-min}       (rothermel-surface-fire-spread-no-wind-no-slope gridfire-fuel-model)
+          corrected-spread-rate                                   (if (grass-fuel-model? num) (* 2.0 spread-rate) spread-rate)
+          midflame-wind-speed                                     (* 10.0 88.0) ;; mi/hr -> ft/min
+          slope                                                   0.2 ;; vertical feet/horizontal feet
+          {:keys [max-spread-rate max-spread-direction
+                  effective-wind-speed eccentricity]}             (rothermel-surface-fire-spread-max (assoc spread-info-min :spread-rate corrected-spread-rate)
+                                                                                                     midflame-wind-speed 90.0 slope 180.0 1.0)
+          max-spread-rate-ch-per-hr                               (/ max-spread-rate 1.1)
+          effective-wind-speed-mph                                (/ effective-wind-speed 88.0)
+          fire-line-intensity                                     (->> (anderson-flame-depth max-spread-rate residence-time)
+                                                                       (byram-fire-line-intensity reaction-intensity))
+          flame-length                                            (byram-flame-length fire-line-intensity)
+          [ros_max fli fl max_theta eff_wsp]                      (behaveplus5-surface-fire-values-mid-with-cross-wind-and-slope-90-180 (:name gridfire-fuel-model))]
+      (is (within ros_max max-spread-rate-ch-per-hr 0.3))
+      (is (within fli fire-line-intensity 25.1))
+      (is (within fl flame-length 0.06))
+      (is (within max_theta max-spread-direction 0.5))
+      (is (within eff_wsp effective-wind-speed-mph 0.1)))))
+
+;; Tests fuel model weighting factors, rothermel equations, and
+;; byram's flame length and fire line intensity under 50% cured
+;; conditions with 10mph wind speed and 20% slope. Also tests max
+;; spread direction and effective wind speed for cross-slope winds.
+(deftest rothermel-surface-fire-spread-with-cross-wind-and-slope-test-mid-135-180
+  (doseq [num sb40-fuel-models]
+    (let [gridfire-fuel-model                                     (moisturize (build-fuel-model num) (test-fuel-moisture :mid))
+          {:keys [spread-rate reaction-intensity residence-time
+                  get-phi_W get-phi_S] :as spread-info-min}       (rothermel-surface-fire-spread-no-wind-no-slope gridfire-fuel-model)
+          corrected-spread-rate                                   (if (grass-fuel-model? num) (* 2.0 spread-rate) spread-rate)
+          midflame-wind-speed                                     (* 10.0 88.0) ;; mi/hr -> ft/min
+          slope                                                   0.2 ;; vertical feet/horizontal feet
+          {:keys [max-spread-rate max-spread-direction
+                  effective-wind-speed eccentricity]}             (rothermel-surface-fire-spread-max (assoc spread-info-min :spread-rate corrected-spread-rate)
+                                                                                                     midflame-wind-speed 135.0 slope 180.0 1.0)
+          max-spread-rate-ch-per-hr                               (/ max-spread-rate 1.1)
+          effective-wind-speed-mph                                (/ effective-wind-speed 88.0)
+          fire-line-intensity                                     (->> (anderson-flame-depth max-spread-rate residence-time)
+                                                                       (byram-fire-line-intensity reaction-intensity))
+          flame-length                                            (byram-flame-length fire-line-intensity)
+          [ros_max fli fl max_theta eff_wsp]                      (behaveplus5-surface-fire-values-mid-with-cross-wind-and-slope-135-180 (:name gridfire-fuel-model))]
+      (is (within ros_max max-spread-rate-ch-per-hr 1.7))
+      (is (within fli fire-line-intensity 25.1))
+      (is (within fl flame-length 0.06))
+      (is (within max_theta max-spread-direction 0.5))
+      (is (within eff_wsp effective-wind-speed-mph 0.1)))))
+
 (deftest wind-adjustment-factor-test
   (doseq [fuel-bed-depth (map second (vals (select-keys fuel-models sb40-fuel-models)))] ;; ft
     (doseq [canopy-height (range 0 121 10)] ;; ft
@@ -77,8 +131,7 @@
                     (wind-adjustment-factor-elmfire fuel-bed-depth (ft->m canopy-height) (* 0.01 canopy-cover))
                     0.001))))))
 
-;; TODO: Fix phi_W discrepancy on 5 marked fuel models.
-;; TODO: Add L/W and eccentricity tests, R_theta test, cross-wind-slope test.
+;; TODO: Add L/W and eccentricity tests, R_theta test
 
 (comment
   (run-tests)
