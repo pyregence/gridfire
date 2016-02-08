@@ -1281,7 +1281,7 @@ height in ft, $h$ is the fuel model heat of combustion (generally 8000
 Btu/lb), $L_{c}$ is the crown flame length in ft, and $I$ is the
 surface fire line intensity in Btu/ft/s.
 
-#+name: crown-fire-severity-formulas
+#+name: crown-fire-line-intensity
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/crown_fire.clj
 ;; heat of combustion is h from the fuel models (generally 8000 Btu/lb)
 (defn crown-fire-line-intensity
@@ -1293,30 +1293,49 @@ surface fire line intensity in Btu/ft/s.
         heat-of-combustion)
      60.0))
 
-;; ELMFIRE:
-;;
-;; CANOPY_HPUA = CBD(IX,IY) * (CH(IX,IY) - CBH(IX,IY)) * 18000. !kJ/m2
-;; FLIN(IX,IY) = FLIN(IX,IY) + (VELOCITY(IX,IY) * 0.3048 / 60.) * CANOPY_HPUA
-;;
-;; Here VELOCITY is the spread rate parallel to the slope in units of ft/min.
-;; Fireline intensity is tabulated in kW/m. Am open to doing something fancier
-;; here.
-
 (defn crown-fire-line-intensity-elmfire ;; kW/m
-  [fire-line-intensity crown-spread-rate crown-bulk-density canopy-height canopy-base-height]
+  [surface-fire-line-intensity crown-spread-rate crown-bulk-density
+   canopy-height canopy-base-height]
   (let [heat-of-combustion 18000] ;; kJ/m^2
-    (+ fire-line-intensity ;; kW/m
+    (+ surface-fire-line-intensity ;; kW/m
        (/ (* 0.3048 ;; m/ft
              crown-spread-rate ;; ft/min
              crown-bulk-density ;; kg/m^3
              (- canopy-height canopy-base-height) ;; m
              heat-of-combustion) ;; kJ/kg
           60.0)))) ;; s/min
+#+end_src
 
+As with surface fire spread, the wind speed (this time the 20-ft wind
+speed in mph $U_{20}$) is used to compute the length to width ratio
+$\frac{L}{W}$ of an ellipse that approximates the crown fire front
+using equation 9 from Rothermel 1991.\citep{Rothermel1991} This length
+to width ratio is then converted into an eccentricity measure of the
+ellipse using equation 8 from Albini and Chase 1980.\citep{Albini1980}
+Finally, this eccentricity $E$ is used to project the maximum spread
+rate to any point along the fire front. Here are the formulas used:
+
+\begin{align*}
+  \frac{L}{W} &= 1 + 0.125 \, U_{20} \, \textrm{EAF} \\
+  E &= \frac{\sqrt{(\frac{L}{W})^{2} - 1}}{\frac{L}{W}} \\
+  R_{\theta} &= R_{\max}\left(\frac{1-E}{1-E\cos\theta}\right)
+\end{align*}
+
+where \theta is the angular offset from the direction of maximum fire
+spread, R_{max} is the maximum spread rate, R_{\theta} is the spread
+rate in direction \theta, and EAF is the ellipse adjustment factor, a
+term introduced by Marco Morais and Seth Peterson in their HFire work
+that can be increased or decreased to make the fire shape more
+elliptical or circular respectively.\citep{Peterson2009}
+
+#+name: crown-eccentricity
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/crown_fire.clj
 (defn crown-fire-eccentricity
   "mph"
-  [wind-speed-20ft]
-  (let [length-width-ratio (+ 1.0 (* 0.125 wind-speed-20ft))]
+  [wind-speed-20ft ellipse-adjustment-factor]
+  (let [length-width-ratio (+ 1.0 (* 0.125
+                                     wind-speed-20ft
+                                     ellipse-adjustment-factor))]
     (/ (Math/sqrt (- (Math/pow length-width-ratio 2.0) 1.0))
        length-width-ratio)))
 
@@ -1634,7 +1653,7 @@ pseudo-code lays out the steps taken in this procedure:
                              slope aspect ellipse-adjustment-factor)
         crown-spread-max    (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density
                                                     (-> fuel-moisture :dead :1hr))
-        crown-eccentricity  (crown-fire-eccentricity wind-speed-20ft)]
+        crown-eccentricity  (crown-fire-eccentricity wind-speed-20ft ellipse-adjustment-factor)]
     (into []
           (comp
            (filter #(and (in-bounds? num-rows num-cols %)
