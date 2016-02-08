@@ -154,7 +154,7 @@
                      :flame-length        flame-length
                      :fractional-distance (volatile! (if (= trajectory overflow-trajectory)
                                                        overflow-heat
-                                                       0.0))})))) ;; FIXME: this might be causing those burn-free islands
+                                                       0.0))}))))
           (get-neighbors here))))
 
 (defn burnable-neighbors?

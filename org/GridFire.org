@@ -548,7 +548,7 @@ $M_{f}^{lh}$ is the live herbaceous moisture content.
   (let [live-herbaceous-load (-> w_o :live :herbaceous)]
     (if (and (> number 100) (pos? live-herbaceous-load))
       ;; dynamic fuel model
-      (let [fraction-green (max 0.0 (min 1.0 (- (/ (-> M_f :live :herbaceous) 0.9) 0.33333)))
+      (let [fraction-green (max 0.0 (min 1.0 (- (/ (-> M_f :live :herbaceous) 0.9) 1/3)))
             fraction-cured (- 1.0 fraction-green)]
         (-> fuel-model
             (assoc-in [:M_f   :dead :herbaceous] (-> M_f :dead :1hr))
@@ -583,10 +583,31 @@ this text.
 
         f_i  (map-category (fn [i] (if (pos? A_T)
                                      (/ (-> A_i i) A_T)
-                                     0.0)))]
+                                     0.0)))
+
+        firemod-size-classes (map-size-class
+                              (fn [i j] (condp <= (-> sigma i j)
+                                          1200 1
+                                          192  2
+                                          96   3
+                                          48   4
+                                          16   5
+                                          0    6)))
+
+        firemod-weights (into {}
+                              (for [[category size-classes] firemod-size-classes]
+                                [category
+                                 (apply merge-with +
+                                        (for [[size-class firemod-size-class] size-classes]
+                                          {firemod-size-class (get-in f_ij [category size-class])}))]))
+
+        g_ij (map-size-class (fn [i j]
+                               (let [firemod-size-class (-> firemod-size-classes i j)]
+                                 (get-in firemod-weights [i firemod-size-class]))))]
     (-> fuel-model
         (assoc :f_ij f_ij)
-        (assoc :f_i  f_i))))
+        (assoc :f_i  f_i)
+        (assoc :g_ij g_ij))))
 #+end_src
 
 *** Live Moisture of Extinction
@@ -648,7 +669,7 @@ size class $c$.
                                           dead-to-live-ratio
                                           (- 1.0 (/ dead-fuel-moisture M_x-dead)))
                                        0.226))
-                               0.0)]
+                               M_x-dead)]
     (-> fuel-model
         (assoc-in [:M_x :live :herbaceous] M_x-live)
         (assoc-in [:M_x :live :woody]      M_x-live))))
@@ -733,8 +754,9 @@ computed first without introducing the effects of wind and slope
    - M_x [moisture content of extinction (lb moisture/lb ovendry wood)]
    - M_f [fuel particle moisture content (lb moisture/lb ovendry wood)]
    - f_ij [percent of load per size class (%)]
-   - f_i [percent of load per category (%)]"
-  [{:keys [number delta w_o sigma h rho_p S_T S_e M_x M_f f_ij f_i] :as fuel-model}]
+   - f_i [percent of load per category (%)]
+   - g_ij [percent of load per size class from Albini_1976_FIREMOD, page 20]"
+  [{:keys [number delta w_o sigma h rho_p S_T S_e M_x M_f f_ij f_i g_ij] :as fuel-model}]
   (let [S_e_i      (size-class-sum (fn [i j] (* (-> f_ij i j) (-> S_e i j))))
 
         ;; Mineral damping coefficient
@@ -762,7 +784,7 @@ computed first without introducing the effects of wind and slope
         h_i        (size-class-sum (fn [i j] (* (-> f_ij i j) (-> h i j))))
 
         ;; Net fuel loading (lb/ft^2)
-        W_n_i      (size-class-sum (fn [i j] (* (-> f_ij i j)
+        W_n_i      (size-class-sum (fn [i j] (* (-> g_ij i j)
                                                 (-> w_o i j)
                                                 (- 1.0 (-> S_T i j)))))
 
@@ -815,7 +837,6 @@ computed first without introducing the effects of wind and slope
         get-phi_W  (fn [midflame-wind-speed]
                      (if (and (pos? beta) (pos? midflame-wind-speed))
                        (-> midflame-wind-speed
-                           (min (* 0.9 I_R))
                            (Math/pow B)
                            (* C)
                            (/ (Math/pow (/ beta beta_op) E)))
@@ -906,19 +927,43 @@ cover percentage (0-100).
 #+name: wind-adjustment-factor
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/surface_fire.clj
 (defn wind-adjustment-factor
+  "ft ft 0-100"
   [fuel-bed-depth canopy-height canopy-cover]
   (cond
-    ;; null value
-    (neg? canopy-cover) nil
+    ;; sheltered: equation 2 based on CC and CH, CR=1 (Andrews 2012)
+    (and (pos? canopy-cover)
+         (pos? canopy-height))
+    (/ 0.555 (* (Math/sqrt (* (/ canopy-cover 300.0) canopy-height))
+                (Math/log (/ (+ 20.0 (* 0.36 canopy-height)) (* 0.13 canopy-height)))))
 
     ;; unsheltered: equation 6 H_F = H (Andrews 2012)
-    (zero? canopy-cover)
+    (pos? fuel-bed-depth)
     (/ 1.83 (Math/log (/ (+ 20.0 (* 0.36 fuel-bed-depth)) (* 0.13 fuel-bed-depth))))
 
-    ;; sheltered: equation 2 based on CC and CH, CR=1 (Andrews 2012)
-    (pos? canopy-cover)
-    (/ 0.555 (* (Math/sqrt (* (/ canopy-cover 300.0) canopy-height))
-                (Math/log (/ (+ 20.0 (* 0.36 canopy-height)) (* 0.13 canopy-height)))))))
+    ;; non-burnable fuel model
+    :otherwise
+    0.0))
+
+(defn wind-adjustment-factor-elmfire
+  "ft m 0-1"
+  [fuel-bed-depth canopy-height canopy-cover]
+  (cond
+    ;; sheltered WAF
+    (and (pos? canopy-cover)
+         (pos? canopy-height))
+    (* (/ 1.0 (Math/log (/ (+ 20.0 (* 0.36 (/ canopy-height 0.3048))) (* 0.13 (/ canopy-height 0.3048)))))
+       (/ 0.555 (Math/sqrt (* (/ canopy-cover 3.0) (/ canopy-height 0.3048)))))
+
+    ;; unsheltered WAF
+    (pos? fuel-bed-depth)
+    (* (/ (+ 1.0 (/ 0.36 1.0))
+          (Math/log (/ (+ 20.0 (* 0.36 fuel-bed-depth))
+                       (* 0.13 fuel-bed-depth))))
+       (- (Math/log (/ (+ 1.0 0.36) 0.13)) 1.0))
+
+    ;; non-burnable fuel model
+    :otherwise
+    0.0))
 #+end_src
 
 The midflame wind speed that would be required to produce the combined
@@ -975,6 +1020,8 @@ ft/min for $U_{\textrm{eff}}$.
      :effective-wind-speed max-wind-speed}
     spread-properties))
 
+;; Chris recently implemented L/W = 1 + 0.125 * U20
+;; Morais2001 implements L/W = 1 + 0.5592 * U_eff, with U_eff in m/s
 (defn add-eccentricity
   [{:keys [effective-wind-speed] :as spread-properties} ellipse-adjustment-factor]
   (let [length-width-ratio (+ 1.0 (* 0.002840909
@@ -1248,16 +1295,44 @@ surface fire line intensity in Btu/ft/s.
         heat-of-combustion)
      60.0))
 
-(defn crown-flame-length
-  [reaction-intensity flame-depth crown-spread-rate crown-bulk-density
-   canopy-height canopy-base-height heat-of-combustion]
-  (byram-flame-length
-   (+ (byram-fire-line-intensity reaction-intensity flame-depth)
-      (crown-fire-line-intensity crown-spread-rate
-                                 crown-bulk-density
-                                 canopy-height
-                                 canopy-base-height
-                                 heat-of-combustion))))
+;; ELMFIRE:
+;;
+;; CANOPY_HPUA = CBD(IX,IY) * (CH(IX,IY) - CBH(IX,IY)) * 18000. !kJ/m2
+;; FLIN(IX,IY) = FLIN(IX,IY) + (VELOCITY(IX,IY) * 0.3048 / 60.) * CANOPY_HPUA
+;;
+;; Here VELOCITY is the spread rate parallel to the slope in units of ft/min.
+;; Fireline intensity is tabulated in kW/m. Am open to doing something fancier
+;; here.
+
+(defn crown-fire-line-intensity-elmfire ;; kW/m
+  [fire-line-intensity crown-spread-rate crown-bulk-density canopy-height canopy-base-height]
+  (let [heat-of-combustion 18000] ;; kJ/m^2
+    (+ fire-line-intensity ;; kW/m
+       (/ (* 0.3048 ;; m/ft
+             crown-spread-rate ;; ft/min
+             crown-bulk-density ;; kg/m^3
+             (- canopy-height canopy-base-height) ;; m
+             heat-of-combustion) ;; kJ/kg
+          60.0)))) ;; s/min
+
+(defn crown-fire-eccentricity
+  "mph"
+  [wind-speed-20ft]
+  (let [length-width-ratio (+ 1.0 (* 0.125 wind-speed-20ft))]
+    (/ (Math/sqrt (- (Math/pow length-width-ratio 2.0) 1.0))
+       length-width-ratio)))
+
+(defn elmfire-length-to-width-ratio
+  "true/false mph int>0 ft/min
+   Crown L/W = min(1.0 + 0.125*U20_mph, L/W_max)
+   Surface L/W = 0.936*e^(0.2566*Ueff_mph) + 0.461*e^(-0.1548*Ueff_mph) - 0.397"
+  [crown-fire? wind-speed-20ft max-length-to-width-ratio effective-wind-speed]
+  (if crown-fire?
+    (min (+ 1.0 (* 0.125 wind-speed-20ft)) max-length-to-width-ratio)
+    (min (+ (* 0.936 (Math/exp (/ (* 0.2566 effective-wind-speed 60.0) 5280.0)))
+            (* 0.461 (Math/exp (/ (* -0.1548 effective-wind-speed 60.0) 5280.0)))
+            -0.397)
+         8.0)))
 #+end_src
 
 This concludes our discussion of the crown fire spread and severity
@@ -1458,7 +1533,8 @@ pseudo-code lays out the steps taken in this procedure:
                                            byram-flame-length wind-adjustment-factor]]
             [gridfire.crown-fire :refer [van-wagner-crown-fire-initiation?
                                          cruz-crown-fire-spread
-                                         crown-fire-line-intensity]]))
+                                         crown-fire-line-intensity
+                                         crown-fire-eccentricity]]))
 
 (m/set-current-implementation :vectorz)
 
@@ -1540,10 +1616,9 @@ pseudo-code lays out the steps taken in this procedure:
 (defn compute-neighborhood-fire-spread-rates!
   "Returns a vector of {:cell [i j], :trajectory [di dj], :terrain-distance ft,
   :spread-rate ft/min} for each cell adjacent to here."
-  [fire-spread-matrix flame-length-matrix fire-line-intensity-matrix
-   landfire-layers wind-speed-20ft wind-from-direction fuel-moisture foliar-moisture
-   ellipse-adjustment-factor cell-size num-rows num-cols global-clock [i j :as here]
-   overflow-trajectory overflow-heat]
+  [fire-spread-matrix landfire-layers wind-speed-20ft wind-from-direction fuel-moisture
+   foliar-moisture ellipse-adjustment-factor cell-size num-rows num-cols global-clock
+   [i j :as here] overflow-trajectory overflow-heat]
   (let [fuel-model-number   (m/mget (:fuel-model         landfire-layers) i j)
         slope               (m/mget (:slope              landfire-layers) i j)
         aspect              (m/mget (:aspect             landfire-layers) i j)
@@ -1559,41 +1634,48 @@ pseudo-code lays out the steps taken in this procedure:
         spread-info-max     (rothermel-surface-fire-spread-max
                              spread-info-min midflame-wind-speed wind-from-direction
                              slope aspect ellipse-adjustment-factor)
-        crown-spread-rate   (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density
+        crown-spread-max    (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density
                                                     (-> fuel-moisture :dead :1hr))
-        crown-intensity     (crown-fire-line-intensity
-                             crown-spread-rate
-                             crown-bulk-density
-                             canopy-height
-                             canopy-base-height
-                             (-> fuel-model :h :dead :1hr))]
+        crown-eccentricity  (crown-fire-eccentricity wind-speed-20ft)]
     (into []
           (comp
            (filter #(and (in-bounds? num-rows num-cols %)
                          (burnable? fire-spread-matrix (:fuel-model landfire-layers) %)))
            (map (fn [neighbor]
                   (let [trajectory          (mop/- neighbor here)
-                        spread-rate         (rothermel-surface-fire-spread-any
-                                             spread-info-max (offset-to-degrees trajectory))
-                        fire-line-intensity (byram-fire-line-intensity
-                                             (:reaction-intensity spread-info-min)
-                                             (anderson-flame-depth spread-rate (:residence-time spread-info-min)))
+                        spread-direction    (offset-to-degrees trajectory)
+                        surface-spread-rate (rothermel-surface-fire-spread-any spread-info-max spread-direction)
+                        surface-intensity   (->> (anderson-flame-depth surface-spread-rate (:residence-time spread-info-min))
+                                                 (byram-fire-line-intensity (:reaction-intensity spread-info-min)))
                         crown-fire?         (van-wagner-crown-fire-initiation? canopy-cover canopy-base-height
-                                                                               foliar-moisture fire-line-intensity)
+                                                                               foliar-moisture surface-intensity)
+                        crown-spread-rate   (if crown-fire?
+                                              (rothermel-surface-fire-spread-any
+                                               (assoc spread-info-max
+                                                      :max-spread-rate crown-spread-max
+                                                      :eccentricity crown-eccentricity)
+                                               spread-direction))
+                        crown-intensity     (if crown-fire?
+                                              (crown-fire-line-intensity
+                                               crown-spread-rate
+                                               crown-bulk-density
+                                               canopy-height
+                                               canopy-base-height
+                                               (-> fuel-model :h :dead :1hr))) ;; Chris uses 18000 kJ/kg here
                         spread-rate         (if crown-fire?
-                                              (max spread-rate crown-spread-rate)
-                                              spread-rate)
+                                              (max surface-spread-rate crown-spread-rate)
+                                              surface-spread-rate)
                         fire-line-intensity (if crown-fire?
-                                              (+ fire-line-intensity crown-intensity)
-                                              fire-line-intensity)
+                                              (+ surface-intensity crown-intensity)
+                                              surface-intensity)
                         flame-length        (byram-flame-length fire-line-intensity)]
                     {:cell                neighbor
                      :trajectory          trajectory
                      :terrain-distance    (distance-3d (:elevation landfire-layers)
                                                        cell-size here neighbor)
                      :spread-rate         spread-rate
-                     :flame-length        flame-length
                      :fire-line-intensity fire-line-intensity
+                     :flame-length        flame-length
                      :fractional-distance (volatile! (if (= trajectory overflow-trajectory)
                                                        overflow-heat
                                                        0.0))}))))
@@ -1662,8 +1744,6 @@ pseudo-code lays out the steps taken in this procedure:
        (loop [global-clock  0.0
               ignited-cells {initial-ignition-site (compute-neighborhood-fire-spread-rates!
                                                     fire-spread-matrix
-                                                    flame-length-matrix
-                                                    fire-line-intensity-matrix
                                                     landfire-layers
                                                     wind-speed-20ft
                                                     wind-from-direction
@@ -1705,30 +1785,30 @@ pseudo-code lays out the steps taken in this procedure:
                  (m/mset! fire-spread-matrix         i j 1.0)
                  (m/mset! flame-length-matrix        i j flame-length)
                  (m/mset! fire-line-intensity-matrix i j fire-line-intensity)))
-             (recur (+ global-clock timestep)
-                    (->> (for [{:keys [cell trajectory fractional-distance]} ignition-events]
-                           [cell (compute-neighborhood-fire-spread-rates!
-                                  fire-spread-matrix
-                                  flame-length-matrix
-                                  fire-line-intensity-matrix
-                                  landfire-layers
-                                  wind-speed-20ft
-                                  wind-from-direction
-                                  fuel-moisture
-                                  foliar-moisture
-                                  ellipse-adjustment-factor
-                                  cell-size
-                                  num-rows
-                                  num-cols
-                                  global-clock
-                                  cell
-                                  trajectory
-                                  (- fractional-distance 1.0))])
-                         (into ignited-cells)
-                         (filter (fn [[cell spread-info]]
-                                   (burnable-neighbors? fire-spread-matrix fuel-model-matrix
-                                                        num-rows num-cols cell)))
-                         (into {}))))
+             (let [newly-ignited-cells (into #{} (map :cell) ignition-events)]
+               (recur (+ global-clock timestep)
+                      (into {}
+                            (concat
+                             (for [[cell spread-info] ignited-cells
+                                   :when (burnable-neighbors? fire-spread-matrix fuel-model-matrix num-rows num-cols cell)]
+                               [cell (remove #(contains? newly-ignited-cells (:cell %)) spread-info)])
+                             (for [{:keys [cell trajectory fractional-distance]} ignition-events
+                                   :when (burnable-neighbors? fire-spread-matrix fuel-model-matrix num-rows num-cols cell)]
+                               [cell (compute-neighborhood-fire-spread-rates!
+                                      fire-spread-matrix
+                                      landfire-layers
+                                      wind-speed-20ft
+                                      wind-from-direction
+                                      fuel-moisture
+                                      foliar-moisture
+                                      ellipse-adjustment-factor
+                                      cell-size
+                                      num-rows
+                                      num-cols
+                                      global-clock
+                                      cell
+                                      trajectory
+                                      (- fractional-distance 1.0))]))))))
            {:global-clock               global-clock
             :initial-ignition-site      initial-ignition-site
             :ignited-cells              ignited-cells
@@ -2262,19 +2342,29 @@ This concludes our discussion of GridFire's command line interface.
          (spit (io/file output-directory "all-fires-summary.csv")))))
 
 (comment
-  (spit "/data/CALFIRE_MAP1_RUN2/inputs/wrf_cells_to_process.clj"
+  (spit "/data/CALFIRE_MAP1_RUN6/inputs/wrf_cells_to_process.clj"
         (filterv (fn [{:keys [wrf_cell_id]}]
-                   (not (.exists (io/file "/data/CALFIRE_MAP1_RUN2/reax_fuel_model_results/outputs" (str "all-fires-" wrf_cell_id ".csv")))))
+                   (not (.exists (io/file "/data/CALFIRE_MAP1_RUN6/outputs" (str "all-fires-" wrf_cell_id ".csv")))))
                  (fetch-wrf-cell-ids {:classname   "org.postgresql.Driver"
                                       :subprotocol "postgresql"
                                       :subname     "//iwap03:5432/calfire"
                                       :user        "gjohnson"})))
 
-  (spit "/data/CALFIRE_MAP1_RUN4/inputs/wrf_cells_to_process.clj"
+  (spit "/data/CALFIRE_MAP1_RUN6/inputs/wrf_cells_to_process.clj"
         (fetch-wrf-cell-ids {:classname   "org.postgresql.Driver"
                              :subprotocol "postgresql"
                              :subname     "//iwap03:5432/calfire"
                              :user        "gjohnson"}))
+
+  ;; iwap02
+  (launch-calfire-monte-carlo-simulation
+   {:classname   "org.postgresql.Driver"
+    :subprotocol "postgresql"
+    :subname     "//iwap03:5432/calfire"
+    :user        "gjohnson"}
+   "/data/CALFIRE_MAP1_RUN6/outputs"
+   "/data/CALFIRE_MAP1_RUN6/inputs/wrf_cells_to_process.clj"
+   0 15000 100)
 
   ;; iwap03
   (launch-calfire-monte-carlo-simulation
@@ -2282,9 +2372,9 @@ This concludes our discussion of GridFire's command line interface.
     :subprotocol "postgresql"
     :subname     "//localhost:5432/calfire"
     :user        "gjohnson"}
-   "/data/CALFIRE_MAP1_RUN4/outputs"
-   "/data/CALFIRE_MAP1_RUN4/inputs/wrf_cells_to_process.clj"
-   0 40000 500)
+   "/data/CALFIRE_MAP1_RUN6/outputs"
+   "/data/CALFIRE_MAP1_RUN6/inputs/wrf_cells_to_process.clj"
+   0 2500 10)
 
   ;; iwap04
   (launch-calfire-monte-carlo-simulation
@@ -2292,9 +2382,9 @@ This concludes our discussion of GridFire's command line interface.
     :subprotocol "postgresql"
     :subname     "//iwap03:5432/calfire"
     :user        "gjohnson"}
-   "/data/CALFIRE_MAP1_RUN4/outputs"
-   "/data/CALFIRE_MAP1_RUN4/inputs/wrf_cells_to_process.clj"
-   40000 80000 500)
+   "/data/CALFIRE_MAP1_RUN6/outputs"
+   "/data/CALFIRE_MAP1_RUN6/inputs/wrf_cells_to_process.clj"
+   2500 5200 10)
 
   ;; iwap05
   (launch-calfire-monte-carlo-simulation
@@ -2302,7 +2392,7 @@ This concludes our discussion of GridFire's command line interface.
     :subprotocol "postgresql"
     :subname     "//iwap03:5432/calfire"
     :user        "gjohnson"}
-   "/data/CALFIRE_MAP1_RUN4/outputs"
-   "/data/CALFIRE_MAP1_RUN4/inputs/wrf_cells_to_process.clj"
-   80000 118780 500))
+   "/data/CALFIRE_MAP1_RUN6/outputs"
+   "/data/CALFIRE_MAP1_RUN6/inputs/wrf_cells_to_process.clj"
+   5200 7902 10))
 #+end_src

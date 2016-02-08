@@ -40,10 +40,11 @@
         critical-spread-rate         (/ 3.0 crown-bulk-density) ;; m/min
         criteria-for-active-crowning (/ active-spread-rate critical-spread-rate)]
     (m->ft
-     (if (>= active-spread-rate critical-spread-rate)
+     (if (> active-spread-rate critical-spread-rate)
        active-spread-rate
        (* active-spread-rate (Math/exp (- criteria-for-active-crowning)))))))
 
+;; heat of combustion is h from the fuel models (generally 8000 Btu/lb)
 (defn crown-fire-line-intensity
   "(ft/min * lb/ft^3 * ft * Btu/lb)/60 = (Btu/ft*min)/60 = Btu/ft*s"
   [crown-spread-rate crown-bulk-density canopy-height canopy-base-height heat-of-combustion]
