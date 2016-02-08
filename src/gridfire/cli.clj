@@ -38,11 +38,17 @@
                                  :crown-bulk-density
                                  :canopy-cover])]
     (-> landfire-layers
-        (update-in [:elevation          :matrix] (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
-        (update-in [:slope              :matrix] (fn [matrix] (m/emap #(Math/tan (degrees-to-radians %)) matrix))) ; degrees -> %
-        (update-in [:canopy-height      :matrix] (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
-        (update-in [:canopy-base-height :matrix] (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
-        (update-in [:crown-bulk-density :matrix] (fn [matrix] (m/emap #(* % 0.0624) matrix)))))) ; kg/m^3 -> lb/ft^3
+        (update-in [:elevation :matrix]
+                   (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
+        (update-in [:slope :matrix]
+                   (fn [matrix] (m/emap #(Math/tan (degrees-to-radians %)) matrix)))
+                   ; degrees -> %
+        (update-in [:canopy-height :matrix]
+                   (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
+        (update-in [:canopy-base-height :matrix]
+                   (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
+        (update-in [:crown-bulk-density :matrix]
+                   (fn [matrix] (m/emap #(* % 0.0624) matrix)))))) ; kg/m^3 -> lb/ft^3
 
 (defn -main
   [config-file]
@@ -82,6 +88,8 @@
       (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
                             ["flame_length"        :flame-length-matrix]
                             ["fire_line_intensity" :fire-line-intensity-matrix]]]
-        (save-matrix-as-png :color 4 -1.0 (fire-spread-results layer) (str name (:outfile-suffix config) ".png"))))
+        (save-matrix-as-png :color 4 -1.0
+                            (fire-spread-results layer)
+                            (str name (:outfile-suffix config) ".png"))))
     (println "Global Clock:" (:global-clock fire-spread-results))
     (println "Ignited Cells:" (count (:ignited-cells fire-spread-results)))))

@@ -1,5 +1,4 @@
-(ns gridfire.crown-fire
-  (:require [gridfire.surface-fire :refer [byram-fire-line-intensity byram-flame-length]]))
+(ns gridfire.crown-fire)
 
 (defn ft->m [ft] (* 0.3048 ft))
 
@@ -36,7 +35,8 @@
         active-spread-rate           (* 11.02
                                         (Math/pow wind-speed-10m 0.90)
                                         (Math/pow crown-bulk-density 0.19)
-                                        (Math/exp (* -0.17 estimated-fine-fuel-moisture))) ;; m/min
+                                        (Math/exp (* -0.17 estimated-fine-fuel-moisture)))
+                                        ;; m/min
         critical-spread-rate         (/ 3.0 crown-bulk-density) ;; m/min
         criteria-for-active-crowning (/ active-spread-rate critical-spread-rate)]
     (m->ft

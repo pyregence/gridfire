@@ -180,7 +180,8 @@
     ;; sheltered WAF
     (and (pos? canopy-cover)
          (pos? canopy-height))
-    (* (/ 1.0 (Math/log (/ (+ 20.0 (* 0.36 (/ canopy-height 0.3048))) (* 0.13 (/ canopy-height 0.3048)))))
+    (* (/ 1.0 (Math/log (/ (+ 20.0 (* 0.36 (/ canopy-height 0.3048)))
+                           (* 0.13 (/ canopy-height 0.3048)))))
        (/ 0.555 (Math/sqrt (* (/ canopy-cover 3.0) (/ canopy-height 0.3048)))))
 
     ;; unsheltered WAF

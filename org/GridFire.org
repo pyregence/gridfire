@@ -951,7 +951,8 @@ cover percentage (0-100).
     ;; sheltered WAF
     (and (pos? canopy-cover)
          (pos? canopy-height))
-    (* (/ 1.0 (Math/log (/ (+ 20.0 (* 0.36 (/ canopy-height 0.3048))) (* 0.13 (/ canopy-height 0.3048)))))
+    (* (/ 1.0 (Math/log (/ (+ 20.0 (* 0.36 (/ canopy-height 0.3048)))
+                           (* 0.13 (/ canopy-height 0.3048)))))
        (/ 0.555 (Math/sqrt (* (/ canopy-cover 3.0) (/ canopy-height 0.3048)))))
 
     ;; unsheltered WAF
@@ -1176,28 +1177,25 @@ become an active or passive crown fire or simply remain a surface
 fire. The formulas for these thresholds are as follows:
 
 \begin{align*}
-  H &= 197.8 + 1118 M^{f} \\
-  I^{*} &= (0.002048 \, Z_{b} \, H)^{1.5} \\
-  R^{*} &= \frac{0.61445}{B}
+  H &= 460 + 2600 M^{f} \\
+  I^{*} &= (0.01 \, Z_{b} \, H)^{1.5} \\
+  R^{*} &= \frac{3.0}{B_{m}}
 \end{align*}
 
 where $H$ is the heat of ignition for the herbaceous material in the
-canopy in Btu/lb, $M^{f}$ is the foliar moisture content in lb
-moisture/lb ovendry mass, $Z_{b}$ is the canopy base height in ft,
-$I^{*}$ is the critical intensity in Btu/ft/s, $B$ is the crown bulk
-density in lb/ft^{3}, and $R^{*}$ is the critical spread rate in
-ft/min.
+canopy in kJ/kg, $M^{f}$ is the foliar moisture content in lb
+moisture/lb ovendry weight, $Z_{b}$ is the canopy base height in
+meters, $I^{*}$ is the critical intensity in kW/m, $B_{m}$ is the
+crown bulk density in kg/m^{3}, and $R^{*}$ is the critical spread
+rate in m/min.
 
-If trees are present and the surface fire line intensity is greater
-than the critical intensity ($I > I^{*}$), then crown fire initiation
-occurs. If the surface fire spread rate is greater than the critical
-spread rate ($R > R^{*}$), then the crown fire will be active,
-otherwise passive.
+If the canopy cover is greater than 40% and the surface fire line
+intensity is greater than the critical intensity ($I > I^{*}$), then
+crown fire initiation occurs.
 
 #+name: van-wagner-crown-fire-initiation
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/crown_fire.clj :padline no
-(ns gridfire.crown-fire
-  (:require [gridfire.surface-fire :refer [byram-fire-line-intensity byram-flame-length]]))
+(ns gridfire.crown-fire)
 
 (defn ft->m [ft] (* 0.3048 ft))
 
@@ -1217,25 +1215,24 @@ otherwise passive.
            (< fire-line-intensity))))
 #+end_src
 
-If the fire is deemed to be an active or passive crown fire, then the
-spread rate is determined by the formulas given in Cruz
+If crowning occurs, then the active and passive crown fire spread
+rates are calculated from the formulas given in Cruz
 2005.\citep{Cruz2005}
 
 \begin{align*}
-  \textrm{CROS}_{A} &= 36.155 \> U_{10m}^{0.90} \> B_{m}^{0.19} \> e^{-0.17 \, \textrm{EFFM}} \\
-  \textrm{CROS}_{P} &= \textrm{CROS}_{A} \> e^{\frac{\textrm{CROS}_{A} B}{-0.61445}}
+  \textrm{CROS}_{A} &= 11.02 \> U_{10m}^{0.90} \> B_{m}^{0.19} \> e^{-0.17 \, \textrm{EFFM}} \\
+  \textrm{CROS}_{P} &= \textrm{CROS}_{A} \> e^{\frac{-\textrm{CROS}_{A}}{R^{*}}}
 \end{align*}
 
 where $\textrm{CROS}_{A}$ is the active crown fire spread rate in
-ft/min, $U_{10m}$ is the 10 meter windspeed in km/hr, $B_{m}$ is the
-crown bulk density in kg/m^{3}, $B$ is the crown bulk density in
-lb/ft^{3}, EFFM is the estimated fine fuel moisture as a percent
-(0-100), and $\textrm{CROS}_{P}$ is the passive crown fire spread rate
-in ft/min.
+m/min, $U_{10m}$ is the 10 meter windspeed in km/hr, $B_{m}$ is the
+crown bulk density in kg/m^{3}, EFFM is the estimated fine fuel
+moisture as a percent (0-100), and $\textrm{CROS}_{P}$ is the passive
+crown fire spread rate in m/min.
 
-*Note:* The coefficients 36.155 and -0.61445 do not correspond
-directly to those given in Cruz 2005 because the units in GridFire's
-calculations have been converted from metric to English units.
+If the active crown fire spread rate is greater than the critical
+spread rate ($\textrm{CROS}_{A} > R^{*}$), then the crown fire will be
+active, otherwise passive.
 
 #+name: cruz-crown-fire-spread
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/crown_fire.clj
@@ -1257,7 +1254,8 @@ calculations have been converted from metric to English units.
         active-spread-rate           (* 11.02
                                         (Math/pow wind-speed-10m 0.90)
                                         (Math/pow crown-bulk-density 0.19)
-                                        (Math/exp (* -0.17 estimated-fine-fuel-moisture))) ;; m/min
+                                        (Math/exp (* -0.17 estimated-fine-fuel-moisture)))
+                                        ;; m/min
         critical-spread-rate         (/ 3.0 crown-bulk-density) ;; m/min
         criteria-for-active-crowning (/ active-spread-rate critical-spread-rate)]
     (m->ft
@@ -1939,12 +1937,12 @@ follows:
 
 #+name: run-gridfire-jar
 #+begin_src sh :results silent :exports code
-java -jar gridfire-1.0.0.jar myconfig.clj
+java -jar gridfire-1.2.0.jar myconfig.clj
 #+end_src
 
-*Note:* Boot creates a JAR called ``gridfire-1.0.0.jar''. Leiningen
-creates two files: ``gridfire-1.0.0.jar'' and
-``gridfire-1.0.0-standalone.jar''. In this case, the standalone JAR
+*Note:* Boot creates a JAR called ``gridfire-1.2.0.jar''. Leiningen
+creates two files: ``gridfire-1.2.0.jar'' and
+``gridfire-1.2.0-standalone.jar''. In this case, the standalone JAR
 should be used, and the other JAR file may be safely ignored.
 
 When run, the executable connects to the PostGIS database specified in
@@ -1959,9 +1957,10 @@ Which maps are created (and in what formats) may be configured by
 setting the following options in GridFire's input config.clj file to
 true or false:
 
-- :output-landfire-inputs?
-- :output-geotiffs?
-- :output-pngs?
+#+ATTR_LATEX: :options \setlength{\itemsep}{-3mm}
+1. :output-landfire-inputs?
+2. :output-geotiffs?
+3. :output-pngs?
 
 #+name: command-line-interface
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/cli.clj :padline no
@@ -2005,11 +2004,17 @@ true or false:
                                  :crown-bulk-density
                                  :canopy-cover])]
     (-> landfire-layers
-        (update-in [:elevation          :matrix] (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
-        (update-in [:slope              :matrix] (fn [matrix] (m/emap #(Math/tan (degrees-to-radians %)) matrix))) ; degrees -> %
-        (update-in [:canopy-height      :matrix] (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
-        (update-in [:canopy-base-height :matrix] (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
-        (update-in [:crown-bulk-density :matrix] (fn [matrix] (m/emap #(* % 0.0624) matrix)))))) ; kg/m^3 -> lb/ft^3
+        (update-in [:elevation :matrix]
+                   (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
+        (update-in [:slope :matrix]
+                   (fn [matrix] (m/emap #(Math/tan (degrees-to-radians %)) matrix)))
+                   ; degrees -> %
+        (update-in [:canopy-height :matrix]
+                   (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
+        (update-in [:canopy-base-height :matrix]
+                   (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
+        (update-in [:crown-bulk-density :matrix]
+                   (fn [matrix] (m/emap #(* % 0.0624) matrix)))))) ; kg/m^3 -> lb/ft^3
 
 (defn -main
   [config-file]
@@ -2049,7 +2054,9 @@ true or false:
       (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
                             ["flame_length"        :flame-length-matrix]
                             ["fire_line_intensity" :fire-line-intensity-matrix]]]
-        (save-matrix-as-png :color 4 -1.0 (fire-spread-results layer) (str name (:outfile-suffix config) ".png"))))
+        (save-matrix-as-png :color 4 -1.0
+                            (fire-spread-results layer)
+                            (str name (:outfile-suffix config) ".png"))))
     (println "Global Clock:" (:global-clock fire-spread-results))
     (println "Ignited Cells:" (count (:ignited-cells fire-spread-results)))))
 #+end_src
