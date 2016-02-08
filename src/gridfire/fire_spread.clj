@@ -92,10 +92,9 @@
 (defn compute-neighborhood-fire-spread-rates!
   "Returns a vector of {:cell [i j], :trajectory [di dj], :terrain-distance ft,
   :spread-rate ft/min} for each cell adjacent to here."
-  [fire-spread-matrix flame-length-matrix fire-line-intensity-matrix
-   landfire-layers wind-speed-20ft wind-from-direction fuel-moisture foliar-moisture
-   ellipse-adjustment-factor cell-size num-rows num-cols global-clock [i j :as here]
-   overflow-trajectory overflow-heat]
+  [fire-spread-matrix landfire-layers wind-speed-20ft wind-from-direction fuel-moisture
+   foliar-moisture ellipse-adjustment-factor cell-size num-rows num-cols global-clock
+   [i j :as here] overflow-trajectory overflow-heat]
   (let [fuel-model-number   (m/mget (:fuel-model         landfire-layers) i j)
         slope               (m/mget (:slope              landfire-layers) i j)
         aspect              (m/mget (:aspect             landfire-layers) i j)
@@ -221,8 +220,6 @@
        (loop [global-clock  0.0
               ignited-cells {initial-ignition-site (compute-neighborhood-fire-spread-rates!
                                                     fire-spread-matrix
-                                                    flame-length-matrix
-                                                    fire-line-intensity-matrix
                                                     landfire-layers
                                                     wind-speed-20ft
                                                     wind-from-direction
@@ -275,8 +272,6 @@
                                    :when (burnable-neighbors? fire-spread-matrix fuel-model-matrix num-rows num-cols cell)]
                                [cell (compute-neighborhood-fire-spread-rates!
                                       fire-spread-matrix
-                                      flame-length-matrix
-                                      fire-line-intensity-matrix
                                       landfire-layers
                                       wind-speed-20ft
                                       wind-from-direction
