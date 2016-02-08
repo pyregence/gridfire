@@ -174,6 +174,11 @@ BOOT_VERSION=2.5.5
   "Build my project."
   []
   (comp (aot) (pom) (uber) (jar)))
+
+(deftask testing
+  "Automatically run tests after each file save."
+  []
+  (comp (watch) (speak) (test)))
 #+end_src
 
 To download all the required dependencies and launch a REPL to follow

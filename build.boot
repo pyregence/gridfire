@@ -33,4 +33,4 @@
 (deftask testing
   "Automatically run tests after each file save."
   []
-  (comp (boot) (watch) (speak) (test)))
+  (comp (watch) (speak) (test)))
