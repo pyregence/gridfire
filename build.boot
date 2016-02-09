@@ -1,7 +1,7 @@
 (task-options!
  pom  {:project     'sig-gis/gridfire
        :version     "1.2.0"
-       :description "SIG's Raster-based Fire Spread and Severity Model"}
+       :description "SIG's Raster-based Fire Behavior Model"}
  repl {:eval        '(set! *warn-on-reflection* true)
        :init-ns     'gridfire.cli}
  aot  {:namespace   '#{gridfire.cli}}

@@ -1,4 +1,4 @@
-#+TITLE: The GridFire Fire Spread and Severity Model
+#+TITLE: The GridFire Fire Behavior Model
 #+AUTHOR: Gary W. Johnson, Ph.D., David Saah, Ph.D., Max Moritz, Ph.D.
 #+DATE: Copyright 2011-2016 Spatial Informatics Group, LLC
 #+OPTIONS: ^:{} toc:nil h:3
@@ -97,7 +97,7 @@ shown below.
 #+name: project.clj
 #+begin_src clojure :results silent :exports code :tangle ../project.clj :padline no
 (defproject sig-gis/gridfire "1.2.0"
-  :description      "SIG's Raster-based Fire Spread and Severity Model"
+  :description      "SIG's Raster-based Fire Behavior Model"
   :dependencies     [[org.clojure/clojure                 "1.7.0"]
                      [org.clojure/data.csv                "0.1.3"]
                      [org.clojure/java.jdbc               "0.4.2"]
@@ -146,7 +146,7 @@ BOOT_VERSION=2.5.5
 (task-options!
  pom  {:project     'sig-gis/gridfire
        :version     "1.2.0"
-       :description "SIG's Raster-based Fire Spread and Severity Model"}
+       :description "SIG's Raster-based Fire Behavior Model"}
  repl {:eval        '(set! *warn-on-reflection* true)
        :init-ns     'gridfire.cli}
  aot  {:namespace   '#{gridfire.cli}}
@@ -1117,9 +1117,9 @@ ft/min for $U_{\textrm{eff}}$.
 #+end_src
 
 Using these surface fire spread rate and reaction intensity values, we
-next calculate fire severity values by applying Anderson's flame depth
-formula and Byram's fire line intensity and flame length equations as
-described below.\citep{Anderson1969,Byram1959}
+next calculate fire intensity values by applying Anderson's flame
+depth formula and Byram's fire line intensity and flame length
+equations as described below.\citep{Anderson1969,Byram1959}
 
 \begin{align*}
   t &= \frac{384}{\sigma} \\
@@ -1135,7 +1135,7 @@ the flame depth in ft, $I_{R}$ is the reaction intensity in
 Btu/ft^{2}/min, $I$ is the fire line intensity in Btu/ft/s, and $L$ is
 the flame length in ft.
 
-#+name: surface-fire-severity-formulas
+#+name: surface-fire-intensity-formulas
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/surface_fire.clj
 (defn anderson-flame-depth
   "Returns the depth, or front-to-back distance, of the actively flaming zone
@@ -1159,17 +1159,17 @@ the flame length in ft.
   (* 0.45 (Math/pow fire-line-intensity 0.46)))
 #+end_src
 
-This concludes our coverage of the surface fire spread and severity
-equations implemented in GridFire. In Section [[Fire Spread on a Raster
-Grid]], these formulas will be translated from one-dimension to
+This concludes our coverage of the surface fire behavior equations
+implemented in GridFire. In Section [[Fire Spread on a Raster Grid]],
+these formulas will be translated from one-dimension to
 two-dimensional spread on a raster grid. Before we move on to that,
-however, the following section explains how crown fire spread and
-severity metrics are incorporated into our model.
+however, the following section explains how crown fire behavior
+metrics are incorporated into our model.
 
 ** Crown Fire Formulas
 
-In order to incorporate the effects of crown fire spread and severity,
-GridFire includes the crown fire initiation routine from Van Wagner
+In order to incorporate the effects of crown fire behavior, GridFire
+includes the crown fire initiation routine from Van Wagner
 1977.\citep{VanWagner1977} According to this approach, there are two
 threshold values (/critical intensity/ and /critical spread rate/)
 that must be calculated in order to determine whether a fire will
@@ -1352,8 +1352,8 @@ elliptical or circular respectively.\citep{Peterson2009}
          8.0)))
 #+end_src
 
-This concludes our discussion of the crown fire spread and severity
-formulas used in GridFire.
+This concludes our discussion of the crown fire behavior formulas used
+in GridFire.
 
 ** Fire Spread on a Raster Grid
 
