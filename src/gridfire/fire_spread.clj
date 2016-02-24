@@ -136,11 +136,12 @@
                                        0.0))}))
 
 (defn compute-neighborhood-fire-spread-rates!
-  "Returns a vector of {:cell [i j], :trajectory [di dj], :terrain-distance ft,
-  :spread-rate ft/min} for each cell adjacent to here."
+  "Returns a vector of entries of the form {:cell [i j], :trajectory [di dj],
+  :terrain-distance ft, :spread-rate ft/min, :fire-line-intensity Btu/ft/s, :flame-length ft,
+  :fractional-distance [0-1]}, one for each cell adjacent to here."
   [fire-spread-matrix landfire-layers wind-speed-20ft wind-from-direction fuel-moisture
-   foliar-moisture ellipse-adjustment-factor cell-size num-rows num-cols global-clock
-   [i j :as here] overflow-trajectory overflow-heat]
+   foliar-moisture ellipse-adjustment-factor cell-size num-rows num-cols [i j :as here]
+   overflow-trajectory overflow-heat]
   (let [fuel-model-number   (m/mget (:fuel-model         landfire-layers) i j)
         slope               (m/mget (:slope              landfire-layers) i j)
         aspect              (m/mget (:aspect             landfire-layers) i j)
@@ -195,7 +196,8 @@
              {:keys [cell trajectory terrain-distance spread-rate flame-length
                      fire-line-intensity fractional-distance]} destinations]
          (let [new-spread-fraction (/ (* spread-rate timestep) terrain-distance)
-               new-total           (vreset! fractional-distance (+ @fractional-distance new-spread-fraction))]
+               new-total           (vreset! fractional-distance
+                                            (+ @fractional-distance new-spread-fraction))]
            (if (>= new-total 1.0)
              {:cell cell :trajectory trajectory :fractional-distance @fractional-distance
               :flame-length flame-length :fire-line-intensity fire-line-intensity})))
@@ -203,6 +205,35 @@
        (group-by :cell)
        (map (fn [[cell trajectories]] (apply max-key :fractional-distance trajectories)))
        (into [])))
+
+(defn update-ignited-cells
+  [ignited-cells ignition-events fire-spread-matrix fuel-model-matrix landfire-layers
+   wind-speed-20ft wind-from-direction fuel-moisture foliar-moisture ellipse-adjustment-factor
+   cell-size num-rows num-cols]
+  (let [newly-ignited-cells (into #{} (map :cell) ignition-events)]
+    (into {}
+          (concat
+           (for [[cell spread-info] ignited-cells
+                 :when (burnable-neighbors? fire-spread-matrix fuel-model-matrix
+                                            num-rows num-cols cell)]
+             [cell (remove #(contains? newly-ignited-cells (:cell %)) spread-info)])
+           (for [{:keys [cell trajectory fractional-distance]} ignition-events
+                 :when (burnable-neighbors? fire-spread-matrix fuel-model-matrix
+                                            num-rows num-cols cell)]
+             [cell (compute-neighborhood-fire-spread-rates!
+                    fire-spread-matrix
+                    landfire-layers
+                    wind-speed-20ft
+                    wind-from-direction
+                    fuel-moisture
+                    foliar-moisture
+                    ellipse-adjustment-factor
+                    cell-size
+                    num-rows
+                    num-cols
+                    cell
+                    trajectory
+                    (- fractional-distance 1.0))])))))
 
 (defn run-fire-spread
   "Runs the raster-based fire spread model with these arguments:
@@ -258,7 +289,6 @@
                                                     cell-size
                                                     num-rows
                                                     num-cols
-                                                    global-clock
                                                     initial-ignition-site
                                                     nil
                                                     0.0)}]
@@ -281,33 +311,15 @@
                  (m/mset! fire-spread-matrix         i j 1.0)
                  (m/mset! flame-length-matrix        i j flame-length)
                  (m/mset! fire-line-intensity-matrix i j fire-line-intensity)))
-             (let [newly-ignited-cells (into #{} (map :cell) ignition-events)]
-               (recur (+ global-clock timestep)
-                      (into {}
-                            (concat
-                             (for [[cell spread-info] ignited-cells
-                                   :when (burnable-neighbors? fire-spread-matrix fuel-model-matrix num-rows num-cols cell)]
-                               [cell (remove #(contains? newly-ignited-cells (:cell %)) spread-info)])
-                             (for [{:keys [cell trajectory fractional-distance]} ignition-events
-                                   :when (burnable-neighbors? fire-spread-matrix fuel-model-matrix num-rows num-cols cell)]
-                               [cell (compute-neighborhood-fire-spread-rates!
-                                      fire-spread-matrix
-                                      landfire-layers
-                                      wind-speed-20ft
-                                      wind-from-direction
-                                      fuel-moisture
-                                      foliar-moisture
-                                      ellipse-adjustment-factor
-                                      cell-size
-                                      num-rows
-                                      num-cols
-                                      global-clock
-                                      cell
-                                      trajectory
-                                      (- fractional-distance 1.0))]))))))
+             (recur (+ global-clock timestep)
+                    (update-ignited-cells ignited-cells ignition-events fire-spread-matrix
+                                          fuel-model-matrix landfire-layers wind-speed-20ft
+                                          wind-from-direction fuel-moisture foliar-moisture
+                                          ellipse-adjustment-factor cell-size num-rows
+                                          num-cols)))
            {:global-clock               global-clock
             :initial-ignition-site      initial-ignition-site
-            :ignited-cells              ignited-cells
+            :ignited-cells              (keys ignited-cells)
             :fire-spread-matrix         fire-spread-matrix
             :flame-length-matrix        flame-length-matrix
             :fire-line-intensity-matrix fire-line-intensity-matrix}))))))

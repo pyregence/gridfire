@@ -215,8 +215,6 @@
      :effective-wind-speed max-wind-speed}
     spread-properties))
 
-;; Chris recently implemented L/W = 1 + 0.125 * U20
-;; Morais2001 implements L/W = 1 + 0.5592 * U_eff, with U_eff in m/s
 (defn add-eccentricity
   [{:keys [effective-wind-speed] :as spread-properties} ellipse-adjustment-factor]
   (let [length-width-ratio (+ 1.0 (* 0.002840909

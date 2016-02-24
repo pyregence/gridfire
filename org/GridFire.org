@@ -1021,8 +1021,6 @@ ft/min for $U_{\textrm{eff}}$.
      :effective-wind-speed max-wind-speed}
     spread-properties))
 
-;; Chris recently implemented L/W = 1 + 0.125 * U20
-;; Morais2001 implements L/W = 1 + 0.5592 * U_eff, with U_eff in m/s
 (defn add-eccentricity
   [{:keys [effective-wind-speed] :as spread-properties} ellipse-adjustment-factor]
   (let [length-width-ratio (+ 1.0 (* 0.002840909
@@ -1422,101 +1420,149 @@ pseudo-code lays out the steps taken in this procedure:
       Otherwise, terminate the simulation, indicating that no fire
       spread is possible.
 
-   2. Create a new set, called *ignited-cells*, containing only the
+   2. Create three new matrices, called *fire-spread-matrix*,
+      *flame-length-matrix*, and *fire-line-intensity-matrix*. All
+      three are initialized to zero except for a value of 1 at the
       *initial-ignition-site*.
 
-   3. Create three new matrices, called *ignition-matrix*,
-      *flame-length-matrix*, and *fire-line-intensity-matrix*. The
-      first contains all ones except for a zero at
-      *initial-ignition-site*, and the other two are initialized to
-      zero.
-
-   4. Set *global-clock* to 0. This will track the amount of time that
+   3. Set *global-clock* to 0. This will track the amount of time that
       has passed since the initial ignition in minutes.
 
-3. Main Loop
+   4. Create a new hash-map, called *ignited-cells*, which maps the
+      *initial-ignition-site* to a set of trajectories into each of
+      its burnable neighbors. See ``Computing Burn Trajectories''
+      below for the steps used in this procedure.
 
-   1. If *global-clock* has not yet reached *max-runtime* and the
-      *ignited-cells* set is not empty, proceed to 3.(b). Otherwise,
-      jump to 4.(a).
+3. Computing Burn Trajectories
 
-   2. For each location in the *ignited-cells* set, compute the
-      maximum rate of spread (and bearing) originating from it using
-      the Rothermel equations and taking into account the effects of
-      downhill and cross-slope winds as described in Rothermel 1983.
-      This spread rate is used to compute Byram's surface fire line
-      intensity. Van Wagner's crown initiation model is then applied
-      to determine if the fire will be a passive or active crown fire
-      or remain a surface fire. In the surface fire case, the Byram
-      flame length is calculated from the fire line intensity. In the
-      case of a passive crown fire, Cruz' passive crown fire spread
-      rate is used and the flame length is computed from the sum of
-      the surface and crown fire line intensities. In the active crown
-      fire case, Cruz' active crown fire spread rate is used and the
-      flame length is computed from the sum of the surface and crown
-      fire line intensities. These values are stored in
-      *flame-length-matrix* and *fire-line-intensity-matrix*
-      respectively. *Note:* The *wind-speed-20-ft* value is multiplied
-      by Albini and Baughman's wind adjustment factor to compute the
-      midflame wind speed, using the same sheltered/unsheltered
-      condition as FARSITE (i.e., sheltered means canopy cover $> 0$).
-      For every burnable neighboring cell, compute the spread rate
-      along its trajectory using Anderson's elliptical eccentricity
-      formula. Also record the terrain (e.g., 3d) distance between
-      this cell and its neighbor. The set of all burnable neighbors
-      with respect to the *ignited-cells* set is called the
-      *burn-front*.
+   1. Look up the fuel model, slope, aspect, canopy height, canopy
+      base height, crown bulk density, and canopy cover associated
+      with the ignited cell in the input matrices.
 
-   3. The timestep for this iteration of the model is calculated by
-      dividing *cell-size* by the maximum spread rate to any cell in
-      the *burn-front*. As spread rates increase, the timesteps grow
-      shorter and the model takes more iterations to complete.
-      Similarly, the model has longer timesteps and takes less
-      iterations as spread rates decrease. This is called the /method
-      of adaptive timesteps/.
+   2. Calculate the dead herbaceous size class parameters, live
+      moisture of extinction, and size class weighting factors for
+      this fuel model.
 
-   4. The *percent-heated* is calculated for each cell along the
-      *burn-front* as $Rt/D_{3d}$, where $R$ is the spread rate in
-      ft/minute, $t$ is the timestep in minutes, and $D_{3d}$ is the
-      3-dimensional terrain distance between this cell and its ignited
-      neighbor in ft. This is the /method of fractional distances/,
-      which works together with the adaptive timesteps method
-      mentioned above to reduce aliasing errors induced by working on
-      a raster grid. Because each cell in the *burn-front* may have
-      multiple ignited neighbors, only the maximum *percent-heated*
-      value will be retained. The final *percent-heated* is subtracted
-      from this cell's value in *ignition-matrix* with a minimum value
-      of zero allowed in the matrix.
+   3. Use the Rothermel equations to calculate the minimum surface
+      rate of spread (i.e., wind = slope = 0) leaving this cell.
 
-   5. Any cells in *burn-front* whose *percent-heated* values exceed
-      their *ignition-matrix* values generate an overflow vector which
-      pass on the additional heating capacity (i.e.,
-      abs(*ignition-matrix* - *percent-heated*)) to the next cell
-      along the same trajectory that the *burn-front* cell was heated.
-      Since overflow cells may receive multiple heating trajectories,
-      only the maximum overflow is retained.
+   4. Compute Albini and Baughman's wind adjustment factor for this
+      cell using the fuel bed depth, canopy height, and canopy cover.
+      Multiply this value by the 20-ft wind speed to derive the local
+      midflame wind speed.
 
-   6. Any cells in *burn-front* whose *ignition-matrix* values have
-      reached zero are added to the *ignited-cells* set. Any
-      *ignited-cells* that have no burnable neighbors that have not
-      already been ignited are removed from the *ignited-cells* set.
+   5. Calculate the maximum surface rate of spread (and bearing)
+      originating from this cell using the Rothermel equations and
+      taking into account the effects of downhill and cross-slope
+      winds as described in Rothermel 1983.
 
-   7. The *global-clock* is incremented by this iteration's
-      *timestep*.
+   6. Use the Cruz formulas to calculate the maximum crown fire spread
+      rate from the 20-ft wind speed, crown bulk density, and dead
+      1-hr fuel moisture.
 
-   8. Repeat from 3.(a).
+   7. Determine the surface and crown elliptical eccentricities by
+      calculating their length-to-width ratios using the equations
+      from Rothermel 1991.
 
-4. Post-processing
+   8. For each burnable neighboring cell:
 
-   1. If any cells remain in *ignited-cells*, ensure that their fire
-      behavior metrics have been calculated and stored in
-      *flame-length-matrix* and *fire-line-intensity-matrix*.
+      1. Use the eccentricity values to determine the possible surface
+         and crown rates of spread into it from the ignited cell.
 
-   2. Invert the values in *ignition-matrix* by subtracting each of
-      them from 1. By doing this, all burned cells will contain a 1,
-      non-burned cells have a 0 value, and those being heated by the
-      fire line but not yet ignited will have a value somewhere in
-      between.
+      2. Compute Byram's surface fire line intensity and Rothermel's
+         crown intensity from these spread rates.
+
+      3. Apply Van Wagner's crown initiation model to determine if the
+         fire will be a passive or active crown fire or remain a
+         surface fire.
+
+      4. In the surface fire case, the spread rate into this neighbor
+         will simply be the surface spread rate calculated above. The
+         fire line intensity is the surface fire line intensity, and
+         the flame length is calculated from this intensity value
+         using Byram's relation.
+
+      5. In the case of a crown fire, the spread rate into this
+         neighbor will be the maximum of the surface and crown spread
+         rates. The fire line intensity is the sum of the surface and
+         crown intensities, and the flame length is once again
+         computed from Byram's relation.
+
+      6. Store this neighboring cell, the bearing to it from the
+         ignited cell, and the spread rate, fire line intensity, and
+         flame length values computed above in a burn trajectory
+         record. Also include the terrain (e.g., 3d) distance between
+         this cell and the ignited cell. Finally, set its
+         *fractional-distance* value to be 0, or in the event that
+         this bearing matches an overflow bearing from a previous
+         iteration, set it to the *overflow-heat* value.
+
+   9. Return a collection of burn trajectory records, one per burnable
+      neighboring cell.
+
+4. Main Loop
+
+   1. If *global-clock* has not yet reached *max-runtime* and
+      *ignited-cells* is not empty, proceed to 4.(b). Otherwise, jump
+      to 5.(a).
+
+   2. The timestep for this iteration of the model is calculated by
+      dividing *cell-size* by the maximum spread rate into any cell
+      from those cells in the *ignited-cells* map. As spread rates
+      increase, the timesteps grow shorter and the model takes more
+      iterations to complete. Similarly, the model has longer
+      timesteps and takes less iterations as spread rates decrease.
+      This is called the /method of adaptive timesteps/.
+
+   3. If the timestep calculated in 4.(b) would cause the
+      *global-clock* to exceed the max-runtime, then the timestep is
+      set to the difference between *max-runtime* and *global-clock*.
+
+   4. For each burn trajectory in *ignited-cells*:
+
+      1. Multiply the spread rate (ft/min) by the timestep (min) to
+         get the distance traveled by the fire (ft) along this path
+         during this iteration.
+
+      2. Divide this distance traveled by the terrain distance between
+         these two cells to get the new spread fraction $\in [0,1]$
+         and increment the *fractional-distance* associated with the
+         trajectory by this value.
+
+      3. If the new *fractional-distance* is greater than or equal to
+         1, append this updated burn trajectory record to a list
+         called *ignition-events*.
+
+   5. If more than one trajectory in *ignition-events* shares the same
+      target cell, retain only the trajectory with the largest
+      *fractional-distance* value.
+
+   6. For each trajectory in *ignition-events*:
+
+      1. Set the target cell's value to 1 in *fire-spread-matrix*,
+         *flame-length* in *flame-length-matrix*, and
+         *fire-line-intensity* in *fire-line-intensity-matrix*.
+
+      2. If the target cell has any burnable neighbors, append an
+         entry to *ignited-cells*, mapping this cell to each of the
+         burn trajectories emanating from it, which are calculated by
+         following the steps in section ``Computing Burn
+         Trajectories'' above. If its *fractional-distance* value is
+         greater than 1, add the overflow amount above 1 to the
+         outgoing trajectory with the same bearing along which this
+         cell was ignited. That is, if this cell was ignited by a
+         neighbor to the southeast, then pass any overflow heat onto
+         the trajectory leading to the northwest.
+
+   7. Remove any trajectories from *ignited-cells* that have as their
+      targets any of the cells in *ignition-events*.
+
+   8. Remove any cells from *ignited-cells* that no longer have any
+      burnable neighbors.
+
+   9. Increment the *global-clock* by this iteration's *timestep*.
+
+   10. Repeat from 4.(a).
 
 5. Outputs
 
@@ -1526,16 +1572,16 @@ pseudo-code lays out the steps taken in this procedure:
    #+NAME: tab:fire-model-outputs
    #+CAPTION: Outputs from SIG's raster-based fire behavior model
    #+ATTR_LATEX: :align |l|l|l| :font \small
-   |----------------------------+----------------------------------------+-----------------------------|
-   | Value                      | Units                                  | Type                        |
-   |----------------------------+----------------------------------------+-----------------------------|
-   | global-clock               | minutes                                | double                      |
-   | initial-ignition-site      | point represented as [row col]         | vector                      |
-   | ignited-cells              | set of points represented as [row col] | set                         |
-   | fire-spread-matrix         | percent heated (0-1)                   | core.matrix 2D double array |
-   | flame-length-matrix        | feet                                   | core.matrix 2D double array |
-   | fire-line-intensity-matrix | Btu/ft/s                               | core.matrix 2D double array |
-   |----------------------------+----------------------------------------+-----------------------------|
+   |----------------------------+-----------------------------------------+-----------------------------|
+   | Value                      | Units                                   | Type                        |
+   |----------------------------+-----------------------------------------+-----------------------------|
+   | global-clock               | minutes                                 | double                      |
+   | initial-ignition-site      | point represented as [row col]          | vector                      |
+   | ignited-cells              | list of points represented as [row col] | list of vectors             |
+   | fire-spread-matrix         | [0,1]                                   | core.matrix 2D double array |
+   | flame-length-matrix        | feet                                    | core.matrix 2D double array |
+   | fire-line-intensity-matrix | Btu/ft/s                                | core.matrix 2D double array |
+   |----------------------------+-----------------------------------------+-----------------------------|
 
 #+name: fire-spread-algorithm
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fire_spread.clj :padline no
@@ -1677,11 +1723,12 @@ pseudo-code lays out the steps taken in this procedure:
                                        0.0))}))
 
 (defn compute-neighborhood-fire-spread-rates!
-  "Returns a vector of {:cell [i j], :trajectory [di dj], :terrain-distance ft,
-  :spread-rate ft/min} for each cell adjacent to here."
+  "Returns a vector of entries of the form {:cell [i j], :trajectory [di dj],
+  :terrain-distance ft, :spread-rate ft/min, :fire-line-intensity Btu/ft/s, :flame-length ft,
+  :fractional-distance [0-1]}, one for each cell adjacent to here."
   [fire-spread-matrix landfire-layers wind-speed-20ft wind-from-direction fuel-moisture
-   foliar-moisture ellipse-adjustment-factor cell-size num-rows num-cols global-clock
-   [i j :as here] overflow-trajectory overflow-heat]
+   foliar-moisture ellipse-adjustment-factor cell-size num-rows num-cols [i j :as here]
+   overflow-trajectory overflow-heat]
   (let [fuel-model-number   (m/mget (:fuel-model         landfire-layers) i j)
         slope               (m/mget (:slope              landfire-layers) i j)
         aspect              (m/mget (:aspect             landfire-layers) i j)
@@ -1736,7 +1783,8 @@ pseudo-code lays out the steps taken in this procedure:
              {:keys [cell trajectory terrain-distance spread-rate flame-length
                      fire-line-intensity fractional-distance]} destinations]
          (let [new-spread-fraction (/ (* spread-rate timestep) terrain-distance)
-               new-total           (vreset! fractional-distance (+ @fractional-distance new-spread-fraction))]
+               new-total           (vreset! fractional-distance
+                                            (+ @fractional-distance new-spread-fraction))]
            (if (>= new-total 1.0)
              {:cell cell :trajectory trajectory :fractional-distance @fractional-distance
               :flame-length flame-length :fire-line-intensity fire-line-intensity})))
@@ -1744,6 +1792,35 @@ pseudo-code lays out the steps taken in this procedure:
        (group-by :cell)
        (map (fn [[cell trajectories]] (apply max-key :fractional-distance trajectories)))
        (into [])))
+
+(defn update-ignited-cells
+  [ignited-cells ignition-events fire-spread-matrix fuel-model-matrix landfire-layers
+   wind-speed-20ft wind-from-direction fuel-moisture foliar-moisture ellipse-adjustment-factor
+   cell-size num-rows num-cols]
+  (let [newly-ignited-cells (into #{} (map :cell) ignition-events)]
+    (into {}
+          (concat
+           (for [[cell spread-info] ignited-cells
+                 :when (burnable-neighbors? fire-spread-matrix fuel-model-matrix
+                                            num-rows num-cols cell)]
+             [cell (remove #(contains? newly-ignited-cells (:cell %)) spread-info)])
+           (for [{:keys [cell trajectory fractional-distance]} ignition-events
+                 :when (burnable-neighbors? fire-spread-matrix fuel-model-matrix
+                                            num-rows num-cols cell)]
+             [cell (compute-neighborhood-fire-spread-rates!
+                    fire-spread-matrix
+                    landfire-layers
+                    wind-speed-20ft
+                    wind-from-direction
+                    fuel-moisture
+                    foliar-moisture
+                    ellipse-adjustment-factor
+                    cell-size
+                    num-rows
+                    num-cols
+                    cell
+                    trajectory
+                    (- fractional-distance 1.0))])))))
 
 (defn run-fire-spread
   "Runs the raster-based fire spread model with these arguments:
@@ -1799,7 +1876,6 @@ pseudo-code lays out the steps taken in this procedure:
                                                     cell-size
                                                     num-rows
                                                     num-cols
-                                                    global-clock
                                                     initial-ignition-site
                                                     nil
                                                     0.0)}]
@@ -1822,33 +1898,15 @@ pseudo-code lays out the steps taken in this procedure:
                  (m/mset! fire-spread-matrix         i j 1.0)
                  (m/mset! flame-length-matrix        i j flame-length)
                  (m/mset! fire-line-intensity-matrix i j fire-line-intensity)))
-             (let [newly-ignited-cells (into #{} (map :cell) ignition-events)]
-               (recur (+ global-clock timestep)
-                      (into {}
-                            (concat
-                             (for [[cell spread-info] ignited-cells
-                                   :when (burnable-neighbors? fire-spread-matrix fuel-model-matrix num-rows num-cols cell)]
-                               [cell (remove #(contains? newly-ignited-cells (:cell %)) spread-info)])
-                             (for [{:keys [cell trajectory fractional-distance]} ignition-events
-                                   :when (burnable-neighbors? fire-spread-matrix fuel-model-matrix num-rows num-cols cell)]
-                               [cell (compute-neighborhood-fire-spread-rates!
-                                      fire-spread-matrix
-                                      landfire-layers
-                                      wind-speed-20ft
-                                      wind-from-direction
-                                      fuel-moisture
-                                      foliar-moisture
-                                      ellipse-adjustment-factor
-                                      cell-size
-                                      num-rows
-                                      num-cols
-                                      global-clock
-                                      cell
-                                      trajectory
-                                      (- fractional-distance 1.0))]))))))
+             (recur (+ global-clock timestep)
+                    (update-ignited-cells ignited-cells ignition-events fire-spread-matrix
+                                          fuel-model-matrix landfire-layers wind-speed-20ft
+                                          wind-from-direction fuel-moisture foliar-moisture
+                                          ellipse-adjustment-factor cell-size num-rows
+                                          num-cols)))
            {:global-clock               global-clock
             :initial-ignition-site      initial-ignition-site
-            :ignited-cells              ignited-cells
+            :ignited-cells              (keys ignited-cells)
             :fire-spread-matrix         fire-spread-matrix
             :flame-length-matrix        flame-length-matrix
             :fire-line-intensity-matrix fire-line-intensity-matrix}))))))
