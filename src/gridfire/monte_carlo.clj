@@ -273,9 +273,9 @@
     :subprotocol "postgresql"
     :subname     "//iwap03:5432/calfire"
     :user        "gjohnson"}
-   "/data/CALFIRE_MAP1_RUN6/outputs"
-   "/data/CALFIRE_MAP1_RUN6/inputs/wrf_cells_to_process.clj"
-   0 15000 100)
+   "/data/IWAP_GRIDFIRE_RUNS/outputs"
+   "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
+   0 15000 50)
 
   ;; iwap03
   (launch-calfire-monte-carlo-simulation
@@ -283,9 +283,9 @@
     :subprotocol "postgresql"
     :subname     "//localhost:5432/calfire"
     :user        "gjohnson"}
-   "/data/CALFIRE_MAP1_RUN6/outputs"
-   "/data/CALFIRE_MAP1_RUN6/inputs/wrf_cells_to_process.clj"
-   0 2500 10)
+   "/data/IWAP_GRIDFIRE_RUNS/outputs"
+   "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
+   15000 49600 100)
 
   ;; iwap04
   (launch-calfire-monte-carlo-simulation
@@ -293,9 +293,9 @@
     :subprotocol "postgresql"
     :subname     "//iwap03:5432/calfire"
     :user        "gjohnson"}
-   "/data/CALFIRE_MAP1_RUN6/outputs"
-   "/data/CALFIRE_MAP1_RUN6/inputs/wrf_cells_to_process.clj"
-   2500 5200 10)
+   "/data/IWAP_GRIDFIRE_RUNS/outputs"
+   "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
+   49600 84200 100)
 
   ;; iwap05
   (launch-calfire-monte-carlo-simulation
@@ -303,6 +303,6 @@
     :subprotocol "postgresql"
     :subname     "//iwap03:5432/calfire"
     :user        "gjohnson"}
-   "/data/CALFIRE_MAP1_RUN6/outputs"
-   "/data/CALFIRE_MAP1_RUN6/inputs/wrf_cells_to_process.clj"
-   5200 7902 10))
+   "/data/IWAP_GRIDFIRE_RUNS/outputs"
+   "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
+   84200 118780 100))
