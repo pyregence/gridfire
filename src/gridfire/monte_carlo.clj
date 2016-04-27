@@ -168,6 +168,21 @@
      (jdbc/with-db-transaction [conn db-spec]
        (vec (jdbc/query conn [query])))))
 
+(defn fetch-midrange-weather-readings
+  "Returns a vector of maps for each of the 74-76% weather readings by
+   FFWI with these units:
+   {:rank   1-73 (1 = 100th percentile, 73 = 98th percentile)
+    :ws     mph (* 0.87 to adjust from 10m winds to 20ft winds)
+    :wd     degrees from north
+    :mparam 10 * % (0-1000)}"
+  [db-spec wrf-cell-id]
+  (let [query (str "SELECT rank, 0.87*ows_mph AS ws, wd_deg AS wd, mparam::int AS mparam"
+                   "  FROM weather.midtwo_full_daily"
+                   "  WHERE j_i_wrf_cacut='" wrf-cell-id "'"
+                   "  ORDER BY rank")]
+     (jdbc/with-db-transaction [conn db-spec]
+       (vec (jdbc/query conn [query])))))
+
 (defn fetch-landfire-data
   "Returns a map of LANDFIRE rasters as core.matrix 2D double arrays:
    {:elevation          m
@@ -220,7 +235,7 @@
                   (try (let [ignition-sites   (into []
                                                     (comp (distinct) (take num-ignitions))
                                                     (repeatedly #(mop/+ cell-offset-in-neighborhood (random-cell 84 83))))
-                             weather-readings (fetch-extreme-weather-readings db-spec wrf_cell_id)]
+                             weather-readings (fetch-midrange-weather-readings db-spec wrf_cell_id)]
                          (when-let [landfire-data (fetch-landfire-data db-spec wrf_cell_id)]
                            (->> (run-monte-carlo-fire-spread landfire-data landfire-cell-size ignition-sites weather-readings lw_moisture
                                                              max-wrf-sample-index calfire-burn-duration ellipse-adjustment-factor)
@@ -241,6 +256,12 @@
                                       :user        "gjohnson"})))
 
   (spit "/data/CALFIRE_MAP1_RUN6/inputs/wrf_cells_to_process.clj"
+        (fetch-wrf-cell-ids {:classname   "org.postgresql.Driver"
+                             :subprotocol "postgresql"
+                             :subname     "//iwap03:5432/calfire"
+                             :user        "gjohnson"}))
+
+  (spit "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
         (fetch-wrf-cell-ids {:classname   "org.postgresql.Driver"
                              :subprotocol "postgresql"
                              :subname     "//iwap03:5432/calfire"
