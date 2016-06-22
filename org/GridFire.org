@@ -53,7 +53,7 @@ minimum required versions and URLs from which they may be downloaded.
 |----------------------+---------+---------------------------|
 | Java Development Kit |    1.7+ | http://www.java.com       |
 | Leiningen            |  2.5.2+ | http://leiningen.org      |
-| Boot                 |  2.1.2+ | http://boot-clj.com       |
+| Boot                 |  2.6.0+ | http://boot-clj.com       |
 | Postgresql           |    9.3+ | http://www.postgresql.org |
 | PostGIS              |    2.1+ | http://postgis.net        |
 |----------------------+---------+---------------------------|
@@ -138,7 +138,7 @@ this case, two files are required: ``boot.properties'' and
 #+begin_src sh :results silent :exports code :tangle ../boot.properties :padline no
 BOOT_CLOJURE_NAME=org.clojure/clojure
 BOOT_CLOJURE_VERSION=1.7.0
-BOOT_VERSION=2.5.5
+BOOT_VERSION=2.6.0
 #+end_src
 
 #+name: build.boot
