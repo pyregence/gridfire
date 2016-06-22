@@ -17,10 +17,10 @@
 
  ;; Section 2: Ignition and weather data from which to build simulation inputs
  :simulations                 10
- :ignition-site               [25 40] ;; point represented as [row col]
+ :ignition-site               ([25 40] [10 10] [30 60]) ;; point represented as [row col]
  :max-runtime                 60.0   ;; double (minutes)
- :wind-speed-20ft             20.0   ;; double (miles/hour)
- :wind-from-direction         90.0   ;; double (degrees clockwise from north)
+ :wind-speed-20ft             (10.0 20.0)   ;; double (miles/hour)
+ :wind-from-direction         (0.0 90.0 180.0 270.0)   ;; double (degrees clockwise from north)
  :fuel-moisture               {:dead {:1hr 0.06
                                       :10hr 0.07
                                       :100hr 0.08}

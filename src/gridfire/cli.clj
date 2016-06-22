@@ -53,7 +53,8 @@
 
 (defn n-cycle
   [n x]
-  (into [] (take n) (cycle (if (list? x) x (list x)))))
+  (let [xs (if (list? x) x (list x))]
+    (into [] (repeatedly n #(rand-nth xs)))))
 
 (defn -main
   [& config-files]
