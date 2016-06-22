@@ -2034,7 +2034,7 @@ follows:
 
 #+name: run-gridfire-jar
 #+begin_src sh :results silent :exports code
-java -jar gridfire-1.2.0.jar myconfig.clj
+java -jar gridfire-1.2.0.jar myconfig.edn
 #+end_src
 
 *Note:* Boot creates a JAR called ``gridfire-1.2.0.jar''. Leiningen
@@ -2051,8 +2051,8 @@ the final clock time from when the simulation was terminated as well
 as the total number of ignited cells on the raster grid at that point.
 
 Which maps are created (and in what formats) may be configured by
-setting the following options in GridFire's input config.clj file to
-true or false:
+setting the following options in GridFire's input config file to true
+or false:
 
 #+ATTR_LATEX: :options \setlength{\itemsep}{-3mm}
 1. :output-landfire-inputs?
@@ -2162,7 +2162,7 @@ true or false:
 The configuration file for GridFire's command line interface is a text
 file in Extensible Data Notation (EDN) format.[fn::
 https://github.com/edn-format/edn] A sample configuration file is
-provided below and in ``resources/sample_config.clj''. The format
+provided below and in ``resources/sample_config.edn''. The format
 should be self-evident at a glance, but it is worth noting that EDN is
 case-sensitive but whitespace-insensitive. Comments are anything
 following two semi-colons (;;). Strings are contained in double-quotes
@@ -2171,8 +2171,8 @@ with square brackets ([]). Associative lookup tables (a.k.a. maps) are
 delimited with curly braces ({}) and are used to express key-value
 relationships.
 
-#+name: sample_config.clj
-#+begin_src clojure :results silent :exports code :tangle ../resources/sample_config.clj :padline no
+#+name: sample_config.edn
+#+begin_src clojure :results silent :exports code :tangle ../resources/sample_config.edn :padline no
 {:max-runtime                 60.0   ;; double (minutes)
  :cell-size                   98.425 ;; double (feet)
  :wind-speed-20ft             20.0   ;; double (miles/hour)
