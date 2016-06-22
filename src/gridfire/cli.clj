@@ -1,6 +1,7 @@
 (ns gridfire.cli
   (:gen-class)
-  (:require [clojure.core.matrix :as m]
+  (:require [clojure.edn :as edn]
+            [clojure.core.matrix :as m]
             [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]
             [gridfire.surface-fire :refer [degrees-to-radians]]
             [gridfire.fire-spread :refer [run-fire-spread]]
@@ -52,7 +53,7 @@
 
 (defn -main
   [config-file]
-  (let [config              (read-string (slurp config-file))
+  (let [config              (edn/read-string (slurp config-file))
         landfire-layers     (fetch-landfire-layers (:db-spec config)
                                                    (:landfire-layers config))
         landfire-rasters    (into {}
