@@ -1,15 +1,5 @@
-{:max-runtime                 60.0   ;; double (minutes)
- :cell-size                   98.425 ;; double (feet)
- :wind-speed-20ft             20.0   ;; double (miles/hour)
- :wind-from-direction         90.0   ;; double (degrees clockwise from north)
- :fuel-moisture               {:dead {:1hr 0.06
-                                      :10hr 0.07
-                                      :100hr 0.08}
-                               :live {:herbaceous 0.60
-                                      :woody 0.90}} ;; doubles (%)
- :foliar-moisture             0.9 ;; double (%)
- :ellipse-adjustment-factor   1.0 ;; (< 1.0 = more circular, > 1.0 = more elliptical)
- :ignition-site               [25 40] ;; point represented as [row col]
+{
+ ;; Section 1: Landscape data to be shared by all simulations
  :db-spec                     {:classname   "org.postgresql.Driver"
                                :subprotocol "postgresql"
                                :subname     "//localhost:5432/gridfire"
@@ -22,8 +12,26 @@
                                :canopy-base-height "landfire.cbh WHERE rid=100"
                                :crown-bulk-density "landfire.cbd WHERE rid=100"
                                :canopy-cover       "landfire.cc WHERE rid=100"}
- :srid                        "CALFIRE:900914"
- :outfile-suffix              "_run_1000"
+ :srid                        "CUSTOM:900914"
+ :cell-size                   98.425 ;; double (feet)
+
+ ;; Section 2: Ignition and weather data from which to build simulation inputs
+ :simulations                 10
+ :ignition-site               [25 40] ;; point represented as [row col]
+ :max-runtime                 60.0   ;; double (minutes)
+ :wind-speed-20ft             20.0   ;; double (miles/hour)
+ :wind-from-direction         90.0   ;; double (degrees clockwise from north)
+ :fuel-moisture               {:dead {:1hr 0.06
+                                      :10hr 0.07
+                                      :100hr 0.08}
+                               :live {:herbaceous 0.60
+                                      :woody 0.90}} ;; doubles (%)
+ :foliar-moisture             0.9 ;; double (%)
+ :ellipse-adjustment-factor   1.0 ;; (< 1.0 = more circular, > 1.0 = more elliptical)
+
+ ;; Section 3: Types and names of outputs
+ :outfile-suffix              "_tile_100"
  :output-landfire-inputs?     true
  :output-geotiffs?            true
- :output-pngs?                true}
+ :output-pngs?                true
+}

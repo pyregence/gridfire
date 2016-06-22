@@ -12,10 +12,10 @@
 (m/set-current-implementation :vectorz)
 
 (register-new-crs-definitions-from-properties-file!
- "CALFIRE" "custom_projections.properties")
+ "CUSTOM" "custom_projections.properties")
 
 (defn fetch-landfire-layers
-  "Returns a map of LANDFIRE rasters with the following units:
+  "Returns a map of LANDFIRE rasters (represented as maps) with the following units:
    {:elevation          feet
     :slope              vertical feet/horizontal feet
     :aspect             degrees clockwise from north
@@ -51,46 +51,60 @@
         (update-in [:crown-bulk-density :matrix]
                    (fn [matrix] (m/emap #(* % 0.0624) matrix)))))) ; kg/m^3 -> lb/ft^3
 
+(defn n-cycle
+  [n x]
+  (into [] (take n) (cycle (if (list? x) x (list x)))))
+
 (defn -main
-  [config-file]
-  (let [config              (edn/read-string (slurp config-file))
-        landfire-layers     (fetch-landfire-layers (:db-spec config)
-                                                   (:landfire-layers config))
-        landfire-rasters    (into {}
-                                  (map (fn [[layer info]] [layer (:matrix info)]))
-                                  landfire-layers)
-        fire-spread-results (run-fire-spread (:max-runtime               config)
-                                             (:cell-size                 config)
-                                             landfire-rasters
-                                             (:wind-speed-20ft           config)
-                                             (:wind-from-direction       config)
-                                             (:fuel-moisture             config)
-                                             (:foliar-moisture           config)
-                                             (:ellipse-adjustment-factor config)
-                                             (:ignition-site             config))
-        envelope            (let [{:keys [upperleftx upperlefty width height scalex scaley]}
-                                  (landfire-layers :elevation)]
-                              (make-envelope (:srid config)
-                                             upperleftx
-                                             (+ upperlefty (* height scaley))
-                                             (* width scalex)
-                                             (* -1.0 height scaley)))]
-    (when (:output-landfire-inputs? config)
-      (doseq [[layer info] landfire-layers]
-        (-> (matrix-to-raster (name layer) (:matrix info) envelope)
-            (write-raster (str (name layer) (:outfile-suffix config) ".tif")))))
-    (when (:output-geotiffs? config)
-      (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
-                            ["flame_length"        :flame-length-matrix]
-                            ["fire_line_intensity" :fire-line-intensity-matrix]]]
-        (-> (matrix-to-raster name (fire-spread-results layer) envelope)
-            (write-raster (str name (:outfile-suffix config) ".tif")))))
-    (when (:output-pngs? config)
-      (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
-                            ["flame_length"        :flame-length-matrix]
-                            ["fire_line_intensity" :fire-line-intensity-matrix]]]
-        (save-matrix-as-png :color 4 -1.0
-                            (fire-spread-results layer)
-                            (str name (:outfile-suffix config) ".png"))))
-    (println "Global Clock:" (:global-clock fire-spread-results))
-    (println "Ignited Cells:" (count (:ignited-cells fire-spread-results)))))
+  [& config-files]
+  (doseq [config-file config-files]
+    (let [config              (edn/read-string (slurp config-file))
+          landfire-layers     (fetch-landfire-layers (:db-spec config)
+                                                     (:landfire-layers config))
+          landfire-rasters    (into {}
+                                    (map (fn [[layer info]] [layer (:matrix info)]))
+                                    landfire-layers)
+          envelope            (let [{:keys [upperleftx upperlefty width height scalex scaley]}
+                                    (landfire-layers :elevation)]
+                                (make-envelope (:srid config)
+                                               upperleftx
+                                               (+ upperlefty (* height scaley))
+                                               (* width scalex)
+                                               (* -1.0 height scaley)))
+          simulations         (:simulations config)
+          ignition-site       (n-cycle simulations (:ignition-site config))
+          max-runtime         (n-cycle simulations (:max-runtime config))
+          wind-speed-20ft     (n-cycle simulations (:wind-speed-20ft config))
+          wind-from-direction (n-cycle simulations (:wind-from-direction config))
+          fuel-moisture       (n-cycle simulations (:fuel-moisture config))
+          foliar-moisture     (n-cycle simulations (:foliar-moisture config))
+          ellipse-adjustment-factor (n-cycle simulations (:ellipse-adjustment-factor config))]
+      (when (:output-landfire-inputs? config)
+        (doseq [[layer info] landfire-layers]
+          (-> (matrix-to-raster (name layer) (:matrix info) envelope)
+              (write-raster (str (name layer) (:outfile-suffix config) ".tif")))))
+      (dotimes [i simulations]
+        (let [fire-spread-results (run-fire-spread (max-runtime i)
+                                                   (:cell-size config)
+                                                   landfire-rasters
+                                                   (wind-speed-20ft i)
+                                                   (wind-from-direction i)
+                                                   (fuel-moisture i)
+                                                   (foliar-moisture i)
+                                                   (ellipse-adjustment-factor i)
+                                                   (ignition-site i))]
+          (println (str "Simulation " i
+                        " Completed After " (:global-clock fire-spread-results) " Minutes"
+                        " Because " (if (seq (:ignited-cells fire-spread-results))
+                                      "The Max Runtime Was Exceeded"
+                                      "All Burnable Cells Were Ignited")))
+          (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
+                                ["flame_length"        :flame-length-matrix]
+                                ["fire_line_intensity" :fire-line-intensity-matrix]]]
+            (when (:output-geotiffs? config)
+              (-> (matrix-to-raster name (fire-spread-results layer) envelope)
+                  (write-raster (str name (:outfile-suffix config) "_" i ".tif"))))
+            (when (:output-pngs? config)
+              (save-matrix-as-png :color 4 -1.0
+                                  (fire-spread-results layer)
+                                  (str name (:outfile-suffix config) "_" i ".png")))))))))
