@@ -56,6 +56,15 @@
   (let [xs (if (list? x) x (list x))]
     (into [] (repeatedly n #(rand-nth xs)))))
 
+(defn sample-from-range
+  [n {:keys [min-row max-row min-col max-col]}]
+  (let [row-range (- max-row min-row)
+        col-range (- max-col min-col)]
+    (into []
+          (comp (distinct) (take n))
+          (repeatedly #(vector (+ min-row (rand-int row-range))
+                               (+ min-col (rand-int col-range)))))))
+
 (defn -main
   [& config-files]
   (doseq [config-file config-files]
@@ -73,7 +82,9 @@
                                                (* width scalex)
                                                (* -1.0 height scaley)))
           simulations         (:simulations config)
-          ignition-site       (n-cycle simulations (:ignition-site config))
+          ignition-site       (if (map? (:ignition-site config))
+                                (sample-from-range simulations (:ignition-site config))
+                                (n-cycle simulations (:ignition-site config)))
           max-runtime         (n-cycle simulations (:max-runtime config))
           wind-speed-20ft     (n-cycle simulations (:wind-speed-20ft config))
           wind-from-direction (n-cycle simulations (:wind-from-direction config))

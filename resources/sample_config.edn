@@ -17,7 +17,9 @@
 
  ;; Section 2: Ignition and weather data from which to build simulation inputs
  :simulations                 10
- :ignition-site               ([25 40] [10 10] [30 60]) ;; point represented as [row col]
+ :ignition-site               ([25 40] [10 10] [30 60]) ;; point(s) represented as [row col]
+ :ignition-site               {:min-row 10 :max-row 90
+                               :min-col 20 :max-col 80} ;; alternative option: randomly sample points from a range
  :max-runtime                 60.0   ;; double (minutes)
  :wind-speed-20ft             (10.0 20.0)   ;; double (miles/hour)
  :wind-from-direction         (0.0 90.0 180.0 270.0)   ;; double (degrees clockwise from north)
