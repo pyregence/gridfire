@@ -2363,7 +2363,7 @@ relationships.
                                :crown-bulk-density "landfire.cbd WHERE rid=100"
                                :canopy-cover       "landfire.cc WHERE rid=100"}
  :srid                        "CUSTOM:900914"
- :cell-size                   98.425 ;; double (feet)
+ :cell-size                   98.425 ;; (feet)
 
  ;; Section 2: Ignition and weather data from which to build simulation inputs
  ;;
@@ -2378,12 +2378,12 @@ relationships.
  :simulations                 10
  :ignition-row                [10 90]
  :ignition-col                [20 80]
- :max-runtime                 60.0 ;; (minutes)
- :temperature                 (50.0 65.0 80.0) ;; (degrees Fahrenheit)
- :relative-humidity           (1.0 10.0 20.0) ;; (%)
- :wind-speed-20ft             (10.0 15.0 20.0) ;; (miles/hour)
- :wind-from-direction         (0.0 90.0 180.0 270.0) ;; (degrees clockwise from north)
- :foliar-moisture             90.0 ;; (%)
+ :max-runtime                 60 ;; (minutes)
+ :temperature                 (50 65 80) ;; (degrees Fahrenheit)
+ :relative-humidity           (1 10 20) ;; (%)
+ :wind-speed-20ft             (10 15 20) ;; (miles/hour)
+ :wind-from-direction         (0 90 180 270) ;; (degrees clockwise from north)
+ :foliar-moisture             90 ;; (%)
  :ellipse-adjustment-factor   1.0 ;; (< 1.0 = more circular, > 1.0 = more elliptical)
 
  ;; Section 3: Types and names of outputs
