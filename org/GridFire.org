@@ -2114,7 +2114,7 @@ or false:
         (update-in [:crown-bulk-density :matrix]
                    (fn [matrix] (m/emap #(* % 0.0624) matrix)))))) ; kg/m^3 -> lb/ft^3
 
-(defn n-cycle
+(defn sample-from-list
   [n x]
   (let [xs (if (list? x) x (list x))]
     (into [] (repeatedly n #(rand-nth xs)))))
@@ -2237,13 +2237,13 @@ or false:
        (:cell-size config)
        (if (map? (:ignition-site config))
          (sample-from-range simulations (:ignition-site config))
-         (n-cycle simulations (:ignition-site config)))
-       (n-cycle simulations (:max-runtime config))
-       (n-cycle simulations (:wind-speed-20ft config))
-       (n-cycle simulations (:wind-from-direction config))
-       (n-cycle simulations (:fuel-moisture config))
-       (n-cycle simulations (:foliar-moisture config))
-       (n-cycle simulations (:ellipse-adjustment-factor config))
+         (sample-from-list simulations (:ignition-site config)))
+       (sample-from-list simulations (:max-runtime config))
+       (sample-from-list simulations (:wind-speed-20ft config))
+       (sample-from-list simulations (:wind-from-direction config))
+       (sample-from-list simulations (:fuel-moisture config))
+       (sample-from-list simulations (:foliar-moisture config))
+       (sample-from-list simulations (:ellipse-adjustment-factor config))
        (:outfile-suffix config)
        (:output-geotiffs? config)
        (:output-pngs? config)
