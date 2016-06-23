@@ -1,12 +1,12 @@
 (task-options!
  pom    {:project     'sig-gis/gridfire
-         :version     "1.2.0"
+         :version     "1.3.0"
          :description "SIG's Raster-based Fire Behavior Model"}
  repl   {:eval        '(set! *warn-on-reflection* true)
          :init-ns     'gridfire.cli}
  aot    {:namespace   '#{gridfire.cli}}
  jar    {:main        'gridfire.cli
-         :file        "gridfire-1.2.0.jar"}
+         :file        "gridfire-1.3.0.jar"}
  target {:dir         #{"target"}})
 
 (set-env!
