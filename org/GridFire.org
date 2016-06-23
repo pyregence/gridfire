@@ -2064,6 +2064,8 @@ or false:
 (ns gridfire.cli
   (:gen-class)
   (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [clojure.data.csv :as csv]
             [clojure.core.matrix :as m]
             [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]
             [gridfire.surface-fire :refer [degrees-to-radians]]
@@ -2209,6 +2211,33 @@ or false:
           :fire-line-intensity-stddev 0.0})))
    (range simulations)))
 
+(defn write-csv-outputs
+  [output-csvs? output-filename results-table]
+  (when output-csvs?
+    (with-open [out-file (io/writer output-filename)]
+      (->> results-table
+           (sort-by :ignition-site)
+           (mapv (fn [{:keys [ignition-site max-runtime wind-speed-20ft wind-from-direction
+                              fuel-moisture foliar-moisture ellipse-adjustment-factor fire-size flame-length-mean
+                              flame-length-stddev fire-line-intensity-mean fire-line-intensity-stddev]}]
+                   [(ignition-site 0)
+                    (ignition-site 1)
+                    max-runtime
+                    wind-speed-20ft
+                    wind-from-direction
+                    fuel-moisture
+                    foliar-moisture
+                    ellipse-adjustment-factor
+                    fire-size
+                    flame-length-mean
+                    flame-length-stddev
+                    fire-line-intensity-mean
+                    fire-line-intensity-stddev]))
+           (cons ["ignition-row" "ignition-col" "max-runtime" "wind-speed-20ft" "wind-from-direction"
+                  "fuel-moisture" "foliar-moisture" "ellipse-adjustment-factor" "fire-size" "flame-length-mean"
+                  "flame-length-stddev" "fire-line-intensity-mean" "fire-line-intensity-stddev"])
+           (csv/write-csv out-file)))))
+
 (defn -main
   [& config-files]
   (doseq [config-file config-files]
@@ -2230,24 +2259,27 @@ or false:
         (doseq [[layer matrix] landfire-rasters]
           (-> (matrix-to-raster (name layer) matrix envelope)
               (write-raster (str (name layer) (:outfile-suffix config) ".tif")))))
-      (run-simulations
-       simulations
-       landfire-rasters
-       envelope
-       (:cell-size config)
-       (if (map? (:ignition-site config))
-         (sample-from-range simulations (:ignition-site config))
-         (sample-from-list simulations (:ignition-site config)))
-       (sample-from-list simulations (:max-runtime config))
-       (sample-from-list simulations (:wind-speed-20ft config))
-       (sample-from-list simulations (:wind-from-direction config))
-       (sample-from-list simulations (:fuel-moisture config))
-       (sample-from-list simulations (:foliar-moisture config))
-       (sample-from-list simulations (:ellipse-adjustment-factor config))
-       (:outfile-suffix config)
-       (:output-geotiffs? config)
-       (:output-pngs? config)
-       (:output-csvs? config)))))
+      (->> (run-simulations
+            simulations
+            landfire-rasters
+            envelope
+            (:cell-size config)
+            (if (map? (:ignition-site config))
+              (sample-from-range simulations (:ignition-site config))
+              (sample-from-list simulations (:ignition-site config)))
+            (sample-from-list simulations (:max-runtime config))
+            (sample-from-list simulations (:wind-speed-20ft config))
+            (sample-from-list simulations (:wind-from-direction config))
+            (sample-from-list simulations (:fuel-moisture config))
+            (sample-from-list simulations (:foliar-moisture config))
+            (sample-from-list simulations (:ellipse-adjustment-factor config))
+            (:outfile-suffix config)
+            (:output-geotiffs? config)
+            (:output-pngs? config)
+            (:output-csvs? config))
+           (write-csv-outputs
+            (:output-csvs? config)
+            (str "summary_stats" (:outfile-suffix config) ".csv"))))))
 #+end_src
 
 The configuration file for GridFire's command line interface is a text
