@@ -98,59 +98,91 @@
      :fire-line-intensity-mean   fire-line-intensity-mean
      :fire-line-intensity-stddev fire-line-intensity-stddev}))
 
+(defn calc-emc
+  "Computes the Equilibrium Moisture Content (EMC) from rh (relative
+   humidity in %) and temp (temperature in F)."
+  [rh temp]
+  (/ (cond (< rh 10)  (+ 0.03229 (* 0.281073 rh) (* -0.000578 rh temp))
+           (< rh 50)  (+ 2.22749 (* 0.160107 rh) (* -0.01478 temp))
+           :otherwise (+ 21.0606 (* 0.005565 rh rh) (* -0.00035 rh temp) (* -0.483199 rh)))
+     30))
+
+(defn calc-ffwi
+  "Computes the Fosberg Fire Weather Index value from rh (relative
+   humidity in %), temp (temperature in F), wsp (wind speed in mph),
+   and a constant x (gust multiplier).
+   ------------------------------------------------------------------
+   Note: ffwi can be computed with (calc-ffwi rh temp wsp 1.0)
+         ffwi-max can be computed with (calc-ffwi minrh maxtemp wsp 1.75)
+   Geek points: Uses Cramer's rule: (+ d (* x (+ c (* x (+ b (* x a))))))
+                for an efficient cubic calculation on tmp."
+  [rh temp wsp x]
+  (let [m   (calc-emc rh temp)
+        eta (+ 1 (* m (+ -2 (* m (+ 1.5 (* m -0.5))))))]
+    (/ (* eta (Math/sqrt (+ 1 (Math/pow (* x wsp) 2))))
+       0.3002)))
+
 (defn run-simulations
   [simulations landfire-rasters envelope cell-size ignition-row
-   ignition-col max-runtime wind-speed-20ft wind-from-direction
-   fuel-moisture foliar-moisture ellipse-adjustment-factor
+   ignition-col max-runtime temperature relative-humidity wind-speed-20ft
+   wind-from-direction foliar-moisture ellipse-adjustment-factor
    outfile-suffix output-geotiffs? output-pngs? output-csvs?]
   (mapv
    (fn [i]
-     (if-let [fire-spread-results (run-fire-spread (max-runtime i)
-                                                   cell-size
-                                                   landfire-rasters
-                                                   (wind-speed-20ft i)
-                                                   (wind-from-direction i)
-                                                   (fuel-moisture i)
-                                                   (foliar-moisture i)
-                                                   (ellipse-adjustment-factor i)
-                                                   [(ignition-row i)
-                                                    (ignition-col i)])]
-       (do
-         (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
-                               ["flame_length"        :flame-length-matrix]
-                               ["fire_line_intensity" :fire-line-intensity-matrix]]]
-           (when output-geotiffs?
-             (-> (matrix-to-raster name (fire-spread-results layer) envelope)
-                 (write-raster (str name outfile-suffix "_" i ".tif"))))
-           (when output-pngs?
-             (save-matrix-as-png :color 4 -1.0
-                                 (fire-spread-results layer)
-                                 (str name outfile-suffix "_" i ".png"))))
+     (let [equilibrium-moisture (calc-emc (relative-humidity i) (temperature i))
+           fuel-moisture        {:dead {:1hr        (* (+ equilibrium-moisture 0.2) 0.01)
+                                        :10hr       (* (+ equilibrium-moisture 1.5) 0.01)
+                                        :100hr      (* (+ equilibrium-moisture 2.5) 0.01)}
+                                 :live {:herbaceous 0.30
+                                        :woody      0.70}}]
+       (if-let [fire-spread-results (run-fire-spread (max-runtime i)
+                                                     cell-size
+                                                     landfire-rasters
+                                                     (wind-speed-20ft i)
+                                                     (wind-from-direction i)
+                                                     fuel-moisture
+                                                     (foliar-moisture i)
+                                                     (ellipse-adjustment-factor i)
+                                                     [(ignition-row i)
+                                                      (ignition-col i)])]
+         (do
+           (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
+                                 ["flame_length"        :flame-length-matrix]
+                                 ["fire_line_intensity" :fire-line-intensity-matrix]]]
+             (when output-geotiffs?
+               (-> (matrix-to-raster name (fire-spread-results layer) envelope)
+                   (write-raster (str name outfile-suffix "_" i ".tif"))))
+             (when output-pngs?
+               (save-matrix-as-png :color 4 -1.0
+                                   (fire-spread-results layer)
+                                   (str name outfile-suffix "_" i ".png"))))
+           (when output-csvs?
+             (merge
+              {:ignition-row              (ignition-row i)
+               :ignition-col              (ignition-col i)
+               :max-runtime               (max-runtime i)
+               :temperature               (temperature i)
+               :relative-humidity         (relative-humidity i)
+               :wind-speed-20ft           (wind-speed-20ft i)
+               :wind-from-direction       (wind-from-direction i)
+               :foliar-moisture           (foliar-moisture i)
+               :ellipse-adjustment-factor (ellipse-adjustment-factor i)}
+              (summarize-fire-spread-results fire-spread-results cell-size))))
          (when output-csvs?
-           (merge
-            {:ignition-row              (ignition-row i)
-             :ignition-col              (ignition-col i)
-             :max-runtime               (max-runtime i)
-             :wind-speed-20ft           (wind-speed-20ft i)
-             :wind-from-direction       (wind-from-direction i)
-             :fuel-moisture             (fuel-moisture i)
-             :foliar-moisture           (foliar-moisture i)
-             :ellipse-adjustment-factor (ellipse-adjustment-factor i)}
-            (summarize-fire-spread-results fire-spread-results cell-size))))
-       (when output-csvs?
-         {:ignition-row               (ignition-row i)
-          :ignition-col               (ignition-col i)
-          :max-runtime                (max-runtime i)
-          :wind-speed-20ft            (wind-speed-20ft i)
-          :wind-from-direction        (wind-from-direction i)
-          :fuel-moisture              (fuel-moisture i)
-          :foliar-moisture            (foliar-moisture i)
-          :ellipse-adjustment-factor  (ellipse-adjustment-factor i)
-          :fire-size                  0.0
-          :flame-length-mean          0.0
-          :flame-length-stddev        0.0
-          :fire-line-intensity-mean   0.0
-          :fire-line-intensity-stddev 0.0})))
+           {:ignition-row               (ignition-row i)
+            :ignition-col               (ignition-col i)
+            :max-runtime                (max-runtime i)
+            :temperature                (temperature i)
+            :relative-humidity          (relative-humidity i)
+            :wind-speed-20ft            (wind-speed-20ft i)
+            :wind-from-direction        (wind-from-direction i)
+            :foliar-moisture            (foliar-moisture i)
+            :ellipse-adjustment-factor  (ellipse-adjustment-factor i)
+            :fire-size                  0.0
+            :flame-length-mean          0.0
+            :flame-length-stddev        0.0
+            :fire-line-intensity-mean   0.0
+            :fire-line-intensity-stddev 0.0}))))
    (range simulations)))
 
 (defn write-csv-outputs
@@ -159,15 +191,16 @@
     (with-open [out-file (io/writer output-filename)]
       (->> results-table
            (sort-by #(vector (:ignition-row %) (:ignition-col %)))
-           (mapv (fn [{:keys [ignition-row ignition-col max-runtime wind-speed-20ft wind-from-direction
-                              fuel-moisture foliar-moisture ellipse-adjustment-factor fire-size flame-length-mean
+           (mapv (fn [{:keys [ignition-row ignition-col max-runtime temperature relative-humidity wind-speed-20ft
+                              wind-from-direction foliar-moisture ellipse-adjustment-factor fire-size flame-length-mean
                               flame-length-stddev fire-line-intensity-mean fire-line-intensity-stddev]}]
                    [ignition-row
                     ignition-col
                     max-runtime
+                    temperature
+                    relative-humidity
                     wind-speed-20ft
                     wind-from-direction
-                    fuel-moisture
                     foliar-moisture
                     ellipse-adjustment-factor
                     fire-size
@@ -175,8 +208,8 @@
                     flame-length-stddev
                     fire-line-intensity-mean
                     fire-line-intensity-stddev]))
-           (cons ["ignition-row" "ignition-col" "max-runtime" "wind-speed-20ft" "wind-from-direction"
-                  "fuel-moisture" "foliar-moisture" "ellipse-adjustment-factor" "fire-size" "flame-length-mean"
+           (cons ["ignition-row" "ignition-col" "max-runtime" "temperature" "relative-humidity" "wind-speed-20ft"
+                  "wind-from-direction" "foliar-moisture" "ellipse-adjustment-factor" "fire-size" "flame-length-mean"
                   "flame-length-stddev" "fire-line-intensity-mean" "fire-line-intensity-stddev"])
            (csv/write-csv out-file)))))
 
@@ -209,9 +242,10 @@
             (draw-samples simulations (:ignition-row config))
             (draw-samples simulations (:ignition-col config))
             (draw-samples simulations (:max-runtime config))
+            (draw-samples simulations (:temperature config))
+            (draw-samples simulations (:relative-humidity config))
             (draw-samples simulations (:wind-speed-20ft config))
             (draw-samples simulations (:wind-from-direction config))
-            (draw-samples simulations (:fuel-moisture config))
             (draw-samples simulations (:foliar-moisture config))
             (draw-samples simulations (:ellipse-adjustment-factor config))
             (:outfile-suffix config)

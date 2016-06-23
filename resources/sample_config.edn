@@ -29,13 +29,10 @@
  :ignition-row                [10 90]
  :ignition-col                [20 80]
  :max-runtime                 60.0        ;; (minutes)
+ :temperature                 (50.0 65.0 80.0) ;; (degrees Fahrenheit)
+ :relative-humidity           (1.0 10.0 20.0) ;; (%)
  :wind-speed-20ft             (10.0 15.0 20.0) ;; (miles/hour)
  :wind-from-direction         (0.0 90.0 180.0 270.0) ;; (degrees clockwise from north)
- :fuel-moisture               {:dead {:1hr 0.06
-                                      :10hr 0.07
-                                      :100hr 0.08}
-                               :live {:herbaceous 0.60
-                                      :woody 0.90}} ;; (%)
  :foliar-moisture             0.9                   ;; (%)
  :ellipse-adjustment-factor   1.0 ;; (< 1.0 = more circular, > 1.0 = more elliptical)
 
