@@ -1,12 +1,12 @@
 (task-options!
  pom    {:project     'sig-gis/gridfire
-         :version     "1.3.0"
+         :version     "1.4.0"
          :description "SIG's Raster-based Fire Behavior Model"}
  repl   {:eval        '(set! *warn-on-reflection* true)
          :init-ns     'gridfire.cli}
  aot    {:namespace   '#{gridfire.cli}}
  jar    {:main        'gridfire.cli
-         :file        "gridfire-1.3.0.jar"
+         :file        "gridfire-1.4.0.jar"
          :manifest    {"Specification-Title" "Java Advanced Imaging Image I/O Tools"
                        "Specification-Version" "1.1"
                        "Specification-Vendor" "Sun Microsystems, Inc."

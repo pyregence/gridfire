@@ -1,4 +1,4 @@
-(defproject sig-gis/gridfire "1.3.0"
+(defproject sig-gis/gridfire "1.4.0"
   :description      "SIG's Raster-based Fire Behavior Model"
   :dependencies     [[org.clojure/clojure                 "1.7.0"]
                      [org.clojure/data.csv                "0.1.3"]
