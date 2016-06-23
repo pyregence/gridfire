@@ -36,4 +36,5 @@
  :output-landfire-inputs?     true
  :output-geotiffs?            true
  :output-pngs?                true
+ :output-csvs?                true
 }
