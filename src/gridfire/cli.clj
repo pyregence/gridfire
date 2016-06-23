@@ -130,11 +130,11 @@
   (mapv
    (fn [i]
      (let [equilibrium-moisture (calc-emc (relative-humidity i) (temperature i))
-           fuel-moisture        {:dead {:1hr        (* (+ equilibrium-moisture 0.2) 0.01)
-                                        :10hr       (* (+ equilibrium-moisture 1.5) 0.01)
-                                        :100hr      (* (+ equilibrium-moisture 2.5) 0.01)}
-                                 :live {:herbaceous 0.30
-                                        :woody      0.70}}]
+           fuel-moisture        {:dead {:1hr        (+ equilibrium-moisture 0.002)
+                                        :10hr       (+ equilibrium-moisture 0.015)
+                                        :100hr      (+ equilibrium-moisture 0.025)}
+                                 :live {:herbaceous (* equilibrium-moisture 2.0)
+                                        :woody      (* equilibrium-moisture 0.5)}}]
        (if-let [fire-spread-results (run-fire-spread (max-runtime i)
                                                      cell-size
                                                      landfire-rasters
