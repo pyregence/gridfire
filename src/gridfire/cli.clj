@@ -54,18 +54,20 @@
                    (fn [matrix] (m/emap #(* % 0.0624) matrix)))))) ; kg/m^3 -> lb/ft^3
 
 (defn sample-from-list
-  [n x]
-  (let [xs (if (list? x) x (list x))]
-    (into [] (repeatedly n #(rand-nth xs)))))
+  [n xs]
+  (repeatedly n #(rand-nth xs)))
 
 (defn sample-from-range
-  [n {:keys [min-row max-row min-col max-col]}]
-  (let [row-range (- max-row min-row)
-        col-range (- max-col min-col)]
-    (into []
-          (comp (distinct) (take n))
-          (repeatedly #(vector (+ min-row (rand-int row-range))
-                               (+ min-col (rand-int col-range)))))))
+  [n [min max]]
+  (let [range (- max min)]
+    (repeatedly n #(+ min (rand-int range)))))
+
+(defn draw-samples
+  [n x]
+  (into []
+        (cond (list? x)   (sample-from-list n x)
+              (vector? x) (sample-from-range n x)
+              :else       (repeat n x))))
 
 (defn cells-to-acres
   [cell-size num-cells]
@@ -97,10 +99,10 @@
      :fire-line-intensity-stddev fire-line-intensity-stddev}))
 
 (defn run-simulations
-  [simulations landfire-rasters envelope cell-size ignition-site
-   max-runtime wind-speed-20ft wind-from-direction fuel-moisture
-   foliar-moisture ellipse-adjustment-factor outfile-suffix
-   output-geotiffs? output-pngs? output-csvs?]
+  [simulations landfire-rasters envelope cell-size ignition-row
+   ignition-col max-runtime wind-speed-20ft wind-from-direction
+   fuel-moisture foliar-moisture ellipse-adjustment-factor
+   outfile-suffix output-geotiffs? output-pngs? output-csvs?]
   (mapv
    (fn [i]
      (if-let [fire-spread-results (run-fire-spread (max-runtime i)
@@ -111,7 +113,8 @@
                                                    (fuel-moisture i)
                                                    (foliar-moisture i)
                                                    (ellipse-adjustment-factor i)
-                                                   (ignition-site i))]
+                                                   [(ignition-row i)
+                                                    (ignition-col i)])]
        (do
          (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
                                ["flame_length"        :flame-length-matrix]
@@ -125,7 +128,8 @@
                                  (str name outfile-suffix "_" i ".png"))))
          (when output-csvs?
            (merge
-            {:ignition-site             (ignition-site i)
+            {:ignition-row              (ignition-row i)
+             :ignition-col              (ignition-col i)
              :max-runtime               (max-runtime i)
              :wind-speed-20ft           (wind-speed-20ft i)
              :wind-from-direction       (wind-from-direction i)
@@ -134,7 +138,8 @@
              :ellipse-adjustment-factor (ellipse-adjustment-factor i)}
             (summarize-fire-spread-results fire-spread-results cell-size))))
        (when output-csvs?
-         {:ignition-site              (ignition-site i)
+         {:ignition-row               (ignition-row i)
+          :ignition-col               (ignition-col i)
           :max-runtime                (max-runtime i)
           :wind-speed-20ft            (wind-speed-20ft i)
           :wind-from-direction        (wind-from-direction i)
@@ -153,12 +158,12 @@
   (when output-csvs?
     (with-open [out-file (io/writer output-filename)]
       (->> results-table
-           (sort-by :ignition-site)
-           (mapv (fn [{:keys [ignition-site max-runtime wind-speed-20ft wind-from-direction
+           (sort-by #(vector (:ignition-row %) (:ignition-col %)))
+           (mapv (fn [{:keys [ignition-row ignition-col max-runtime wind-speed-20ft wind-from-direction
                               fuel-moisture foliar-moisture ellipse-adjustment-factor fire-size flame-length-mean
                               flame-length-stddev fire-line-intensity-mean fire-line-intensity-stddev]}]
-                   [(ignition-site 0)
-                    (ignition-site 1)
+                   [ignition-row
+                    ignition-col
                     max-runtime
                     wind-speed-20ft
                     wind-from-direction
@@ -201,15 +206,14 @@
             landfire-rasters
             envelope
             (:cell-size config)
-            (if (map? (:ignition-site config))
-              (sample-from-range simulations (:ignition-site config))
-              (sample-from-list simulations (:ignition-site config)))
-            (sample-from-list simulations (:max-runtime config))
-            (sample-from-list simulations (:wind-speed-20ft config))
-            (sample-from-list simulations (:wind-from-direction config))
-            (sample-from-list simulations (:fuel-moisture config))
-            (sample-from-list simulations (:foliar-moisture config))
-            (sample-from-list simulations (:ellipse-adjustment-factor config))
+            (draw-samples simulations (:ignition-row config))
+            (draw-samples simulations (:ignition-col config))
+            (draw-samples simulations (:max-runtime config))
+            (draw-samples simulations (:wind-speed-20ft config))
+            (draw-samples simulations (:wind-from-direction config))
+            (draw-samples simulations (:fuel-moisture config))
+            (draw-samples simulations (:foliar-moisture config))
+            (draw-samples simulations (:ellipse-adjustment-factor config))
             (:outfile-suffix config)
             (:output-geotiffs? config)
             (:output-pngs? config)

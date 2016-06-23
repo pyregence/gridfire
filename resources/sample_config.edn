@@ -16,19 +16,27 @@
  :cell-size                   98.425 ;; double (feet)
 
  ;; Section 2: Ignition and weather data from which to build simulation inputs
+ ;;
+ ;; For all options other than :simulations, you may enter values in one of three ways:
+ ;;   1. Single Value: 25
+ ;;   2. List of Values: (2 17 9)
+ ;;   3. Range of Values: [10 20]
+ ;;
+ ;; If a single value is provided, it will be kept the same for all simulations.
+ ;; For a list of values, the list will be randomly sampled from in each simulation.
+ ;; For a range of values, the range [inclusive exclusive] will be randomly sampled from in each simulation.
  :simulations                 10
- :ignition-site               ([25 40] [10 10] [30 60]) ;; point(s) represented as [row col]
- :ignition-site               {:min-row 10 :max-row 90
-                               :min-col 20 :max-col 80} ;; alternative option: randomly sample points from a range
- :max-runtime                 60.0   ;; double (minutes)
- :wind-speed-20ft             (10.0 20.0)   ;; double (miles/hour)
- :wind-from-direction         (0.0 90.0 180.0 270.0)   ;; double (degrees clockwise from north)
+ :ignition-row                [10 90]
+ :ignition-col                [20 80]
+ :max-runtime                 60.0        ;; (minutes)
+ :wind-speed-20ft             (10.0 15.0 20.0) ;; (miles/hour)
+ :wind-from-direction         (0.0 90.0 180.0 270.0) ;; (degrees clockwise from north)
  :fuel-moisture               {:dead {:1hr 0.06
                                       :10hr 0.07
                                       :100hr 0.08}
                                :live {:herbaceous 0.60
-                                      :woody 0.90}} ;; doubles (%)
- :foliar-moisture             0.9 ;; double (%)
+                                      :woody 0.90}} ;; (%)
+ :foliar-moisture             0.9                   ;; (%)
  :ellipse-adjustment-factor   1.0 ;; (< 1.0 = more circular, > 1.0 = more elliptical)
 
  ;; Section 3: Types and names of outputs
