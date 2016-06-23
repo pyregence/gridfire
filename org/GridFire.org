@@ -2218,7 +2218,7 @@ or false:
                                                      (wind-speed-20ft i)
                                                      (wind-from-direction i)
                                                      fuel-moisture
-                                                     (foliar-moisture i)
+                                                     (* 0.01 (foliar-moisture i))
                                                      (ellipse-adjustment-factor i)
                                                      [(ignition-row i)
                                                       (ignition-col i)])]
@@ -2378,12 +2378,12 @@ relationships.
  :simulations                 10
  :ignition-row                [10 90]
  :ignition-col                [20 80]
- :max-runtime                 60.0        ;; (minutes)
+ :max-runtime                 60.0 ;; (minutes)
  :temperature                 (50.0 65.0 80.0) ;; (degrees Fahrenheit)
  :relative-humidity           (1.0 10.0 20.0) ;; (%)
  :wind-speed-20ft             (10.0 15.0 20.0) ;; (miles/hour)
  :wind-from-direction         (0.0 90.0 180.0 270.0) ;; (degrees clockwise from north)
- :foliar-moisture             0.9                   ;; (%)
+ :foliar-moisture             90.0 ;; (%)
  :ellipse-adjustment-factor   1.0 ;; (< 1.0 = more circular, > 1.0 = more elliptical)
 
  ;; Section 3: Types and names of outputs

@@ -141,7 +141,7 @@
                                                      (wind-speed-20ft i)
                                                      (wind-from-direction i)
                                                      fuel-moisture
-                                                     (foliar-moisture i)
+                                                     (* 0.01 (foliar-moisture i))
                                                      (ellipse-adjustment-factor i)
                                                      [(ignition-row i)
                                                       (ignition-col i)])]
