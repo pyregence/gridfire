@@ -1,11 +1,13 @@
 (task-options!
- pom  {:project     'sig-gis/gridfire
-       :version     "1.2.0"
-       :description "SIG's Raster-based Fire Behavior Model"}
- repl {:eval        '(set! *warn-on-reflection* true)
-       :init-ns     'gridfire.cli}
- aot  {:namespace   '#{gridfire.cli}}
- jar  {:main        'gridfire.cli})
+ pom    {:project     'sig-gis/gridfire
+         :version     "1.2.0"
+         :description "SIG's Raster-based Fire Behavior Model"}
+ repl   {:eval        '(set! *warn-on-reflection* true)
+         :init-ns     'gridfire.cli}
+ aot    {:namespace   '#{gridfire.cli}}
+ jar    {:main        'gridfire.cli
+         :file        "gridfire-1.2.0.jar"}
+ target {:dir         #{"target"}})
 
 (set-env!
  :source-paths   #{"src" "test"}
@@ -28,7 +30,7 @@
 (deftask build
   "Build my project."
   []
-  (comp (aot) (pom) (uber) (jar)))
+  (comp (aot) (pom) (uber) (jar) (target)))
 
 (deftask testing
   "Automatically run tests after each file save."
