@@ -10,6 +10,12 @@
                      [org.clojars.lambdatronic/matrix-viz "0.1.7"]]
   :repositories     [["java.net"  "http://download.java.net/maven/2"]
                      ["osgeo.org" "http://download.osgeo.org/webdav/geotools/"]]
+  :manifest         {"Specification-Title" "Java Advanced Imaging Image I/O Tools"
+                     "Specification-Version" "1.1"
+                     "Specification-Vendor" "Sun Microsystems, Inc."
+                     "Implementation-Title" "com.sun.media.imageio"
+                     "Implementation-Version" "1.1"
+                     "Implementation-Vendor" "Sun Microsystems, Inc."}
   :min-lein-version "2.5.2"
   :aot              [gridfire.cli]
   :main             gridfire.cli

@@ -6,7 +6,13 @@
          :init-ns     'gridfire.cli}
  aot    {:namespace   '#{gridfire.cli}}
  jar    {:main        'gridfire.cli
-         :file        "gridfire-1.3.0.jar"}
+         :file        "gridfire-1.3.0.jar"
+         :manifest    {"Specification-Title" "Java Advanced Imaging Image I/O Tools"
+                       "Specification-Version" "1.1"
+                       "Specification-Vendor" "Sun Microsystems, Inc."
+                       "Implementation-Title" "com.sun.media.imageio"
+                       "Implementation-Version" "1.1"
+                       "Implementation-Vendor" "Sun Microsystems, Inc."}}
  target {:dir         #{"target"}})
 
 (set-env!
