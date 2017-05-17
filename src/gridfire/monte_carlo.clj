@@ -248,6 +248,12 @@
 
 (comment
   (spit "/data/CALFIRE_MAP1_RUN6/inputs/wrf_cells_to_process.clj"
+        (fetch-wrf-cell-ids {:classname   "org.postgresql.Driver"
+                             :subprotocol "postgresql"
+                             :subname     "//iwap03:5432/calfire"
+                             :user        "gjohnson"}))
+
+  (spit "/data/CALFIRE_MAP1_RUN6/inputs/wrf_cells_to_process.clj"
         (filterv (fn [{:keys [wrf_cell_id]}]
                    (not (.exists (io/file "/data/CALFIRE_MAP1_RUN6/outputs" (str "all-fires-" wrf_cell_id ".csv")))))
                  (fetch-wrf-cell-ids {:classname   "org.postgresql.Driver"
@@ -255,17 +261,19 @@
                                       :subname     "//iwap03:5432/calfire"
                                       :user        "gjohnson"})))
 
-  (spit "/data/CALFIRE_MAP1_RUN6/inputs/wrf_cells_to_process.clj"
+  (spit "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
         (fetch-wrf-cell-ids {:classname   "org.postgresql.Driver"
                              :subprotocol "postgresql"
                              :subname     "//iwap03:5432/calfire"
                              :user        "gjohnson"}))
 
   (spit "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
-        (fetch-wrf-cell-ids {:classname   "org.postgresql.Driver"
-                             :subprotocol "postgresql"
-                             :subname     "//iwap03:5432/calfire"
-                             :user        "gjohnson"}))
+        (filterv (fn [{:keys [wrf_cell_id]}]
+                   (not (.exists (io/file "/data/IWAP_GRIDFIRE_RUNS/outputs" (str "all-fires-" wrf_cell_id ".csv")))))
+                 (fetch-wrf-cell-ids {:classname   "org.postgresql.Driver"
+                                      :subprotocol "postgresql"
+                                      :subname     "//iwap03:5432/calfire"
+                                      :user        "gjohnson"})))
 
   ;; iwap02
   (launch-calfire-monte-carlo-simulation
@@ -275,7 +283,7 @@
     :user        "gjohnson"}
    "/data/IWAP_GRIDFIRE_RUNS/outputs"
    "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
-   0 15000 50)
+   0 6000 30)
 
   ;; iwap03
   (launch-calfire-monte-carlo-simulation
@@ -285,7 +293,7 @@
     :user        "gjohnson"}
    "/data/IWAP_GRIDFIRE_RUNS/outputs"
    "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
-   15000 49600 100)
+   6000 18000 100)
 
   ;; iwap04
   (launch-calfire-monte-carlo-simulation
@@ -295,7 +303,7 @@
     :user        "gjohnson"}
    "/data/IWAP_GRIDFIRE_RUNS/outputs"
    "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
-   49600 84200 100)
+   18000 30000 100)
 
   ;; iwap05
   (launch-calfire-monte-carlo-simulation
@@ -305,4 +313,4 @@
     :user        "gjohnson"}
    "/data/IWAP_GRIDFIRE_RUNS/outputs"
    "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
-   84200 118780 100))
+   30000 41423 100))
