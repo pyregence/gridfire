@@ -17,7 +17,7 @@
 
  ;; Section 2: Ignition and weather data from which to build simulation inputs
  ;;
- ;; For all options other than :simulations, you may enter values in one of three ways:
+ ;; For all options in this section, you may enter values in one of three ways:
  ;;   1. Single Value: 25
  ;;   2. List of Values: (2 17 9)
  ;;   3. Range of Values: [10 20]
@@ -25,7 +25,6 @@
  ;; If a single value is provided, it will be kept the same for all simulations.
  ;; For a list of values, the list will be randomly sampled from in each simulation.
  ;; For a range of values, the range [inclusive exclusive] will be randomly sampled from in each simulation.
- :simulations                 10
  :ignition-row                [10 90]
  :ignition-col                [20 80]
  :max-runtime                 60 ;; (minutes)
@@ -36,7 +35,11 @@
  :foliar-moisture             90 ;; (%)
  :ellipse-adjustment-factor   1.0 ;; (< 1.0 = more circular, > 1.0 = more elliptical)
 
- ;; Section 3: Types and names of outputs
+ ;; Section 3: Number of simulations and (optional) random seed parameter
+ :simulations                 10
+ :random-seed                 1234567890 ;; long value (optional)
+
+ ;; Section 4: Types and names of outputs
  :outfile-suffix              "_tile_100"
  :output-landfire-inputs?     true
  :output-geotiffs?            true

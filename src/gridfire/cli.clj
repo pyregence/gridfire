@@ -9,7 +9,8 @@
             [gridfire.fire-spread :refer [run-fire-spread]]
             [matrix-viz.core :refer [save-matrix-as-png]]
             [magellan.core :refer [register-new-crs-definitions-from-properties-file!
-                                   make-envelope matrix-to-raster write-raster]]))
+                                   make-envelope matrix-to-raster write-raster]])
+  (:import (java.util Random)))
 
 (m/set-current-implementation :vectorz)
 
@@ -53,20 +54,32 @@
         (update-in [:crown-bulk-density :matrix]
                    (fn [matrix] (m/emap #(* % 0.0624) matrix)))))) ; kg/m^3 -> lb/ft^3
 
+(defn my-rand
+  ([^Random rand-generator] (.nextDouble rand-generator))
+  ([^Random rand-generator n] (* n (my-rand rand-generator))))
+
+(defn my-rand-int
+  [rand-generator n]
+  (int (my-rand rand-generator n)))
+
+(defn my-rand-nth
+  [rand-generator coll]
+  (nth coll (my-rand-int rand-generator (count coll))))
+
 (defn sample-from-list
-  [n xs]
-  (repeatedly n #(rand-nth xs)))
+  [rand-generator n xs]
+  (repeatedly n #(my-rand-nth rand-generator xs)))
 
 (defn sample-from-range
-  [n [min max]]
+  [rand-generator n [min max]]
   (let [range (- max min)]
-    (repeatedly n #(+ min (rand-int range)))))
+    (repeatedly n #(+ min (my-rand-int rand-generator range)))))
 
 (defn draw-samples
-  [n x]
+  [rand-generator n x]
   (into []
-        (cond (list? x)   (sample-from-list n x)
-              (vector? x) (sample-from-range n x)
+        (cond (list? x)   (sample-from-list rand-generator n x)
+              (vector? x) (sample-from-range rand-generator n x)
               :else       (repeat n x))))
 
 (defn cells-to-acres
@@ -229,7 +242,10 @@
                                             (+ upperlefty (* height scaley))
                                             (* width scalex)
                                             (* -1.0 height scaley)))
-          simulations      (:simulations config)]
+          simulations      (:simulations config)
+          rand-generator   (if-let [seed (:random-seed config)]
+                             (Random. seed)
+                             (Random.))]
       (when (:output-landfire-inputs? config)
         (doseq [[layer matrix] landfire-rasters]
           (-> (matrix-to-raster (name layer) matrix envelope)
@@ -239,15 +255,15 @@
             landfire-rasters
             envelope
             (:cell-size config)
-            (draw-samples simulations (:ignition-row config))
-            (draw-samples simulations (:ignition-col config))
-            (draw-samples simulations (:max-runtime config))
-            (draw-samples simulations (:temperature config))
-            (draw-samples simulations (:relative-humidity config))
-            (draw-samples simulations (:wind-speed-20ft config))
-            (draw-samples simulations (:wind-from-direction config))
-            (draw-samples simulations (:foliar-moisture config))
-            (draw-samples simulations (:ellipse-adjustment-factor config))
+            (draw-samples rand-generator simulations (:ignition-row config))
+            (draw-samples rand-generator simulations (:ignition-col config))
+            (draw-samples rand-generator simulations (:max-runtime config))
+            (draw-samples rand-generator simulations (:temperature config))
+            (draw-samples rand-generator simulations (:relative-humidity config))
+            (draw-samples rand-generator simulations (:wind-speed-20ft config))
+            (draw-samples rand-generator simulations (:wind-from-direction config))
+            (draw-samples rand-generator simulations (:foliar-moisture config))
+            (draw-samples rand-generator simulations (:ellipse-adjustment-factor config))
             (:outfile-suffix config)
             (:output-geotiffs? config)
             (:output-pngs? config)
