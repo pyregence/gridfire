@@ -1,7 +1,7 @@
 (ns gridfire.postgis-bridge
   (:require [clojure.java.jdbc :as jdbc]
             [clojure.core.matrix :as m])
-  (:import (org.postgresql.jdbc4 Jdbc4Array)))
+  (:import (org.postgresql.jdbc PgArray)))
 
 (m/set-current-implementation :vectorz)
 
@@ -31,7 +31,7 @@
              matrix   (when-let [result (seq (jdbc/query conn [data-query]))]
                         (->> (first result)
                              :matrix
-                             (#(.getArray ^Jdbc4Array %))
+                             (#(.getArray ^PgArray %))
                              (m/emap #(or % -1.0))
                              m/matrix))]
          (assoc metadata :matrix matrix)))))
@@ -55,7 +55,7 @@
              matrix   (when-let [result (seq (jdbc/query conn [data-query]))]
                         (->> (first result)
                              :matrix
-                             (#(.getArray ^Jdbc4Array %))
+                             (#(.getArray ^PgArray %))
                              (m/emap #(or % -1.0))
                              m/matrix))]
          (assoc metadata :matrix matrix))))))
