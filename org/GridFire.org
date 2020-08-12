@@ -95,7 +95,7 @@ will call our Clojure program. A minimal but complete project.clj is
 shown below.
 
 #+name: project.clj
-#+begin_src clojure :results silent :exports code :tangle ../project.clj :padline no
+#+begin_src clojure :results silent :exports code :tangle ../project.clj :padline no :no-expand
 (defproject sig-gis/gridfire "1.4.0"
   :description      "SIG's Raster-based Fire Behavior Model"
   :dependencies     [[org.clojure/clojure                 "1.7.0"]
@@ -141,14 +141,14 @@ this case, two files are required: ``boot.properties'' and
 ``build.boot''.
 
 #+name: boot.properties
-#+begin_src sh :results silent :exports code :tangle ../boot.properties :padline no
+#+begin_src sh :results silent :exports code :tangle ../boot.properties :padline no :no-expand
 BOOT_CLOJURE_NAME=org.clojure/clojure
 BOOT_CLOJURE_VERSION=1.7.0
 BOOT_VERSION=2.6.0
 #+end_src
 
 #+name: build.boot
-#+begin_src clojure :results silent :exports code :tangle ../build.boot :padline no
+#+begin_src clojure :results silent :exports code :tangle ../build.boot :padline no :no-expand
 (task-options!
  pom    {:project     'sig-gis/gridfire
          :version     "1.4.0"
@@ -339,7 +339,7 @@ internal data structure, which may be updated to include additional
 custom fuel models desired by the user.
 
 #+name: fuel-model-definitions
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj :padline no
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj :padline no :no-expand
 (ns gridfire.fuel-models)
 
 (def fuel-models
@@ -440,7 +440,7 @@ classes, we define a collection of utility functions that will later
 be used in both the fuel moisture and fire spread algorithms.
 
 #+name: fuel-category-and-size-class-functions
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj :no-expand
 (defn map-category [f]
   {:dead (f :dead) :live (f :live)})
 
@@ -465,7 +465,7 @@ encoded fuel model definitions into human-readable representations of
 the fuel model properties.
 
 #+name: fuel-model-constructor-functions
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj :no-expand
 (defn build-fuel-model
   [fuel-model-number]
   (let [[name delta M_x-dead h
@@ -556,7 +556,7 @@ $M_{f}^{lh}$ is the live herbaceous moisture content.
 \end{align*}
 
 #+name: add-dynamic-fuel-loading
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj :no-expand
 (defn add-dynamic-fuel-loading
   [{:keys [number M_x M_f w_o sigma] :as fuel-model}]
   (let [live-herbaceous-load (-> w_o :live :herbaceous)]
@@ -580,7 +580,7 @@ class weighting factors expressed in equations 53-57 in Rothermel
 this text.
 
 #+name: add-weighting-factors
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj :no-expand
 (defn add-weighting-factors
   [{:keys [w_o sigma rho_p] :as fuel-model}]
   (let [A_ij (map-size-class (fn [i j] (/ (* (-> sigma i j) (-> w_o i j))
@@ -651,7 +651,7 @@ ratio of size class $c$, and $M_{f}^{c}$ is the moisture content of
 size class $c$.
 
 #+name: add-live-moisture-of-extinction
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj :no-expand
 (defn add-live-moisture-of-extinction
   "Equation 88 from Rothermel 1972 adjusted by Albini 1976 Appendix III."
   [{:keys [w_o sigma M_f M_x] :as fuel-model}]
@@ -746,7 +746,7 @@ computed first without introducing the effects of wind and slope
 ($\phi_{W} = \phi_{S} = 0$).
 
 #+name: rothermel-surface-fire-spread-no-wind-no-slope
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/surface_fire.clj :padline no
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/surface_fire.clj :padline no :no-expand
 (ns gridfire.surface-fire
   (:require [gridfire.fuel-models :refer [map-category map-size-class
                                           category-sum size-class-sum]]))
@@ -939,7 +939,7 @@ depth in feet, CH is the canopy height in ft, and CC is the canopy
 cover percentage (0-100).
 
 #+name: wind-adjustment-factor
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/surface_fire.clj
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/surface_fire.clj :no-expand
 (defn wind-adjustment-factor
   "ft ft 0-100"
   [fuel-bed-depth canopy-height canopy-cover]
@@ -1014,7 +1014,7 @@ in units of hr/mi, so this was converted to match GridFire's use of
 ft/min for $U_{\textrm{eff}}$.
 
 #+name: rothermel-surface-fire-spread-max-and-any
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/surface_fire.clj
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/surface_fire.clj :no-expand
 (defn almost-zero? [^double x]
   (< (Math/abs x) 0.000001))
 
@@ -1148,7 +1148,7 @@ Btu/ft^{2}/min, $I$ is the fire line intensity in Btu/ft/s, and $L$ is
 the flame length in ft.
 
 #+name: surface-fire-intensity-formulas
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/surface_fire.clj
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/surface_fire.clj :no-expand
 (defn anderson-flame-depth
   "Returns the depth, or front-to-back distance, of the actively flaming zone
    of a free-spreading fire in ft given:
@@ -1206,7 +1206,7 @@ intensity is greater than the critical intensity ($I > I^{*}$), then
 crown fire initiation occurs.
 
 #+name: van-wagner-crown-fire-initiation
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/crown_fire.clj :padline no
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/crown_fire.clj :padline no :no-expand
 (ns gridfire.crown-fire)
 
 (defn ft->m [ft] (* 0.3048 ft))
@@ -1247,7 +1247,7 @@ spread rate ($\textrm{CROS}_{A} > R^{*}$), then the crown fire will be
 active, otherwise passive.
 
 #+name: cruz-crown-fire-spread
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/crown_fire.clj
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/crown_fire.clj :no-expand
 (defn mph->km-hr [mph] (* 1.609344 mph))
 
 (defn lb-ft3->kg-m3 [lb-ft3] (* 16.01846 lb-ft3))
@@ -1294,7 +1294,7 @@ Btu/lb), $L_{c}$ is the crown flame length in ft, and $I$ is the
 surface fire line intensity in Btu/ft/s.
 
 #+name: crown-fire-line-intensity
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/crown_fire.clj
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/crown_fire.clj :no-expand
 ;; heat of combustion is h from the fuel models (generally 8000 Btu/lb)
 (defn crown-fire-line-intensity
   "(ft/min * lb/ft^3 * ft * Btu/lb)/60 = (Btu/ft*min)/60 = Btu/ft*s"
@@ -1341,7 +1341,7 @@ that can be increased or decreased to make the fire shape more
 elliptical or circular respectively.\citep{Peterson2009}
 
 #+name: crown-eccentricity
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/crown_fire.clj
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/crown_fire.clj :no-expand
 (defn crown-fire-eccentricity
   "mph"
   [wind-speed-20ft ellipse-adjustment-factor]
@@ -1598,7 +1598,7 @@ pseudo-code lays out the steps taken in this procedure:
    |----------------------------+-----------------------------------------+-----------------------------|
 
 #+name: fire-spread-algorithm
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fire_spread.clj :padline no
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fire_spread.clj :padline no :no-expand
 (ns gridfire.fire-spread
   (:require [clojure.core.matrix :as m]
             [clojure.core.matrix.operators :as mop]
@@ -1954,7 +1954,7 @@ may be called directly from the REPL or indirectly through GridFire's
 command line interface.
 
 #+name: postgis-bridge
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/postgis_bridge.clj :padline no
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/postgis_bridge.clj :padline no :no-expand
 (ns gridfire.postgis-bridge
   (:require [clojure.java.jdbc :as jdbc]
             [clojure.core.matrix :as m])
@@ -2074,7 +2074,7 @@ or false:
 3. :output-pngs?
 
 #+name: command-line-interface
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/cli.clj :padline no
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/cli.clj :padline no :no-expand
 (ns gridfire.cli
   (:gen-class)
   (:require [clojure.edn :as edn]
@@ -2363,7 +2363,7 @@ delimited with curly braces ({}) and are used to express key-value
 relationships.
 
 #+name: sample_config.edn
-#+begin_src clojure :results silent :exports code :tangle ../resources/sample_config.edn :padline no
+#+begin_src clojure :results silent :exports code :tangle ../resources/sample_config.edn :padline no :no-expand
 {
  ;; Section 1: Landscape data to be shared by all simulations
  :db-spec                     {:classname   "org.postgresql.Driver"
@@ -2422,7 +2422,7 @@ This concludes our discussion of GridFire's command line interface.
 * Monte Carlo Simulation :noexport:
 
 #+name: monte-carlo-simulation
-#+begin_src clojure :results silent :exports none :tangle ../src/gridfire/monte_carlo.clj :padline no
+#+begin_src clojure :results silent :exports none :tangle ../src/gridfire/monte_carlo.clj :padline no :no-expand
 (ns gridfire.monte-carlo
   (:require [clojure.java.io :as io]
             [clojure.data.csv :as csv]
