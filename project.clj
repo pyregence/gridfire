@@ -8,8 +8,8 @@
                      [net.mikera/vectorz-clj              "0.47.0"]
                      [sig-gis/magellan                    "0.1.0"]
                      [org.clojars.lambdatronic/matrix-viz "0.1.7"]]
-  :repositories     [["java.net"  "http://download.java.net/maven/2"]
-                     ["osgeo.org" "http://download.osgeo.org/webdav/geotools/"]]
+  :repositories     [["java.net"  "https://download.java.net/maven/2"]
+                     ["osgeo.org" "https://repo.osgeo.org/repository/release/"]]
   :manifest         {"Specification-Title" "Java Advanced Imaging Image I/O Tools"
                      "Specification-Version" "1.1"
                      "Specification-Vendor" "Sun Microsystems, Inc."
