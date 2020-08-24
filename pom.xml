@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>sig-gis</groupId>
+  <artifactId>gridfire</artifactId>
+  <version>1.1</version>
+  <name>gridfire</name>
+  <description>
+    SIG's Raster-based Fire Behavior Model
+  </description>
+  <build>
+    <plugins>
+      <plugin>
+        <configuration>
+          <archive>
+            <manifestEntries>
+              <Specification-Title> Java Advanced Imaging Image I/O Tools </Specification-Title>
+              <Specification-Version> 1.1 </Specification-Version>
+              <Specification-Vendor> Sun Microsystems, Inc. </Specification-Vendor>
+              <Implementation-Title> com.sun.media.imageio </Implementation-Title>
+              <Implementation-Version> 1.1 </Implementation-Version>
+              <Implementation-Vendor> Sun Microsystems, Inc. </Implementation-Vendor>
+            </manifestEntries>
+          </archive>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+  <dependencies>
+    <dependency>
+      <groupId>org.clojure</groupId>
+      <artifactId>clojure</artifactId>
+      <version>1.10.1</version>
+    </dependency>
+    <dependency>
+      <groupId>sig-gis</groupId>
+      <artifactId>magellan</artifactId>
+      <version>0.2.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>42.2.16</version>
+    </dependency>
+    <dependency>
+      <groupId>org.clojars.lambdatronic</groupId>
+      <artifactId>matrix-viz</artifactId>
+      <version>0.1.7</version>
+    </dependency>
+    <dependency>
+      <groupId>org.clojure</groupId>
+      <artifactId>data.csv</artifactId>
+      <version>1.0.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.clojure</groupId>
+      <artifactId>java.jdbc</artifactId>
+      <version>0.7.11</version>
+    </dependency>
+    <dependency>
+      <groupId>net.mikera</groupId>
+      <artifactId>vectorz-clj</artifactId>
+      <version>0.48.0</version>
+    </dependency>
+    <dependency>
+      <groupId>net.mikera</groupId>
+      <artifactId>core.matrix</artifactId>
+      <version>0.62.0</version>
+    </dependency>
+  </dependencies>
+  <build>
+    <build>
+      <sourceDirectory>src</sourceDirectory>
+    </build>
+  </build>
+  <repositories>
+    <repository>
+      <id>clojars</id>
+      <url>https://repo.clojars.org/</url>
+    </repository>
+    <repository>
+      <id>OSGeo</id>
+      <url>https://repo.osgeo.org/repository/release/</url>
+    </repository>
+  </repositories>
+</project>
