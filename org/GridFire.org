@@ -206,6 +206,46 @@ from your shell:
 boot repl
 #+end_src
 
+* Setting Up the Clojure Enviornment with Clojure build tool
+
+#+begin_src clojure :results silent :exports code :tangle ../deps.edn :padline no :no-expand
+(defproject sig-gis/gridfire "1.5.0"
+  :description      "SIG's Raster-based Fire Behavior Model"
+  :dependencies     [[org.clojure/clojure                 "1.9.0-alpha12"]
+                     [org.clojure/data.csv                "0.1.4"]
+                     [org.clojure/java.jdbc               "0.7.6"]
+                     [org.postgresql/postgresql           "42.2.2.jre7"]
+                     [net.mikera/core.matrix              "0.62.0"]
+                     [net.mikera/vectorz-clj              "0.47.0"]
+                     [sig-gis/magellan                    "0.1.0"]
+                     [org.clojars.lambdatronic/matrix-viz "0.1.7"]]
+  :repositories     [["java.net"  "https://download.java.net/maven/2"]
+                     ["osgeo.org" "https://repo.osgeo.org/repository/release/"]]
+  :manifest         {"Specification-Title" "Java Advanced Imaging Image I/O Tools"
+{:paths ["src" "resources" "target" "test"]
+
+ :deps {org.clojure/clojure                 {:mvn/version "1.10.1"}
+        org.clojure/data.csv                {:mvn/version "1.0.0"}
+        org.clojure/java.jdbc               {:mvn/version "0.7.11"}
+        org.postgresql/postgresql           {:mvn/version "42.2.16"}
+        net.mikera/core.matrix              {:mvn/version "0.62.0"}
+        net.mikera/vectorz-clj              {:mvn/version "0.48.0"}
+        sig-gis/magellan                    {:mvn/version "0.2.0"}
+        org.clojars.lambdatronic/matrix-viz {:mvn/version "0.1.7"}}
+
+ :mvn/repos {"OSGeo" {:url "https://repo.osgeo.org/repository/release/"}}
+
+ :aliases {:cli          ["-m" "gridfire.cli"]
+           :make-uberjar {:extra-deps {seancorfield/depstar {:mvn/version "1.0.97"}}
+                          :main-opts  ["-m" "hf.depstar.uberjar" "target/magellan-0.2.0.jar"]}
+           :test         {:extra-deps {com.cognitect/test-runner
+                                       {:git/url
+                                        "https://github.com/cognitect-labs/test-runner.git"
+                                        :sha
+                                        "209b64504cb3bd3b99ecfec7937b358a879f55c1"}}
+                          :main-opts  ["-m" "cognitect.test-runner"]}}}
+#+END_SRC
+
 * Setting Up the PostGIS Database
 
 GridFire may make use of any raster-formatted GIS layers that are
