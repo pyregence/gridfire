@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>sig-gis</groupId>
   <artifactId>gridfire</artifactId>
-  <version>1.1</version>
+  <version>1.5.0</version>
   <name>gridfire</name>
   <description>
     SIG's Raster-based Fire Behavior Model
