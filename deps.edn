@@ -1,4 +1,4 @@
-{:paths ["src" "resources" "target" "test"]
+{:paths ["src" "resources"]
 
  :deps {org.clojure/clojure                 {:mvn/version "1.10.1"}
         org.clojure/data.csv                {:mvn/version "1.0.0"}
@@ -17,7 +17,8 @@
            :make-uberjar {:extra-deps {seancorfield/depstar {:mvn/version "1.0.97"}}
                           :main-opts  ["-m" "hf.depstar.uberjar" "target/gridfire-1.5.0.jar"
                                        "-C" "-m" "gridfire.cli"]}
-           :test         {:extra-deps {com.cognitect/test-runner {:git/url
+           :test         {:extra-paths ["test"]
+                          :extra-deps {com.cognitect/test-runner {:git/url
                                                                   "https://github.com/cognitect-labs/test-runner.git"
                                                                   :sha
                                                                   "209b64504cb3bd3b99ecfec7937b358a879f55c1"}}
