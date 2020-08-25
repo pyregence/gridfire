@@ -82,130 +82,6 @@ https://www.gnu.org/licenses/gpl.html. Please contact Gary Johnson
 (gjohnson@sig-gis.com), David Saah (dsaah@sig-gis.com), or Max Moritz
 (mmoritz@sig-gis.com) for further information about this software.
 
-* Setting Up the Clojure Environment with Leiningen
-
-Because Clojure is implemented on the Java Virtual Machine (JVM), we
-must explicitly list all of the libraries used by our program on the
-Java classpath. Fortunately, the Clojure build program, Leiningen, can
-handle downloading and storing these libraries as well as linking them
-to the Clojure process at runtime. However, in order for Leiningen to
-know which libraries are needed, we must first create its config file,
-called ``project.clj'', and place it in the directory from which we
-will call our Clojure program. A minimal but complete project.clj is
-shown below.
-
-#+name: project.clj
-#+begin_src clojure :results silent :exports code :tangle ../project.clj :padline no :no-expand
-(defproject sig-gis/gridfire "1.5.0"
-  :description      "SIG's Raster-based Fire Behavior Model"
-  :dependencies     [[org.clojure/clojure                 "1.9.0-alpha12"]
-                     [org.clojure/data.csv                "0.1.4"]
-                     [org.clojure/java.jdbc               "0.7.6"]
-                     [org.postgresql/postgresql           "42.2.2.jre7"]
-                     [net.mikera/core.matrix              "0.62.0"]
-                     [net.mikera/vectorz-clj              "0.47.0"]
-                     [sig-gis/magellan                    "0.1.0"]
-                     [org.clojars.lambdatronic/matrix-viz "0.1.7"]]
-  :repositories     [["java.net"  "https://download.java.net/maven/2"]
-                     ["osgeo.org" "https://repo.osgeo.org/repository/release/"]]
-  :manifest         {"Specification-Title" "Java Advanced Imaging Image I/O Tools"
-                     "Specification-Version" "1.1"
-                     "Specification-Vendor" "Sun Microsystems, Inc."
-                     "Implementation-Title" "com.sun.media.imageio"
-                     "Implementation-Version" "1.1"
-                     "Implementation-Vendor" "Sun Microsystems, Inc."}
-  :min-lein-version "2.8.1"
-  :aot              [gridfire.cli]
-  :main             gridfire.cli
-  :repl-options     {:init-ns gridfire.cli}
-  :global-vars      {*warn-on-reflection* true})
-#+end_src
-
-Once this file is created, we need to instruct Leiningen to download
-these library dependencies and then open the REPL
-(Read-Evaluate-Print-Loop).
-
-#+name: lein-setup
-#+begin_src sh :results silent :exports code
-lein deps
-lein repl
-#+end_src
-
-* Setting Up the Clojure Environment with Boot
-
-As an alternative to Leiningen, the Clojure ecosystem provides another
-build tool called Boot. This program performs all of the same
-functions as Leiningen and is configured similarly by placing a text
-file in the directory from which the Clojure program will be run. In
-this case, two files are required: ``boot.properties'' and
-``build.boot''.
-
-#+name: boot.properties
-#+begin_src sh :results silent :exports code :tangle ../boot.properties :padline no :no-expand
-#http://boot-clj.com
-#Fri May 18 12:50:17 EDT 2018
-BOOT_CLOJURE_NAME=org.clojure/clojure
-BOOT_CLOJURE_VERSION=1.9.0-alpha12
-BOOT_VERSION=2.7.2
-#+end_src
-
-#+name: build.boot
-#+begin_src clojure :results silent :exports code :tangle ../build.boot :padline no :no-expand
-(task-options!
- pom    {:project     'sig-gis/gridfire
-         :version     "1.5.0"
-         :description "SIG's Raster-based Fire Behavior Model"}
- repl   {:eval        '(set! *warn-on-reflection* true)
-         :init-ns     'gridfire.cli}
- aot    {:namespace   '#{gridfire.cli}}
- jar    {:main        'gridfire.cli
-         :file        "gridfire-1.5.0.jar"
-         :manifest    {"Specification-Title" "Java Advanced Imaging Image I/O Tools"
-                       "Specification-Version" "1.1"
-                       "Specification-Vendor" "Sun Microsystems, Inc."
-                       "Implementation-Title" "com.sun.media.imageio"
-                       "Implementation-Version" "1.1"
-                       "Implementation-Vendor" "Sun Microsystems, Inc."}}
- target {:dir         #{"target"}})
-
-(set-env!
- :source-paths   #{"src" "test"}
- :resource-paths #{"resources"}
- :dependencies   '[[org.clojure/clojure                 "1.9.0-alpha12"]
-                   [org.clojure/data.csv                "0.1.4"]
-                   [org.clojure/java.jdbc               "0.7.6"]
-                   [org.postgresql/postgresql           "42.2.2.jre7"]
-                   [net.mikera/core.matrix              "0.62.0"]
-                   [net.mikera/vectorz-clj              "0.47.0"]
-                   [sig-gis/magellan                    "0.1.0"]
-                   [org.clojars.lambdatronic/matrix-viz "0.1.7"]
-                   [adzerk/boot-test                    "1.2.0" :scope "test"]]
- :repositories   #(conj %
-                        ["java.net"  "http://download.java.net/maven/2"]
-                        ["osgeo.org" "http://download.osgeo.org/webdav/geotools/"]))
-
-(require '[adzerk.boot-test :refer :all])
-
-(deftask build
-  "Build my project."
-  []
-  (comp (aot) (pom) (uber) (jar) (target)))
-
-(deftask testing
-  "Automatically run tests after each file save."
-  []
-  (comp (watch) (speak) (test)))
-#+end_src
-
-To download all the required dependencies and launch a REPL to follow
-along with the rest of this document, simply run the following command
-from your shell:
-
-#+name: boot-setup
-#+begin_src sh :results silent :exports code
-boot repl
-#+end_src
-
 * Setting Up the Clojure Enviornment with Clojure build tool
   
 Because Clojure is implemented on the Java Virtual Machine (JVM), we
@@ -229,7 +105,9 @@ class path. A minimal but complete deps.edn  is shown below.
 
  :mvn/repos {"OSGeo" {:url "https://repo.osgeo.org/repository/release/"}}
 
- :aliases {:run          {:main-opts ["-m" "gridfire.cli"]}
+ :aliases {:nrepl        {:main-opts  ["-m" "lambdaisland.nrepl.main" "-i" "gridfire.cli"]
+                          :extra-deps {lambdaisland/nrepl {:mvn/version "0.2.0"}}}
+           :run          {:main-opts ["-m" "gridfire.cli"]}
            :make-uberjar {:extra-deps {seancorfield/depstar {:mvn/version "1.0.97"}}
                           :main-opts  ["-m" "hf.depstar.uberjar" "target/gridfire-1.5.0.jar"]}
            :test         {:extra-deps {com.cognitect/test-runner
