@@ -11,14 +11,14 @@
 
  :mvn/repos {"OSGeo" {:url "https://repo.osgeo.org/repository/release/"}}
 
- :aliases {:nrepl        {:main-opts  ["-m" "lambdaisland.nrepl.main" "-i" "gridfire.cli"]
-                          :extra-deps {lambdaisland/nrepl {:mvn/version "0.2.0"}}}
-           :run          {:main-opts ["-m" "gridfire.cli"]}
+ :aliases {:repl         {:main-opts ["-e" "(require,'gridfire.cli)"
+                                      "-e" "(in-ns,'gridfire.cli)"
+                                      "-r"]}
            :make-uberjar {:extra-deps {seancorfield/depstar {:mvn/version "1.0.97"}}
-                          :main-opts  ["-m" "hf.depstar.uberjar" "target/gridfire-1.5.0.jar"]}
-           :test         {:extra-deps {com.cognitect/test-runner
-                                       {:git/url
-                                        "https://github.com/cognitect-labs/test-runner.git"
-                                        :sha
-                                        "209b64504cb3bd3b99ecfec7937b358a879f55c1"}}
+                          :main-opts  ["-m" "hf.depstar.uberjar" "target/gridfire-1.5.0.jar"
+                                       "-C" "-m" "gridfire.cli"]}
+           :test         {:extra-deps {com.cognitect/test-runner {:git/url
+                                                                  "https://github.com/cognitect-labs/test-runner.git"
+                                                                  :sha
+                                                                  "209b64504cb3bd3b99ecfec7937b358a879f55c1"}}
                           :main-opts  ["-m" "cognitect.test-runner"]}}}
