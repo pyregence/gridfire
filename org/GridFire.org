@@ -89,7 +89,7 @@ must explicitly list all of the libraries used by our program on the
 Java classpath. Fortunately, Clojure tools specify a syntax and file
 (deps.edn) for specifying which libraries we want to use, getting it once and
 storing it in your local machine and making it available on the JVM
-class path. A minimal but complete deps.edn  is shown below.
+class path. A minimal but complete deps.edn is shown below.
 
 #+begin_src clojure :results silent :exports code :tangle ../deps.edn :padline no :no-expand
 {:paths ["src" "resources" "target" "test"]
