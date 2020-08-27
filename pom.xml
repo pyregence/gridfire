@@ -14,17 +14,20 @@
         <configuration>
           <archive>
             <manifestEntries>
-              <Specification-Title> Java Advanced Imaging Image I/O Tools </Specification-Title>
-              <Specification-Version> 1.1 </Specification-Version>
-              <Specification-Vendor> Sun Microsystems, Inc. </Specification-Vendor>
-              <Implementation-Title> com.sun.media.imageio </Implementation-Title>
-              <Implementation-Version> 1.1 </Implementation-Version>
-              <Implementation-Vendor> Sun Microsystems, Inc. </Implementation-Vendor>
+              <Specification-Title>Java Advanced Imaging Image I/O Tools</Specification-Title>
+              <Specification-Version>1.1</Specification-Version>
+              <Specification-Vendor>Sun Microsystems, Inc.</Specification-Vendor>
+              <Implementation-Title>com.sun.media.imageio</Implementation-Title>
+              <Implementation-Version>1.1</Implementation-Version>
+              <Implementation-Vendor>Sun Microsystems, Inc.</Implementation-Vendor>
             </manifestEntries>
           </archive>
         </configuration>
       </plugin>
     </plugins>
+    <build>
+      <sourceDirectory>src</sourceDirectory>
+    </build>
   </build>
   <dependencies>
     <dependency>
@@ -35,7 +38,7 @@
     <dependency>
       <groupId>sig-gis</groupId>
       <artifactId>magellan</artifactId>
-      <version>0.2.0</version>
+      <version>20200826.144413</version>
     </dependency>
     <dependency>
       <groupId>org.postgresql</groupId>
@@ -68,18 +71,13 @@
       <version>0.62.0</version>
     </dependency>
   </dependencies>
-  <build>
-    <build>
-      <sourceDirectory>src</sourceDirectory>
-    </build>
-  </build>
   <repositories>
     <repository>
       <id>clojars</id>
       <url>https://repo.clojars.org/</url>
     </repository>
     <repository>
-      <id>OSGeo</id>
+      <id>osgeo</id>
       <url>https://repo.osgeo.org/repository/release/</url>
     </repository>
   </repositories>
