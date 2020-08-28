@@ -1,6 +1,6 @@
 #+TITLE: The GridFire Fire Behavior Model
 #+AUTHOR: Gary W. Johnson, Ph.D., David Saah, Ph.D., Max Moritz, Ph.D.
-#+DATE: Copyright 2011-2016 Spatial Informatics Group, LLC
+#+DATE: Copyright 2011-2020 Spatial Informatics Group, LLC
 #+OPTIONS: ^:{} toc:nil h:3
 #+LATEX_CLASS: article
 #+LATEX_CLASS_OPTIONS: [11pt]
@@ -48,49 +48,51 @@ minimum required versions and URLs from which they may be downloaded.
 #+NAME: tab:required-software
 #+CAPTION: Software necessary to evaluate the code in this document
 #+ATTR_LATEX: :align |l|r|l| :font \small
-|----------------------+---------+---------------------------|
-| Name                 | Version | URL                       |
-|----------------------+---------+---------------------------|
-| Java Development Kit |    1.7+ | http://www.java.com       |
-| Leiningen            |  2.5.2+ | http://leiningen.org      |
-| Boot                 |  2.6.0+ | http://boot-clj.com       |
-| Postgresql           |    9.3+ | http://www.postgresql.org |
-| PostGIS              |    2.1+ | http://postgis.net        |
-|----------------------+---------+---------------------------|
+|----------------------+-------------+--------------------------------------------|
+| Name                 |     Version | URL                                        |
+|----------------------+-------------+--------------------------------------------|
+| Java Development Kit |         11+ | https://jdk.java.net                       |
+| Clojure CLI Tools    | 1.10.1.561+ | https://clojure.org/guides/getting_started |
+| Postgresql           |         10+ | https://www.postgresql.org/download        |
+| PostGIS              |          3+ | https://postgis.net/install                |
+|----------------------+-------------+--------------------------------------------|
 
 GridFire is written in the Clojure programming language[fn::
-http://clojure.org], which is a modern dialect of Lisp hosted on the
+https://clojure.org], which is a modern dialect of Lisp hosted on the
 Java Virtual Machine.\citep{Hickey2008} As a result, a Java
 Development Kit is required to compile and run the code shown
 throughout this document.
 
-The Clojure build tools, Leiningen and Boot, are used to download
-required libraries and provide a code evaluation prompt (a.k.a. REPL)
-into which we will enter the code making up this fire model.
+The Clojure CLI tools are used to download required libraries and
+provide a code evaluation prompt (a.k.a. REPL) into which we will
+enter the code making up this fire model.
 
 Postgresql (along with the PostGIS spatial extensions) will be used to
 load and serve raster-formatted GIS layers to the GridFire program.
 Although it is beyond the scope of this document, PostGIS provides a
 rich API for manipulating both raster and vector layers through SQL.
-See http://postgis.net for more information.
+See https://postgis.net for more information.
 
 *License Notice*: All code presented in this document is solely the
-work of the authors (Copyright 2011-2016 Gary W. Johnson, Ph.D., David
-Saah, Ph.D., Max Moritz, Ph.D.) and is made available by SIG under the
-GNU General Public License version 3.0 (GPLv3)
-https://www.gnu.org/licenses/gpl.html. Please contact Gary Johnson
+work of the authors (Gary W. Johnson, Ph.D., David Saah, Ph.D., Max
+Moritz, Ph.D.) and is made available by Spatial Informatics Group,
+LLC. (SIG) under the Eclipse Public License version 2.0 (EPLv2)
+https://www.eclipse.org/legal/epl-2.0/. Please contact Gary Johnson
 (gjohnson@sig-gis.com), David Saah (dsaah@sig-gis.com), or Max Moritz
 (mmoritz@sig-gis.com) for further information about this software.
 
-* Setting Up the Clojure Enviornment with Clojure build tool
-** Deps.edn
-   
+* Setting Up the Clojure Environment
+** Build Configuration: deps.edn
+
 Because Clojure is implemented on the Java Virtual Machine (JVM), we
 must explicitly list all of the libraries used by our program on the
-Java classpath. Fortunately, Clojure tools specify a syntax and file
-(deps.edn) for specifying which libraries we want to use, getting it
-once and storing it in your local machine and making it available on
-the JVM class path. A minimal but complete deps.edn is shown below.
+Java classpath. Fortunately, the Clojure CLI tools can handle
+downloading and storing these libraries as well as making them
+available to the Clojure process at runtime. However, in order for
+Clojure to know which libraries are needed, we must first create its
+build configuration file, called ``deps.edn'', and place it in the
+directory from which we will call our Clojure program. A minimal but
+complete deps.edn is shown below.
 
 #+name: deps.edn
 #+begin_src clojure :results silent :exports code :tangle ../deps.edn :padline no :no-expand
