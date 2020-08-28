@@ -1,6 +1,5 @@
 .nrepl-port
 .nrepl-history
-.lein-repl-history
 target/
 org/GridFire.bbl
 org/GridFire.blg
