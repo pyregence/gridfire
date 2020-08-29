@@ -104,7 +104,7 @@ complete deps.edn is shown below.
         org.postgresql/postgresql           {:mvn/version "42.2.16"}
         net.mikera/core.matrix              {:mvn/version "0.62.0"}
         net.mikera/vectorz-clj              {:mvn/version "0.48.0"}
-        sig-gis/magellan                    {:mvn/version "20200826.144413"}
+        sig-gis/magellan                    {:mvn/version "20200828.095539"}
         org.clojars.lambdatronic/matrix-viz {:mvn/version "0.1.7"}}
 
  :mvn/repos {"osgeo" {:url "https://repo.osgeo.org/repository/release/"}}
@@ -193,7 +193,9 @@ deps.edn, such as the project name, version, and description.
         </configuration>
       </plugin>
     </plugins>
-    <sourceDirectory>src</sourceDirectory>
+    <build>
+      <sourceDirectory>src</sourceDirectory>
+    </build>
   </build>
   <dependencies>
     <dependency>
