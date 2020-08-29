@@ -206,7 +206,7 @@ deps.edn, such as the project name, version, and description.
     <dependency>
       <groupId>sig-gis</groupId>
       <artifactId>magellan</artifactId>
-      <version>20200826.144413</version>
+      <version>20200828.095539</version>
     </dependency>
     <dependency>
       <groupId>org.postgresql</groupId>
