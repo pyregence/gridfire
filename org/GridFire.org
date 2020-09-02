@@ -2086,20 +2086,14 @@ that can be parameterized by a single configuration file, specifying
 the ignition location, burn duration, weather values, and the location
 of the PostGIS raster layers to use for topography and fuels.
 
-The executable may be created using either the Leiningen or Boot build
-tools as follows:
+The executable may be created using the Clojure CLI tools as follows:
 
-#+name: build-jar-with-lein
+#+name: build-jar
 #+begin_src sh :results silent :exports code
-lein uberjar
+clojure -A:make-uberjar
 #+end_src
 
-#+name: build-jar-with-boot
-#+begin_src sh :results silent :exports code
-boot build
-#+end_src
-
-Either of these commands will generate a Java Archive (JAR) file in
+This command will generate a Java Archive (JAR) file in
 the *target* directory that may be run from the command line as
 follows:
 
@@ -2107,11 +2101,6 @@ follows:
 #+begin_src sh :results silent :exports code
 java -jar gridfire-1.4.0.jar myconfig.edn
 #+end_src
-
-*Note:* Boot creates a JAR called ``gridfire-1.4.0.jar''. Leiningen
-creates two files: ``gridfire-1.4.0.jar'' and
-``gridfire-1.4.0-standalone.jar''. In this case, the standalone JAR
-should be used, and the other JAR file may be safely ignored.
 
 When run, the executable connects to the PostGIS database specified in
 the passed-in config file, downloads the necessary raster layers,
