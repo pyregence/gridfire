@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::fire-spread-algorithm][fire-spread-algorithm]]
 (ns gridfire.fire-spread
   (:require [clojure.core.matrix :as m]
             [clojure.core.matrix.operators :as mop]
@@ -323,3 +324,4 @@
             :fire-spread-matrix         fire-spread-matrix
             :flame-length-matrix        flame-length-matrix
             :fire-line-intensity-matrix fire-line-intensity-matrix}))))))
+;; fire-spread-algorithm ends here

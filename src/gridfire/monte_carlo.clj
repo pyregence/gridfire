@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::monte-carlo-simulation][monte-carlo-simulation]]
 (ns gridfire.monte-carlo
   (:require [clojure.java.io :as io]
             [clojure.data.csv :as csv]
@@ -314,3 +315,4 @@
    "/data/IWAP_GRIDFIRE_RUNS/outputs"
    "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
    30000 41423 100))
+;; monte-carlo-simulation ends here

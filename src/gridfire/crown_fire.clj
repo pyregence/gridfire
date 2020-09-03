@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::van-wagner-crown-fire-initiation][van-wagner-crown-fire-initiation]]
 (ns gridfire.crown-fire)
 
 (defn ft->m [ft] (* 0.3048 ft))
@@ -16,7 +17,9 @@
            (Math/pow 1.5) ;; critical-intensity = kW/m
            (kW-m->Btu-ft-s)
            (< fire-line-intensity))))
+;; van-wagner-crown-fire-initiation ends here
 
+;; [[file:../../org/GridFire.org::cruz-crown-fire-spread][cruz-crown-fire-spread]]
 (defn mph->km-hr [mph] (* 1.609344 mph))
 
 (defn lb-ft3->kg-m3 [lb-ft3] (* 16.01846 lb-ft3))
@@ -43,7 +46,9 @@
      (if (> active-spread-rate critical-spread-rate)
        active-spread-rate
        (* active-spread-rate (Math/exp (- criteria-for-active-crowning)))))))
+;; cruz-crown-fire-spread ends here
 
+;; [[file:../../org/GridFire.org::crown-fire-line-intensity][crown-fire-line-intensity]]
 ;; heat of combustion is h from the fuel models (generally 8000 Btu/lb)
 (defn crown-fire-line-intensity
   "(ft/min * lb/ft^3 * ft * Btu/lb)/60 = (Btu/ft*min)/60 = Btu/ft*s"
@@ -65,7 +70,9 @@
              (- canopy-height canopy-base-height) ;; m
              heat-of-combustion) ;; kJ/kg
           60.0)))) ;; s/min
+;; crown-fire-line-intensity ends here
 
+;; [[file:../../org/GridFire.org::crown-eccentricity][crown-eccentricity]]
 (defn crown-fire-eccentricity
   "mph"
   [wind-speed-20ft ellipse-adjustment-factor]
@@ -86,3 +93,4 @@
             (* 0.461 (Math/exp (/ (* -0.1548 effective-wind-speed 60.0) 5280.0)))
             -0.397)
          8.0)))
+;; crown-eccentricity ends here

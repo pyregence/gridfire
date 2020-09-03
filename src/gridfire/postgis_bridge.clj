@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::postgis-bridge][postgis-bridge]]
 (ns gridfire.postgis-bridge
   (:require [clojure.java.jdbc :as jdbc]
             [clojure.core.matrix :as m])
@@ -59,3 +60,4 @@
                              (m/emap #(or % -1.0))
                              m/matrix))]
          (assoc metadata :matrix matrix))))))
+;; postgis-bridge ends here

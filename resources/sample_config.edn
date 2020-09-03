@@ -1,3 +1,4 @@
+;; [[file:../org/GridFire.org::sample_config.edn][sample_config.edn]]
 {
  ;; Section 1: Landscape data to be shared by all simulations
  :db-spec                     {:classname   "org.postgresql.Driver"
@@ -46,3 +47,4 @@
  :output-pngs?                true
  :output-csvs?                true
 }
+;; sample_config.edn ends here
