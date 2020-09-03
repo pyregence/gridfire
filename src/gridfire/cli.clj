@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::command-line-interface][command-line-interface]]
 (ns gridfire.cli
   (:gen-class)
   (:require [clojure.edn :as edn]
@@ -15,7 +16,7 @@
 (m/set-current-implementation :vectorz)
 
 (register-new-crs-definitions-from-properties-file!
- "CUSTOM" "resources/custom_projections.properties")
+  "CUSTOM" (io/resource "custom_projections.properties"))
 
 (defn fetch-landfire-layers
   "Returns a map of LANDFIRE rasters (represented as maps) with the following units:
@@ -271,3 +272,4 @@
            (write-csv-outputs
             (:output-csvs? config)
             (str "summary_stats" (:outfile-suffix config) ".csv"))))))
+;; command-line-interface ends here
