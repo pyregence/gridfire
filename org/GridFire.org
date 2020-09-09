@@ -171,7 +171,7 @@ deps.edn, such as the project name, version, and description.
   <modelVersion>4.0.0</modelVersion>
   <groupId>sig-gis</groupId>
   <artifactId>gridfire</artifactId>
-  <version>1.5.0</version>
+  <version>20200909.105353</version>
   <name>gridfire</name>
   <description>
     SIG's Raster-based Fire Behavior Model
@@ -204,7 +204,7 @@ deps.edn, such as the project name, version, and description.
     <dependency>
       <groupId>sig-gis</groupId>
       <artifactId>magellan</artifactId>
-      <version>20200902.112144</version>
+      <version>20200909.105353</version>
     </dependency>
     <dependency>
       <groupId>org.postgresql</groupId>
