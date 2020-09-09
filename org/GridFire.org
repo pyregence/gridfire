@@ -276,23 +276,25 @@ psql -U postgres
 #+end_src
 
 Once logged in, we issue the following commands to create a new user
-account with our system login name (in my case, this is gjohnson). We
+account with our system login name (e.g., gridfire). We
 then create a new database to store our raster data (e.g., gridfire)
 and import the PostGIS spatial extensions into it.
 
 #+name: create-gridfire-db
 #+begin_src sql :engine postgresql :cmdline -U postgres :results silent :exports code
-CREATE ROLE gjohnson WITH LOGIN CREATEDB;
-CREATE DATABASE gridfire WITH OWNER gjohnson;
+CREATE ROLE gridfire WITH LOGIN CREATEDB;
+CREATE DATABASE gridfire WITH OWNER gridfire;
 \c gridfire
 CREATE EXTENSION postgis;
 #+end_src
+
+* Importing Rasters into the Database
 
 Whenever we want to add a new raster-formatted GIS layer to our
 database, we can simply issue the *raster2pgsql* command as follows,
 replacing the raster name and table name to match our own datasets.
 
-#+name: raster2pgsql-import-example
+#+name: raster2pgsql-import-example-single
 #+begin_src sh :results silent :exports code
 SRID=4326
 RASTER=dem.tif
@@ -306,6 +308,64 @@ options, including automatic tiling of the raster layer in the
 database, creating fast spatial indeces after import, or setting
 raster constraints on the newly created table. Run *raster2pgsql -?*
 from the command line for more details.
+
+Here's an example shell script that will tile multiple large rasters
+(asp.tif, cbd.tif, cbh.tif, etc) into 100x100 tiles and import them
+into our database.
+
+*Note:* Here we specified a schema (e.g, landfire) along with the table
+name so as to match the sample config file in ``resources/sample_config.edn''.
+
+First create the schema in our database.
+
+#+name: create-landfire-schema
+#+begin_src sql :engine postgresql :cmdline -U gridfire :results silent :exports code
+CREATE SCHEMA landfire;
+#+end_src
+
+*Note:* This script needs to be run in the same folder as where these rasters reside.
+
+#+name: raster2pgsql-import-example-all
+#+begin_src sh :results silent :exports code :tangle ../resources/import-rasters.sh
+#!/bin/sh
+
+DATABASE=gridfire
+SCHEMA=landfire
+
+for LAYER in asp cbd cbh cc ch dem fbfm13 fbfm40 slp
+do
+    raster2pgsql -t 100x100 -I -C $LAYER.tif $SCHEMA.$LAYER | psql -U $DATABASE &
+done
+#+end_src
+
+Whenever we want to add a new spatial reference system to our database, we can
+insert a record into our spatial_ref_sys table.
+
+#+name: insert-spatial-reference-systems
+#+begin_src sql :engine postgresql :cmdline -U gridfire :results silent :exports code
+INSERT INTO public.spatial_ref_sys (srid, auth_name, auth_srid, srtext, proj4text)
+VALUES (900914, 'user-generated', 900914,
+        'PROJCS["USA_Contiguous_Albers_Equal_Area_Conic_USGS_version",' ||
+        'GEOGCS["NAD83",' ||
+        'DATUM["North_American_Datum_1983",' ||
+        'SPHEROID["GRS 1980",6378137,298.2572221010002,' ||
+        'AUTHORITY["EPSG","7019"]],' ||
+        'AUTHORITY["EPSG","6269"]],' ||
+        'PRIMEM["Greenwich",0],' ||
+        'UNIT["degree",0.0174532925199433],' ||
+        'AUTHORITY["EPSG","4269"]],' ||
+        'PROJECTION["Albers_Conic_Equal_Area"],' ||
+        'PARAMETER["standard_parallel_1",29.5],' ||
+        'PARAMETER["standard_parallel_2",45.5],' ||
+        'PARAMETER["latitude_of_center",23],' ||
+        'PARAMETER["longitude_of_center",-96],' ||
+        'PARAMETER["false_easting",0],' ||
+        'PARAMETER["false_northing",0],' ||
+        'UNIT["metre",1,' ||
+        'AUTHORITY["EPSG","9001"]]]',
+        '+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0' ||
+        ' +datum=NAD83 +units=m +no_defs');
+#+end_src
 
 * Fire Spread Model
 
@@ -2413,7 +2473,7 @@ relationships.
  :db-spec                     {:classname   "org.postgresql.Driver"
                                :subprotocol "postgresql"
                                :subname     "//localhost:5432/gridfire"
-                               :user        "gjohnson"}
+                               :user        "gridfire"}
  :landfire-layers             {:elevation          "landfire.dem WHERE rid=100"
                                :slope              "landfire.slp WHERE rid=100"
                                :aspect             "landfire.asp WHERE rid=100"
@@ -2720,7 +2780,7 @@ This concludes our discussion of GridFire's command line interface.
         (fetch-wrf-cell-ids {:classname   "org.postgresql.Driver"
                              :subprotocol "postgresql"
                              :subname     "//iwap03:5432/calfire"
-                             :user        "gjohnson"}))
+                             :user        "gridfire"}))
 
   (spit "/data/CALFIRE_MAP1_RUN6/inputs/wrf_cells_to_process.clj"
         (filterv (fn [{:keys [wrf_cell_id]}]
@@ -2728,13 +2788,13 @@ This concludes our discussion of GridFire's command line interface.
                  (fetch-wrf-cell-ids {:classname   "org.postgresql.Driver"
                                       :subprotocol "postgresql"
                                       :subname     "//iwap03:5432/calfire"
-                                      :user        "gjohnson"})))
+                                      :user        "gridfire"})))
 
   (spit "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
         (fetch-wrf-cell-ids {:classname   "org.postgresql.Driver"
                              :subprotocol "postgresql"
                              :subname     "//iwap03:5432/calfire"
-                             :user        "gjohnson"}))
+                             :user        "gridfire"}))
 
   (spit "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
         (filterv (fn [{:keys [wrf_cell_id]}]
@@ -2742,14 +2802,14 @@ This concludes our discussion of GridFire's command line interface.
                  (fetch-wrf-cell-ids {:classname   "org.postgresql.Driver"
                                       :subprotocol "postgresql"
                                       :subname     "//iwap03:5432/calfire"
-                                      :user        "gjohnson"})))
+                                      :user        "gridfire"})))
 
   ;; iwap02
   (launch-calfire-monte-carlo-simulation
    {:classname   "org.postgresql.Driver"
     :subprotocol "postgresql"
     :subname     "//iwap03:5432/calfire"
-    :user        "gjohnson"}
+    :user        "gridfire"}
    "/data/IWAP_GRIDFIRE_RUNS/outputs"
    "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
    0 6000 30)
@@ -2759,7 +2819,7 @@ This concludes our discussion of GridFire's command line interface.
    {:classname   "org.postgresql.Driver"
     :subprotocol "postgresql"
     :subname     "//localhost:5432/calfire"
-    :user        "gjohnson"}
+    :user        "gridfire"}
    "/data/IWAP_GRIDFIRE_RUNS/outputs"
    "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
    6000 18000 100)
@@ -2769,7 +2829,7 @@ This concludes our discussion of GridFire's command line interface.
    {:classname   "org.postgresql.Driver"
     :subprotocol "postgresql"
     :subname     "//iwap03:5432/calfire"
-    :user        "gjohnson"}
+    :user        "gridfire"}
    "/data/IWAP_GRIDFIRE_RUNS/outputs"
    "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
    18000 30000 100)
@@ -2779,7 +2839,7 @@ This concludes our discussion of GridFire's command line interface.
    {:classname   "org.postgresql.Driver"
     :subprotocol "postgresql"
     :subname     "//iwap03:5432/calfire"
-    :user        "gjohnson"}
+    :user        "gridfire"}
    "/data/IWAP_GRIDFIRE_RUNS/outputs"
    "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
    30000 41423 100))
