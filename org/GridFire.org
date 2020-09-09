@@ -495,7 +495,7 @@ classes, we define a collection of utility functions that will later
 be used in both the fuel moisture and fire spread algorithms.
 
 #+name: fuel-category-and-size-class-functions
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj :no-expand :comments link :comments link
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj :no-expand :comments link
 (defn map-category [f]
   {:dead (f :dead) :live (f :live)})
 
