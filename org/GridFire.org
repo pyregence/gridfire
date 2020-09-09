@@ -2097,7 +2097,7 @@ follows:
 
 #+name: run-gridfire-jar
 #+begin_src sh :results silent :exports code
-java -jar gridfire-1.4.0.jar myconfig.edn
+java -jar gridfire-<version>.jar myconfig.edn
 #+end_src
 
 When run, the executable connects to the PostGIS database specified in
