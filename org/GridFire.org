@@ -193,9 +193,7 @@ deps.edn, such as the project name, version, and description.
         </configuration>
       </plugin>
     </plugins>
-    <build>
-      <sourceDirectory>src</sourceDirectory>
-    </build>
+    <sourceDirectory>src</sourceDirectory>
   </build>
   <dependencies>
     <dependency>
