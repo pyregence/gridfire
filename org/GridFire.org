@@ -275,10 +275,10 @@ as this user with the following *psql* command.
 psql -U postgres
 #+end_src
 
-Once logged in, we issue the following commands to create a new user
-account with our system login name (e.g., gridfire). We
-then create a new database to store our raster data (e.g., gridfire)
-and import the PostGIS spatial extensions into it.
+Once logged in, we issue the following commands to first create a new
+database role and to then create a new database (owned by this role)
+in which to store our raster data. Finally, we import the PostGIS
+spatial extensions into the new database.
 
 #+name: create-gridfire-db
 #+begin_src sql :engine postgresql :cmdline -U postgres :results silent :exports code
@@ -326,7 +326,7 @@ CREATE SCHEMA landfire;
 *Note:* This script needs to be run in the same folder as where these rasters reside.
 
 #+name: raster2pgsql-import-example-all
-#+begin_src sh :results silent :exports code :tangle ../resources/import-rasters.sh
+#+begin_src sh :results silent :exports code :tangle ../resources/import-rasters.sh :padline no :no-expand :comments link
 #!/bin/sh
 
 DATABASE=gridfire
@@ -366,6 +366,9 @@ VALUES (900914, 'user-generated', 900914,
         '+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0' ||
         ' +datum=NAD83 +units=m +no_defs');
 #+end_src
+
+*Note:* You must add any spatial reference systems used by the rasters
+you intend to import into the database *before* running raster2pgsql.
 
 * Fire Spread Model
 
