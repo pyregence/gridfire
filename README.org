@@ -93,8 +93,8 @@ documentation of the current system can always be found in
 
 * License
 
-Copyright © 2011-2016 Spatial Informatics Group, LLC.
+Copyright © 2011-2020 Spatial Informatics Group, LLC.
 
 GridFire is distributed by Spatial Informatics Group, LLC. under the
-GNU General Public License version 3.0 (GPLv3)
-https://www.gnu.org/licenses/gpl.html.
+terms of the Eclipse Public License version 2.0 (EPLv2). See
+LICENSE.txt in this directory for more information.
