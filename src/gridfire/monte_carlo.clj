@@ -251,7 +251,7 @@
         (fetch-wrf-cell-ids {:classname   "org.postgresql.Driver"
                              :subprotocol "postgresql"
                              :subname     "//iwap03:5432/calfire"
-                             :user        "gjohnson"}))
+                             :user        "gridfire"}))
 
   (spit "/data/CALFIRE_MAP1_RUN6/inputs/wrf_cells_to_process.clj"
         (filterv (fn [{:keys [wrf_cell_id]}]
@@ -259,13 +259,13 @@
                  (fetch-wrf-cell-ids {:classname   "org.postgresql.Driver"
                                       :subprotocol "postgresql"
                                       :subname     "//iwap03:5432/calfire"
-                                      :user        "gjohnson"})))
+                                      :user        "gridfire"})))
 
   (spit "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
         (fetch-wrf-cell-ids {:classname   "org.postgresql.Driver"
                              :subprotocol "postgresql"
                              :subname     "//iwap03:5432/calfire"
-                             :user        "gjohnson"}))
+                             :user        "gridfire"}))
 
   (spit "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
         (filterv (fn [{:keys [wrf_cell_id]}]
@@ -273,14 +273,14 @@
                  (fetch-wrf-cell-ids {:classname   "org.postgresql.Driver"
                                       :subprotocol "postgresql"
                                       :subname     "//iwap03:5432/calfire"
-                                      :user        "gjohnson"})))
+                                      :user        "gridfire"})))
 
   ;; iwap02
   (launch-calfire-monte-carlo-simulation
    {:classname   "org.postgresql.Driver"
     :subprotocol "postgresql"
     :subname     "//iwap03:5432/calfire"
-    :user        "gjohnson"}
+    :user        "gridfire"}
    "/data/IWAP_GRIDFIRE_RUNS/outputs"
    "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
    0 6000 30)
@@ -290,7 +290,7 @@
    {:classname   "org.postgresql.Driver"
     :subprotocol "postgresql"
     :subname     "//localhost:5432/calfire"
-    :user        "gjohnson"}
+    :user        "gridfire"}
    "/data/IWAP_GRIDFIRE_RUNS/outputs"
    "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
    6000 18000 100)
@@ -300,7 +300,7 @@
    {:classname   "org.postgresql.Driver"
     :subprotocol "postgresql"
     :subname     "//iwap03:5432/calfire"
-    :user        "gjohnson"}
+    :user        "gridfire"}
    "/data/IWAP_GRIDFIRE_RUNS/outputs"
    "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
    18000 30000 100)
@@ -310,7 +310,7 @@
    {:classname   "org.postgresql.Driver"
     :subprotocol "postgresql"
     :subname     "//iwap03:5432/calfire"
-    :user        "gjohnson"}
+    :user        "gridfire"}
    "/data/IWAP_GRIDFIRE_RUNS/outputs"
    "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
    30000 41423 100))
