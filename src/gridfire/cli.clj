@@ -16,7 +16,8 @@
 (m/set-current-implementation :vectorz)
 
 (register-new-crs-definitions-from-properties-file!
-  "CUSTOM" (io/resource "custom_projections.properties"))
+  "CUSTOM"
+  (io/resource "custom_projections.properties"))
 
 (defn fetch-landfire-layers
   "Returns a map of LANDFIRE rasters (represented as maps) with the following units:
