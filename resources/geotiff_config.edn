@@ -1,18 +1,18 @@
-;; [[file:../org/GridFire.org::sample_config.edn][sample_config.edn]]
 {
  ;; Section 1: Landscape data to be shared by all simulations
  :db-spec                     {:classname   "org.postgresql.Driver"
                                :subprotocol "postgresql"
                                :subname     "//localhost:5432/gridfire"
-                               :user        "gridfire"}
- :landfire-layers             {:elevation          "landfire.dem WHERE rid=100"
-                               :slope              "landfire.slp WHERE rid=100"
-                               :aspect             "landfire.asp WHERE rid=100"
-                               :fuel-model         "landfire.fbfm40 WHERE rid=100"
-                               :canopy-height      "landfire.ch WHERE rid=100"
-                               :canopy-base-height "landfire.cbh WHERE rid=100"
-                               :crown-bulk-density "landfire.cbd WHERE rid=100"
-                               :canopy-cover       "landfire.cc WHERE rid=100"}
+                               :user        "kcheung"
+                               :password    "password"}
+ :layer-tables                {:aspect             (in-file-path "asp.tif")
+                               :canopy-base-height (in-file-path "cbh.tif")
+                               :canopy-cover       (in-file-path "cc.tif")
+                               :canopy-height      (in-file-path "ch.tif")
+                               :crown-bulk-density (in-file-path "cbd.tif")
+                               :elevation          (in-file-path "dem.tif")
+                               :fuel-model         (in-file-path "fbfm40.tif")
+                               :slope              (in-file-path "slp.tif")}
  :srid                        "CUSTOM:900914"
  :cell-size                   98.425 ;; (feet)
 
@@ -48,4 +48,3 @@
  :output-csvs?                true
  :fetch-layer-method          :postgis
 }
-;; sample_config.edn ends here
