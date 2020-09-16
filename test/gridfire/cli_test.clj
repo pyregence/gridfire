@@ -18,7 +18,7 @@
 (def db-spec {:classname   "org.postgresql.Driver"
               :subprotocol "postgresql"
               :subname     "//localhost:5432/gridfire_test"
-              :user        "postgres"
+              :user        "postgres"                       ;TODO Change to gridfire_test
               :password    "password"})
 
 ;;-----------------------------------------------------------------------------
