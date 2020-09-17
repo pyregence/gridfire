@@ -4,8 +4,9 @@
  :db-spec                     {:classname   "org.postgresql.Driver"
                                :subprotocol "postgresql"
                                :subname     "//localhost:5432/gridfire"
-                               :user        "gridfire"}
- :landfire-layers             {:elevation          "landfire.dem WHERE rid=100"
+                               :user        "postgres"
+                               :password "password"}
+ :layer-tables                {:elevation          "landfire.dem WHERE rid=100"
                                :slope              "landfire.slp WHERE rid=100"
                                :aspect             "landfire.asp WHERE rid=100"
                                :fuel-model         "landfire.fbfm40 WHERE rid=100"
@@ -23,7 +24,7 @@
  ;;   2. List of Values: (2 17 9)
  ;;   3. Range of Values: [10 20]
  ;;
- ;; If a single value is provided, it will be kept the same for all simulations.
+ ;; If a single value is provided, it will be kept the same for all simulations
  ;; For a list of values, the list will be randomly sampled from in each simulation.
  ;; For a range of values, the range [inclusive exclusive] will be randomly sampled from in each simulation.
  :ignition-row                [10 90]
