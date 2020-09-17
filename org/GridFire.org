@@ -98,40 +98,56 @@ complete deps.edn is shown below.
 #+begin_src clojure :results silent :exports code :tangle ../deps.edn :padline no :no-expand :comments link
 {:paths ["src" "resources"]
 
- :deps {org.clojure/clojure                 {:mvn/version "1.10.1"}
-        org.clojure/data.csv                {:mvn/version "1.0.0"}
-        org.clojure/java.jdbc               {:mvn/version "0.7.11"}
-        org.postgresql/postgresql           {:mvn/version "42.2.16"}
-        net.mikera/core.matrix              {:mvn/version "0.62.0"}
-        net.mikera/vectorz-clj              {:mvn/version "0.48.0"}
-        sig-gis/magellan                    {:mvn/version "20200909.105353"}
-        org.clojars.lambdatronic/matrix-viz {:mvn/version "0.1.7"}}
+ :deps {org.clojure/clojure                      {:mvn/version "1.10.1"}
+        org.clojure/data.csv                     {:mvn/version "1.0.0"}
+        org.clojure/java.jdbc                    {:mvn/version "0.7.11"}
+        org.postgresql/postgresql                {:mvn/version "42.2.16"}
+        net.mikera/core.matrix                   {:mvn/version "0.62.0"}
+        net.mikera/vectorz-clj                   {:mvn/version "0.48.0"}
+        ;; TODO Point to Magellan in clojars
+        sig-gis/magellan                         {:local/root "../magellan/target/magellan-20200909.105353.jar"}
+        org.clojars.lambdatronic/matrix-viz      {:mvn/version "0.1.7"}
+        com.opentable.components/otj-pg-embedded {:mvn/version "0.13.3"}
+        net.postgis/postgis-jdbc                 {:mvn/version "2.3.0"}
+        org.springframework/spring-core          {:mvn/version "5.2.8.RELEASE"}}
 
  :mvn/repos {"osgeo" {:url "https://repo.osgeo.org/repository/release/"}}
 
- :aliases {:run          {:main-opts ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
-                                      "-m" "gridfire.cli"]}
-           :repl         {:main-opts ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
-                                      "-e" "(require,'gridfire.cli)"
-                                      "-e" "(in-ns,'gridfire.cli)"
-                                      "-r"]}
-           :make-uberjar {:extra-deps {seancorfield/depstar {:mvn/version "1.0.97"}}
-                          :main-opts  ["-m" "hf.depstar.uberjar" "target/gridfire-20200909.105353.jar"
-                                       "-C" "-m" "gridfire.cli"]}
-           :test         {:extra-paths ["test"]
-                          :extra-deps  {com.cognitect/test-runner
-                                        {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                                         :sha     "209b64504cb3bd3b99ecfec7937b358a879f55c1"}}
-                          :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
-                                        "-m" "cognitect.test-runner"]}
-           :check-deps   {:extra-deps {olical/depot {:mvn/version "1.8.4"}}
-                          :main-opts  ["-m" "depot.outdated.main"]}}}
+ :aliases {:build-test-db {:extra-paths ["test"]
+                           :main-opts ["-m" "gridfire.build-test-db"]}
+           :run           {:main-opts ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
+                                       "-m" "gridfire.cli"]}
+           :repl          {:main-opts ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
+                                       "-e" "(require,'gridfire.cli)"
+                                       "-e" "(in-ns,'gridfire.cli)"
+                                       "-r"]}
+           :make-uberjar  {:extra-deps {seancorfield/depstar {:mvn/version "1.0.97"}}
+                           :main-opts  ["-m" "hf.depstar.uberjar" "target/gridfire-20200909.105353.jar"
+                                        "-C" "-m" "gridfire.cli"]}
+           :test          {:extra-paths ["test"]
+                           :extra-deps  {com.cognitect/test-runner
+                                         {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                          :sha     "209b64504cb3bd3b99ecfec7937b358a879f55c1"}}
+                           :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
+                                         "-m" "cognitect.test-runner"]}
+           :check-deps    {:extra-deps {olical/depot {:mvn/version "1.8.4"}}
+                           :main-opts  ["-m" "depot.outdated.main"]}}}
 #+end_src
 
 Once this file is created, we need to instruct Clojure to download
 these library dependencies and then run the built-in test suite to
 verify that GridFire compiles and runs as expected on our local
 computer.
+
+Before we run tests we'll need to setup a test database and import rasters
+into it.
+
+#+name: clojure-test-db
+#+begin_src sh :results silent :exports code
+clojure -A:build-test-db
+#+end_src
+
+To run tests
 
 #+name: clojure-test
 #+begin_src sh :results silent :exports code
@@ -369,6 +385,23 @@ VALUES (900914, 'user-generated', 900914,
 
 *Note:* You must add any spatial reference systems used by the rasters
 you intend to import into the database *before* running raster2pgsql.
+
+If there is a need to update the srid of your layers you can use the following script.
+
+*Note:* This script needs to be run in the same folder as where these rasters reside.
+
+#+begin_src sh :results silent :exports code :tangle ../resources/update-landfire-srids.sh :padline no :no-expand :comments link
+#!/bin/sh
+
+SCHEMA=landfire
+SRID=900914
+
+for LAYER in asp cbd cbh cc ch dem fbfm13 fbfm40 slp
+do
+    psql -d gridfire -c \
+         "SELECT UpdateRasterSRID('$SCHEMA'::name,'$LAYER'::name,'rast'::name,$SRID);" &
+done
+#+end_src
 
 * Fire Spread Model
 
@@ -2529,8 +2562,9 @@ relationships.
  :db-spec                     {:classname   "org.postgresql.Driver"
                                :subprotocol "postgresql"
                                :subname     "//localhost:5432/gridfire"
-                               :user        "gridfire"}
- :landfire-layers             {:elevation          "landfire.dem WHERE rid=100"
+                               :user        "postgres"
+                               :password "password"}
+ :layer-tables                {:elevation          "landfire.dem WHERE rid=100"
                                :slope              "landfire.slp WHERE rid=100"
                                :aspect             "landfire.asp WHERE rid=100"
                                :fuel-model         "landfire.fbfm40 WHERE rid=100"
@@ -2548,7 +2582,7 @@ relationships.
  ;;   2. List of Values: (2 17 9)
  ;;   3. Range of Values: [10 20]
  ;;
- ;; If a single value is provided, it will be kept the same for all simulations.
+ ;; If a single value is provided, it will be kept the same for all simulations
  ;; For a list of values, the list will be randomly sampled from in each simulation.
  ;; For a range of values, the range [inclusive exclusive] will be randomly sampled from in each simulation.
  :ignition-row                [10 90]

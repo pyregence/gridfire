@@ -325,5 +325,4 @@
            (write-csv-outputs
              (:output-csvs? config)
              (str "summary_stats" (:outfile-suffix config) ".csv"))))))
-
 ;; command-line-interface ends here

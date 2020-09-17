@@ -31,7 +31,7 @@
   (->> (sh-wrapper "./test/gridfire/resources"
                    {}
                    verbose
-                   "./import_rasters.sh") ;;TODO layers are not imported
+                   "sh import_rasters.sh") ;FIXME layers are not imported
        (println)))
 
 (defn build-everything [verbose]
@@ -47,5 +47,5 @@
   (load-default-data verbose))
 
 (defn -main [& args]
-  (build-everything false)
+  (build-everything true)
   (shutdown-agents))
