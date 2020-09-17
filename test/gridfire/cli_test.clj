@@ -29,13 +29,13 @@
   {:db-spec                   db-spec
    :srid                      "CUSTOM:900914"
    :cell-size                 98.425     ;; (feet)
-   :ignition-row              10
-   :ignition-col              20
+   :ignition-row              [10 90]
+   :ignition-col              [20 80]
    :max-runtime               60         ;; (minutes)
-   :temperature               50         ;; (degrees Fahrenheit)
-   :relative-humidity         1          ;; (%)
-   :wind-speed-20ft           10         ;; (miles/hour)
-   :wind-from-direction       0          ;; (degrees clockwise from north)
+   :temperature               '(50 65 80)         ;; (degrees Fahrenheit)
+   :relative-humidity         '(1 10 20)          ;; (%)
+   :wind-speed-20ft           '(10 15 20)         ;; (miles/hour)
+   :wind-from-direction       '(0 90 180 270)          ;; (degrees clockwise from north)
    :foliar-moisture           90         ;; (%)
    :ellipse-adjustment-factor 1.0        ;; (< 1.0 = more circular, > 1.0 = more elliptical)
    :simulations               10
@@ -104,7 +104,7 @@
       (let [postgis-envelope (gf/get-envelope postgis-config postgis)
             geotiff-envelope (gf/get-envelope geotiff-config geotiff)]
 
-        ;; Signature is not exactly the same
+        ;; Signature is not exactly the same. maybe the cause?
         (println (.getCoordinateReferenceSystem postgis-envelope))
         (println (.getCoordinateReferenceSystem geotiff-envelope))
 

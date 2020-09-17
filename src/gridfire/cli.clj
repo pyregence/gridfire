@@ -285,7 +285,7 @@
                      (+ upperlefty (* height scaley))
                      (* width scalex)
                      (* -1.0 height scaley)))
-    (-> landfire-layers :elevation :envelope2D)))
+    (-> landfire-layers :elevation :envelope)))
 
 (defn -main
   [& config-files]
