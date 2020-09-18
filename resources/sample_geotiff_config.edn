@@ -1,5 +1,5 @@
-{
- ;; Section 1: Landscape data to be shared by all simulations
+;; [[file:../org/GridFire.org::sample_geotiff_config.edn][sample_geotiff_config.edn]]
+{;; Section 1: Landscape data to be shared by all simulations
  :db-spec                     {:classname   "org.postgresql.Driver"
                                :subprotocol "postgresql"
                                :subname     "//localhost:5432/gridfire"
@@ -48,3 +48,4 @@
  :output-csvs?                true
  :fetch-layer-method          :geotiff
 }
+;; sample_geotiff_config.edn ends here

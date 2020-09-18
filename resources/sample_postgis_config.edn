@@ -1,11 +1,10 @@
-;; [[file:../org/GridFire.org::sample_config.edn][sample_config.edn]]
+;; [[file:../org/GridFire.org::sample_postgis_config.edn][sample_postgis_config.edn]]
 {
  ;; Section 1: Landscape data to be shared by all simulations
  :db-spec                     {:classname   "org.postgresql.Driver"
                                :subprotocol "postgresql"
                                :subname     "//localhost:5432/gridfire"
-                               :user        "postgres"
-                               :password "password"}
+                               :user        "gridfire"}
  :layer-tables                {:elevation          "landfire.dem WHERE rid=100"
                                :slope              "landfire.slp WHERE rid=100"
                                :aspect             "landfire.asp WHERE rid=100"
@@ -49,4 +48,4 @@
  :output-csvs?                true
  :fetch-layer-method          :postgis
 }
-;; sample_config.edn ends here
+;; sample_postgis_config.edn ends here
