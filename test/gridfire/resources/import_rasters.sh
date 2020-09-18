@@ -3,8 +3,6 @@
 DATABASE=gridfire_test
 SCHEMA=landfire
 
-echo pgpassword=$PGPASSWORD
-
 for LAYER in asp cbd cbh cc ch dem fbfm13 fbfm40 slp
 do
     if test -f $LAYER.tif; then
