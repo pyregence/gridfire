@@ -32,7 +32,7 @@
 (defn convert-metrics
   "Converting metrics in layers:
   meters to feet
-  degrees to percent "
+  degrees to percent"
   [landfire-layers]
   (-> landfire-layers
       (update-in [:elevation :matrix]
