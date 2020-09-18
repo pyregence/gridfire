@@ -1,10 +1,6 @@
 ;; [[file:../org/GridFire.org::sample_geotiff_config.edn][sample_geotiff_config.edn]]
-{;; Section 1: Landscape data to be shared by all simulations
- :db-spec                     {:classname   "org.postgresql.Driver"
-                               :subprotocol "postgresql"
-                               :subname     "//localhost:5432/gridfire"
-                               :user        "kcheung"
-                               :password    "password"}
+{
+;; Section 1: Landscape data to be shared by all simulations
  :layer-files                 {:aspect             (in-file-path "asp.tif")
                                :canopy-base-height (in-file-path "cbh.tif")
                                :canopy-cover       (in-file-path "cc.tif")

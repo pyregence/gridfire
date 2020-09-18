@@ -2555,6 +2555,20 @@ with square brackets ([]). Associative lookup tables (a.k.a. maps) are
 delimited with curly braces ({}) and are used to express key-value
 relationships.
 
+The configuration file can be broken up into 3 sections as described below:
+Section 1: Landscape data to be shared by all simulations
+Section 2: Ignition and weather data from which to build simulation inputs
+Section 3: Number of simulations and (optional) random seed parameter
+Section 4: Types and names of outputs
+
+Gridfire allows us to choose how we want to ingest landscape data through the
+configuration file. We can choose to get landfire layers from our postgis
+enabled database or we can read raster files from disk. This behavior is
+controlled by Section 1 of the configuration file.
+
+Here is a complete sample configuration for using layers from our postigs enabled
+database.
+
 #+name: sample_postgis_config.edn
 #+begin_src clojure :results silent :exports code :tangle ../resources/sample_postgis_config.edn :padline no :no-expand :comments link
 {
@@ -2608,14 +2622,12 @@ relationships.
 }
 #+end_src
 
+Here is a complete sample config for using layers from disk.
+
 #+name: sample_geotiff_config.edn
 #+begin_src clojure :results silent :exports code :tangle ../resources/sample_geotiff_config.edn :padline no :no-expand :comments link
-{;; Section 1: Landscape data to be shared by all simulations
- :db-spec                     {:classname   "org.postgresql.Driver"
-                               :subprotocol "postgresql"
-                               :subname     "//localhost:5432/gridfire"
-                               :user        "kcheung"
-                               :password    "password"}
+{
+;; Section 1: Landscape data to be shared by all simulations
  :layer-files                 {:aspect             (in-file-path "asp.tif")
                                :canopy-base-height (in-file-path "cbh.tif")
                                :canopy-cover       (in-file-path "cc.tif")

@@ -66,8 +66,7 @@
                                                :fuel-model         "landfire.fbfm40 WHERE rid=1"
                                                :slope              "landfire.slp WHERE rid=1"}
                           :fetch-layer-method :postgis}
-          geotiff-config {:db-spec            db-spec
-                          :layer-files        {:aspect             (in-file-path "asp.tif")
+          geotiff-config {:layer-files        {:aspect             (in-file-path "asp.tif")
                                                :canopy-base-height (in-file-path "cbh.tif")
                                                :canopy-cover       (in-file-path "cc.tif")
                                                :canopy-height      (in-file-path "ch.tif")
