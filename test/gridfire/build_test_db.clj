@@ -28,11 +28,15 @@
               commands))))
 
 (defn load-default-data [verbose]
-  (->> (sh-wrapper "./test/gridfire/resources"
-                   {}
-                   verbose
-                   "sh import_rasters.sh") ;FIXME layers are not imported
-       (println)))
+  (println "Loading landfire rasters...")
+  (print "Please enter the gridfire_test user's password:")
+  (flush)
+  (let [password (String/valueOf (.readPassword (System/console)))]
+   (->> (sh-wrapper "./test/gridfire/resources"
+                    {:PGPASSWORD password}
+                    verbose
+                    "sh import_rasters.sh")
+        (println))))
 
 (defn build-everything [verbose]
   (println "Building database...")
