@@ -140,7 +140,9 @@ verify that GridFire compiles and runs as expected on our local
 computer.
 
 Before we run tests we'll need to setup a test database and import rasters
-into it.
+into it. We will be prompted for the postgres and gridfire_test user's password.
+Postgres user's password will be whatever it is when we setup postgres. for
+gridfire_test user's password refer to ``src/sql/create_test_db.sql''
 
 #+name: clojure-test-db
 #+begin_src sh :results silent :exports code
@@ -2246,7 +2248,9 @@ or false:
    :slope])
 
 (defn convert-metrics
-  "Converting from meters to feet"
+  "Converting metrics in layers:
+  meters to feet
+  degrees to percent "
   [landfire-layers]
   (-> landfire-layers
       (update-in [:elevation :matrix]

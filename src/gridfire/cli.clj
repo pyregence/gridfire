@@ -30,7 +30,9 @@
    :slope])
 
 (defn convert-metrics
-  "Converting from meters to feet"
+  "Converting metrics in layers:
+  meters to feet
+  degrees to percent "
   [landfire-layers]
   (-> landfire-layers
       (update-in [:elevation :matrix]
