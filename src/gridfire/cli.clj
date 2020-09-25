@@ -79,8 +79,7 @@
      ;; :skewx 0.0, ;; not used?
      ;; :skewy 0.0, ;; not used?
      :matrix     (->> matrix (m/emap #(or % -1.0)) m/matrix)
-     :numbands   (get-in r-info [:image :bands])
-     }))
+     :numbands   (get-in r-info [:image :bands])}))
 
 (defmulti fetch-landfire-layers
   "Returns a map of LANDFIRE rasters (represented as maps) with the following units:
