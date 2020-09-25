@@ -1,14 +1,14 @@
 ;; [[file:../org/GridFire.org::sample_geotiff_config.edn][sample_geotiff_config.edn]]
 {
 ;; Section 1: Landscape data to be shared by all simulations
- :layer-files                 {:aspect             (in-file-path "asp.tif")
-                               :canopy-base-height (in-file-path "cbh.tif")
-                               :canopy-cover       (in-file-path "cc.tif")
-                               :canopy-height      (in-file-path "ch.tif")
-                               :crown-bulk-density (in-file-path "cbd.tif")
-                               :elevation          (in-file-path "dem.tif")
-                               :fuel-model         (in-file-path "fbfm40.tif")
-                               :slope              (in-file-path "slp.tif")}
+ :layer-files                 {:aspect             "test/gridfire/resources/asp.tif"
+                               :canopy-base-height "test/gridfire/resources/cbh.tif"
+                               :canopy-cover       "test/gridfire/resources/cc.tif"
+                               :canopy-height      "test/gridfire/resources/ch.tif"
+                               :crown-bulk-density "test/gridfire/resources/cbd.tif"
+                               :elevation          "test/gridfire/resources/dem.tif"
+                               :fuel-model         "test/gridfire/resources/fbfm40.tif"
+                               :slope              "test/gridfire/resources/slp.tif"}
  :srid                        "CUSTOM:900914"
  :cell-size                   98.425 ;; (feet)
 

@@ -5,7 +5,7 @@
                                :subprotocol "postgresql"
                                :subname     "//localhost:5432/gridfire"
                                :user        "gridfire"}
- :layer-tables                {:elevation          "landfire.dem WHERE rid=100"
+ :layer->table                {:elevation          "landfire.dem WHERE rid=100"
                                :slope              "landfire.slp WHERE rid=100"
                                :aspect             "landfire.asp WHERE rid=100"
                                :fuel-model         "landfire.fbfm40 WHERE rid=100"

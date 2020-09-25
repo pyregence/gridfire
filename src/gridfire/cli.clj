@@ -96,9 +96,9 @@
     (:fetch-layer-method config)))
 
 (defmethod fetch-landfire-layers :postgis
-  [{:keys [db-spec layer-tables] :as config}]
+  [{:keys [db-spec layer->table] :as config}]
   (let [landfire-layers (reduce (fn [amap layer]
-                                  (let [table (layer-tables layer)]
+                                  (let [table (layer->table layer)]
                                     (assoc amap layer
                                            (postgis-raster-to-matrix db-spec table))))
                                 {}
@@ -106,9 +106,9 @@
     (convert-metrics landfire-layers)))
 
 (defmethod fetch-landfire-layers :geotiff
-  [{:keys [layer-files] :as config}]
+  [{:keys [layer->file] :as config}]
   (let [landfire-layers (reduce (fn [amap layer]
-                                  (let [raster (layer-files layer)]
+                                  (let [raster (layer->file layer)]
                                     (assoc amap layer
                                            (geotiff-raster-to-matrix raster))))
                                 {}

@@ -58,7 +58,7 @@
   (testing "Fetching layers from postgis and geotiff files"
     (let [postgis-config {:db-spec            db-spec
                           :srid               "CUSTOM:900914"
-                          :layer-tables       {:aspect             "landfire.asp WHERE rid=1"
+                          :layer->table       {:aspect             "landfire.asp WHERE rid=1"
                                                :canopy-base-height "landfire.cbh WHERE rid=1"
                                                :canopy-cover       "landfire.cc WHERE rid=1"
                                                :canopy-height      "landfire.ch WHERE rid=1"
@@ -67,7 +67,7 @@
                                                :fuel-model         "landfire.fbfm40 WHERE rid=1"
                                                :slope              "landfire.slp WHERE rid=1"}
                           :fetch-layer-method :postgis}
-          geotiff-config {:layer-files        {:aspect             (in-file-path "asp.tif")
+          geotiff-config {:layer->file        {:aspect             (in-file-path "asp.tif")
                                                :canopy-base-height (in-file-path "cbh.tif")
                                                :canopy-cover       (in-file-path "cc.tif")
                                                :canopy-height      (in-file-path "ch.tif")
