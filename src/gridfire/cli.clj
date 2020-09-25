@@ -11,7 +11,8 @@
             [matrix-viz.core :refer [save-matrix-as-png]]
             [magellan.core :refer [register-new-crs-definitions-from-properties-file!
                                    make-envelope matrix-to-raster write-raster
-                                   read-raster]])
+                                   read-raster]]
+            [magellan.raster.inspect :as inspect])
   (:import (java.util Random)))
 
 (m/set-current-implementation :vectorz)
@@ -46,31 +47,40 @@
       (update-in [:crown-bulk-density :matrix]
                  (fn [matrix] (m/emap #(* % 0.0624) matrix))))) ; kg/m^3 -> lb/ft^3
 
-(defn- geotiff-raster-to-matrix
+(defn geotiff-raster-to-matrix
   "Reads a raster from a file using the magellan.core library. Returns the
    post-processed raster values as a Clojure matrix using the core.matrix API
    along with all of the georeferencing information associated with this tile in a
    hash-map with the following form:
-  {:coverage   coverage
-   :image      image
-   :crs        crs
-   :projection (CRS/getMapProjection crs)
-   :envelope   (.getEnvelope coverage)
-   :grid       grid
-   :width      (.getWidth image)
-   :height     (.getHeight image)
-   :bands      (vec (.getSampleDimensions coverage))
-   :envelope
+  {:srid 900916,
+   :upperleftx -321043.875,
+   :upperlefty -1917341.5,
+   :width 486,
+   :height 534,
+   :scalex 2000.0,
+   :scaley -2000.0,
+   :skewx 0.0,
+   :skewy 0.0,
    :numbands 1,
    :matrix #vectorz/matrix Large matrix with shape: [534,486]}"
   [file-path]
-  (let [{:keys [matrix bands] :as raster} (read-raster file-path)]
-    (merge raster
-           {;; :srid 900916, ;; not used?
-            ;; :skewx 0.0, ;; not used?
-            ;; :skewy 0.0, ;; not used?
-            :numbands (count bands)
-            :matrix   (->> matrix (m/emap #(or % -1.0)) m/matrix)})))
+  (let [raster (read-raster file-path)
+        r-info (inspect/describe-raster raster)
+        matrix (first (inspect/extract-matrix raster))
+        band   (first (:bands r-info))
+        image  (:image r-info)]
+    {:srid       (:srid matrix)
+     :upperleftx (get-in image [:origin :x])
+     :upperlefty (get-in image [:origin :y])
+     :width      (:width image)
+     :height     (:height image)
+     :scalex     (:scale band)
+     :scaly      (:scale band)
+     ;; :skewx 0.0, ;; not used?
+     ;; :skewy 0.0, ;; not used?
+     :matrix     (->> matrix (m/emap #(or % -1.0)) m/matrix)
+     :numbands   (get-in r-info [:image :bands])
+     }))
 
 (defmulti fetch-landfire-layers
   "Returns a map of LANDFIRE rasters (represented as maps) with the following units:
@@ -277,6 +287,7 @@
                   "flame-length-stddev" "fire-line-intensity-mean" "fire-line-intensity-stddev"])
            (csv/write-csv out-file)))))
 
+;; TODO to remove when magellan matrix-to-raster extends to take in envleope params
 (defn get-envelope
   [config landfire-layers]
   (if (= :postgis (:fetch-layer-method config))
