@@ -1,7 +1,7 @@
 ;; [[file:../org/GridFire.org::sample_geotiff_config.edn][sample_geotiff_config.edn]]
 {
 ;; Section 1: Landscape data to be shared by all simulations
- :layer-files                 {:aspect             "test/gridfire/resources/asp.tif"
+ :landfire-layers             {:aspect             "test/gridfire/resources/asp.tif"
                                :canopy-base-height "test/gridfire/resources/cbh.tif"
                                :canopy-cover       "test/gridfire/resources/cc.tif"
                                :canopy-height      "test/gridfire/resources/ch.tif"

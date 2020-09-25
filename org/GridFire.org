@@ -2592,14 +2592,14 @@ database.
                                :subprotocol "postgresql"
                                :subname     "//localhost:5432/gridfire"
                                :user        "gridfire"}
- :layer->table                {:elevation          "landfire.dem WHERE rid=100"
-                               :slope              "landfire.slp WHERE rid=100"
-                               :aspect             "landfire.asp WHERE rid=100"
-                               :fuel-model         "landfire.fbfm40 WHERE rid=100"
-                               :canopy-height      "landfire.ch WHERE rid=100"
+ :landfire-layers             {:aspect             "landfire.asp WHERE rid=100"
                                :canopy-base-height "landfire.cbh WHERE rid=100"
+                               :canopy-cover       "landfire.cc WHERE rid=100"
+                               :canopy-height      "landfire.ch WHERE rid=100"
                                :crown-bulk-density "landfire.cbd WHERE rid=100"
-                               :canopy-cover       "landfire.cc WHERE rid=100"}
+                               :fuel-model         "landfire.fbfm40 WHERE rid=100"
+                               :slope              "landfire.slp WHERE rid=100"
+                               :elevation          "landfire.dem WHERE rid=100"}
  :srid                        "CUSTOM:900914"
  :cell-size                   98.425 ;; (feet)
 
@@ -2643,7 +2643,7 @@ Here is a complete sample config for using layers from disk.
 #+begin_src clojure :results silent :exports code :tangle ../resources/sample_geotiff_config.edn :padline no :no-expand :comments link
 {
 ;; Section 1: Landscape data to be shared by all simulations
- :layer-files                 {:aspect             "test/gridfire/resources/asp.tif"
+ :landfire-layers             {:aspect             "test/gridfire/resources/asp.tif"
                                :canopy-base-height "test/gridfire/resources/cbh.tif"
                                :canopy-cover       "test/gridfire/resources/cc.tif"
                                :canopy-height      "test/gridfire/resources/ch.tif"

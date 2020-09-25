@@ -5,14 +5,14 @@
                                :subprotocol "postgresql"
                                :subname     "//localhost:5432/gridfire"
                                :user        "gridfire"}
- :layer->table                {:elevation          "landfire.dem WHERE rid=100"
-                               :slope              "landfire.slp WHERE rid=100"
-                               :aspect             "landfire.asp WHERE rid=100"
-                               :fuel-model         "landfire.fbfm40 WHERE rid=100"
-                               :canopy-height      "landfire.ch WHERE rid=100"
+ :landfire-layers             {:aspect             "landfire.asp WHERE rid=100"
                                :canopy-base-height "landfire.cbh WHERE rid=100"
+                               :canopy-cover       "landfire.cc WHERE rid=100"
+                               :canopy-height      "landfire.ch WHERE rid=100"
                                :crown-bulk-density "landfire.cbd WHERE rid=100"
-                               :canopy-cover       "landfire.cc WHERE rid=100"}
+                               :fuel-model         "landfire.fbfm40 WHERE rid=100"
+                               :slope              "landfire.slp WHERE rid=100"
+                               :elevation          "landfire.dem WHERE rid=100"}
  :srid                        "CUSTOM:900914"
  :cell-size                   98.425 ;; (feet)
 
