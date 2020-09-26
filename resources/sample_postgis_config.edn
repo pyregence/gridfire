@@ -23,7 +23,7 @@
  ;;   2. List of Values: (2 17 9)
  ;;   3. Range of Values: [10 20]
  ;;
- ;; If a single value is provided, it will be kept the same for all simulations
+ ;; If a single value is provided, it will be kept the same for all simulations.
  ;; For a list of values, the list will be randomly sampled from in each simulation.
  ;; For a range of values, the range [inclusive exclusive] will be randomly sampled from in each simulation.
  :ignition-row                [10 90]

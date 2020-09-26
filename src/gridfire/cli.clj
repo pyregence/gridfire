@@ -20,7 +20,7 @@
 (register-new-crs-definitions-from-properties-file! "CUSTOM"
                                                     (io/resource "custom_projections.properties"))
 
-(def layers-kw
+(def layers-names
   [:aspect
    :canopy-base-height
    :canopy-cover
@@ -68,18 +68,19 @@
         r-info (inspect/describe-raster raster)
         matrix (first (inspect/extract-matrix raster))
         band   (first (:bands r-info))
-        image  (:image r-info)]
-    {:srid       (:srid matrix)
+        image  (:image r-info)
+        envelope (:envelope r-info)]
+    {:srid       (:srid r-info)
      :upperleftx (get-in image [:origin :x])
      :upperlefty (get-in image [:origin :y])
      :width      (:width image)
      :height     (:height image)
-     :scalex     (:scale band)
-     :scaly      (:scale band)
-     ;; :skewx 0.0, ;; not used?
-     ;; :skewy 0.0, ;; not used?
-     :matrix     (->> matrix (m/emap #(or % -1.0)) m/matrix)
-     :numbands   (get-in r-info [:image :bands])}))
+     :scalex     (get-in envelope [:x :span])
+     :scaley     (get-in envelope [:y :span])
+     :skewx      0.0 ;FIXME not used?
+     :skewy      0.0 ;FIXME not used?
+     :numbands   (get-in r-info [:image :bands])
+     :matrix     (->> matrix (m/emap #(or % -1.0)) m/matrix)}))
 
 (defmulti fetch-landfire-layers
   "Returns a map of LANDFIRE rasters (represented as maps) with the following units:
@@ -95,24 +96,24 @@
     (:fetch-layer-method config)))
 
 (defmethod fetch-landfire-layers :postgis
-  [{:keys [db-spec layer->table] :as config}]
-  (let [landfire-layers (reduce (fn [amap layer]
-                                  (let [table (layer->table layer)]
-                                    (assoc amap layer
-                                           (postgis-raster-to-matrix db-spec table))))
-                                {}
-                                layers-kw)]
-    (convert-metrics landfire-layers)))
+  [{:keys [db-spec landfire-layers] :as config}]
+  (convert-metrics
+   (reduce (fn [amap layer-name]
+             (let [table (landfire-layers layer-name)]
+               (assoc amap layer-name
+                      (postgis-raster-to-matrix db-spec table))))
+           {}
+           layers-names)))
 
 (defmethod fetch-landfire-layers :geotiff
-  [{:keys [layer->file] :as config}]
-  (let [landfire-layers (reduce (fn [amap layer]
-                                  (let [raster (layer->file layer)]
-                                    (assoc amap layer
-                                           (geotiff-raster-to-matrix raster))))
-                                {}
-                                layers-kw)]
-    (convert-metrics landfire-layers)))
+  [{:keys [landfire-layers] :as config}]
+  (convert-metrics
+   (reduce (fn [amap layer-name]
+             (let [raster (landfire-layers layer-name)]
+               (assoc amap layer-name
+                      (geotiff-raster-to-matrix raster))))
+           {}
+           layers-names)))
 
 (defn my-rand
   ([^Random rand-generator] (.nextDouble rand-generator))
@@ -201,62 +202,62 @@
    wind-from-direction foliar-moisture ellipse-adjustment-factor
    outfile-suffix output-geotiffs? output-pngs? output-csvs?]
   (mapv
-    (fn [i]
-      (let [equilibrium-moisture (calc-emc (relative-humidity i) (temperature i))
-            fuel-moisture        {:dead {:1hr   (+ equilibrium-moisture 0.002)
-                                         :10hr  (+ equilibrium-moisture 0.015)
-                                         :100hr (+ equilibrium-moisture 0.025)}
-                                  :live {:herbaceous (* equilibrium-moisture 2.0)
-                                         :woody      (* equilibrium-moisture 0.5)}}]
-        (if-let [fire-spread-results (run-fire-spread (max-runtime i)
-                                                      cell-size
-                                                      landfire-rasters
-                                                      (wind-speed-20ft i)
-                                                      (wind-from-direction i)
-                                                      fuel-moisture
-                                                      (* 0.01 (foliar-moisture i))
-                                                      (ellipse-adjustment-factor i)
-                                                      [(ignition-row i)
-                                                       (ignition-col i)])]
-          (do
-            (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
-                                  ["flame_length"        :flame-length-matrix]
-                                  ["fire_line_intensity" :fire-line-intensity-matrix]]]
-              (when output-geotiffs?
-                (-> (matrix-to-raster name (fire-spread-results layer) envelope)
-                    (write-raster (str name outfile-suffix "_" i ".tif"))))
-              (when output-pngs?
-                (save-matrix-as-png :color 4 -1.0
-                                    (fire-spread-results layer)
-                                    (str name outfile-suffix "_" i ".png"))))
-            (when output-csvs?
-              (merge
-                {:ignition-row              (ignition-row i)
-                 :ignition-col              (ignition-col i)
-                 :max-runtime               (max-runtime i)
-                 :temperature               (temperature i)
-                 :relative-humidity         (relative-humidity i)
-                 :wind-speed-20ft           (wind-speed-20ft i)
-                 :wind-from-direction       (wind-from-direction i)
-                 :foliar-moisture           (foliar-moisture i)
-                 :ellipse-adjustment-factor (ellipse-adjustment-factor i)}
-                (summarize-fire-spread-results fire-spread-results cell-size))))
-          (when output-csvs?
-            {:ignition-row               (ignition-row i)
-             :ignition-col               (ignition-col i)
-             :max-runtime                (max-runtime i)
-             :temperature                (temperature i)
-             :relative-humidity          (relative-humidity i)
-             :wind-speed-20ft            (wind-speed-20ft i)
-             :wind-from-direction        (wind-from-direction i)
-             :foliar-moisture            (foliar-moisture i)
-             :ellipse-adjustment-factor  (ellipse-adjustment-factor i)
-             :fire-size                  0.0
-             :flame-length-mean          0.0
-             :flame-length-stddev        0.0
-             :fire-line-intensity-mean   0.0
-             :fire-line-intensity-stddev 0.0}))))
-    (range simulations)))
+   (fn [i]
+     (let [equilibrium-moisture (calc-emc (relative-humidity i) (temperature i))
+           fuel-moisture        {:dead {:1hr   (+ equilibrium-moisture 0.002)
+                                        :10hr  (+ equilibrium-moisture 0.015)
+                                        :100hr (+ equilibrium-moisture 0.025)}
+                                 :live {:herbaceous (* equilibrium-moisture 2.0)
+                                        :woody      (* equilibrium-moisture 0.5)}}]
+       (if-let [fire-spread-results (run-fire-spread (max-runtime i)
+                                                     cell-size
+                                                     landfire-rasters
+                                                     (wind-speed-20ft i)
+                                                     (wind-from-direction i)
+                                                     fuel-moisture
+                                                     (* 0.01 (foliar-moisture i))
+                                                     (ellipse-adjustment-factor i)
+                                                     [(ignition-row i)
+                                                      (ignition-col i)])]
+         (do
+           (doseq [[name layer-name] [["fire_spread"         :fire-spread-matrix]
+                                      ["flame_length"        :flame-length-matrix]
+                                      ["fire_line_intensity" :fire-line-intensity-matrix]]]
+             (when output-geotiffs?
+               (-> (matrix-to-raster name (fire-spread-results layer-name) envelope)
+                   (write-raster (str name outfile-suffix "_" i ".tif"))))
+             (when output-pngs?
+               (save-matrix-as-png :color 4 -1.0
+                                   (fire-spread-results layer-name)
+                                   (str name outfile-suffix "_" i ".png"))))
+           (when output-csvs?
+             (merge
+              {:ignition-row              (ignition-row i)
+               :ignition-col              (ignition-col i)
+               :max-runtime               (max-runtime i)
+               :temperature               (temperature i)
+               :relative-humidity         (relative-humidity i)
+               :wind-speed-20ft           (wind-speed-20ft i)
+               :wind-from-direction       (wind-from-direction i)
+               :foliar-moisture           (foliar-moisture i)
+               :ellipse-adjustment-factor (ellipse-adjustment-factor i)}
+              (summarize-fire-spread-results fire-spread-results cell-size))))
+         (when output-csvs?
+           {:ignition-row               (ignition-row i)
+            :ignition-col               (ignition-col i)
+            :max-runtime                (max-runtime i)
+            :temperature                (temperature i)
+            :relative-humidity          (relative-humidity i)
+            :wind-speed-20ft            (wind-speed-20ft i)
+            :wind-from-direction        (wind-from-direction i)
+            :foliar-moisture            (foliar-moisture i)
+            :ellipse-adjustment-factor  (ellipse-adjustment-factor i)
+            :fire-size                  0.0
+            :flame-length-mean          0.0
+            :flame-length-stddev        0.0
+            :fire-line-intensity-mean   0.0
+            :fire-line-intensity-stddev 0.0}))))
+   (range simulations)))
 
 (defn write-csv-outputs
   [output-csvs? output-filename results-table]
@@ -286,18 +287,15 @@
                   "flame-length-stddev" "fire-line-intensity-mean" "fire-line-intensity-stddev"])
            (csv/write-csv out-file)))))
 
-;; TODO to remove when magellan matrix-to-raster extends to take in envleope params
 (defn get-envelope
   [config landfire-layers]
-  (if (= :postgis (:fetch-layer-method config))
-    (let [{:keys [upperleftx upperlefty width height scalex scaley]}
-          (landfire-layers :elevation)]
-      (make-envelope (:srid config)
-                     upperleftx
-                     (+ upperlefty (* height scaley))
-                     (* width scalex)
-                     (* -1.0 height scaley)))
-    (-> landfire-layers :elevation :envelope)))
+  (let [{:keys [upperleftx upperlefty width height scalex scaley]}
+        (landfire-layers :elevation)]
+    (make-envelope (:srid config)
+                   upperleftx
+                   (+ upperlefty (* height scaley))
+                   (* width scalex)
+                   (* -1.0 height scaley))))
 
 (defn -main
   [& config-files]
@@ -305,7 +303,7 @@
     (let [config           (edn/read-string (slurp config-file))
           landfire-layers  (fetch-landfire-layers config)
           landfire-rasters (into {}
-                                 (map (fn [[layer info]] [layer (:matrix info)]))
+                                 (map (fn [[layer-name info]] [layer-name (:matrix info)]))
                                  landfire-layers)
           envelope         (get-envelope config landfire-layers)
           simulations      (:simulations config)
@@ -313,28 +311,28 @@
                              (Random. seed)
                              (Random.))]
       (when (:output-landfire-inputs? config)
-        (doseq [[layer matrix] landfire-rasters]
-          (-> (matrix-to-raster (name layer) matrix envelope)
-              (write-raster (str (name layer) (:outfile-suffix config) ".tif")))))
+        (doseq [[layer-name matrix] landfire-rasters]
+          (-> (matrix-to-raster (name layer-name) matrix envelope)
+              (write-raster (str (name layer-name) (:outfile-suffix config) ".tif")))))
       (->> (run-simulations
-             simulations
-             landfire-rasters
-             envelope
-             (:cell-size config)
-             (draw-samples rand-generator simulations (:ignition-row config))
-             (draw-samples rand-generator simulations (:ignition-col config))
-             (draw-samples rand-generator simulations (:max-runtime config))
-             (draw-samples rand-generator simulations (:temperature config))
-             (draw-samples rand-generator simulations (:relative-humidity config))
-             (draw-samples rand-generator simulations (:wind-speed-20ft config))
-             (draw-samples rand-generator simulations (:wind-from-direction config))
-             (draw-samples rand-generator simulations (:foliar-moisture config))
-             (draw-samples rand-generator simulations (:ellipse-adjustment-factor config))
-             (:outfile-suffix config)
-             (:output-geotiffs? config)
-             (:output-pngs? config)
-             (:output-csvs? config))
+            simulations
+            landfire-rasters
+            envelope
+            (:cell-size config)
+            (draw-samples rand-generator simulations (:ignition-row config))
+            (draw-samples rand-generator simulations (:ignition-col config))
+            (draw-samples rand-generator simulations (:max-runtime config))
+            (draw-samples rand-generator simulations (:temperature config))
+            (draw-samples rand-generator simulations (:relative-humidity config))
+            (draw-samples rand-generator simulations (:wind-speed-20ft config))
+            (draw-samples rand-generator simulations (:wind-from-direction config))
+            (draw-samples rand-generator simulations (:foliar-moisture config))
+            (draw-samples rand-generator simulations (:ellipse-adjustment-factor config))
+            (:outfile-suffix config)
+            (:output-geotiffs? config)
+            (:output-pngs? config)
+            (:output-csvs? config))
            (write-csv-outputs
-             (:output-csvs? config)
-             (str "summary_stats" (:outfile-suffix config) ".csv"))))))
+            (:output-csvs? config)
+            (str "summary_stats" (:outfile-suffix config) ".csv"))))))
 ;; command-line-interface ends here

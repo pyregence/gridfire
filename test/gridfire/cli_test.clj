@@ -7,11 +7,7 @@
             [clojure.test :refer [deftest is testing]]
             [magellan.core :as mg]
             [gridfire.cli :as gf])
-  (:import (com.opentable.db.postgres.embedded EmbeddedPostgres
-                                               DatabasePreparer
-                                               PgBinaryResolver)
-           (org.springframework.core.io ClassPathResource)
-           (java.util Random)))
+  (:import (java.util Random)))
 
 ;;-----------------------------------------------------------------------------
 ;; Config

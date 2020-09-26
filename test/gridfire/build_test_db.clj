@@ -32,11 +32,12 @@
   (print "Please enter the gridfire_test user's password:")
   (flush)
   (let [password (String/valueOf (.readPassword (System/console)))]
-   (->> (sh-wrapper "./test/gridfire/resources"
-                    {:PGPASSWORD password}
-                    verbose
-                    "sh import_rasters.sh")
-        (println))))
+    (->> (sh-wrapper "./test/gridfire/resources"
+                     {:PGPASSWORD password}
+                     verbose
+                     "sh ../../../resources/import_rasters.sh gridfire_test landfire"
+                     "sh ../../../resources/update_landfire_srids.sh gridfire_test landfire 900914")
+         (println))))
 
 (defn build-everything [verbose]
   (println "Building database...")
