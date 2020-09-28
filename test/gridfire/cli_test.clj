@@ -36,8 +36,7 @@
    :ellipse-adjustment-factor 1.0        ;; (< 1.0 = more circular, > 1.0 = more elliptical)
    :simulations               1
    :random-seed               1234567890 ;; long value (optional)
-   :output-csvs?              true
-   })
+   :output-csvs?              true})
 
 ;;-----------------------------------------------------------------------------
 ;; Utils
@@ -102,7 +101,7 @@
 (deftest run-simulation-test
   (testing "Running simulation with different ways to fetch layers"
     (let [postgis-config  (merge test-config-base
-                                 {:layer-tables       {:aspect             "landfire.asp WHERE rid=1"
+                                 {:landfire-layers    {:aspect             "landfire.asp WHERE rid=1"
                                                        :canopy-base-height "landfire.cbh WHERE rid=1"
                                                        :canopy-cover       "landfire.cc WHERE rid=1"
                                                        :canopy-height      "landfire.ch WHERE rid=1"
@@ -112,7 +111,7 @@
                                                        :slope              "landfire.slp WHERE rid=1"}
                                   :fetch-layer-method :postgis})
           geotiff-config  (merge test-config-base
-                                 {:layer-files        {:aspect             (in-file-path "asp.tif")
+                                 {:landfire-layers    {:aspect             (in-file-path "asp.tif")
                                                        :canopy-base-height (in-file-path "cbh.tif")
                                                        :canopy-cover       (in-file-path "cc.tif")
                                                        :canopy-height      (in-file-path "ch.tif")
