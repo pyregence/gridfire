@@ -100,7 +100,7 @@
       )))
 
 (deftest run-simulation-test
-  (testing "Running simulation with different fetch-layer-method"
+  (testing "Running simulation with different ways to fetch layers"
     (let [postgis-config  (merge test-config-base
                                  {:layer-tables       {:aspect             "landfire.asp WHERE rid=1"
                                                        :canopy-base-height "landfire.cbh WHERE rid=1"
