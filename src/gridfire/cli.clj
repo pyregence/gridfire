@@ -64,19 +64,20 @@
    :numbands 1,
    :matrix #vectorz/matrix Large matrix with shape: [534,486]}"
   [file-path]
-  (let [raster (read-raster file-path)
-        r-info (inspect/describe-raster raster)
-        matrix (first (inspect/extract-matrix raster))
-        band   (first (:bands r-info))
-        image  (:image r-info)
+  (let [raster   (read-raster file-path)
+        grid     (:grid raster)
+        r-info   (inspect/describe-raster raster)
+        matrix   (first (inspect/extract-matrix raster))
+        band     (first (:bands r-info))
+        image    (:image r-info)
         envelope (:envelope r-info)]
     {:srid       (:srid r-info)
      :upperleftx (get-in image [:origin :x])
      :upperlefty (get-in image [:origin :y])
      :width      (:width image)
      :height     (:height image)
-     :scalex     (get-in envelope [:x :span])
-     :scaley     (get-in envelope [:y :span])
+     :scalex     (.getScaleX (.getGridToCRS2D grid))
+     :scaley     (.getScaleY (.getGridToCRS2D grid))
      :skewx      0.0 ;FIXME not used?
      :skewy      0.0 ;FIXME not used?
      :numbands   (get-in r-info [:image :bands])
