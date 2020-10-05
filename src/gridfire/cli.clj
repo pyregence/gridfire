@@ -20,7 +20,7 @@
 (register-new-crs-definitions-from-properties-file! "CUSTOM"
                                                     (io/resource "custom_projections.properties"))
 
-(def layers-names
+(def layer-names
   [:aspect
    :canopy-base-height
    :canopy-cover
@@ -104,7 +104,7 @@
                (assoc amap layer-name
                       (postgis-raster-to-matrix db-spec table))))
            {}
-           layers-names)))
+           layer-names)))
 
 (defmethod fetch-landfire-layers :geotiff
   [{:keys [landfire-layers] :as config}]
@@ -114,7 +114,7 @@
                (assoc amap layer-name
                       (geotiff-raster-to-matrix raster))))
            {}
-           layers-names)))
+           layer-names)))
 
 (defn my-rand
   ([^Random rand-generator] (.nextDouble rand-generator))
@@ -304,7 +304,7 @@
     (let [config           (edn/read-string (slurp config-file))
           landfire-layers  (fetch-landfire-layers config)
           landfire-rasters (into {}
-                                 (map (fn [[layer-name info]] [layer-name (:matrix info)]))
+                                 (map (fn [[layer info]] [layer (:matrix info)]))
                                  landfire-layers)
           envelope         (get-envelope config landfire-layers)
           simulations      (:simulations config)
@@ -312,9 +312,9 @@
                              (Random. seed)
                              (Random.))]
       (when (:output-landfire-inputs? config)
-        (doseq [[layer-name matrix] landfire-rasters]
-          (-> (matrix-to-raster (name layer-name) matrix envelope)
-              (write-raster (str (name layer-name) (:outfile-suffix config) ".tif")))))
+        (doseq [[layer matrix] landfire-rasters]
+          (-> (matrix-to-raster (name layer) matrix envelope)
+              (write-raster (str (name layer) (:outfile-suffix config) ".tif")))))
       (->> (run-simulations
             simulations
             landfire-rasters
