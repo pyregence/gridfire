@@ -1,6 +1,7 @@
 ;; [[file:../../org/GridFire.org::*Section 2: Ignition from which to build simulation inputs][Section 2: Ignition from which to build simulation inputs:4]]
 (ns gridfire.fetch
-  (:require [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix
+  (:require [clojure.string :as s]
+            [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix
                                               geotiff-raster-to-matrix-multiband]]
             [gridfire.postgis-bridge :refer [postgis-raster-to-matrix
                                              postgis-raster-to-matrix-multiband]]))

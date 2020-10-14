@@ -2922,7 +2922,8 @@ on what is in the config file. Here's the namespace that implements
 this functionality.
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fetch.clj :padline no :no-expand :comments link
 (ns gridfire.fetch
-  (:require [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix
+  (:require [clojure.string :as s]
+            [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix
                                               geotiff-raster-to-matrix-multiband]]
             [gridfire.postgis-bridge :refer [postgis-raster-to-matrix
                                              postgis-raster-to-matrix-multiband]]))
