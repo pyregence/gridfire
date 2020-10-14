@@ -3009,10 +3009,10 @@ values.
  :foliar-moisture           90             ; (%)
  :ellipse-adjustment-factor 1.0}           ; (< 1.0 = more circular, > 1.0 = more elliptical)
  #+end_src
- 
+
 Temperature, relative humidity, wind speed, and wind direction accepts an
 additional type of input. Gridfire allows us to use weather data from rasters.
-To use weather data from raster we have two options. We can read rasters from a 
+To use weather data from raster we have two options. We can read rasters from a
 PostGIS database or a raster file on disk.
 
 To use weather raster in our PostGIS database include the
