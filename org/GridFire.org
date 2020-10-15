@@ -2824,7 +2824,7 @@ following mappings:
 - *fetch-layer-method*: a keyword to denote which method we want to use
 - *db-spec*: a map of database connection information to our Postgresql
   database.
-- *landfire-layers*: a map of layer names to a partial sql statement.
+- *landfire-layers*: a map of layer names to a partial SQL statement.
 
 #+begin_src clojure
 {:fetch-layer-method :postgis
@@ -2871,11 +2871,11 @@ Include the following required mapping on all configurations:
 
 Gridfire allows us to choose how we want to initialize the ignition
 area. We can choose one of 2 options: to initialize a single point or
-an existing burn paremeter (raster).
+an existing burn parameter (raster).
 
 To initialize a single point include the following mappings:
 - *ignition-row*: (single, list, or range of values)
-- *ignition-col*: (single, lsit, or range of values)
+- *ignition-col*: (single, list, or range of values)
 
 For this method of ignition values maybe entered in one of three ways:
 
@@ -2891,11 +2891,11 @@ For this method of ignition values maybe entered in one of three ways:
  :ignition-col [20 80]}
  #+end_src
 
-To initialize an existing burn paremeter from a raster we have two
+To initialize an existing burn parameter from a raster we have two
 options. We can read rasters from a Postgresql database or a raster
 file on disk.
 
-To initialize a burn paremeter from a raster in our PostGIS database
+To initialize a burn parameter from a raster in our PostGIS database
 include the following mappings:
 - *fetch-ignition-method*: a keyword to denote which method we want to
   use
@@ -2916,7 +2916,7 @@ following mappings:
  :ignition-layers       "test/gridfire/resources/scar.tif"}
 #+end_src
 
-Gridfire makes use of clojure's multimethods to dispatch control to
+Gridfire makes use of Clojure's multimethods to dispatch control to
 different handlers for fetching ignition layers. The dispatch depends
 on what is in the config file. Here's the namespace that implements
 this functionality.
@@ -3018,11 +3018,11 @@ following mappings:
  :temperature              "test/gridfire/resources/weather-test/tmpf_to_sample.tif"}
 #+end_src
 
-To initialize a burn paremeter from a raster file on disk include the
+To initialize a burn parameter from a raster file on disk include the
 To use weather raster from a raster file on disk include the
 following mappings:
 - *fetch-<weather-type>-method*: a keyword to denote which method we want to use
-- *<weather-type>*: a mapping of layer names to filepaths
+- *<weather-type>*: a mapping of layer names to file paths
 
 #+begin_src clojure
 {:fetch-temperature-method :geotiff
