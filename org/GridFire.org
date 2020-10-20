@@ -2871,7 +2871,7 @@ Include the following required mapping on all configurations:
 
 Gridfire allows us to choose how we want to initialize the ignition
 area. We can choose one of 2 options: to initialize a single point or
-an existing burn parameter (raster).
+an existing burn perimeter (raster).
 
 To initialize a single point include the following mappings:
 - *ignition-row*: (single, list, or range of values)
@@ -2891,11 +2891,11 @@ For this method of ignition values maybe entered in one of three ways:
  :ignition-col [20 80]}
  #+end_src
 
-To initialize an existing burn parameter from a raster we have two
+To initialize an existing burn perimeter from a raster we have two
 options. We can read rasters from a Postgresql database or a raster
 file on disk.
 
-To initialize a burn parameter from a raster in our PostGIS database
+To initialize a burn perimeter from a raster in our PostGIS database
 include the following mappings:
 - *fetch-ignition-method*: a keyword to denote which method we want to
   use
@@ -3018,7 +3018,7 @@ following mappings:
  :temperature              "test/gridfire/resources/weather-test/tmpf_to_sample.tif"}
 #+end_src
 
-To initialize a burn parameter from a raster file on disk include the
+To initialize a burn perimeter from a raster file on disk include the
 To use weather raster from a raster file on disk include the
 following mappings:
 - *fetch-<weather-type>-method*: a keyword to denote which method we want to use
@@ -3029,7 +3029,7 @@ following mappings:
  :temperature              "test/gridfire/resources/weather-test/tmpf_to_sample.tif"}
 #+end_src
 
-** Section 4: Number of simulations and (optional) random seed parameter
+** Section 4: Number of simulations and (optional) random seed perimeter
 
 #+begin_src clojure
 {:simulations 10
@@ -3093,7 +3093,7 @@ of values.
  :foliar-moisture           90             ; (%)
  :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
 
- ;; Section 4: Number of simulations and (optional) random seed parameter
+ ;; Section 4: Number of simulations and (optional) random seed perimeter
  :simulations               10
  :random-seed               1234567890     ; long value (optional)
 
