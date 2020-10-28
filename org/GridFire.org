@@ -106,7 +106,8 @@ complete deps.edn is shown below.
         net.mikera/vectorz-clj              {:mvn/version "0.48.0"}
                                             ;;TODO Point to new magellan once it is deployed
         sig-gis/magellan                    {:local/root "../magellan/target/magellan-20200909.105353.jar"}
-        org.clojars.lambdatronic/matrix-viz {:mvn/version "0.1.7"}}
+        org.clojars.lambdatronic/matrix-viz {:mvn/version "0.1.7"}
+        cider/cider-nrepl                   {:mvn/version "0.25.3"}}
 
  :mvn/repos {"osgeo" {:url "https://repo.osgeo.org/repository/release/"}}
 
@@ -2287,8 +2288,8 @@ command line interface.
        .getValue
        read-string
        second
-       (clojure.string/replace #"\{" "[")
-       (clojure.string/replace #"\}" "]")
+       (#(clojure.string/replace % #"\{" "["))
+       (#(clojure.string/replace % #"\}" "]"))
        read-string
        (m/emap #(or % -1.0))
        m/matrix))
@@ -2742,16 +2743,15 @@ or false:
                    (* width scalex)
                    (* -1.0 height scaley))))
 
-(defn get-weather [config name]
-  (let [val (name config)]
-    (if (map? val)
-      (let [raster (fetch/weather name)]
-        (repeat n raster))
-      (let [rand-generator (if-let [seed (:random-seed config)]
-                               (Random. seed)
-                               (Random.))
-            simulations    (:simulations config)]
-        (draw-samples rand-generator simulations val)))))
+
+(defn get-weather [config rand-generator weather-type]
+  (let [val          (config weather-type)
+        fetch-method (keyword (s/join "-" ["fetch" (name weather-type) "method"]))
+        n            (:simulations config)]
+    (if (contains? config fetch-method)
+      (let [raster (fetch/weather config weather-type)]
+        raster)
+      (draw-samples rand-generator n val))))
 
 (defn -main
   [& config-files]
@@ -3091,7 +3091,7 @@ of values.
  :foliar-moisture           90             ; (%)
  :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
 
- ;; Section 4: Number of simulations and (optional) random seed perimeter
+ ;; Section 4: Number of simulations and (optional) random seed parameter
  :simulations               10
  :random-seed               1234567890     ; long value (optional)
 
