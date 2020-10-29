@@ -103,19 +103,26 @@
     (/ (* eta (Math/sqrt (+ 1 (Math/pow (* x wsp) 2))))
        0.3002)))
 
+
+
 (defn run-simulations
-  [simulations landfire-rasters envelope cell-size ignition-row
+  [{:keys
+    [cell-size outfile-suffix output-geotiffs? output-pngs? output-csvs?
+     fetch-temperature-method fetch-wind-speed-20ft-method
+     fetch-wind-from-direction-method fetch-relative-humidity-method
+     simulations] :as config}
+   landfire-rasters envelope ignition-row
    ignition-col max-runtime temperature relative-humidity wind-speed-20ft
-   wind-from-direction foliar-moisture ellipse-adjustment-factor
-   outfile-suffix output-geotiffs? output-pngs? output-csvs? ignition-layer config]
+   wind-from-direction foliar-moisture ellipse-adjustment-factor ignition-layer
+   multiplier-lookup]
   (mapv
    (fn [i]
      (let [initial-ignition-site (or ignition-layer
                                      [(ignition-row i) (ignition-col i)])
-           temperature           (if (config :fetch-temperature-method) temperature (temperature i))
-           wind-speed-20ft       (if (config :fetch-wind-speed-20ft-method) wind-speed-20ft (wind-speed-20ft i))
-           wind-from-direction   (if (config :fetch-wind-from-direction-method) wind-from-direction (wind-from-direction i))
-           relative-humidity     (if (config :fetch-relative-humidity-method) relative-humidity (relative-humidity i))]
+           temperature           (if fetch-temperature-method temperature (temperature i))
+           wind-speed-20ft       (if fetch-wind-speed-20ft-method wind-speed-20ft (wind-speed-20ft i))
+           wind-from-direction   (if fetch-wind-from-direction-method wind-from-direction (wind-from-direction i))
+           relative-humidity     (if fetch-relative-humidity-method relative-humidity (relative-humidity i))]
        (if-let [fire-spread-results (run-fire-spread
                                      {:max-runtime               (max-runtime i)
                                       :cell-size                 cell-size
@@ -128,6 +135,7 @@
                                       :ellipse-adjustment-factor (ellipse-adjustment-factor i)
                                       :num-rows                  (m/row-count (:fuel-model landfire-rasters))
                                       :num-cols                  (m/column-count (:fuel-model landfire-rasters))
+                                      :multiplier-lookup         multiplier-lookup
                                       :initial-ignition-site     initial-ignition-site})]
          (do
            (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
@@ -213,12 +221,25 @@
     (fetch/weather config method weather-type)
     (draw-samples rand-generator simulations (get config weather-type))))
 
+(defn create-multiplier-lookup
+  [{:keys [cell-size] :as config}]
+  (let [weather-keys (->> validation/weather-names
+                          (select-keys config)
+                          (filter (fn [[k v]] (map? v)))
+                          keys)]
+    (reduce (fn [acc k]
+              (assoc acc k (quot cell-size (get-in config [k :cell-size]))))
+            {}
+            weather-keys)))
+
 (defn -main
   [& config-files]
   (doseq [config-file config-files]
     (let [config           (edn/read-string (slurp config-file))]
       (if (s/valid? ::validation/config config)
-        (let [landfire-layers  (fetch/landfire-layers config)
+(let [
+      multiplier-lookup (create-multiplier-lookup config)
+      landfire-layers  (fetch/landfire-layers config)
               landfire-rasters (into {}
                                      (map (fn [[layer info]] [layer (:matrix info)]))
                                      landfire-layers)
@@ -233,10 +254,9 @@
               (-> (matrix-to-raster (name layer) matrix envelope)
                   (write-raster (str (name layer) (:outfile-suffix config) ".tif")))))
           (->> (run-simulations
-                simulations
+                config
                 landfire-rasters
                 envelope
-                (:cell-size config)
                 (draw-samples rand-generator simulations (:ignition-row config))
                 (draw-samples rand-generator simulations (:ignition-col config))
                 (draw-samples rand-generator simulations (:max-runtime config))
@@ -246,12 +266,8 @@
                 (get-weather config rand-generator :wind-from-direction)
                 (draw-samples rand-generator simulations (:foliar-moisture config))
                 (draw-samples rand-generator simulations (:ellipse-adjustment-factor config))
-                (:outfile-suffix config)
-                (:output-geotiffs? config)
-                (:output-pngs? config)
-                (:output-csvs? config)
                 ignition-layer
-                config)
+                multiplier-lookup)
                (write-csv-outputs
                 (:output-csvs? config)
                 (str "summary_stats" (:outfile-suffix config) ".csv"))))

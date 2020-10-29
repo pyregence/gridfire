@@ -101,9 +101,13 @@
 
 (defmethod weather :postgis
   [{:keys [db-spec] :as config} _ weather-type]
-  (:matrix (postgis-raster-to-matrix db-spec (get config weather-type))))
+  (let [weather (get config weather-type)
+        path    (if (map? weather) (:path weather) weather)]
+    (:matrix (postgis-raster-to-matrix db-spec path))))
 
 (defmethod weather :geotiff
   [config _ weather-type]
-  (:matrix (geotiff-raster-to-matrix (get config weather-type))))
+  (let [weather (get config weather-type)
+        path    (if (map? weather) (:path weather) weather)]
+   (:matrix (geotiff-raster-to-matrix path))))
 ;; fetch.clj ends here
