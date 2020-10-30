@@ -68,9 +68,7 @@
         grid     (:grid raster)
         r-info   (inspect/describe-raster raster)
         matrix   (first (inspect/extract-matrix raster))
-        band     (first (:bands r-info))
-        image    (:image r-info)
-        envelope (:envelope r-info)]
+        image    (:image r-info)]
     {:srid       (:srid r-info)
      :upperleftx (get-in image [:origin :x])
      :upperlefty (get-in image [:origin :y])
@@ -80,7 +78,7 @@
      :scaley     (.getScaleY (.getGridToCRS2D grid))
      :skewx      0.0 ;FIXME not used?
      :skewy      0.0 ;FIXME not used?
-     :numbands   (get-in r-info [:image :bands])
+     :numbands   (:bands image)
      :matrix     (->> matrix (m/emap #(or % -1.0)) m/matrix)}))
 
 (defmulti fetch-landfire-layers
@@ -97,7 +95,7 @@
     (:fetch-layer-method config)))
 
 (defmethod fetch-landfire-layers :postgis
-  [{:keys [db-spec landfire-layers] :as config}]
+  [{:keys [db-spec landfire-layers]}]
   (convert-metrics
    (reduce (fn [amap layer-name]
              (let [table (landfire-layers layer-name)]
@@ -107,12 +105,12 @@
            layer-names)))
 
 (defmethod fetch-landfire-layers :geotiff
-  [{:keys [landfire-layers] :as config}]
+  [{:keys [landfire-layers]}]
   (convert-metrics
    (reduce (fn [amap layer-name]
-             (let [raster (landfire-layers layer-name)]
+             (let [file-name (landfire-layers layer-name)]
                (assoc amap layer-name
-                      (geotiff-raster-to-matrix raster))))
+                      (geotiff-raster-to-matrix file-name))))
            {}
            layer-names)))
 
@@ -290,8 +288,7 @@
 
 (defn get-envelope
   [config landfire-layers]
-  (let [{:keys [upperleftx upperlefty width height scalex scaley]}
-        (landfire-layers :elevation)]
+  (let [{:keys [upperleftx upperlefty width height scalex scaley]} (landfire-layers :elevation)]
     (make-envelope (:srid config)
                    upperleftx
                    (+ upperlefty (* height scaley))

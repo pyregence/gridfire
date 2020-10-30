@@ -337,10 +337,12 @@ First create the schema in our database.
 CREATE SCHEMA landfire;
 #+end_src
 
-*Note:* This script needs to be run in the same folder as where these rasters reside.
+Then we can use the following script to import landfire layers into our database given
+the schema and database as inputs.
 
+*Note:* This script needs to be run in the same folder as where these rasters reside.
 #+name: raster2pgsql-import-example-all
-#+begin_src sh :results silent :exports code :tangle ../resources/import_rasters.sh :padline no :no-expand :comments link
+#+begin_src sh :results silent :exports code :tangle ../resources/import_landfire_rasters.sh :padline no :no-expand :comments link
 #!/bin/sh
 
 DATABASE=$1
@@ -350,6 +352,11 @@ for LAYER in asp cbd cbh cc ch dem fbfm13 fbfm40 slp
 do
     raster2pgsql -t 100x100 -I -C $LAYER.tif $SCHEMA.$LAYER | psql -h localhost -U $DATABASE
 done
+#+end_src
+
+To run the script give it our database and schema name.
+#+begin_src bash
+sh import_landfire_rasters.sh gridfire landfire
 #+end_src
 
 Whenever we want to add a new spatial reference system to our database, we can
@@ -381,10 +388,10 @@ VALUES (900914, 'user-generated', 900914,
         ' +datum=NAD83 +units=m +no_defs');
 #+end_src
 
-*Note:* You must add any spatial reference systems used by the rasters
-you intend to import into the database *before* running raster2pgsql.
+*Note:* We must add any spatial reference systems used by the rasters
+we intend to import into the database *before* running raster2pgsql.
 
-If there is a need to update the srid of your layers you can use the following script.
+If there is a need to update the srid of our layers we can use the following script.
 
 *Note:* This script needs to be run in the same folder as where these rasters reside.
 
@@ -400,6 +407,11 @@ do
     psql -h localhost -U $DATABASE -c \
          "SELECT UpdateRasterSRID('$SCHEMA'::name,'$LAYER'::name,'rast'::name,$SRID);" &
 done
+#+end_src
+
+To run the script, give it the database name, schema name and srid we wish the layers to have.
+#+begin_src bash
+sh update_landfire_srids.sh gridfire landfire 900914
 #+end_src
 
 * Fire Spread Model
@@ -2283,9 +2295,7 @@ or false:
         grid     (:grid raster)
         r-info   (inspect/describe-raster raster)
         matrix   (first (inspect/extract-matrix raster))
-        band     (first (:bands r-info))
-        image    (:image r-info)
-        envelope (:envelope r-info)]
+        image    (:image r-info)]
     {:srid       (:srid r-info)
      :upperleftx (get-in image [:origin :x])
      :upperlefty (get-in image [:origin :y])
@@ -2295,7 +2305,7 @@ or false:
      :scaley     (.getScaleY (.getGridToCRS2D grid))
      :skewx      0.0 ;FIXME not used?
      :skewy      0.0 ;FIXME not used?
-     :numbands   (get-in r-info [:image :bands])
+     :numbands   (:bands image)
      :matrix     (->> matrix (m/emap #(or % -1.0)) m/matrix)}))
 
 (defmulti fetch-landfire-layers
@@ -2312,7 +2322,7 @@ or false:
     (:fetch-layer-method config)))
 
 (defmethod fetch-landfire-layers :postgis
-  [{:keys [db-spec landfire-layers] :as config}]
+  [{:keys [db-spec landfire-layers]}]
   (convert-metrics
    (reduce (fn [amap layer-name]
              (let [table (landfire-layers layer-name)]
@@ -2322,12 +2332,12 @@ or false:
            layer-names)))
 
 (defmethod fetch-landfire-layers :geotiff
-  [{:keys [landfire-layers] :as config}]
+  [{:keys [landfire-layers]}]
   (convert-metrics
    (reduce (fn [amap layer-name]
-             (let [raster (landfire-layers layer-name)]
+             (let [file-name (landfire-layers layer-name)]
                (assoc amap layer-name
-                      (geotiff-raster-to-matrix raster))))
+                      (geotiff-raster-to-matrix file-name))))
            {}
            layer-names)))
 
@@ -2505,8 +2515,7 @@ or false:
 
 (defn get-envelope
   [config landfire-layers]
-  (let [{:keys [upperleftx upperlefty width height scalex scaley]}
-        (landfire-layers :elevation)]
+  (let [{:keys [upperleftx upperlefty width height scalex scaley]} (landfire-layers :elevation)]
     (make-envelope (:srid config)
                    upperleftx
                    (+ upperlefty (* height scaley))
