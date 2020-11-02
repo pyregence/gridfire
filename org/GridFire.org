@@ -2388,8 +2388,8 @@ file, constructs the same map of information as
      :scaley     (.getScaleY (.getGridToCRS2D grid))
      :skewx      0.0 ;FIXME not used?
      :skewy      0.0 ;FIXME not used?
-     :numbands   (get-in r-info [:image :bands])
-     :matrix     (->> matrix (m/emap #(or % -1.0)) m/matrix)}))
+     :numbands   (:bands image)
+     :matrix     (m/matrix matrix)}))
 
 (defn geotiff-raster-to-matrix-multiband
   "Reads a raster from a file using the magellan.core library. Returns the
@@ -2415,8 +2415,8 @@ file, constructs the same map of information as
         image    (:image r-info)
         envelope (:envelope r-info)]
     {:srid       (:srid r-info)
-     :upperleftx (get-in image [:origin :x])
-     :upperlefty (get-in image [:origin :y])
+     :upperleftx (get-in envelope [:x :min])
+     :upperlefty (get-in envelope [:y :min])
      :width      (:width image)
      :height     (:height image)
      :scalex     (.getScaleX (.getGridToCRS2D grid))
@@ -2424,7 +2424,7 @@ file, constructs the same map of information as
      :skewx      0.0 ;FIXME not used?
      :skewy      0.0 ;FIXME not used?
      :numbands   (get-in r-info [:image :bands])
-     :matrix     (->> matrix (m/emap #(or % -1.0)) m/matrix)}))
+     :matrix     (m/matrix matrix)}))
 #+end_src
 
 ** Command Line Interface
