@@ -68,10 +68,11 @@
         grid     (:grid raster)
         r-info   (inspect/describe-raster raster)
         matrix   (first (inspect/extract-matrix raster))
-        image    (:image r-info)]
+        image    (:image r-info)
+        envelope (:envelope r-info)]
     {:srid       (:srid r-info)
-     :upperleftx (get-in image [:origin :x])
-     :upperlefty (get-in image [:origin :y])
+     :upperleftx (get-in envelope [:x :min])
+     :upperlefty (get-in envelope [:y :min])
      :width      (:width image)
      :height     (:height image)
      :scalex     (.getScaleX (.getGridToCRS2D grid))
@@ -79,7 +80,7 @@
      :skewx      0.0 ;FIXME not used?
      :skewy      0.0 ;FIXME not used?
      :numbands   (:bands image)
-     :matrix     (->> matrix (m/emap #(or % -1.0)) m/matrix)}))
+     :matrix     (m/matrix matrix)}))
 
 (defmulti fetch-landfire-layers
   "Returns a map of LANDFIRE rasters (represented as maps) with the following units:
