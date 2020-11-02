@@ -14,7 +14,7 @@
 
  ;; Section 2: Ignition data from which to build simulation inputs
  :fetch-ignition-method     :geotiff
- :ignition-layer            "test/gridfire/resources/ign.tif"
+ :ignition-layers           "test/gridfire/resources/ign.tif"
 
  ;; Section 3: Weather data from which to build simulation inputs
  ;; For all options in this section, you may enter values in one of five ways:

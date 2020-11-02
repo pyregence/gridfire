@@ -3043,60 +3043,23 @@ mappings:
  :wind-speed-20ft                  "weather.ws WHERE rid=100"
  :fetch-wind-from-direction-method :postgis
  :wind-from-direction              "weather.wd WHERE rid=100"}
-=======
-For all options in this section, you may enter values in one of the three ways:
-single, list, or range of values.
-
- #+begin_src clojure
-{:max-runtime               60             ;; (minutes)
- :temperature               (50 65 80)     ;; (degrees Fahrenheit)
- :relative-humidity         (1 10 20)      ;; (%)
- :wind-speed-20ft           (10 15 20)     ;; (miles/hour)
- :wind-from-direction       (0 90 180 270) ;; (degrees clockwise from north)
- :foliar-moisture           90             ;; (%)
- :ellipse-adjustment-factor 1.0            ;; (< 1.0 = more circular, > 1.0 = more elliptical)
- }
- #+end_src
-
-Temperature, relative humidity, wind speed, and wind direction accepts an
-additional type of input. Gridfire allows us to use weather data from rasters.
-To use weather data from raster we have two options. We can read rasters from a
-PostGIS database or a raster file on disk.
-
-To use weather raster in our PostGIS database include the
-following mappings:
-- *fetch-<weather-type>-method*: a keyword to denote which method we want to use
-- *<weather-type>*: a map of location and additional options
-
-#+begin_src clojure
-{:fetch-temperature-method :postgis
- :temperature              {:path "weather.tmpf WHERE rid=1"}}
->>>>>>> add multiplier lookup for lower resolution rasters and use in firespread
 #+end_src
 
 To fetch weather raster from a raster file on disk include the
 following mappings:
-<<<<<<< HEAD
 
 - *fetch-[weather-type]-method*: a keyword to denote which method we want to use
 - *[weather-type]*: a mapping of layer names to file paths
 
 #+begin_src clojure
 {:fetch-temperature-method         :geotiff
- :temperature                      "test/gridfire/resources/weather-test/tmpf_to_sample.tif"
+ :temperature                      {:path "test/gridfire/resources/weather-test/tmpf_to_sample.tif"}
  :fetch-relative-humidity-method   :geotiff
- :relative-humidity                "test/gridfire/resources/weather-test/rh_to_sample.tif"
+ :relative-humidity                {:path "test/gridfire/resources/weather-test/rh_to_sample.tif"}
  :fetch-wind-speed-20ft-method     :geotiff
- :wind-speed-20ft                  "test/gridfire/resources/weather-test/ws_to_sample.tif"
+ :wind-speed-20ft                  {:path "test/gridfire/resources/weather-test/ws_to_sample.tif"}
  :fetch-wind-from-direction-method :geotiff
- :wind-from-direction              "test/gridfire/resources/weather-test/d_to_sample.tif"}
-=======
-- *fetch-<weather-type>-method*: a keyword to denote which method we want to use
-- *<weather-type>*: a map of location and additional options
-
-#+begin_src clojure
-{:fetch-temperature-method :geotiff
- :temperature              {:path "test/gridfire/resources/weather-test/tmpf_to_sample.tif"}}
+ :wind-from-direction              {:path "test/gridfire/resources/weather-test/d_to_sample.tif"}}
 #+end_src
 
 Gridfire expects weather rasters to have the same resolution as designated by the
@@ -3105,7 +3068,7 @@ optionally supports the use of weather rasters with a lower resolution.
 
 To use weather raster with lower resolution than the simulation `:cell-size` include
 the following key value pair in the location map:
-- *cell-size*: integer
+- *cell-size*: integer (units feet)
 
 *Note:* cell-size of all weather rasters and the simulation's cell-size must be
 multiples of one another.
@@ -3113,8 +3076,7 @@ multiples of one another.
 #+begin_src clojure
 {:fetch-temperature-method :geotiff
  :temperature              {:path      "test/gridfire/resources/weather-test/tmpf_to_sample.tif"
-                            :cell-size 80}}
->>>>>>> add multiplier lookup for lower resolution rasters and use in firespread
+                            :cell-size 98.425}}
 #+end_src
 
 ** Section 4: Number of simulations and (optional) random seed perimeter
