@@ -2998,8 +2998,8 @@ this functionality.
 (defmethod weather :postgis
   [{:keys [db-spec] :as config} _ weather-type]
   (let [weather (get config weather-type)
-        path    (if (map? weather) (:path weather) weather)]
-    (:matrix (postgis-raster-to-matrix db-spec path))))
+        sql     (if (map? weather) (:sql weather) weather)]
+    (:matrix (postgis-raster-to-matrix db-spec sql))))
 
 (defmethod weather :geotiff
   [config _ weather-type]
@@ -3010,7 +3010,6 @@ this functionality.
 
 ** Section 3: Weather data from which to build simulation inputs
 
-<<<<<<< HEAD
 For all the options in this section, you may enter values in one of
 three ways (as described in section 2): single, list, or range of
 values.
@@ -3036,13 +3035,13 @@ mappings:
 
 #+begin_src clojure
 {:fetch-temperature-method         :postgis
- :temperature                      "weather.temp WHERE rid=100"
+ :temperature                      {:sql "weather.temp WHERE rid=100"}
  :fetch-relative-humidity-method   :postgis
- :relative-humidity                "weather.rh WHERE rid=100"
+ :relative-humidity                {:sql "weather.rh WHERE rid=100"}
  :fetch-wind-speed-20ft-method     :postgis
- :wind-speed-20ft                  "weather.ws WHERE rid=100"
+ :wind-speed-20ft                  {:sql "weather.ws WHERE rid=100"}
  :fetch-wind-from-direction-method :postgis
- :wind-from-direction              "weather.wd WHERE rid=100"}
+ :wind-from-direction              {:sql "weather.wd WHERE rid=100"}}
 #+end_src
 
 To fetch weather raster from a raster file on disk include the

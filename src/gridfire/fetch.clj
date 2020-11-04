@@ -102,8 +102,8 @@
 (defmethod weather :postgis
   [{:keys [db-spec] :as config} _ weather-type]
   (let [weather (get config weather-type)
-        path    (if (map? weather) (:path weather) weather)]
-    (:matrix (postgis-raster-to-matrix db-spec path))))
+        sql     (if (map? weather) (:sql weather) weather)]
+    (:matrix (postgis-raster-to-matrix db-spec sql))))
 
 (defmethod weather :geotiff
   [config _ weather-type]
