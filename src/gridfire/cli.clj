@@ -263,5 +263,5 @@
                (write-csv-outputs
                 (:output-csvs? config)
                 (str "summary_stats" (:outfile-suffix config) ".csv"))))
-        (print-error err config)))))
+        (s/explain ::validation/config config)))))
 ;; command-line-interface ends here
