@@ -1,5 +1,5 @@
 (ns gridfire.config-validation-test
-  (:require [gridfire.validation :as validation]
+  (:require [gridfire.spec.config :as spec]
             [gridfire.crown-fire :refer [m->ft]]
             [clojure.spec.alpha :as s]
             [clojure.test :refer [deftest is testing]]))
@@ -66,7 +66,7 @@
 (deftest weather-cell-size-test
   (let [high-res (m->ft 30)
         low-res  (* high-res 10)
-        temp     (s/conform ::validation/weather
+        temp     (s/conform ::spec/weather
                             {:type      :geotiff
                              :source    (in-file-path "weather-test/tmpf_to_sample.tif")
                              :cell-size low-res})]
@@ -74,23 +74,23 @@
       (let [config {:cell-size   high-res
                     :temperature temp}]
 
-        (is (true? (validation/valid-weather-cell-sizes? config)))))
+        (is (true? (spec/valid-weather-cell-sizes? config)))))
 
     (testing "Valid cell-size for multiple weather raster"
       (let [config {:cell-size         high-res
                     :temperature       temp
                     :relative-humidity temp}]
 
-        (is (true? (validation/valid-weather-cell-sizes? config)))))))
+        (is (true? (spec/valid-weather-cell-sizes? config)))))))
 
 (deftest weather-cell-invalid-test
   (testing "Invalid cell-size for a weather raster"
     (let [cell-size (m->ft 30)
-          temp      (s/conform ::validation/weather
+          temp      (s/conform ::spec/weather
                                {:type      :geotiff
                                 :source    (in-file-path "weather-test/tmpf_to_sample.tif")
                                 :cell-size (+ cell-size (/ cell-size 2))})
           config    {:cell-size   cell-size
                      :temperature temp}]
 
-      (is (false? (validation/valid-weather-cell-sizes? config))))))
+      (is (false? (spec/valid-weather-cell-sizes? config))))))

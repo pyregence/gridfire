@@ -1,37 +1,26 @@
 ;; [[file:../../org/GridFire.org::command-line-interface][command-line-interface]]
 (ns gridfire.cli
   (:gen-class)
-  (:require [clojure.core.matrix  :as m]
-            [clojure.data.csv     :as csv]
-            [clojure.edn          :as edn]
-            [clojure.java.io      :as io]
-            [clojure.spec.alpha   :as s]
-            [gridfire.fetch       :as fetch]
-            [gridfire.fire-spread :refer [run-fire-spread]]
-            [gridfire.validation  :as validation]
-            [magellan.core        :refer [make-envelope
-                                          matrix-to-raster
-                                          register-new-crs-definitions-from-properties-file!
-                                          write-raster]]
-            [matrix-viz.core      :refer [save-matrix-as-png]])
+  (:require [clojure.core.matrix   :as m]
+            [clojure.data.csv      :as csv]
+            [clojure.edn           :as edn]
+            [clojure.java.io       :as io]
+            [clojure.spec.alpha    :as s]
+            [gridfire.fetch        :as fetch]
+            [gridfire.fire-spread  :refer [run-fire-spread]]
+            [gridfire.spec.config  :as spec]
+            [gridfire.utils.random :refer [my-rand-int my-rand-nth random-float]]
+            [magellan.core         :refer [make-envelope
+                                           matrix-to-raster
+                                           register-new-crs-definitions-from-properties-file!
+                                           write-raster]]
+            [matrix-viz.core :refer [save-matrix-as-png]])
   (:import java.util.Random))
 
 (m/set-current-implementation :vectorz)
 
 (register-new-crs-definitions-from-properties-file! "CUSTOM"
                                                     (io/resource "custom_projections.properties"))
-
-(defn my-rand
-  ([^Random rand-generator] (.nextDouble rand-generator))
-  ([^Random rand-generator n] (* n (my-rand rand-generator))))
-
-(defn my-rand-int
-  [rand-generator n]
-  (int (my-rand rand-generator n)))
-
-(defn my-rand-nth
-  [rand-generator coll]
-  (nth coll (my-rand-int rand-generator (count coll))))
 
 (defn sample-from-list
   [rand-generator n xs]
@@ -48,6 +37,20 @@
         (cond (list? x)   (sample-from-list rand-generator n x)
               (vector? x) (sample-from-range rand-generator n x)
               :else       (repeat n x))))
+
+(defn draw-perturbation-samples
+  [rand-generator n perturbations]
+  (when perturbations
+   (map
+    #(reduce-kv (fn [acc k {:keys [spatial-type pdf-min pdf-max] :as v}]
+                  (let [simulation-id %]
+                    (if (= spatial-type :global)
+                      (update-in acc [k] assoc :global-value  (random-float pdf-min pdf-max rand-generator))
+                      (update-in acc [k] merge {:simulation-id  simulation-id
+                                                :rand-generator rand-generator}))))
+                perturbations
+                perturbations)
+    (range n))))
 
 (defn cells-to-acres
   [cell-size num-cells]
@@ -113,7 +116,7 @@
    landfire-rasters envelope ignition-row
    ignition-col max-runtime temperature relative-humidity wind-speed-20ft
    wind-from-direction foliar-moisture ellipse-adjustment-factor ignition-layer
-   multiplier-lookup]
+   multiplier-lookup perturbations]
   (mapv
    (fn [i]
      (let [initial-ignition-site (or ignition-layer
@@ -135,7 +138,8 @@
                                       :num-rows                  (m/row-count (:fuel-model landfire-rasters))
                                       :num-cols                  (m/column-count (:fuel-model landfire-rasters))
                                       :multiplier-lookup         multiplier-lookup
-                                      :initial-ignition-site     initial-ignition-site})]
+                                      :initial-ignition-site     initial-ignition-site
+                                      :perturbations             perturbations})]
          (do
            (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
                                  ["flame_length"        :flame-length-matrix]
@@ -223,7 +227,7 @@
 
 (defn create-multiplier-lookup
   [{:keys [cell-size] :as config}]
-  (let [weather-keys (->> validation/weather-names
+  (let [weather-keys (->> spec/weather-names
                           (select-keys config)
                           (filter (fn [[k v]] (and (map? v)
                                                    (contains? v :cell-size))))
@@ -238,8 +242,8 @@
 (defn -main
   [& config-files]
   (doseq [config-file config-files]
-    (let [config           (edn/read-string (slurp config-file))]
-      (if (s/valid? ::validation/config config)
+    (let [config (edn/read-string (slurp config-file))]
+      (if (s/valid? ::spec/config config)
         (let [multiplier-lookup (create-multiplier-lookup config)
               landfire-layers   (fetch/landfire-layers config)
               landfire-rasters  (into {}
@@ -269,9 +273,10 @@
                 (draw-samples rand-generator simulations (:foliar-moisture config))
                 (draw-samples rand-generator simulations (:ellipse-adjustment-factor config))
                 ignition-layer
-                multiplier-lookup)
+                multiplier-lookup
+                (draw-perturbation-samples rand-generator simulations (:perturbations config)))
                (write-csv-outputs
                 (:output-csvs? config)
                 (str "summary_stats" (:outfile-suffix config) ".csv"))))
-        (s/explain ::validation/config config)))))
+        (s/explain ::spec/config config)))))
 ;; command-line-interface ends here

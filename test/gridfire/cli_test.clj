@@ -72,7 +72,8 @@
      (cli/draw-samples rand-generator simulations (:foliar-moisture config))
      (cli/draw-samples rand-generator simulations (:ellipse-adjustment-factor config))
      ignition-raster
-     multiplier-lookup)))
+     multiplier-lookup
+     (cli/draw-perturbation-samples rand-generator simulations (:perturbations config)))))
 
 ;;-----------------------------------------------------------------------------
 ;; Tests
@@ -338,3 +339,12 @@
 
         (is (= {:temperature       10
                 :relative-humidity 10} lookup))))))
+
+(deftest run-simulation-with-landfire-perturbations
+  (testing "perturbing canopy height landfire layer"
+    (let [config  (merge test-config-base
+                         {:perturbations {:canopy-height {:spatial-type :global
+                                                          :pdf-min      -1.0
+                                                          :pdf-max      1.0}}})
+          results (run-simulation config)]
+      (is (every? some? results)))))

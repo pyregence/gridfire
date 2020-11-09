@@ -1,5 +1,6 @@
 (ns gridfire.validation
-  (:require [clojure.spec.alpha :as s]))
+  (:require [clojure.spec.alpha :as s]
+            [gridfire.spec.perturbations :as perturbations]))
 
 ;;-----------------------------------------------------------------------------
 ;; Regex
@@ -14,7 +15,7 @@
 (s/def ::type #(contains? #{:geotiff :postgis} %))
 
 ;;-----------------------------------------------------------------------------
-;; Weather
+;; Weather Layers ;;TODO move into own namespace
 ;;-----------------------------------------------------------------------------
 
 (s/def ::postgis-or-geotiff
@@ -53,7 +54,7 @@
     (every? #(multiple? cell-size %) cell-sizes)))
 
 ;;-----------------------------------------------------------------------------
-;; Landfire Layers
+;; Landfire Layers ;;TODO move into own namespace
 ;;-----------------------------------------------------------------------------
 
 (s/def ::path-or-map (s/or :path ::path
@@ -79,10 +80,16 @@
             ::fuel-model
             ::slope]))
 
+;;-----------------------------------------------------------------------------
+;; Config
+;;-----------------------------------------------------------------------------
+
+
 (s/def ::config
   (s/and
    (s/keys
     :req-un [::cell-size
-             ::landfire-layers])
+             ::landfire-layers]
+    :opt-un [::perturbations/perturbations])
    ::weather-layers
    #(valid-weather-cell-sizes? %)))
