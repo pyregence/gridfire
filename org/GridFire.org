@@ -3185,7 +3185,7 @@ order to account for inherent uncertainty in the data. A random
 sampling procedure is implemented such that the spatial perturbation
 to be applied to a given input raster sampled from a probability
 density function (pdf). Currenlty only a uniform distribution is
-supported
+supported.
 
 To specify this in the config file include the following mappings:
 
