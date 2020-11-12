@@ -1,9 +1,7 @@
 (ns gridfire.config-test
   (:require [gridfire.config :as config]
             [gridfire.crown-fire :refer [m->ft]]
-            [gridfire.spec.perturbations :as spec-p]
-            [clojure.spec.alpha :as s]
-            [clojure.test :refer [deftest is testing]]))
+            [clojure.test :refer [deftest is]]))
 
 ;;-----------------------------------------------------------------------------
 ;; Config
@@ -92,4 +90,11 @@
                    :output-csvs?              false
                    :output-pngs?              false
                    :output-landfire-inputs?   false
-                   }))))
+                   :perturbations             {:canopy-bulk-density {:spatial-type :global
+                                                                     :range        [-0.05 0.05]}
+                                               :canopy-base-height  {:spatial-type :global
+                                                                     :range        [-2.0 2.0]}
+                                               :canopy-cover        {:spatial-type :global
+                                                                     :range        [-0.05 0.05]}
+                                               :canopy-height       {:spatial-type :global
+                                                                     :range        [-5.0 5.0]}}}))))
