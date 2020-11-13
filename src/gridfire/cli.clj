@@ -10,6 +10,7 @@
             [gridfire.fire-spread  :refer [run-fire-spread]]
             [gridfire.spec.config  :as spec]
             [gridfire.utils.random :refer [my-rand-int my-rand-nth random-float]]
+            [gridfire.perturbation :as perturbation]
             [magellan.core         :refer [make-envelope
                                            matrix-to-raster
                                            register-new-crs-definitions-from-properties-file!
@@ -37,21 +38,6 @@
         (cond (list? x)   (sample-from-list rand-generator n x)
               (vector? x) (sample-from-range rand-generator n x)
               :else       (repeat n x))))
-
-(defn draw-perturbation-samples
-  [rand-generator n perturbations]
-  (when perturbations
-   (mapv
-    #(reduce-kv (fn [acc k {:keys [spatial-type range] :as v}]
-                  (let [simulation-id     %
-                        [min-val max-val] range]
-                    (if (= spatial-type :global)
-                      (update-in acc [k] assoc :global-value  (random-float min-val max-val rand-generator))
-                      (update-in acc [k] merge {:simulation-id  simulation-id
-                                                :rand-generator rand-generator}))))
-                perturbations
-                perturbations)
-    (range n))))
 
 (defn cells-to-acres
   [cell-size num-cells]
@@ -274,7 +260,7 @@
                 (draw-samples rand-generator simulations (:ellipse-adjustment-factor config))
                 ignition-layer
                 multiplier-lookup
-                (draw-perturbation-samples rand-generator simulations (:perturbations config)))
+                (perturbation/draw-samples rand-generator simulations (:perturbations config)))
                (write-csv-outputs
                 (:output-csvs? config)
                 (str "summary_stats" (:outfile-suffix config) ".csv"))))
