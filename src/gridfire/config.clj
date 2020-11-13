@@ -127,7 +127,7 @@
   {"CBH"    :canopy-base-height
    "CC"     :canopy-cover
    "CH"     :canopy-height
-   "CBD"    :canopy-bulk-density
+   "CBD"    :crown-bulk-density
    "GLOBAL" :global
    "PIXEL"  :pixel})
 
