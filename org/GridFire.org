@@ -1850,7 +1850,6 @@ pseudo-code lays out the steps taken in this procedure:
                                                    rothermel-surface-fire-spread-no-wind-no-slope
                                                    wind-adjustment-factor]]
             [gridfire.perturbation         :as perturbation]
-            [gridfire.utils.random         :refer [random-float]]
             [mikera.vectorz.core           :as v]))
 
 (m/set-current-implementation :vectorz)
@@ -2004,8 +2003,8 @@ pseudo-code lays out the steps taken in this procedure:
   (let [value-here (m/mget matrix i j)]
     (if perturb-info
       (if-let [freq (:frequency perturb-info)]
-        (+ value-here (perturbation/value-at perturb-info raster here (quot global-clock freq)))
-        (+ value-here (perturbation/value-at perturb-info raster here)))
+        (+ value-here (perturbation/value-at perturb-info matrix here (quot global-clock freq)))
+        (+ value-here (perturbation/value-at perturb-info matrix here)))
       value-here)))
 
 (defn fuel-moisture [relative-humidity temperature]
@@ -2051,7 +2050,7 @@ pseudo-code lays out the steps taken in this procedure:
                                                (:relative-humidity multiplier-lookup)
                                                (:relative-humidity perturbations))
                             relative-humidity)
-     :fuel-model-number   (sample-landfire-at (:fuel-model perturbations) fuel-model here)
+     :fuel-model-number   (sample-landfire-at here global-clock fuel-model (:fuel-model perturbations))
      :slope               (m/mget slope i j)
      :aspect              (m/mget aspect i j)
      :canopy-height       (sample-landfire-at here global-clock canopy-height (:canopy-height perturbations))
@@ -3253,7 +3252,6 @@ by setting `{:spatial-type :pixel}.
            acc)))
      constants
      layers-to-update)))
-
 #+end_src
 
 * Example Configuration files

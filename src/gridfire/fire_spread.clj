@@ -15,7 +15,6 @@
                                                    rothermel-surface-fire-spread-no-wind-no-slope
                                                    wind-adjustment-factor]]
             [gridfire.perturbation         :as perturbation]
-            [gridfire.utils.random         :refer [random-float]]
             [mikera.vectorz.core           :as v]))
 
 (m/set-current-implementation :vectorz)
