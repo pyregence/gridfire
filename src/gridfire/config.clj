@@ -8,8 +8,11 @@
 ;; Util
 ;;-----------------------------------------------------------------------------
 
+(def ^:dynamic elmfire-file-path "")
+
 (defn file-path [directory file-name]
-  (str directory "/" file-name ".tif"))
+  (let [directory (subs directory 1 (count directory))]
+    (str elmfire-file-path directory "/" file-name ".tif")))
 
 (def regex-for-array-item #"^[A-Z0-9\_]+\(\d+\)")
 
@@ -89,20 +92,21 @@
 
 (defn process-weather
   [{:strs [STOCHASTIC_TMP_FILENAME STOCHASTIC_RH_FILENAME STOCHASTIC_WS_FILENAME
-           STOCHASTIC_WD_FILENAME FOLIAR_MOISTURE_CONTENT FUELS_AND_TOPOGRAPHY_DIRECTORY]}
-   _
+           STOCHASTIC_WD_FILENAME FOLIAR_MOISTURE_CONTENT WEATHER_DIRECTORY]}
+   {:keys [weather-cell-size] :as options}
    config]
-  (let [dir FUELS_AND_TOPOGRAPHY_DIRECTORY]
+  (let [dir           WEATHER_DIRECTORY
+        layers        {:temperature         {:type   :geotiff
+                                             :source (file-path dir STOCHASTIC_TMP_FILENAME)}
+                       :relative-humidity   {:type   :geotiff
+                                             :source (file-path dir STOCHASTIC_RH_FILENAME)}
+                       :wind-speed-20ft     {:type   :geotiff
+                                             :source (file-path dir STOCHASTIC_WS_FILENAME)}
+                       :wind-from-direction {:type   :geotiff
+                                             :source (file-path dir STOCHASTIC_WD_FILENAME)}
+                       :foliar-moisture     FOLIAR_MOISTURE_CONTENT}]
     (merge config
-           {:temperature         {:type   :geotiff
-                                  :source (file-path dir STOCHASTIC_TMP_FILENAME)}
-            :relative-humidity   {:type   :geotiff
-                                  :source (file-path dir STOCHASTIC_RH_FILENAME)}
-            :wind-speed-20ft     {:type   :geotiff
-                                  :source (file-path dir STOCHASTIC_WS_FILENAME)}
-            :wind-from-direction {:type   :geotiff
-                                  :source (file-path dir STOCHASTIC_WD_FILENAME)}
-            :foliar-moisture     FOLIAR_MOISTURE_CONTENT})))
+           layers)))
 
 
 ;;-----------------------------------------------------------------------------
@@ -114,7 +118,7 @@
   (merge config
          {:outfile-suffix          ""
           :output-landfire-inputs? false
-          :output-geotiffs?        false
+          :output-geotiffs?        true
           :output-pngs?            (if verbose true false)
           :output-csvs?            (if verbose true false)}))
 
@@ -128,6 +132,8 @@
    "CC"     :canopy-cover
    "CH"     :canopy-height
    "CBD"    :crown-bulk-density
+   "WS"     :wind-speed-20ft
+   "WD"     :wind-direction
    "GLOBAL" :global
    "PIXEL"  :pixel})
 
@@ -165,10 +171,14 @@
 ;;-----------------------------------------------------------------------------
 
 (defn build-edn
-  [{:strs [COMPUTATIONAL_DOMAIN_CELLSIZE MAX_RUNTIME NUM_ENSEMBLE_MEMBERS SEED] :as data}
+  [{:strs
+    [COMPUTATIONAL_DOMAIN_CELLSIZE SIMULATION_TSTOP NUM_ENSEMBLE_MEMBERS
+     A_SRS
+     SEED] :as data}
    options]
   (->> {:cell-size                 (m->ft COMPUTATIONAL_DOMAIN_CELLSIZE)
-        :max-runtime               (sec->min MAX_RUNTIME)
+        :srid                      A_SRS
+        :max-runtime               (sec->min SIMULATION_TSTOP)
         :simulations               NUM_ENSEMBLE_MEMBERS
         :random-seed               SEED
         :ellipse-adjustment-factor 1.0}
@@ -184,13 +194,15 @@
     (spit file (with-out-str (pprint/pprint config-params)))))
 
 (defn process-options
-  [{:keys [config-file] :as options}]
-  (let [data (parse (slurp config-file))]
-    (build-edn data options)))
+  [{:keys [config-file verbose] :as options}]
+  (binding [elmfire-file-path (str/replace config-file #"/elmfire.data" "")]
+    (let [data (parse (slurp config-file))]
+      (build-edn data options))))
 
 (def cli-options
   [["-c" "--config-file FILE" "Path to an data file containing a map of simulation configs"]
-   ["-v" "--verbose" "Flag for controlling outputs"]])
+   ["-v" "--verbose" "Flag for controlling outputs"]
+   ["-w" "--weather-cell-size VALUE" "Flag for specifing weather cell size resolution in meters"]])
 
 (defn -main
   [& args]

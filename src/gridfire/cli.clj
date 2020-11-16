@@ -93,8 +93,6 @@
     (/ (* eta (Math/sqrt (+ 1 (Math/pow (* x wsp) 2))))
        0.3002)))
 
-
-
 (defn run-simulations
   [{:keys
     [cell-size outfile-suffix output-geotiffs? output-pngs? output-csvs?
