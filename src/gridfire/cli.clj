@@ -6,16 +6,17 @@
             [clojure.edn           :as edn]
             [clojure.java.io       :as io]
             [clojure.spec.alpha    :as s]
+            [gridfire.crown-fire   :refer [m->ft]]
             [gridfire.fetch        :as fetch]
             [gridfire.fire-spread  :refer [run-fire-spread]]
             [gridfire.spec.config  :as spec]
-            [gridfire.utils.random :refer [my-rand-int my-rand-nth random-float]]
+            [gridfire.utils.random :refer [my-rand-int my-rand-nth]]
             [gridfire.perturbation :as perturbation]
             [magellan.core         :refer [make-envelope
                                            matrix-to-raster
                                            register-new-crs-definitions-from-properties-file!
                                            write-raster]]
-            [matrix-viz.core :refer [save-matrix-as-png]])
+            [matrix-viz.core       :refer [save-matrix-as-png]])
   (:import java.util.Random))
 
 (m/set-current-implementation :vectorz)
@@ -205,37 +206,30 @@
                    (* width scalex)
                    (* -1.0 height scaley))))
 
-(defn get-weather [{:keys [simulations] :as config} rand-generator weather-type]
-  (let [weather-spec (weather-type config)]
-    (if (map? weather-spec)
-      (fetch/weather config weather-spec)
-      (draw-samples rand-generator simulations weather-spec))))
+(defn get-weather [config rand-generator weather-type weather-layers]
+  (if (contains? weather-layers weather-type)
+    (get-in weather-layers [weather-type :matrix])
+    (draw-samples rand-generator (:simulations config) (config weather-type))))
 
 (defn create-multiplier-lookup
-  [{:keys [cell-size] :as config}]
-  (let [weather-keys (->> spec/weather-names
-                          (select-keys config)
-                          (filter (fn [[k v]] (and (map? v)
-                                                   (contains? v :cell-size))))
-                          keys)]
-    (reduce (fn [acc k]
-              (assoc acc k (int (quot
-                                 (get-in config [k :cell-size])
-                                 cell-size))))
-            {}
-            weather-keys)))
+  [{:keys [cell-size] :as config} weather-layers]
+  (reduce-kv (fn [acc k {:keys [scalex]}]
+               (assoc acc k (int (quot (m->ft scalex) cell-size))))
+             {}
+             weather-layers))
 
 (defn -main
   [& config-files]
   (doseq [config-file config-files]
     (let [config (edn/read-string (slurp config-file))]
       (if (s/valid? ::spec/config config)
-        (let [multiplier-lookup (create-multiplier-lookup config)
-              landfire-layers   (fetch/landfire-layers config)
+        (let [landfire-layers   (fetch/landfire-layers config)
               landfire-rasters  (into {}
                                       (map (fn [[layer info]] [layer (first (:matrix info))]))
                                       landfire-layers)
               ignition-layer    (fetch/ignition-layer config)
+              weather-layers    (fetch/weather-layers config)
+              multiplier-lookup (create-multiplier-lookup config weather-layers)
               envelope          (get-envelope config landfire-layers)
               simulations       (:simulations config)
               rand-generator    (if-let [seed (:random-seed config)]
@@ -252,10 +246,10 @@
                 (draw-samples rand-generator simulations (:ignition-row config))
                 (draw-samples rand-generator simulations (:ignition-col config))
                 (draw-samples rand-generator simulations (:max-runtime config))
-                (get-weather config rand-generator :temperature)
-                (get-weather config rand-generator :relative-humidity)
-                (get-weather config rand-generator :wind-speed-20ft)
-                (get-weather config rand-generator :wind-from-direction)
+                (get-weather config rand-generator :temperature weather-layers)
+                (get-weather config rand-generator :relative-humidity weather-layers)
+                (get-weather config rand-generator :wind-speed-20ft weather-layers)
+                (get-weather config rand-generator :wind-from-direction weather-layers)
                 (draw-samples rand-generator simulations (:foliar-moisture config))
                 (draw-samples rand-generator simulations (:ellipse-adjustment-factor config))
                 ignition-layer

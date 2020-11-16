@@ -52,27 +52,28 @@
 
 (defn run-simulation [config]
   (let [simulations       (:simulations config)
-        multiplier-lookup (cli/create-multiplier-lookup config)
         rand-generator    (if-let [seed (:random-seed config)]
                             (Random. seed)
                             (Random.))
-        landfire-layers   (fetch/landfire-layers config)
-        landfire-matrix   (into {} (map (fn [[layer-name info]] [layer-name (first (:matrix info))])) landfire-layers)
-        ignition-raster   (fetch/ignition-layer config)]
+        landfire-layers   (fetch/fetch-landfire-layers config)
+        landfire-rasters  (into {} (map (fn [[layer-name info]] [layer-name (first (:matrix info))])) landfire-layers)
+        weather-layers    (fetch/weather-layers config)
+        multiplier-lookup (cli/create-multiplier-lookup config weather-layers)
+        ignition-layer    (fetch/ignition-layer config)]
     (cli/run-simulations
      config
-     landfire-matrix
+     landfire-rasters
      (cli/get-envelope config landfire-layers)
      (cli/draw-samples rand-generator simulations (:ignition-row config))
      (cli/draw-samples rand-generator simulations (:ignition-col config))
      (cli/draw-samples rand-generator simulations (:max-runtime config))
-     (cli/get-weather config rand-generator :temperature)
-     (cli/get-weather config rand-generator :relative-humidity)
-     (cli/get-weather config rand-generator :wind-speed-20ft)
-     (cli/get-weather config rand-generator :wind-from-direction)
+     (cli/get-weather config rand-generator :temperature weather-layers)
+     (cli/get-weather config rand-generator :relative-humidity weather-layers)
+     (cli/get-weather config rand-generator :wind-speed-20ft weather-layers)
+     (cli/get-weather config rand-generator :wind-from-direction weather-layers)
      (cli/draw-samples rand-generator simulations (:foliar-moisture config))
      (cli/draw-samples rand-generator simulations (:ellipse-adjustment-factor config))
-     ignition-raster
+     ignition-layer
      multiplier-lookup
      (perturbation/draw-samples rand-generator simulations (:perturbations config)))))
 
@@ -313,8 +314,7 @@
                          {:cell-size       (m->ft 30)
                           :landfire-layers landfire-layers-weather-test
                           :temperature     {:type      :geotiff
-                                            :source    (in-file-path "weather-test/tmpf_to_sample_lower_res.tif")
-                                            :cell-size (m->ft 300)}})
+                                            :source    (in-file-path "weather-test/tmpf_to_sample_lower_res.tif")})
           results (run-simulation config)]
 
       (is (every? some? results)))))
@@ -324,18 +324,18 @@
     (testing "with single weather raster"
       (let [config {:cell-size   (m->ft 30)
                     :temperature {:type      :geotiff
-                                  :source    (in-file-path "/weather-test/tmpf_to_sample_lower_res.tif")
-                                  :cell-size (m->ft 300)}}
+                                  :source    (in-file-path "/weather-test/tmpf_to_sample_lower_res.tif")}}
             lookup (cli/create-multiplier-lookup config)]
 
         (is (= {:temperature 10} lookup))))
 
     (testing "with multiple weather rasters"
       (let [config {:cell-size         (m->ft 30)
-                    :temperature       {:source    (in-file-path "/weather-test/tmpf_to_sample_lower_res.tif")
-                                        :cell-size (m->ft 300)}
-                    :relative-humidity {:source    (in-file-path "/weather-test/rh_to_sample_lower_res.tif")
-                                        :cell-size (m->ft 300)}}
+                    :temperature       {:type :geotiff
+                                        :source    (in-file-path "/weather-test/tmpf_to_sample_lower_res.tif")}
+                    :relative-humidity {:type :geotiff
+                                        :source    (in-file-path "/weather-test/rh_to_sample_lower_res.tif")}}
+            weather-layers (cli/create-multiplier-lookup config weather-layers)
             lookup (cli/create-multiplier-lookup config)]
 
         (is (= {:temperature       10

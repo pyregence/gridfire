@@ -3,6 +3,7 @@
   (:require [clojure.core.matrix      :as m]
             [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
             [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]
+            [gridfire.spec.config     :as spec]
             [gridfire.surface-fire    :refer [degrees-to-radians]]))
 
 ;;-----------------------------------------------------------------------------
@@ -103,4 +104,19 @@
 (defmethod weather :geotiff
   [_ {:keys [source]}]
   (geotiff-raster-to-matrix source))
+
+(defn weather-layers
+  "Returns a map of weather layers (represented as maps) with the following units:
+   {:temperature         farenheight
+    :relative-humidity   %
+    :wind-speed-20ft     mph
+    :wind-from-direction degrees clockwise from north}"
+  [config]
+  (reduce (fn [acc weather-name]
+            (let [weather-spec (weather-name config)]
+              (if (map? (get config weather-name))
+                (assoc acc weather-name (weather config weather-spec))
+                acc)))
+          {}
+          spec/weather-names))
 ;; fetch.clj ends here
