@@ -80,11 +80,13 @@
 
 (defmethod ignition-layer :postgis
   [{:keys [db-spec ignition-layer]}]
-  (postgis-raster-to-matrix db-spec (:source ignition-layer)))
+  (merge (postgis-raster-to-matrix db-spec (:source ignition-layer))
+         (:burn-values ignition-layer)))
 
 (defmethod ignition-layer :geotiff
   [{:keys [ignition-layer]}]
-  (geotiff-raster-to-matrix (:source ignition-layer)))
+  (merge (geotiff-raster-to-matrix (:source ignition-layer))
+         (:burn-values ignition-layer)))
 
 (defmethod ignition-layer :default
   [_]

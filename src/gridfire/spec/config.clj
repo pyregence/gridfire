@@ -1,6 +1,7 @@
 (ns gridfire.spec.config
-  (:require [clojure.spec.alpha :as s]
-            [gridfire.spec.perturbations :as perturbations]))
+  (:require [gridfire.spec.ignition :as ignition]
+            [gridfire.spec.perturbations :as perturbations]
+            [clojure.spec.alpha :as s]))
 
 ;;-----------------------------------------------------------------------------
 ;; Regex
@@ -91,6 +92,7 @@
    (s/keys
     :req-un [::cell-size
              ::landfire-layers]
-    :opt-un [::perturbations/perturbations])
+    :opt-un [::perturbations/perturbations
+             ::ignition/ignition-layer])
    ::weather-layers
    #(valid-weather-cell-sizes? %)))
