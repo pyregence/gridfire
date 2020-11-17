@@ -1,19 +1,15 @@
 (ns gridfire.spec.config
   (:require [gridfire.spec.ignition :as ignition]
             [gridfire.spec.perturbations :as perturbations]
+            [gridfire.spec.common :as common]
             [clojure.spec.alpha :as s]))
 
 ;;-----------------------------------------------------------------------------
 ;; Regex
 ;;-----------------------------------------------------------------------------
 
-(def postgis-sql-regex #"[a-z0-9]+(\.[a-z0-9]+)? WHERE rid=[0-9]+")
-(def path-to-geotiff-regex #"[a-z_\-\s0-9\.]+(\/[a-z_\-\s0-9\.]+)*\.tif")
-
-(s/def ::sql (s/and string? #(re-matches postgis-sql-regex %)))
-(s/def ::path (s/and string? #(re-matches path-to-geotiff-regex %)))
-(s/def ::source (s/or :file-path ::path
-                      :sql       ::sql))
+(s/def ::source (s/or :file-path ::common/path
+                      :sql       ::common/sql))
 (s/def ::type #(contains? #{:geotiff :postgis} %))
 
 ;;-----------------------------------------------------------------------------
@@ -59,7 +55,7 @@
 ;; Landfire Layers ;;TODO move into own namespace
 ;;-----------------------------------------------------------------------------
 
-(s/def ::path-or-map (s/or :path ::path
+(s/def ::path-or-map (s/or :path ::common/path
                            :map  ::postgis-or-geotiff))
 (s/def ::aspect ::path-or-map)
 (s/def ::canopy-base-height ::path-or-map)
