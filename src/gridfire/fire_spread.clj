@@ -313,7 +313,8 @@
    ignited-cells
    fire-spread-matrix
    flame-length-matrix
-   fire-line-intensity-matrix]
+   fire-line-intensity-matrix
+   burn-time-matrix]
   (loop [global-clock  0.0
          ignited-cells ignited-cells]
     (if (and (< global-clock max-runtime)
@@ -335,13 +336,15 @@
           (let [[i j] cell]
             (m/mset! fire-spread-matrix         i j 1.0)
             (m/mset! flame-length-matrix        i j flame-length)
-            (m/mset! fire-line-intensity-matrix i j fire-line-intensity)))
+            (m/mset! fire-line-intensity-matrix i j fire-line-intensity)
+            (m/mset! burn-time-matrix           i j global-clock)))
         (recur (+ global-clock timestep)
                (update-ignited-cells constants ignited-cells ignition-events fire-spread-matrix global-clock)))
       {:exit-condition             (if (seq ignited-cells) :max-runtime-reached :no-burnable-fuels)
        :fire-spread-matrix         fire-spread-matrix
        :flame-length-matrix        flame-length-matrix
-       :fire-line-intensity-matrix fire-line-intensity-matrix})))
+       :fire-line-intensity-matrix fire-line-intensity-matrix
+       :burn-time-matrix          burn-time-matrix})))
 
 (defn- initialize-matrix
   [num-rows num-cols indices]
@@ -398,7 +401,8 @@
         fuel-model-matrix          (:fuel-model landfire-rasters)
         fire-spread-matrix         (m/zero-matrix num-rows num-cols)
         flame-length-matrix        (m/zero-matrix num-rows num-cols)
-        fire-line-intensity-matrix (m/zero-matrix num-rows num-cols)]
+        fire-line-intensity-matrix (m/zero-matrix num-rows num-cols)
+        burn-time-matrix           (m/zero-matrix num-rows num-cols)]
     (when (and (in-bounds? num-rows num-cols initial-ignition-site)
                (burnable-fuel-model? (m/mget fuel-model-matrix i j))
                (burnable-neighbors? fire-spread-matrix fuel-model-matrix
@@ -419,7 +423,8 @@
                   ignited-cells
                   fire-spread-matrix
                   flame-length-matrix
-                  fire-line-intensity-matrix)))))
+                  fire-line-intensity-matrix
+                  burn-time-matrix)))))
 
 (defmethod run-fire-spread :ignition-perimeter
   [{:keys [num-rows num-cols initial-ignition-site landfire-rasters] :as constants}]
@@ -433,6 +438,7 @@
                                                                  num-cols
                                                                  %)
                                            non-zero-indices)
+        burn-time-matrix           (initialize-matrix num-rows num-cols non-zero-indices)
         ignited-cells              (into {}
                                          (for [index perimeter-indices
                                                :let  [ignition-trajectories
@@ -448,5 +454,6 @@
               ignited-cells
               fire-spread-matrix
               flame-length-matrix
-              fire-line-intensity-matrix)))
+              fire-line-intensity-matrix
+              burn-time-matrix)))
 ;; fire-spread-algorithm ends here
