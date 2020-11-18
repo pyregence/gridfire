@@ -82,8 +82,10 @@
    config]
   (let [dir FUELS_AND_TOPOGRAPHY_DIRECTORY]
     (merge config
-           {:ignition-layer {:type   :geotiff
-                             :source (file-path dir PHI_FILENAME)}})))
+           {:ignition-layer {:type        :geotiff
+                             :source      (file-path dir PHI_FILENAME)
+                             :burn-values {:burned   -1.0
+                                           :unburned 1.0}}})))
 
 
 ;;-----------------------------------------------------------------------------
