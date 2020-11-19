@@ -2602,14 +2602,65 @@ or false:
     (/ (* eta (Math/sqrt (+ 1 (Math/pow (* x wsp) 2))))
        0.3002)))
 
+(defn kebab->snake [s]
+  (str/replace s #"-" "_"))
+
+(defn layer-matrix [fire-spread-results layer]
+  (let [kw (->> (str (name layer) "-matrix")
+                keyword)]
+   (get fire-spread-results kw)))
+
+(defn process-output-layers-timestep!
+  [{:keys [output-layers output-geotiffs? output-pngs? output-dir]}
+   {:keys [global-clock burn-time-matrix] :as fire-spread-results}
+   envelope
+   simulation-id]
+  (doseq [[layer timestep] output-layers
+          output-time      (range 0 (inc global-clock) timestep)]
+    (let [filtered-matrix (m/emap (fn [layer-value burn-time]
+                                    (if (<= burn-time output-time)
+                                      layer-value
+                                      0.0))
+                                  (layer-matrix fire-spread-results layer)
+                                  burn-time-matrix)
+          layer-name      (-> (name layer)
+                              kebab->snake)]
+      (do
+        (when output-geotiffs?
+          (-> (matrix-to-raster layer-name filtered-matrix envelope)
+              (write-raster (str/join "_" [layer-name
+                                           simulation-id
+                                           (str "t" output-time ".tif")]))))
+        (when output-pngs?
+          (save-matrix-as-png :color 4 -1.0
+                              filtered-matrix
+                              (str/join "_" [layer-name
+                                             simulation-id
+                                             (str "t" output-time ".png")])))))))
+
+(defn process-output-layers!
+  [{:keys [output-geotiffs? outfile-suffix output-pngs?] :as config}
+   fire-spread-results
+   envelope
+   simulation-id]
+  (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
+                        ["flame_length"        :flame-length-matrix]
+                        ["fire_line_intensity" :fire-line-intensity-matrix]]]
+    (do
+      (when output-geotiffs?
+        (-> (matrix-to-raster name (fire-spread-results layer) envelope)
+            (write-raster (str name outfile-suffix "_" simulation-id ".tif"))))
+      (when output-pngs?
+        (save-matrix-as-png :color 4 -1.0
+                            (fire-spread-results layer)
+                            (str name outfile-suffix "_" simulation-id ".png"))))))
+
 (defn run-simulations
   [{:keys
-    [cell-size outfile-suffix output-geotiffs? output-pngs? output-csvs?
-     simulations]}
-   landfire-rasters envelope ignition-row
-   ignition-col max-runtime temperature relative-humidity wind-speed-20ft
-   wind-from-direction foliar-moisture ellipse-adjustment-factor ignition-layer
-   multiplier-lookup perturbations]
+    [cell-size output-csvs? simulations output-layers] :as config}
+   landfire-rasters envelope ignition-row ignition-col max-runtime temperature
+   relative-humidity wind-speed-20ft wind-from-direction foliar-moisture
+   ellipse-adjustment-factor ignition-layer multiplier-lookup perturbations]
   (mapv
    (fn [i]
      (let [initial-ignition-site (or ignition-layer
@@ -2635,16 +2686,9 @@ or false:
                                       :perturbations             (when perturbations
                                                                    (perturbations i))})]
          (do
-           (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
-                                 ["flame_length"        :flame-length-matrix]
-                                 ["fire_line_intensity" :fire-line-intensity-matrix]]]
-             (when output-geotiffs?
-               (-> (matrix-to-raster name (fire-spread-results layer) envelope)
-                   (write-raster (str name outfile-suffix "_" i ".tif"))))
-             (when output-pngs?
-               (save-matrix-as-png :color 4 -1.0
-                                   (fire-spread-results layer)
-                                   (str name outfile-suffix "_" i ".png"))))
+           (if output-layers
+             (process-output-layers-timestep! config fire-spread-results envelope i)
+             (process-output-layers! config fire-spread-results envelope i))
            (when output-csvs?
              (merge
               {:ignition-row              (ignition-row i)
@@ -2715,7 +2759,7 @@ or false:
 
 (defn get-weather [config rand-generator weather-type weather-layers]
   (if (contains? weather-layers weather-type)
-    (get-in weather-layers [weather-type :matrix])
+    (weather-type weather-layers)
     (draw-samples rand-generator (:simulations config) (config weather-type))))
 
 (defn create-multiplier-lookup
