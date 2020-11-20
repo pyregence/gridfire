@@ -3102,7 +3102,6 @@ described in section 1.
 
 Here's an example of fetching weather rasters from files on disk.
 #+begin_src clojure
-<<<<<<< HEAD
 {:temperature         {:type   :geotiff
                        :source "test/gridfire/resources/weather-test/tmpf_to_sample.tif"}
  :relative-humidity   {:type   :geotiff
