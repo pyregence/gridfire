@@ -1,8 +1,8 @@
 (ns gridfire.spec.config
-  (:require [gridfire.spec.ignition :as ignition]
-            [gridfire.spec.perturbations :as perturbations]
-            [gridfire.spec.common :as common]
-            [clojure.spec.alpha :as s]))
+  (:require [clojure.spec.alpha          :as s]
+            [gridfire.spec.common        :as common]
+            [gridfire.spec.ignition      :as ignition]
+            [gridfire.spec.perturbations :as perturbations]))
 
 ;;-----------------------------------------------------------------------------
 ;; Weather Layers ;;TODO move into own namespace
@@ -77,6 +77,7 @@
     :req-un [::cell-size
              ::landfire-layers]
     :opt-un [::perturbations/perturbations
-             ::ignition/ignition-layer])
+             ::ignition/ignition-layer
+             ::output/output-layers])
    ::weather-layers
    #(valid-weather-cell-sizes? %)))
