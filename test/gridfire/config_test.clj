@@ -1,7 +1,9 @@
 (ns gridfire.config-test
   (:require [gridfire.config :as config]
             [gridfire.crown-fire :refer [m->ft]]
-            [clojure.test :refer [deftest is]]))
+            [clojure.spec.alpha :as s]
+            [clojure.test :refer [deftest is]]
+            [gridfire.spec.config :as spec]))
 
 ;;-----------------------------------------------------------------------------
 ;; Config
@@ -106,4 +108,6 @@
                    :output-csvs?              false
                    :output-pngs?              false
                    :output-geotiffs?          true
-                   :output-landfire-inputs?   false}))))
+                   :output-landfire-inputs?   false}))
+
+    (is (s/valid? ::spec/config config))))

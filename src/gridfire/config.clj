@@ -47,7 +47,6 @@
 ;; Landfire
 ;;-----------------------------------------------------------------------------
 
-
 (defn process-landfire-layers
   [{:strs [ASP_FILENAME CBH_FILENAME CC_FILENAME CH_FILENAME CBD_FILENAME
            FBFM_FILENAME SLP_FILENAME DEM_FILENAME FUELS_AND_TOPOGRAPHY_DIRECTORY]}
@@ -105,8 +104,7 @@
                 :wind-speed-20ft     {:type   :geotiff
                                       :source (file-path dir STOCHASTIC_WS_FILENAME)}
                 :wind-from-direction {:type   :geotiff
-                                      :source (file-path dir STOCHASTIC_WD_FILENAME)}
-                :foliar-moisture     FOLIAR_MOISTURE_CONTENT}]
+                                      :source (file-path dir STOCHASTIC_WD_FILENAME)}}]
     (merge config
            layers)))
 
@@ -116,7 +114,7 @@
 ;;-----------------------------------------------------------------------------
 
 (defn process-output
-  [{:keys [CALCULATE_BURN_PROBABILITY DTDUMP DUMP_BURN_PROBABILITY_AT_DTDUMP]}
+  [{:strs [CALCULATE_BURN_PROBABILITY DTDUMP DUMP_BURN_PROBABILITY_AT_DTDUMP]}
    {:keys [verbose]} config]
   (let [burn-probability (when DUMP_BURN_PROBABILITY_AT_DTDUMP
                            {:burn-probability (sec->min DTDUMP)})]
