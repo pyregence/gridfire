@@ -141,30 +141,6 @@
       (is (= numbands (m/dimension-count postgis-results 0))))))
 
 
-(deftest get-weather-from-geotiff-test
-  (let [file           "ws_to_sample.tif"
-        config         (merge test-config-base
-                              {:wind-from-direction {:type   :geotiff
-                                                     :source (in-file-path file)}})
-        rand-generator (Random. (:random-seed config))
-        results        (:matrix (cli/get-weather config rand-generator :wind-from-direction {}))]
-
-    (is (vector results))
-
-    (is (every? v/vectorz? results))))
-
-(deftest get-weather-from-postgis-test
-  (let [table          "weather.tmpf WHERE rid=1"
-        config         (merge test-config-base
-                              {:temperature {:type   :postgis
-                                             :source table}})
-        rand-generator (Random. (:random-seed config))
-        results        (:matrix (cli/get-weather config rand-generator :temperature {}))]
-
-    (is (vector results))
-
-    (is (every? v/vectorz? results))))
-
 (deftest get-weather-from-range-test
   (let [config         (merge test-config-base
                               {:temperature [0 100]
