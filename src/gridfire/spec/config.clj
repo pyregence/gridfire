@@ -3,6 +3,7 @@
             [gridfire.spec.common        :as common]
             [gridfire.spec.ignition      :as ignition]
             [gridfire.spec.output        :as output]
+            [gridfire.spec.spotting :as spotting]
             [gridfire.spec.perturbations :as perturbations]))
 
 ;;-----------------------------------------------------------------------------
@@ -67,5 +68,6 @@
     :opt-un [::perturbations/perturbations
              ::ignition/ignition-layer
              ::output/output-layers
-             ::output/output-burn-probability])
+             ::output/output-burn-probability
+             ::spotting/spotting])
    ::weather-layers))
