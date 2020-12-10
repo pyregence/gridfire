@@ -315,7 +315,7 @@
   [{:keys [wind-speed-20ft temperature multiplier-lookup perturbations] :as constants}
    {:keys [cell] :as ignition-event}
    global-clock
-   fire-brand-count-matrix
+   firebrand-count-matrix
    fire-spread-matrix]
   (let [wind-speed-20ft     (sample-at cell
                                    global-clock
@@ -346,6 +346,7 @@
    fire-spread-matrix
    flame-length-matrix
    fire-line-intensity-matrix
+   firebrand-count-matrix
    burn-time-matrix]
   (loop [global-clock  0.0
          ignited-cells ignited-cells]
@@ -436,7 +437,8 @@
         fire-spread-matrix         (m/zero-matrix num-rows num-cols)
         flame-length-matrix        (m/zero-matrix num-rows num-cols)
         fire-line-intensity-matrix (m/zero-matrix num-rows num-cols)
-        burn-time-matrix           (m/zero-matrix num-rows num-cols)]
+        burn-time-matrix           (m/zero-matrix num-rows num-cols)
+        firebrand-count-matrix     (when spotting (m/zero-matrix num-rows num-cols))]
     (when (and (in-bounds? num-rows num-cols initial-ignition-site)
                (burnable-fuel-model? (m/mget fuel-model-matrix i j))
                (burnable-neighbors? fire-spread-matrix fuel-model-matrix
@@ -473,6 +475,7 @@
                                                                  %)
                                            non-zero-indices)
         burn-time-matrix           (initialize-matrix num-rows num-cols non-zero-indices)
+        firebrand-count-matrix     (when spotting (m/zero-matrix num-rows num-cols))
         ignited-cells              (into {}
                                          (for [index perimeter-indices
                                                :let  [ignition-trajectories
