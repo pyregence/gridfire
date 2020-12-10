@@ -288,8 +288,10 @@
                                       :num-cols                  (m/column-count (:fuel-model landfire-rasters))
                                       :multiplier-lookup         multiplier-lookup
                                       :initial-ignition-site     initial-ignition-site
+                                      :firebrand-count           (:firebrand-count config)
                                       :perturbations             (when perturbations
-                                                                   (perturbations i))})]
+                                                                   (perturbations i))
+                                      :spotting                  (:spotting config)})]
          (do
            (process-output-layers! config fire-spread-results envelope i)
            (when-let [timestep output-burn-probability]
