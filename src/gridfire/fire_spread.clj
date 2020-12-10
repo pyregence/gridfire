@@ -313,35 +313,38 @@
 
 (defn handle-spotting
   [{:keys [wind-speed-20ft temperature multiplier-lookup perturbations] :as constants}
+   spotting-config
    {:keys [cell] :as ignition-event}
    global-clock
    firebrand-count-matrix
    fire-spread-matrix]
   (let [wind-speed-20ft     (sample-at cell
-                                   global-clock
-                                   wind-speed-20ft
-                                   (:wind-speed-20ft multiplier-lookup)
-                                   (:wind-speed-20ft perturbations))
+                                       global-clock
+                                       wind-speed-20ft
+                                       (:wind-speed-20ft multiplier-lookup)
+                                       (:wind-speed-20ft perturbations))
         temperature         (sample-at cell
-                                   global-clock
-                                   temperature
-                                   (:temperature multiplier-lookup)
-                                   (:temperature perturbations))
+                                       global-clock
+                                       temperature
+                                       (:temperature multiplier-lookup)
+                                       (:temperature perturbations))
         wind-from-direction (sample-at cell
                                        global-clock
                                        wind-from-direction
                                        (:wind-from-direction multiplier-lookup)
                                        (:wind-from-direction perturbations))]
-    (spotting/spread-firebrands constants
+    (spotting/spread-firebrands (merge constants
+                                       {:wind-speed-20ft     wind-speed-20ft
+                                        :wind-from-direction wind-from-direction
+                                        :temperature         temperature})
+                                spotting-config
                                 ignition-event
-                                wind-speed-20ft
-                                wind-from-direction
-                                temperature
                                 firebrand-count-matrix
                                 fire-spread-matrix)))
 
 (defn run-loop
   [{:keys [max-runtime cell-size] :as constants}
+   {:keys [spotting]}
    ignited-cells
    fire-spread-matrix
    flame-length-matrix
@@ -368,7 +371,8 @@
         (doseq [{:keys [cell flame-length fire-line-intensity crown-fire?] :as ignition-event} ignition-events]
           (let [[i j] cell]
             (if spotting
-              (handle-spotting constants global-clock ignition-event firebrand-count-matrix fire-spread-matrix)
+              (handle-spotting constants spotting global-clock ignition-event
+                               firebrand-count-matrix fire-spread-matrix)
               (m/mset! fire-spread-matrix         i j 1.0))
             (m/mset! flame-length-matrix        i j flame-length)
             (m/mset! fire-line-intensity-matrix i j fire-line-intensity)
@@ -431,7 +435,8 @@
                           (select-random-ignition-site (:fuel-model landfire-rasters)))))
 
 (defmethod run-fire-spread :ignition-point
-  [{:keys [landfire-rasters num-rows num-cols initial-ignition-site] :as constants}]
+  [{:keys [landfire-rasters num-rows num-cols initial-ignition-site] :as constants}
+   {:keys [spotting] :as config}]
   (let [[i j]                      initial-ignition-site
         fuel-model-matrix          (:fuel-model landfire-rasters)
         fire-spread-matrix         (m/zero-matrix num-rows num-cols)
@@ -463,7 +468,8 @@
                   burn-time-matrix)))))
 
 (defmethod run-fire-spread :ignition-perimeter
-  [{:keys [num-rows num-cols initial-ignition-site landfire-rasters] :as constants}]
+  [{:keys [num-rows num-cols initial-ignition-site landfire-rasters] :as constants}
+   {:keys [spotting]}]
   (let [fire-spread-matrix         (first (m/mutable (:matrix initial-ignition-site)))
         non-zero-indices           (get-non-zero-indices fire-spread-matrix)
         flame-length-matrix        (initialize-matrix num-rows num-cols non-zero-indices)

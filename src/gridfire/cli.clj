@@ -291,7 +291,8 @@
                                       :firebrand-count           (:firebrand-count config)
                                       :perturbations             (when perturbations
                                                                    (perturbations i))
-                                      :spotting                  (:spotting config)})]
+                                      :spotting                  (:spotting config)}
+                                     config)]
          (do
            (process-output-layers! config fire-spread-results envelope i)
            (when-let [timestep output-burn-probability]
