@@ -312,7 +312,7 @@
                     global-clock)])))))
 
 (defn handle-spotting
-  [{:keys [wind-speed-20ft temperature multiplier-lookup perturbations] :as constants}
+  [{:keys [wind-speed-20ft wind-from-direction temperature multiplier-lookup perturbations] :as constants}
    spotting-config
    {:keys [cell] :as ignition-event}
    global-clock
@@ -465,6 +465,7 @@
                   fire-spread-matrix
                   flame-length-matrix
                   fire-line-intensity-matrix
+                  firebrand-count-matrix
                   burn-time-matrix)))))
 
 (defmethod run-fire-spread :ignition-perimeter
@@ -498,5 +499,6 @@
               fire-spread-matrix
               flame-length-matrix
               fire-line-intensity-matrix
+              firebrand-count-matrix
               burn-time-matrix)))
 ;; fire-spread-algorithm ends here
