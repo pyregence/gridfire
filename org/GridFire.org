@@ -2300,8 +2300,7 @@ algorithm.
 ** Spotting Model Definitions
 ** Spotting Model Forumulas
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting.clj :padline no :no-expand :comments link
-(ns gridfire.spotting
-  (:require [clojure.core.matrix :as m]))
+(ns gridfire.spotting)
 
 ;;-----------------------------------------------------------------------------
 ;; Utils
