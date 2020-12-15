@@ -404,7 +404,7 @@
               (-> (matrix-to-raster (name layer) matrix envelope)
                   (write-raster (str (name layer) (:outfile-suffix config) ".tif")))))
           (->> (run-simulations
-                config
+                (assoc config :rand-gen rand-generator)
                 landfire-rasters
                 envelope
                 (draw-samples rand-generator simulations (:ignition-row config))

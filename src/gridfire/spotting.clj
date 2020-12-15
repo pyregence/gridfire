@@ -114,6 +114,13 @@
         decay-factor         (Math/exp (* -1 decay-constant distance))]
     (- 1 (Math/pow (- 1 (* ignition-probability decay-factor)) firebrand-count))))
 
+(defn spot-ignition?
+  [rand-gen spot-ignition-probability]
+  (let [random-number (random-float 0 1 rand-gen)]
+    (> spot-ignition-probability random-number)))
+
+(defn spot-ignition-time [])
+
 ;;-----------------------------------------------------------------------------
 ;; Main
 ;;-----------------------------------------------------------------------------
@@ -173,12 +180,26 @@
          coord-deltas)))
 
 (defn spread-firebrands
+<<<<<<< HEAD
   [{:keys [num-rows num-cols cell-size wind-speed-20ft wind-from-direction temperature]}
    spot-config
    {:keys [cell crown-fire?]}
+=======
+  "Returns a sequence of key value pairs where
+  key: [x y] locations of the cell
+  val: [t p] where t = time of ignition and p = ignition-probability"
+  [{:keys
+    [num-rows num-cols cell-size landfire-layers wind-speed-20ft
+     wind-from-direction temperature relative-humidity
+     global-clock multiplier-lookup perturbations] :as constants}
+   {:keys [spotting rand-gen] :as config}
+   ignited-cells
+   {:keys [cell fire-line-intensity crown-fire?] :as ignition-event}
+>>>>>>> add spot ignitions into ignited cells map
    firebrand-count-matrix
    fire-line-intensity-matrix]
   (when crown-fire?
+<<<<<<< HEAD
     (let [deltas (sample-wind-dir-deltas fire-line-intensity-matrix
                                          spot-config
                                          (convert/mph->mps (wind-speed-20ft))
@@ -188,4 +209,43 @@
               :when (in-bounds? num-rows num-cols [x y])]
         (let [count (m/mget firebrand-count-matrix x y)]
           (m/mset! firebrand-count-matrix x y (inc count)))))))
+=======
+    (let [ws     (sample-at cell
+                            global-clock
+                            wind-speed-20ft
+                            (:wind-speed-20ft multiplier-lookup)
+                            (:wind-speed-20ft perturbations))
+          tmp    (sample-at cell
+                            global-clock
+                            temperature
+                            (:temperature multiplier-lookup)
+                            (:temperature perturbations))
+          wd     (sample-at cell
+                            global-clock
+                            wind-from-direction
+                            (:wind-from-direction multiplier-lookup)
+                            (:wind-from-direction perturbations))
+          rh     (sample-at cell
+                            global-clock
+                            relative-humidity
+                            (:relative-humidity multiplier-lookup)
+                            (:relative-humidity perturbations))
+          deltas (sample-wind-dir-deltas constants spotting ws tmp cell)]
+      (-> (for [[x y] (firebrands deltas wd cell cell-size)
+                :when (and
+                       (in-bounds? num-rows num-cols [x y])
+                       (burnable? fire-spread-matrix (:fuel-model landfire-layers) [x y]))]
+            (let [new-count (inc (m/mget firebrand-count-matrix x y))
+                  p         (spot-ignition-probability constants
+                                                       spotting
+                                                       new-count
+                                                       cell
+                                                       [x y])]
+              (m/mset! firebrand-count-matrix x y new-count)
+              (when (and (spot-ignition? rand-gen p)
+                         (not (contains? [x y] ignited-cells)))
+                (let [t (spot-ignition-time global-clock)]
+                  [[x y] [t p]]))))
+          (remove nil?)))))
+>>>>>>> add spot ignitions into ignited cells map
 ;; Spotting Model Forumulas:1 ends here
