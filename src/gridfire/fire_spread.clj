@@ -83,7 +83,8 @@
 (defn compute-burn-trajectory
   [neighbor here spread-info-min spread-info-max fuel-model crown-bulk-density
    canopy-cover canopy-height canopy-base-height foliar-moisture crown-spread-max
-   crown-eccentricity landfire-rasters cell-size overflow-trajectory overflow-heat]
+   crown-eccentricity landfire-rasters cell-size overflow-trajectory overflow-heat
+   ignition-probability]
   (let [trajectory          (mop/- neighbor here)
         spread-direction    (offset-to-degrees trajectory)
         surface-spread-rate (rothermel-surface-fire-spread-any spread-info-max
@@ -125,7 +126,8 @@
      :fractional-distance (volatile! (if (= trajectory overflow-trajectory)
                                        overflow-heat
                                        0.0))
-     :crown-fire?         crown-fire?}))
+     :crown-fire?          crown-fire?
+     :ignition-probability ignition-probability}))
 
 (defn compute-neighborhood-fire-spread-rates!
    "Returns a vector of entries of the form:
@@ -141,7 +143,8 @@
    [i j :as here]
    overflow-trajectory
    overflow-heat
-   global-clock]
+   global-clock
+   ignition-probability]
   (let [{:keys
          [aspect
           canopy-base-height
@@ -171,19 +174,22 @@
     (into []
           (comp
            (filter #(and (in-bounds? num-rows num-cols %)
-                         (burnable? fire-spread-matrix (:fuel-model landfire-rasters) %)))
+                         (burnable? fire-spread-matrix (:fuel-model landfire-rasters) % ignition-probability)))
            (map #(compute-burn-trajectory % here spread-info-min spread-info-max fuel-model
                                           crown-bulk-density canopy-cover canopy-height
                                           canopy-base-height foliar-moisture crown-spread-max
                                           crown-eccentricity landfire-rasters cell-size
-                                          overflow-trajectory overflow-heat)))
+                                          overflow-trajectory overflow-heat ignition-probability)))
           (get-neighbors here))))
 
 (defn burnable-neighbors?
-  [fire-spread-matrix fuel-model-matrix num-rows num-cols cell]
-  (some #(and (in-bounds? num-rows num-cols %)
-              (burnable? fire-spread-matrix fuel-model-matrix %))
-        (get-neighbors cell)))
+  ([fire-spread-matrix fuel-model-matrix num-rows num-cols cell]
+   (burnable-neighbors? fire-spread-matrix fuel-model-matrix num-rows num-cols cell 1.0))
+
+  ([fire-spread-matrix fuel-model-matrix num-rows num-cols cell ignition-probability]
+   (some #(and (in-bounds? num-rows num-cols %)
+               (burnable? fire-spread-matrix fuel-model-matrix % ignition-probability))
+         (get-neighbors cell))))
 
 (defn select-random-ignition-site
   [fuel-model-matrix]
@@ -201,14 +207,15 @@
   [ignited-cells timestep]
   (->> (for [[_ destinations] ignited-cells
              {:keys [cell trajectory terrain-distance spread-rate flame-length
-                     fire-line-intensity fractional-distance crown-fire?]} destinations]
+                     fire-line-intensity fractional-distance crown-fire?
+                     ignition-probability]} destinations]
          (let [new-spread-fraction (/ (* spread-rate timestep) terrain-distance)
                new-total           (vreset! fractional-distance
                                             (+ @fractional-distance new-spread-fraction))]
            (if (>= new-total 1.0)
              {:cell cell :trajectory trajectory :fractional-distance @fractional-distance
               :flame-length flame-length :fire-line-intensity fire-line-intensity
-              :crown-fire? crown-fire?})))
+              :crown-fire? crown-fire? :ignition-probability ignition-probability})))
        (remove nil?)
        (group-by :cell)
        (map (fn [[_ trajectories]] (apply max-key :fractional-distance trajectories)))
@@ -225,19 +232,32 @@
     (into {}
           (concat
            (for [[cell spread-info] ignited-cells
-                 :when (burnable-neighbors? fire-spread-matrix fuel-model-matrix
-                                            num-rows num-cols cell)]
+                 :let               [{:keys [ignition-probability]} spread-info]
+                 :when              (burnable-neighbors? fire-spread-matrix
+                                                         fuel-model-matrix
+                                                         num-rows
+                                                         num-cols
+                                                         cell
+                                                         ignition-probability)]
              [cell (remove #(contains? newly-ignited-cells (:cell %)) spread-info)])
-           (for [{:keys [cell trajectory fractional-distance]} ignition-events
-                 :when (burnable-neighbors? fire-spread-matrix fuel-model-matrix
-                                            num-rows num-cols cell)]
+           (for [{:keys
+                  [cell
+                   trajectory
+                   fractional-distance
+                   ignition-probability]} ignition-events
+                 :when                    (burnable-neighbors? fire-spread-matrix
+                                                               fuel-model-matrix
+                                                               num-rows num-cols
+                                                               cell
+                                                               ignition-probability)]
              [cell (compute-neighborhood-fire-spread-rates!
                     constants
                     fire-spread-matrix
                     cell
                     trajectory
                     (- fractional-distance 1.0)
-                    global-clock)])))))
+                    global-clock
+                    ignition-probability)])))))
 
 (defn generate-ignited-cells
   [constants fire-spread-matrix cells]
@@ -277,8 +297,9 @@
                                                 fire-spread-matrix
                                                 (keys spot-ignite-now))]
     (doseq [cell spot-ignite-now
-            :let [[i j] (key cell)]]
-      (m/mset! fire-spread-matrix i j 1.0)
+            :let [[i j]                    (key cell)
+                  [_ ignition-probability] (val cell)]]
+      (m/mset! fire-spread-matrix i j ignition-probability)
       (m/mset! burn-time-matrix i j global-clock))
     ignited-cells))
 
@@ -413,39 +434,40 @@
                    config))
 
 (defmethod run-fire-spread :ignition-point
-  [{:keys [landfire-rasters num-rows num-cols initial-ignition-site] :as constants}
-   {:keys [spotting] :as config}]
-  (let [[i j]                      initial-ignition-site
-        fuel-model-matrix          (:fuel-model landfire-rasters)
-        fire-spread-matrix         (m/zero-matrix num-rows num-cols)
-        flame-length-matrix        (m/zero-matrix num-rows num-cols)
-        fire-line-intensity-matrix (m/zero-matrix num-rows num-cols)
-        burn-time-matrix           (m/zero-matrix num-rows num-cols)
-        firebrand-count-matrix     (when spotting (m/zero-matrix num-rows num-cols))]
-    (when (and (in-bounds? num-rows num-cols initial-ignition-site)
-               (burnable-fuel-model? (m/mget fuel-model-matrix i j))
-               (burnable-neighbors? fire-spread-matrix fuel-model-matrix
-                                    num-rows num-cols initial-ignition-site))
-      ;; initialize the ignition site
-      (m/mset! fire-spread-matrix i j 1.0)
-      (m/mset! flame-length-matrix i j 1.0)
-      (m/mset! fire-line-intensity-matrix i j 1.0)
-      (let [ignited-cells {initial-ignition-site
-                           (compute-neighborhood-fire-spread-rates!
-                            constants
-                            fire-spread-matrix
-                            initial-ignition-site
-                            nil
-                            0.0
-                            0.0)}]
-        (run-loop constants
-                  config
-                  {:fire-spread-matrix         fire-spread-matrix
-                   :flame-length-matrix        flame-length-matrix
-                   :fire-line-intensity-matrix fire-line-intensity-matrix
-                   :firebrand-count-matrix     firebrand-count-matrix
-                   :burn-time-matrix           burn-time-matrix}
-                  ignited-cells)))))
+[{:keys [landfire-rasters num-rows num-cols initial-ignition-site] :as constants}
+ {:keys [spotting] :as config}]
+(let [[i j]                      initial-ignition-site
+      fuel-model-matrix          (:fuel-model landfire-rasters)
+      fire-spread-matrix         (m/zero-matrix num-rows num-cols)
+      flame-length-matrix        (m/zero-matrix num-rows num-cols)
+      fire-line-intensity-matrix (m/zero-matrix num-rows num-cols)
+      burn-time-matrix           (m/zero-matrix num-rows num-cols)
+      firebrand-count-matrix     (when spotting (m/zero-matrix num-rows num-cols))]
+  (when (and (in-bounds? num-rows num-cols initial-ignition-site)
+             (burnable-fuel-model? (m/mget fuel-model-matrix i j))
+             (burnable-neighbors? fire-spread-matrix fuel-model-matrix
+                                  num-rows num-cols initial-ignition-site))
+    ;; initialize the ignition site
+    (m/mset! fire-spread-matrix i j 1.0)
+    (m/mset! flame-length-matrix i j 1.0)
+    (m/mset! fire-line-intensity-matrix i j 1.0)
+    (let [ignited-cells {initial-ignition-site
+                         (compute-neighborhood-fire-spread-rates!
+                          constants
+                          fire-spread-matrix
+                          initial-ignition-site
+                          nil
+                          0.0
+                          0.0
+                          1.0)}]
+      (run-loop constants
+                config
+                {:fire-spread-matrix         fire-spread-matrix
+                 :flame-length-matrix        flame-length-matrix
+                 :fire-line-intensity-matrix fire-line-intensity-matrix
+                 :firebrand-count-matrix     firebrand-count-matrix
+                 :burn-time-matrix           burn-time-matrix}
+                ignited-cells)))))
 
 (defmethod run-fire-spread :ignition-perimeter
   [{:keys [num-rows num-cols initial-ignition-site landfire-rasters] :as constants}
