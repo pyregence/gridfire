@@ -389,8 +389,8 @@
                                                                  fire-spread-matrix
                                                                  ignited-cells)]
           (recur next-global-clock
-                 spot-ignite-later
-                 (update-ignited-cells constants ignited-cells ignition-events fire-spread-matrix global-clock))))
+                 (update-ignited-cells constants ignited-cells ignition-events fire-spread-matrix global-clock)
+                 spot-ignite-later)))
       {:exit-condition             (if (seq ignited-cells) :max-runtime-reached :no-burnable-fuels)
        :fire-spread-matrix         fire-spread-matrix
        :flame-length-matrix        flame-length-matrix
