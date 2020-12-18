@@ -180,12 +180,19 @@
           (partial map + cell-center))
          coord-deltas)))
 
+(defn update-firebrand-counts!
+  [{:keys [num-rows num-cols landfire-layers]}
+   fire-spread-matrix
+   firebrand-count-matrix
+   firebrands]
+  (doseq [[x y] firebrands
+          :when (and
+                 (in-bounds? num-rows num-cols [x y])
+                 (burnable? fire-spread-matrix (:fuel-model landfire-layers) [x y]))
+          :let  [new-count (inc (m/mget firebrand-count-matrix x y))]]
+    (m/mset! firebrand-count-matrix x y new-count)))
+
 (defn spread-firebrands
-<<<<<<< HEAD
-  [{:keys [num-rows num-cols cell-size wind-speed-20ft wind-from-direction temperature]}
-   spot-config
-   {:keys [cell crown-fire?]}
-=======
   "Returns a sequence of key value pairs where
   key: [x y] locations of the cell
   val: [t p] where t = time of ignition and p = ignition-probability"
@@ -194,23 +201,10 @@
      wind-from-direction temperature relative-humidity
      global-clock multiplier-lookup perturbations] :as constants}
    {:keys [spotting rand-gen] :as config}
-   ignited-cells
    {:keys [cell fire-line-intensity crown-fire?] :as ignition-event}
->>>>>>> add spot ignitions into ignited cells map
    firebrand-count-matrix
    fire-line-intensity-matrix]
   (when crown-fire?
-<<<<<<< HEAD
-    (let [deltas (sample-wind-dir-deltas fire-line-intensity-matrix
-                                         spot-config
-                                         (convert/mph->mps (wind-speed-20ft))
-                                         (convert/F->K temperature)
-                                         cell)]
-      (doseq [[x y] (firebrands deltas wind-from-direction cell cell-size)
-              :when (in-bounds? num-rows num-cols [x y])]
-        (let [count (m/mget firebrand-count-matrix x y)]
-          (m/mset! firebrand-count-matrix x y (inc count)))))))
-=======
     (let [ws     (sample-at cell
                             global-clock
                             wind-speed-20ft
@@ -248,5 +242,4 @@
                 (let [t (spot-ignition-time global-clock)]
                   [[x y] [t p]]))))
           (remove nil?)))))
->>>>>>> add spot ignitions into ignited cells map
 ;; Spotting Model Forumulas:1 ends here
