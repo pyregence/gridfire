@@ -7,7 +7,7 @@
             [clojure.java.io       :as io]
             [clojure.spec.alpha    :as s]
             [clojure.string        :as str]
-            [gridfire.common :refer [in-bounds?]]
+            [gridfire.common       :refer [in-bounds?]]
             [gridfire.crown-fire   :refer [m->ft]]
             [gridfire.fetch        :as fetch]
             [gridfire.fire-spread  :refer [get-neighbors run-fire-spread]]
