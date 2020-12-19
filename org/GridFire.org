@@ -487,6 +487,8 @@ You may optionally include a fourth argument to set the tiling (defaults to auto
 sh import_weather_rasters.sh gridfire weather 90014 800x800
 #+end_src
 
+*Note:* This script needs to be run in the same folder as where these rasters reside.
+
 * Fire Spread Model
 
 GridFire implements the following fire behavior formulas from the fire
