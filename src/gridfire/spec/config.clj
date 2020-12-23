@@ -14,6 +14,8 @@
   (s/or :vector (s/coll-of int? :kind vector? :count 2)
         :list (s/coll-of int? :kind list?)
         :string string?
+        :scalar (s/or :int int?
+                      :float float?)
         :map ::common/postgis-or-geotiff))
 
 (s/def ::temperature ::weather)
