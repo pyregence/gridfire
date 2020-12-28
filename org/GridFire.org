@@ -2434,8 +2434,8 @@ algorithm.
   from a torched cell at i j where:
   x: parallel to the wind
   y: perpendicular to the wind (positive values are to the right of wind direction)"
-  [fire-line-intensity-matrix
-   {:keys [num-firebrands ambient-gas-density specific-heat-gas]}
+  [{:keys [num-firebrands ambient-gas-density specific-heat-gas]}
+   fire-line-intensity-matrix
    wind-speed-20ft
    temperature
    [i j]]
@@ -2517,8 +2517,7 @@ algorithm.
             temperature
             wind-from-direction
             relative-humidity]} (extract-constants constants global-clock cell)
-          deltas                (sample-wind-dir-deltas constants
-                                                        spotting
+          deltas                (sample-wind-dir-deltas spotting
                                                         fire-line-intensity-matrix
                                                         (convert/mph->mps wind-speed-20ft)
                                                         (F->K temperature)
@@ -2755,29 +2754,16 @@ or false:
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/cli.clj :padline no :no-expand :comments link
 (ns gridfire.cli
   (:gen-class)
-<<<<<<< HEAD
   (:require [clojure.core.matrix   :as m]
             [clojure.data.csv      :as csv]
             [clojure.edn           :as edn]
             [clojure.java.io       :as io]
             [clojure.spec.alpha    :as s]
             [clojure.string        :as str]
+            [gridfire.common :refer [in-bounds?]]
             [gridfire.crown-fire   :refer [m->ft]]
             [gridfire.fetch        :as fetch]
-            [gridfire.fire-spread  :refer [get-neighbors in-bounds? run-fire-spread]]
-=======
-  (:require [clojure.core.matrix :as m]
-            [clojure.data.csv :as csv]
-            [clojure.edn :as edn]
-            [clojure.java.io :as io]
-            [clojure.spec.alpha :as s]
-            [clojure.string :as str]
-            [gridfire.crown-fire :refer [m->ft]]
-            [gridfire.common :refer [in-bounds?]]
-            [gridfire.fetch :as fetch]
-            [gridfire.fire-spread :refer [get-neighbors run-fire-spread]]
-            [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
->>>>>>> fix import
+            [gridfire.fire-spread  :refer [get-neighbors run-fire-spread]]
             [gridfire.perturbation :as perturbation]
             [gridfire.spec.config  :as spec]
             [gridfire.utils.random :refer [my-rand-int my-rand-nth]]

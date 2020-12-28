@@ -135,8 +135,8 @@
   from a torched cell at i j where:
   x: parallel to the wind
   y: perpendicular to the wind (positive values are to the right of wind direction)"
-  [fire-line-intensity-matrix
-   {:keys [num-firebrands ambient-gas-density specific-heat-gas]}
+  [{:keys [num-firebrands ambient-gas-density specific-heat-gas]}
+   fire-line-intensity-matrix
    wind-speed-20ft
    temperature
    [i j]]
@@ -218,8 +218,7 @@
             temperature
             wind-from-direction
             relative-humidity]} (extract-constants constants global-clock cell)
-          deltas                (sample-wind-dir-deltas constants
-                                                        spotting
+          deltas                (sample-wind-dir-deltas spotting
                                                         fire-line-intensity-matrix
                                                         (convert/mph->mps wind-speed-20ft)
                                                         (F->K temperature)
