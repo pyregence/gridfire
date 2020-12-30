@@ -147,7 +147,7 @@
    wind-speed-20ft
    temperature
    [i j]]
-  (let [intensity     (m/mget fire-line-intensity-matrix i j)
+  (let [intensity     (convert/Btu-ft-s->kW-m (m/mget fire-line-intensity-matrix i j))
         froude        (froude-number intensity
                                      wind-speed-20ft
                                      temperature
@@ -198,7 +198,11 @@
    firebrand-count-matrix
    fire-line-intensity-matrix]
   (when crown-fire?
-    (let [deltas (sample-wind-dir-deltas fire-line-intensity-matrix spot-config wind-speed-20ft temperature cell)]
+    (let [deltas (sample-wind-dir-deltas fire-line-intensity-matrix
+                                         spot-config
+                                         (convert/mph->mps (wind-speed-20ft))
+                                         (convert/F->K temperature)
+                                         cell)]
       (doseq [[x y] (firebrands deltas wind-from-direction cell cell-size)
               :when (in-bounds? num-rows num-cols [x y])]
         (let [count (m/mget firebrand-count-matrix x y)]
