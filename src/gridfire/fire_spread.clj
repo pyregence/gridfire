@@ -83,7 +83,7 @@
 (defn compute-burn-trajectory
   [neighbor here spread-info-min spread-info-max fuel-model crown-bulk-density
    canopy-cover canopy-height canopy-base-height foliar-moisture crown-spread-max
-   crown-eccentricity landfire-layers cell-size overflow-trajectory overflow-heat]
+   crown-eccentricity landfire-rasters cell-size overflow-trajectory overflow-heat]
   (let [trajectory          (mop/- neighbor here)
         spread-direction    (offset-to-degrees trajectory)
         surface-spread-rate (rothermel-surface-fire-spread-any spread-info-max
@@ -123,9 +123,9 @@
      :fire-line-intensity fire-line-intensity
      :flame-length        flame-length
      :fractional-distance (volatile! (if (= trajectory overflow-trajectory)
-                                       overflow-heat
-                                       0.0))
-     :crown-fire?          crown-fire?}))
+                                        overflow-heat
+                                        0.0))
+     :crown-fire?         crown-fire?}))
 
 (defn compute-neighborhood-fire-spread-rates!
    "Returns a vector of entries of the form:
@@ -458,8 +458,7 @@
                           initial-ignition-site
                           nil
                           0.0
-                          0.0
-                          1.0)}]
+                          0.0)}]
       (run-loop constants
                 config
                 {:fire-spread-matrix         fire-spread-matrix
