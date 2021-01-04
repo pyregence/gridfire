@@ -167,8 +167,7 @@
         crown-spread-max             (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density
                                                              (-> fuel-moisture :dead :1hr))
         crown-eccentricity           (crown-fire-eccentricity wind-speed-20ft
-                                                              ellipse-adjustment-factor)
-        ignition-probability         (m/mget fire-spread-matrix i j)]
+                                                              ellipse-adjustment-factor)]
     (into []
           (comp
            (filter #(and (in-bounds? num-rows num-cols %)
