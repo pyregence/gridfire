@@ -2774,8 +2774,8 @@ following mappings:
 #+end_src
 
 Gridfire makes use of clojure's multimethods to dispatch control to
-different handlers for fetching ignition layers. The dispatch depnds
-on what is in the config file. Here's the namescapce that implements
+different handlers for fetching ignition layers. The dispatch depends
+on what is in the config file. Here's the namespace that implements
 this functionality.
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fetch.clj :padline no :no-expand :comments link
 (ns gridfire.fetch
