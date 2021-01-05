@@ -27,16 +27,16 @@
                                :slope              "landfire.slp WHERE rid=1"
                                :elevation          "landfire.dem WHERE rid=1"}
    :srid                      "CUSTOM:900914"
-   :cell-size                 98.425     ;; (feet)
-   :max-runtime               60         ;; (minutes)
-   :temperature               '(50)      ;; (degrees Fahrenheit)
-   :relative-humidity         '(1)       ;; (%)
-   :wind-speed-20ft           '(10)      ;; (miles/hour)
-   :wind-from-direction       '(0)       ;; (degrees clockwise from north)
-   :foliar-moisture           90         ;; (%)
-   :ellipse-adjustment-factor 1.0        ;; (< 1.0 = more circular, > 1.0 = more elliptical)
+   :cell-size                 98.425     ; (feet)
+   :max-runtime               60         ; (minutes)
+   :temperature               '(50)      ; (degrees Fahrenheit)
+   :relative-humidity         '(1)       ; (%)
+   :wind-speed-20ft           '(10)      ; (miles/hour)
+   :wind-from-direction       '(0)       ; (degrees clockwise from north)
+   :foliar-moisture           90         ; (%)
+   :ellipse-adjustment-factor 1.0        ; (< 1.0 = more circular, > 1.0 = more elliptical)
    :simulations               1
-   :random-seed               1234567890 ;; long value (optional)
+   :random-seed               1234567890 ; long value (optional)
    :output-csvs?              true
    :fetch-layer-method        :postgis})
 

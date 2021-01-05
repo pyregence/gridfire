@@ -318,20 +318,27 @@
      - (randomly chosen point if omitted)
   - num-rows: integer
   - num-cols: integer"
-  (fn
-    ([constants] :add-default)
+  (fn [{:keys [initial-ignition-site]}]
+    (cond
+      (= (type initial-ignition-site) clojure.lang.PersistentHashMap)
+      :ignition-perimeter
 
-    ([constants initial-ignition-site]
-     (type initial-ignition-site))))
+      (= (type initial-ignition-site) clojure.lang.PersistentVector)
+      :ignition-point
 
-(defmethod run-fire-spread :add-default
+      :else
+      :random-ignition-point)))
+
+(defmethod run-fire-spread :random-ignition-point
   [{:keys [landfire-layers] :as constants}]
-  (let [ignition-site (select-random-ignition-site (:fuel-model landfire-layers))]
-    (run-fire-spread constants ignition-site)))
+  (run-fire-spread (assoc constants
+                          :initial-ignition-site
+                          (select-random-ignition-site (:fuel-model landfire-layers)))))
 
-(defmethod run-fire-spread clojure.lang.PersistentVector
-  [{:keys [landfire-layers num-rows num-cols] :as constants} [i j :as initial-ignition-site]]
-  (let [fuel-model-matrix          (:fuel-model landfire-layers)
+(defmethod run-fire-spread :ignition-point
+  [{:keys [landfire-layers num-rows num-cols initial-ignition-site] :as constants}]
+  (let [[i j]                      initial-ignition-site
+        fuel-model-matrix          (:fuel-model landfire-layers)
         fire-spread-matrix         (m/zero-matrix num-rows num-cols)
         flame-length-matrix        (m/zero-matrix num-rows num-cols)
         fire-line-intensity-matrix (m/zero-matrix num-rows num-cols)]
@@ -350,15 +357,15 @@
                             initial-ignition-site
                             nil
                             0.0)}]
-        (run-loop (assoc constants :initial-ignition-site initial-ignition-site)
+        (run-loop constants
                   ignited-cells
                   fire-spread-matrix
                   flame-length-matrix
                   fire-line-intensity-matrix)))))
 
-(defmethod run-fire-spread clojure.lang.PersistentHashMap
-  [{:keys [landfire-layers num-rows num-cols] :as constants} initial-ignition-raster]
-  (let [fire-spread-matrix         (:matrix initial-ignition-raster)
+(defmethod run-fire-spread :ignition-perimeter
+  [{:keys [num-rows num-cols initial-ignition-site] :as constants}]
+  (let [fire-spread-matrix         (:matrix initial-ignition-site)
         non-zero-indices           (get-non-zero-indices fire-spread-matrix)
         flame-length-matrix        (initialize-matrix num-rows num-cols non-zero-indices)
         fire-line-intensity-matrix (initialize-matrix num-rows num-cols non-zero-indices)
@@ -372,7 +379,7 @@
                                                        nil
                                                        0.0)]]
                                            [index ignition-trajectories]))]
-    (run-loop (assoc constants :initial-ignition-site initial-ignition-raster)
+    (run-loop constants
               ignited-cells
               fire-spread-matrix
               flame-length-matrix

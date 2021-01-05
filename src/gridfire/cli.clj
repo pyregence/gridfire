@@ -1,21 +1,21 @@
 ;; [[file:../../org/GridFire.org::command-line-interface][command-line-interface]]
 (ns gridfire.cli
   (:gen-class)
-  (:require [clojure.edn :as edn]
-            [clojure.java.io :as io]
+  (:require [clojure.core.matrix :as m]
             [clojure.data.csv :as csv]
-            [clojure.core.matrix :as m]
-            [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]
-            [gridfire.surface-fire :refer [degrees-to-radians]]
+            [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [gridfire.fetch :as fetch]
             [gridfire.fire-spread :refer [run-fire-spread]]
             [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
-            [gridfire.fetch :as fetch]
-            [matrix-viz.core :refer [save-matrix-as-png]]
-            [magellan.core :refer [register-new-crs-definitions-from-properties-file!
-                                   make-envelope matrix-to-raster write-raster
-                                   read-raster]]
-            [magellan.raster.inspect :as inspect])
-  (:import (java.util Random)))
+            [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]
+            [gridfire.surface-fire :refer [degrees-to-radians]]
+            [magellan.core :refer [make-envelope
+                                   matrix-to-raster
+                                   register-new-crs-definitions-from-properties-file!
+                                   write-raster]]
+            [matrix-viz.core :refer [save-matrix-as-png]])
+  (:import java.util.Random))
 
 (m/set-current-implementation :vectorz)
 
@@ -188,8 +188,8 @@
                                       :foliar-moisture           (* 0.01 (foliar-moisture i))
                                       :ellipse-adjustment-factor (ellipse-adjustment-factor i)
                                       :num-rows                  (m/row-count (:fuel-model landfire-rasters))
-                                      :num-cols                  (m/row-count (:fuel-model landfire-rasters))}
-                                     initial-ignition-site)]
+                                      :num-cols                  (m/row-count (:fuel-model landfire-rasters))
+                                      :initial-ignition-site     initial-ignition-site})]
          (do
            (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
                                  ["flame_length"        :flame-length-matrix]

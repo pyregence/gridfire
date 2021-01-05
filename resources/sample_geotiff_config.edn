@@ -42,6 +42,5 @@
  :output-landfire-inputs?   true
  :output-geotiffs?          true
  :output-pngs?              true
- :output-csvs?              true
- }
+ :output-csvs?              true}
 ;; sample_geotiff_config.edn ends here
