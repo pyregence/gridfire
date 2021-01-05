@@ -137,8 +137,13 @@
                                        0.0))}))
 
 (defn compute-neighborhood-fire-spread-rates!
-  "Returns a vector of entries of the form {:cell [i j], :trajectory [di dj],
-  :terrain-distance ft, :spread-rate ft/min, :fire-line-intensity Btu/ft/s, :flame-length ft,
+  "Returns a vector of entries of the form:
+  {:cell [i j],
+  :trajectory [di dj],
+  :terrain-distance ft,
+  :spread-rate ft/min,
+  :fire-line-intensity Btu/ft/s,
+  :flame-length ft,
   :fractional-distance [0-1]}, one for each cell adjacent to here."
   [{:keys [landfire-layers
            wind-speed-20ft
@@ -153,7 +158,6 @@
    [i j :as here]
    overflow-trajectory
    overflow-heat]
-
   (let [fuel-model-number   (m/mget (:fuel-model         landfire-layers) i j)
         slope               (m/mget (:slope              landfire-layers) i j)
         aspect              (m/mget (:aspect             landfire-layers) i j)
@@ -224,7 +228,7 @@
    ignition-events
    fire-spread-matrix]
   (let [newly-ignited-cells (into #{} (map :cell) ignition-events)
-        fuel-model-matrix (:fuel-model landfire-layers)]
+        fuel-model-matrix   (:fuel-model landfire-layers)]
     (into {}
           (concat
            (for [[cell spread-info] ignited-cells
@@ -276,6 +280,19 @@
        :fire-spread-matrix         fire-spread-matrix
        :flame-length-matrix        flame-length-matrix
        :fire-line-intensity-matrix fire-line-intensity-matrix})))
+
+(defn- initialize-matrix
+  [num-rows num-cols indices]
+  (let [matrix (m/zero-matrix num-rows num-cols)]
+    (doseq [[i j] indices
+            :when (in-bounds? num-rows num-cols [i j])]
+      (m/mset! matrix i j -1))
+    matrix))
+
+(defn- get-non-zero-indices [m]
+  (for [[r cols] (map-indexed vector (m/non-zero-indices m))
+        c        cols]
+    [r c]))
 
 (defmulti run-fire-spread
   "Runs the raster-based fire spread model with a map of these arguments:
@@ -333,26 +350,11 @@
                             initial-ignition-site
                             nil
                             0.0)}]
-        (run-loop (merge
-                   constants
-                   {:initial-ignition-site initial-ignition-site})
+        (run-loop (assoc constants :initial-ignition-site initial-ignition-site)
                   ignited-cells
                   fire-spread-matrix
                   flame-length-matrix
                   fire-line-intensity-matrix)))))
-
-(defn- initialize-matrix
-  [num-rows num-cols indices]
-  (let [matrix (m/zero-matrix num-rows num-cols)]
-    (doseq [[i j] indices
-            :when (in-bounds? num-rows num-cols [i j])]
-      (m/mset! matrix i j -1))
-    matrix))
-
-(defn- get-non-zero-indices [m]
-  (for [[r cols] (map-indexed vector (m/non-zero-indices m))
-        c        cols]
-    [r c]))
 
 (defmethod run-fire-spread clojure.lang.PersistentHashMap
   [{:keys [landfire-layers num-rows num-cols] :as constants} initial-ignition-raster]
@@ -370,9 +372,7 @@
                                                        nil
                                                        0.0)]]
                                            [index ignition-trajectories]))]
-    (run-loop (merge
-               constants
-               {:initial-ignition-site initial-ignition-raster})
+    (run-loop (assoc constants :initial-ignition-site initial-ignition-raster)
               ignited-cells
               fire-spread-matrix
               flame-length-matrix

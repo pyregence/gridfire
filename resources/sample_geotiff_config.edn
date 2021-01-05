@@ -1,6 +1,5 @@
 ;; [[file:../org/GridFire.org::sample_geotiff_config.edn][sample_geotiff_config.edn]]
-{
- ;; Section 1: Landscape data to be shared by all simulations
+{;; Section 1: Landscape data to be shared by all simulations
  :fetch-layer-method        :geotiff
  :landfire-layers           {:aspect             "test/gridfire/resources/asp.tif"
                              :canopy-base-height "test/gridfire/resources/cbh.tif"
@@ -11,7 +10,7 @@
                              :fuel-model         "test/gridfire/resources/fbfm40.tif"
                              :slope              "test/gridfire/resources/slp.tif"}
  :srid                      "CUSTOM:900914"
- :cell-size                 98.425         ;; (feet)
+ :cell-size                 98.425         ; (feet)
 
  ;; Section 2: Ignition from which to build simulation inputs
  :fetch-ignition-method     :geotiff
@@ -26,19 +25,19 @@
  ;; If a single value is provided, it will be kept the same for all simulations.
  ;; For a list of values, the list will be randomly sampled from in each simulation.
  ;; For a range of values, the range [inclusive exclusive] will be randomly sampled from in each simulation.
- :max-runtime               60             ;; (minutes)
- :temperature               (50 65 80)     ;; (degrees Fahrenheit)
- :relative-humidity         (1 10 20)      ;; (%)
- :wind-speed-20ft           (10 15 20)     ;; (miles/hour)
- :wind-from-direction       (0 90 180 270) ;; (degrees clockwise from north)
- :foliar-moisture           90             ;; (%)
- :ellipse-adjustment-factor 1.0            ;; (< 1.0 = more circular, > 1.0 = more elliptical)
+ :max-runtime               60             ; (minutes)
+ :temperature               (50 65 80)     ; (degrees Fahrenheit)
+ :relative-humidity         (1 10 20)      ; (%)
+ :wind-speed-20ft           (10 15 20)     ; (miles/hour)
+ :wind-from-direction       (0 90 180 270) ; (degrees clockwise from north)
+ :foliar-moisture           90             ; (%)
+ :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
 
- ;; Section 3: Number of simulations and (optional) random seed parameter
+ ;; Section 4: Number of simulations and (optional) random seed parameter
  :simulations               10
- :random-seed               1234567890     ;; long value (optional)
+ :random-seed               1234567890     ; long value (optional)
 
- ;; Section 4: Types and names of outputs
+ ;; Section 5: Types and names of outputs
  :outfile-suffix            "_tile_100"
  :output-landfire-inputs?   true
  :output-geotiffs?          true

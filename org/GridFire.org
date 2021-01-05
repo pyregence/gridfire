@@ -346,12 +346,12 @@ our database given the database name and schema as inputs.
 #+begin_src sh :results silent :exports code :tangle ../resources/import_landfire_rasters.sh :padline no :no-expand :comments link
 #!/bin/sh
 
-DATABASE=$1
+USERNAME=$1
 SCHEMA=$2
 
 for LAYER in asp cbd cbh cc ch dem fbfm13 fbfm40 slp
 do
-    raster2pgsql -t 100x100 -I -C $LAYER.tif $SCHEMA.$LAYER | psql -h localhost -U $DATABASE
+    raster2pgsql -t 100x100 -I -C $LAYER.tif $SCHEMA.$LAYER | psql -h localhost -U $USERNAME
 done
 #+end_src
 
@@ -400,13 +400,13 @@ If there is a need to update the srid of our layers, we can use the following sc
 #+begin_src sh :results silent :exports code :tangle ../resources/update_landfire_srids.sh :padline no :no-expand :comments link
 #!/bin/sh
 
-DATABASE=$1
+USERNAME=$1
 SCHEMA=$2
 SRID=$3
 
 for LAYER in asp cbd cbh cc ch dem fbfm13 fbfm40 slp
 do
-    psql -h localhost -U $DATABASE -c \
+    psql -h localhost -U $USERNAME -c \
          "SELECT UpdateRasterSRID('$SCHEMA'::name,'$LAYER'::name,'rast'::name,$SRID);"
 done
 #+end_src
@@ -1904,8 +1904,13 @@ pseudo-code lays out the steps taken in this procedure:
                                        0.0))}))
 
 (defn compute-neighborhood-fire-spread-rates!
-  "Returns a vector of entries of the form {:cell [i j], :trajectory [di dj],
-  :terrain-distance ft, :spread-rate ft/min, :fire-line-intensity Btu/ft/s, :flame-length ft,
+  "Returns a vector of entries of the form:
+  {:cell [i j],
+  :trajectory [di dj],
+  :terrain-distance ft,
+  :spread-rate ft/min,
+  :fire-line-intensity Btu/ft/s,
+  :flame-length ft,
   :fractional-distance [0-1]}, one for each cell adjacent to here."
   [{:keys [landfire-layers
            wind-speed-20ft
@@ -1920,7 +1925,6 @@ pseudo-code lays out the steps taken in this procedure:
    [i j :as here]
    overflow-trajectory
    overflow-heat]
-
   (let [fuel-model-number   (m/mget (:fuel-model         landfire-layers) i j)
         slope               (m/mget (:slope              landfire-layers) i j)
         aspect              (m/mget (:aspect             landfire-layers) i j)
@@ -1991,7 +1995,7 @@ pseudo-code lays out the steps taken in this procedure:
    ignition-events
    fire-spread-matrix]
   (let [newly-ignited-cells (into #{} (map :cell) ignition-events)
-        fuel-model-matrix (:fuel-model landfire-layers)]
+        fuel-model-matrix   (:fuel-model landfire-layers)]
     (into {}
           (concat
            (for [[cell spread-info] ignited-cells
@@ -2043,6 +2047,19 @@ pseudo-code lays out the steps taken in this procedure:
        :fire-spread-matrix         fire-spread-matrix
        :flame-length-matrix        flame-length-matrix
        :fire-line-intensity-matrix fire-line-intensity-matrix})))
+
+(defn- initialize-matrix
+  [num-rows num-cols indices]
+  (let [matrix (m/zero-matrix num-rows num-cols)]
+    (doseq [[i j] indices
+            :when (in-bounds? num-rows num-cols [i j])]
+      (m/mset! matrix i j -1))
+    matrix))
+
+(defn- get-non-zero-indices [m]
+  (for [[r cols] (map-indexed vector (m/non-zero-indices m))
+        c        cols]
+    [r c]))
 
 (defmulti run-fire-spread
   "Runs the raster-based fire spread model with a map of these arguments:
@@ -2100,26 +2117,11 @@ pseudo-code lays out the steps taken in this procedure:
                             initial-ignition-site
                             nil
                             0.0)}]
-        (run-loop (merge
-                   constants
-                   {:initial-ignition-site initial-ignition-site})
+        (run-loop (assoc constants :initial-ignition-site initial-ignition-site)
                   ignited-cells
                   fire-spread-matrix
                   flame-length-matrix
                   fire-line-intensity-matrix)))))
-
-(defn- initialize-matrix
-  [num-rows num-cols indices]
-  (let [matrix (m/zero-matrix num-rows num-cols)]
-    (doseq [[i j] indices
-            :when (in-bounds? num-rows num-cols [i j])]
-      (m/mset! matrix i j -1))
-    matrix))
-
-(defn- get-non-zero-indices [m]
-  (for [[r cols] (map-indexed vector (m/non-zero-indices m))
-        c        cols]
-    [r c]))
 
 (defmethod run-fire-spread clojure.lang.PersistentHashMap
   [{:keys [landfire-layers num-rows num-cols] :as constants} initial-ignition-raster]
@@ -2137,9 +2139,7 @@ pseudo-code lays out the steps taken in this procedure:
                                                        nil
                                                        0.0)]]
                                            [index ignition-trajectories]))]
-    (run-loop (merge
-               constants
-               {:initial-ignition-site initial-ignition-raster})
+    (run-loop (assoc constants :initial-ignition-site initial-ignition-raster)
               ignited-cells
               fire-spread-matrix
               flame-length-matrix
@@ -2158,16 +2158,16 @@ their map layers as 2D Clojure core.matrix values. In order to enable
 GridFire to easily access a wide range of raster formatted GIS layers
 directly, we have the following options:
 
-1. Postgres (an open source database) with the Postgis spatial extensions.
-This interface is described in Section [[PostGIS Bridge]].
+1. Postgresql (an open source database) with the PostGIS spatial
+   extensions. This interface is described in Section [[PostGIS Bridge]].
 
-2. Magellan A Clojure library for interacting with GeoTools, an open source
-Java library that provides tools for geospatial data. This interface is
-described in Section [[Magellan]].
+2. Magellan A Clojure library for interacting with GeoTools, an open
+   source Java library that provides tools for geospatial data. This
+   interface is described in Section [[Magellan]].
 
-Using one of these options along with a simple client interface in clojure
-Section [[Command Line Interface]] which describes GridFire's command line
-interface along with its input configuration file format.
+Using one of these options along with a simple client interface in
+clojure Section [[Command Line Interface]] which describes GridFire's
+command line interface along with its input configuration file format.
 
 ** PostGIS Bridge
 
@@ -2247,9 +2247,9 @@ command line interface.
 
 ** Magellan
 
-Reading raster layers from disk is performed by a
-single function, called *geotiff-raster-to-matrix*, which given a filepath
-to the raster file, constructs the same map of information as
+Reading raster layers from disk is performed by a single function,
+called *geotiff-raster-to-matrix*, which given a filepath to the raster
+file, constructs the same map of information as
 *postgis-raster-to-matrix* in the previous section.
 
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/magellan_bridge.clj :padline no :no-expand :comments link
@@ -2293,6 +2293,7 @@ to the raster file, constructs the same map of information as
      :numbands   (:bands image)
      :matrix     (m/matrix matrix)}))
 #+end_src
+
 ** Command Line Interface
 
 The entire GridFire system is available for use directly from the
@@ -2665,19 +2666,21 @@ with square brackets ([]). Associative lookup tables (a.k.a. maps) are
 delimited with curly braces ({}) and are used to express key-value
 relationships.
 
-The configuration file can be broken up into 5 sections as described below:
+The configuration file can be broken up into 5 sections as described
+below:
 
 ** Section 1: Landscape data to be shared by all simulations
 
-Gridfire allows us to choose how we want to ingest landscape data through the
-configuration file. We can choose to get landfire layers from our PostGIS
-database or we can read raster files from disk. This behavior is
-controlled as follows:
+Gridfire allows us to choose how we want to ingest landscape data
+through the configuration file. We can choose to get landfire layers
+from our PostGIS database or we can read raster files from disk. This
+behavior is controlled as follows:
 
-To fetch landfire layers from a PostGIS database include the following
-mappings:
+To fetch landfire layers from a Postgersql database include the
+following mappings:
 - *fetch-layer-method*: a keyword to denote which method we want to use
-- *db-spec*: a map of database connection information to our postgres database.
+- *db-spec*: a map of database connection information to our Postgresql
+  database.
 - *landfire-layers*: a map of layer names to a partial sql statement.
 
 #+begin_src clojure
@@ -2696,10 +2699,11 @@ mappings:
                       :elevation          "landfire.dem WHERE rid=100"}}
 #+end_src
 
-To fetch landfire layers from a PostGIS database include the following
-mappings:
+To fetch landfire layers from a Postgresql database include the
+following mappings:
 - *fetch-layer-method*: a keyword to denote which method we want to use
-- *landfire-layers*: a map of layer names to file paths
+- *landfire-layers*: a map of layer names to file paths (paths are
+  relative to the GridFire project root)
 
 #+begin_src clojure
 {:fetch-layer-method :geotiff
@@ -2716,16 +2720,15 @@ mappings:
 Include the following required mapping on all configurations:
 
 #+begin_src clojure
-{:srid                        "CUSTOM:900914"
-:cell-size                   98.425 ;; (feet)
-}
+{:srid      "CUSTOM:900914"
+ :cell-size 98.425} ; (feet)
 #+end_src
 
 ** Section 2: Ignition from which to build simulation inputs
 
-Gridfire allows us to choose how we want to initialize the ignition area.
-We can choose one of 2 options: to initialize a single point or an existing
-burn paremeter (raster).
+Gridfire allows us to choose how we want to initialize the ignition
+area. We can choose one of 2 options: to initialize a single point or
+an existing burn paremeter (raster).
 
 To initialize a single point include the following mappings:
 - *ignition-row*: (single, list, or range of values)
@@ -2733,21 +2736,26 @@ To initialize a single point include the following mappings:
 
 For this method of ignition values maybe entered in one of three ways:
 
-1. If a single value is provided, it will be kept the same for all simulations.
-2. For a list of values, the list will be randomly sampled from in each simulation.
-3. For a range of values, the range [inclusive exclusive] will be randomly sampled from in each simulation.
+1. If a single value is provided, it will be kept the same for all
+   simulations.
+2. For a list of values, a value from the list will be randomly
+   selected in each simulation.
+3. For a range of values, a range of values, a value from the range
+   [inclusive exclusive] will be randomly selected in each simulation
 
 #+begin_src clojure
 {:ignition-row [10 90]
  :ignition-col [20 80]}
  #+end_src
 
-To initialize an existing burn paremeter from a raster we have two options. We can
-read rasters from a PostGIS database or a raster file on disk.
+To initialize an existing burn paremeter from a raster we have two
+options. We can read rasters from a Postgresql database or a raster
+file on disk.
 
-To initialize a burn paremeter from a raster in our PostGIS database include the
-following mappings:
-- *fetch-ignition-method*: a keyword to denote which method we want to use
+To initialize a burn paremeter from a raster in our PostGIS database
+include the following mappings:
+- *fetch-ignition-method*: a keyword to denote which method we want to
+  use
 - *ignition-layers*: a partial sql statement
 
 #+begin_src clojure
@@ -2766,7 +2774,7 @@ following mappings:
 #+end_src
 
 Gridfire makes use of clojure's multimethods to dispatch control to
-different handlers for fetching ignition layers. The dispatch depnds 
+different handlers for fetching ignition layers. The dispatch depnds
 on what is in the config file. Here's the namescapce that implements
 this functionality.
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fetch.clj :padline no :no-expand :comments link
@@ -2792,28 +2800,28 @@ this functionality.
   [config]
   nil)
 #+end_src
+
 ** Section 3: Weather data from which to build simulation inputs
 
-For all options in this section, you may enter values in one of the three ways:
-single, list, or range of values.
+For all options in this section, you may enter values in one of the
+three ways (as described in section 2): single, list, or range of
+values.
 
  #+begin_src clojure
-{:max-runtime               60             ;; (minutes)
- :temperature               (50 65 80)     ;; (degrees Fahrenheit)
- :relative-humidity         (1 10 20)      ;; (%)
- :wind-speed-20ft           (10 15 20)     ;; (miles/hour)
- :wind-from-direction       (0 90 180 270) ;; (degrees clockwise from north)
- :foliar-moisture           90             ;; (%)
- :ellipse-adjustment-factor 1.0            ;; (< 1.0 = more circular, > 1.0 = more elliptical)
- }
+{:max-runtime               60             ; (minutes)
+ :temperature               (50 65 80)     ; (degrees Fahrenheit)
+ :relative-humidity         (1 10 20)      ; (%)
+ :wind-speed-20ft           (10 15 20)     ; (miles/hour)
+ :wind-from-direction       (0 90 180 270) ; (degrees clockwise from north)
+ :foliar-moisture           90             ; (%)
+ :ellipse-adjustment-factor 1.0}           ; (< 1.0 = more circular, > 1.0 = more elliptical)
  #+end_src
 
 ** Section 4: Number of simulations and (optional) random seed parameter
 
 #+begin_src clojure
 {:simulations 10
- :random-seed  1234567890 ;; long value (optional)
-}
+ :random-seed 1234567890} ;; long value (optional)
 #+end_src
 
 ** Section 5: Types and names of outputs
@@ -2826,13 +2834,13 @@ single, list, or range of values.
  :output-csvs?            true}
 #+end_src
 
-Here is a complete sample configuration for using landfire layers from our postigs enabled
-database and initializing burn points from a range of values.
+Here is a complete sample configuration for using landfire layers from
+our postigs enabled database and initializing burn points from a range
+of values.
 
  #+name: sample_postgis_config.edn
  #+begin_src clojure :results silent :exports code :tangle ../resources/sample_postgis_config.edn :padline no :no-expand :comments link
-{
- ;; Section 1: Landscape data to be shared by all simulations
+{;; Section 1: Landscape data to be shared by all simulations
  :fetch-layer-method        :postgis
  :db-spec                   {:classname   "org.postgresql.Driver"
                              :subprotocol "postgresql"
@@ -2847,7 +2855,7 @@ database and initializing burn points from a range of values.
                              :slope              "landfire.slp WHERE rid=100"
                              :elevation          "landfire.dem WHERE rid=100"}
  :srid                      "CUSTOM:900914"
- :cell-size                 98.425         ;; (feet)
+ :cell-size                 98.425         ; (feet)
 
  ;; Section 2: Ignition and weather data from which to build simulation inputs
  :ignition-row              [10 90]
@@ -2862,17 +2870,17 @@ database and initializing burn points from a range of values.
  ;; If a single value is provided, it will be kept the same for all simulations.
  ;; For a list of values, the list will be randomly sampled from in each simulation.
  ;; For a range of values, the range [inclusive exclusive] will be randomly sampled from in each simulation.
- :max-runtime               60             ;; (minutes)
- :temperature               (50 65 80)     ;; (degrees Fahrenheit)
- :relative-humidity         (1 10 20)      ;; (%)
- :wind-speed-20ft           (10 15 20)     ;; (miles/hour)
- :wind-from-direction       (0 90 180 270) ;; (degrees clockwise from north)
- :foliar-moisture           90             ;; (%)
- :ellipse-adjustment-factor 1.0            ;; (< 1.0 = more circular, > 1.0 = more elliptical)
+ :max-runtime               60             ; (minutes)
+ :temperature               (50 65 80)     ; (degrees Fahrenheit)
+ :relative-humidity         (1 10 20)      ; (%)
+ :wind-speed-20ft           (10 15 20)     ; (miles/hour)
+ :wind-from-direction       (0 90 180 270) ; (degrees clockwise from north)
+ :foliar-moisture           90             ; (%)
+ :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
 
  ;; Section 4: Number of simulations and (optional) random seed parameter
  :simulations               10
- :random-seed               1234567890     ;; long value (optional)
+ :random-seed               1234567890     ; long value (optional)
 
  ;; Section 5: Types and names of outputs
  :outfile-suffix            "_tile_100"
@@ -2883,13 +2891,13 @@ database and initializing burn points from a range of values.
  }
  #+end_src
 
-Here is a complete sample config for reading landfire-layers from disk and
-initializing a burn paremeter from reading a raster file from disk.
+Here is a complete sample config for reading landfire-layers from disk
+and initializing a burn paremeter from reading a raster file from
+disk.
 
  #+name: sample_geotiff_config.edn
  #+begin_src clojure :results silent :exports code :tangle ../resources/sample_geotiff_config.edn :padline no :no-expand :comments link
-{
- ;; Section 1: Landscape data to be shared by all simulations
+{;; Section 1: Landscape data to be shared by all simulations
  :fetch-layer-method        :geotiff
  :landfire-layers           {:aspect             "test/gridfire/resources/asp.tif"
                              :canopy-base-height "test/gridfire/resources/cbh.tif"
@@ -2900,7 +2908,7 @@ initializing a burn paremeter from reading a raster file from disk.
                              :fuel-model         "test/gridfire/resources/fbfm40.tif"
                              :slope              "test/gridfire/resources/slp.tif"}
  :srid                      "CUSTOM:900914"
- :cell-size                 98.425         ;; (feet)
+ :cell-size                 98.425         ; (feet)
 
  ;; Section 2: Ignition from which to build simulation inputs
  :fetch-ignition-method     :geotiff
@@ -2915,19 +2923,19 @@ initializing a burn paremeter from reading a raster file from disk.
  ;; If a single value is provided, it will be kept the same for all simulations.
  ;; For a list of values, the list will be randomly sampled from in each simulation.
  ;; For a range of values, the range [inclusive exclusive] will be randomly sampled from in each simulation.
- :max-runtime               60             ;; (minutes)
- :temperature               (50 65 80)     ;; (degrees Fahrenheit)
- :relative-humidity         (1 10 20)      ;; (%)
- :wind-speed-20ft           (10 15 20)     ;; (miles/hour)
- :wind-from-direction       (0 90 180 270) ;; (degrees clockwise from north)
- :foliar-moisture           90             ;; (%)
- :ellipse-adjustment-factor 1.0            ;; (< 1.0 = more circular, > 1.0 = more elliptical)
+ :max-runtime               60             ; (minutes)
+ :temperature               (50 65 80)     ; (degrees Fahrenheit)
+ :relative-humidity         (1 10 20)      ; (%)
+ :wind-speed-20ft           (10 15 20)     ; (miles/hour)
+ :wind-from-direction       (0 90 180 270) ; (degrees clockwise from north)
+ :foliar-moisture           90             ; (%)
+ :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
 
- ;; Section 3: Number of simulations and (optional) random seed parameter
+ ;; Section 4: Number of simulations and (optional) random seed parameter
  :simulations               10
- :random-seed               1234567890     ;; long value (optional)
+ :random-seed               1234567890     ; long value (optional)
 
- ;; Section 4: Types and names of outputs
+ ;; Section 5: Types and names of outputs
  :outfile-suffix            "_tile_100"
  :output-landfire-inputs?   true
  :output-geotiffs?          true
