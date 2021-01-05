@@ -319,15 +319,10 @@
   - num-rows: integer
   - num-cols: integer"
   (fn [{:keys [initial-ignition-site]}]
-    (cond
-      (= (type initial-ignition-site) clojure.lang.PersistentHashMap)
-      :ignition-perimeter
-
-      (= (type initial-ignition-site) clojure.lang.PersistentVector)
-      :ignition-point
-
-      :else
-      :random-ignition-point)))
+    (condp = (type initial-ignition-site)
+      clojure.lang.PersistentHashMap :ignition-perimeter
+      clojure.lang.PersistentVector  :ignition-point
+      :else                          :random-ignition-point)))
 
 (defmethod run-fire-spread :random-ignition-point
   [{:keys [landfire-layers] :as constants}]
