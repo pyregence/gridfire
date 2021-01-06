@@ -322,7 +322,7 @@
     (condp = (type initial-ignition-site)
       clojure.lang.PersistentHashMap :ignition-perimeter
       clojure.lang.PersistentVector  :ignition-point
-      :else                          :random-ignition-point)))
+      :random-ignition-point)))
 
 (defmethod run-fire-spread :random-ignition-point
   [{:keys [landfire-layers] :as constants}]
