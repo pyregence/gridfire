@@ -2438,7 +2438,7 @@ algorithm.
     (/ (* 0.000048 (Math/pow X 4.3)) 50)))
 
 (defn spot-ignition-probability
-  [{:keys [cell-size landfire-layers]}
+  [{:keys [cell-size landfire-rasters]}
    {:keys [decay-constant] :as spot-config}
    temperature
    relative-humidity
@@ -2447,7 +2447,7 @@ algorithm.
    [i j :as here]]
   (let [ignition-probability (schroeder-ign-prob relative-humidity
                                                  temperature)
-        distance             (ft->m (distance-3d (:elevation landfire-layers)
+        distance             (ft->m (distance-3d (:elevation landfire-rasters)
                                                  cell-size
                                                  here
                                                  torched-origin))
@@ -2529,10 +2529,10 @@ algorithm.
 
 (defn firebrands
   "Returns a sequence of cells that firebrands land in"
-  [deltas wind-towards-dir cell cell-size]
+  [deltas wind-towards-direction cell cell-size]
   (let [step         (/ cell-size 2)
         cell-center  (mapv #(+ step (* % step)) cell)
-        coord-deltas (deltas-wind-dir->coord deltas wind-towards-dir)]
+        coord-deltas (deltas-wind-dir->coord deltas wind-towards-direction)]
     (map (comp
           (partial map int)
           (partial map #(quot % step))
@@ -2540,7 +2540,7 @@ algorithm.
          coord-deltas)))
 
 (defn update-firebrand-counts!
-  [{:keys [num-rows num-cols landfire-layers]}
+  [{:keys [num-rows num-cols landfire-rasters]}
    firebrand-count-matrix
    fire-spread-matrix
    source
@@ -2548,8 +2548,7 @@ algorithm.
   (doseq [[x y :as here] firebrands
           :when          (and (in-bounds? num-rows num-cols [x y])
                               (burnable? fire-spread-matrix
-                                         (:fuel-model landfire-layers)
-                                         source
+                                         (:fuel-model landfire-rasters)
                                          here))
           :let           [new-count (inc (m/mget firebrand-count-matrix x y))]]
     (m/mset! firebrand-count-matrix x y new-count)))
@@ -2561,15 +2560,13 @@ algorithm.
   t: time of ignition
   p: ignition-probability"
   [{:keys
-    [num-rows num-cols cell-size landfire-layers wind-speed-20ft
-     wind-from-direction temperature relative-humidity
-     global-clock multiplier-lookup perturbations] :as constants}
-   {:keys [spotting rand-gen random-seed] :as config}
+    [num-rows num-cols cell-size landfire-rasters global-clock] :as constants}
+   {:keys [spotting rand-gen] :as config}
    {:keys [firebrand-count-matrix
            fire-spread-matrix
            fire-line-intensity-matrix
            flame-length-matrix]}
-   {:keys [cell fire-line-intensity crown-fire?] :as ignition-event}]
+   {:keys [cell crown-fire?]}]
   (when crown-fire?
     (let [{:keys
            [wind-speed-20ft
@@ -2586,7 +2583,7 @@ algorithm.
       (update-firebrand-counts! constants firebrand-count-matrix fire-spread-matrix cell firebrands)
       (->> (for [[x y] firebrands
                  :when (and (in-bounds? num-rows num-cols [x y])
-                            (burnable? fire-spread-matrix (:fuel-model landfire-layers) cell [x y]))
+                            (burnable? fire-spread-matrix (:fuel-model landfire-rasters) cell [x y]))
                  :let  [firebrand-count (m/mget firebrand-count-matrix x y)
                         spot-ignition-p (spot-ignition-probability constants
                                                                    spotting
