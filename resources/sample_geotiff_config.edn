@@ -43,4 +43,5 @@
  :output-geotiffs?          true
  :output-pngs?              true
  :output-csvs?              true}
+;;TODO testing git, remove statement
 ;; sample_geotiff_config.edn ends here
