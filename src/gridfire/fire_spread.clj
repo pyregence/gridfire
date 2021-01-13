@@ -274,9 +274,7 @@
             (m/mset! fire-line-intensity-matrix i j fire-line-intensity)))
         (recur (+ global-clock timestep)
                (update-ignited-cells constants ignited-cells ignition-events fire-spread-matrix)))
-      {:global-clock               global-clock
-       :initial-ignition-site      initial-ignition-site
-       :ignited-cells              (keys ignited-cells)
+      {:exit-condition             (if (seq ignited-cells) :max-runtime-reached :no-burnable-fuels)
        :fire-spread-matrix         fire-spread-matrix
        :flame-length-matrix        flame-length-matrix
        :fire-line-intensity-matrix fire-line-intensity-matrix})))
@@ -286,7 +284,7 @@
   (let [matrix (m/zero-matrix num-rows num-cols)]
     (doseq [[i j] indices
             :when (in-bounds? num-rows num-cols [i j])]
-      (m/mset! matrix i j -1))
+      (m/mset! matrix i j -1.0))
     matrix))
 
 (defn- get-non-zero-indices [m]
@@ -298,7 +296,7 @@
   "Runs the raster-based fire spread model with a map of these arguments:
   - max-runtime: double (minutes)
   - cell-size: double (feet)
-  - landfire-layers: Consisting of these matrices
+  - landfire-layers: map containing of these entries;
     - elevation: core.matrix 2D double array (feet)
     - slope: core.matrix 2D double array (vertical feet/horizontal feet)
     - aspect: core.matrix 2D double array (degrees clockwise from north)
@@ -314,8 +312,8 @@
   - ellipse-adjustment-factor: (< 1.0 = more circular, > 1.0 = more elliptical)
   - initial-ignition-site: One of the following:
      - point represented as [row col]
-     - map of ignition matrices (firespread, flame length, and fireline intensity)
-     - (randomly chosen point if omitted)
+     - map containing a :matrix field of type core.matrix 2D double array (0-2)
+     - nil (this causes Gridfire to select a random ignition-point)
   - num-rows: integer
   - num-cols: integer"
   (fn [{:keys [initial-ignition-site]}]
@@ -364,8 +362,14 @@
         non-zero-indices           (get-non-zero-indices fire-spread-matrix)
         flame-length-matrix        (initialize-matrix num-rows num-cols non-zero-indices)
         fire-line-intensity-matrix (initialize-matrix num-rows num-cols non-zero-indices)
+        perimiter-indices          (filter #(burnable-neighbors? fire-spread-matrix
+                                                                 fuel-model-matrix
+                                                                 num-rows
+                                                                 num-cols
+                                                                 %)
+                                           non-zero-indices)
         ignited-cells              (into {}
-                                         (for [index non-zero-indices
+                                         (for [index perimiter-indices
                                                :let  [ignition-trajectories
                                                       (compute-neighborhood-fire-spread-rates!
                                                        constants
