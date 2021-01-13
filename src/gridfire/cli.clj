@@ -22,66 +22,6 @@
 (register-new-crs-definitions-from-properties-file! "CUSTOM"
                                                     (io/resource "custom_projections.properties"))
 
-(def layer-names
-  [:aspect
-   :canopy-base-height
-   :canopy-cover
-   :canopy-height
-   :crown-bulk-density
-   :elevation
-   :fuel-model
-   :slope])
-
-(defn convert-metrics
-  "Converting metrics in layers:
-  meters to feet
-  degrees to percent"
-  [landfire-layers]
-  (-> landfire-layers
-      (update-in [:elevation :matrix]
-                 (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
-      (update-in [:slope :matrix]
-                 (fn [matrix] (m/emap #(Math/tan (degrees-to-radians %)) matrix))) ; degrees -> %
-      (update-in [:canopy-height :matrix]
-                 (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
-      (update-in [:canopy-base-height :matrix]
-                 (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
-      (update-in [:crown-bulk-density :matrix]
-                 (fn [matrix] (m/emap #(* % 0.0624) matrix))))) ; kg/m^3 -> lb/ft^3
-
-(defmulti fetch-landfire-layers
-  "Returns a map of LANDFIRE rasters (represented as maps) with the following units:
-   {:elevation          feet
-    :slope              vertical feet/horizontal feet
-    :aspect             degrees clockwise from north
-    :fuel-model         fuel model numbers 1-256
-    :canopy-height      feet
-    :canopy-base-height feet
-    :crown-bulk-density lb/ft^3
-    :canopy-cover       % (0-100)}"
-  (fn [config]
-    (:fetch-layer-method config)))
-
-(defmethod fetch-landfire-layers :postgis
-  [{:keys [db-spec landfire-layers]}]
-  (convert-metrics
-   (reduce (fn [amap layer-name]
-             (let [table (landfire-layers layer-name)]
-               (assoc amap layer-name
-                      (postgis-raster-to-matrix db-spec table))))
-           {}
-           layer-names)))
-
-(defmethod fetch-landfire-layers :geotiff
-  [{:keys [landfire-layers]}]
-  (convert-metrics
-   (reduce (fn [amap layer-name]
-             (let [file-name (landfire-layers layer-name)]
-               (assoc amap layer-name
-                      (geotiff-raster-to-matrix file-name))))
-           {}
-           layer-names)))
-
 (defn my-rand
   ([^Random rand-generator] (.nextDouble rand-generator))
   ([^Random rand-generator n] (* n (my-rand rand-generator))))
@@ -177,7 +117,9 @@
                                   :live {:herbaceous (* equilibrium-moisture 2.0)
                                          :woody      (* equilibrium-moisture 0.5)}}
            initial-ignition-site (or ignition-raster
-                                     [(ignition-row i) (ignition-col i)])]
+                                     (and (ignition-row i)
+                                          (ignition-col i)
+                                          [(ignition-row i) (ignition-col i)]))]
        (if-let [fire-spread-results (run-fire-spread
                                      {:max-runtime               (max-runtime i)
                                       :cell-size                 cell-size
@@ -188,7 +130,7 @@
                                       :foliar-moisture           (* 0.01 (foliar-moisture i))
                                       :ellipse-adjustment-factor (ellipse-adjustment-factor i)
                                       :num-rows                  (m/row-count (:fuel-model landfire-rasters))
-                                      :num-cols                  (m/row-count (:fuel-model landfire-rasters))
+                                      :num-cols                  (m/col-count (:fuel-model landfire-rasters))
                                       :initial-ignition-site     initial-ignition-site})]
          (do
            (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
@@ -205,19 +147,18 @@
              (merge
               {:ignition-row              (ignition-row i)
                :ignition-col              (ignition-col i)
-               :ignition-raster           ignition-raster
                :max-runtime               (max-runtime i)
                :temperature               (temperature i)
                :relative-humidity         (relative-humidity i)
                :wind-speed-20ft           (wind-speed-20ft i)
                :wind-from-direction       (wind-from-direction i)
                :foliar-moisture           (foliar-moisture i)
-               :ellipse-adjustment-factor (ellipse-adjustment-factor i)}
+               :ellipse-adjustment-factor (ellipse-adjustment-factor i)
+               :exit-condition            (:exit-condition fire-spread-results)}
               (summarize-fire-spread-results fire-spread-results cell-size))))
          (when output-csvs?
            {:ignition-row               (ignition-row i)
             :ignition-col               (ignition-col i)
-            :ignition-raster            ignition-raster
             :max-runtime                (max-runtime i)
             :temperature                (temperature i)
             :relative-humidity          (relative-humidity i)
@@ -229,7 +170,8 @@
             :flame-length-mean          0.0
             :flame-length-stddev        0.0
             :fire-line-intensity-mean   0.0
-            :fire-line-intensity-stddev 0.0}))))
+            :fire-line-intensity-stddev 0.0
+            :exit-condition             (:exit-condition fire-spread-results)}))))
    (range simulations)))
 
 (defn write-csv-outputs
@@ -283,7 +225,7 @@
   [& config-files]
   (doseq [config-file config-files]
     (let [config           (edn/read-string (slurp config-file))
-          landfire-layers  (fetch-landfire-layers config)
+          landfire-layers  (fetch/landfire-layers config)
           landfire-rasters (into {}
                                  (map (fn [[layer info]] [layer (:matrix info)]))
                                  landfire-layers)
