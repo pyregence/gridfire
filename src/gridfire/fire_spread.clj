@@ -88,6 +88,7 @@
                             (moisturize fuel-moisture))
         spread-info-min (rothermel-surface-fire-spread-no-wind-no-slope fuel-model)]
     [fuel-model spread-info-min]))
+
 (def rothermel-fast-wrapper (memoize rothermel-fast-wrapper))
 
 (defn compute-burn-trajectory
@@ -208,7 +209,7 @@
 
 (defn identify-ignition-events
   [ignited-cells timestep]
-  (->> (for [[source destinations] ignited-cells
+  (->> (for [[_ destinations] ignited-cells
              {:keys [cell trajectory terrain-distance spread-rate flame-length
                      fire-line-intensity fractional-distance]} destinations]
          (let [new-spread-fraction (/ (* spread-rate timestep) terrain-distance)
@@ -219,7 +220,7 @@
               :flame-length flame-length :fire-line-intensity fire-line-intensity})))
        (remove nil?)
        (group-by :cell)
-       (map (fn [[cell trajectories]] (apply max-key :fractional-distance trajectories)))
+       (map (fn [[_ trajectories]] (apply max-key :fractional-distance trajectories)))
        (into [])))
 
 (defn update-ignited-cells
@@ -296,7 +297,7 @@
   "Runs the raster-based fire spread model with a map of these arguments:
   - max-runtime: double (minutes)
   - cell-size: double (feet)
-  - landfire-layers: map containing of these entries;
+  - landfire-layers: map containing these entries;
     - elevation: core.matrix 2D double array (feet)
     - slope: core.matrix 2D double array (vertical feet/horizontal feet)
     - aspect: core.matrix 2D double array (degrees clockwise from north)
@@ -357,19 +358,19 @@
                   fire-line-intensity-matrix)))))
 
 (defmethod run-fire-spread :ignition-perimeter
-  [{:keys [num-rows num-cols initial-ignition-site] :as constants}]
+  [{:keys [num-rows num-cols initial-ignition-site landfire-rasters] :as constants}]
   (let [fire-spread-matrix         (:matrix initial-ignition-site)
         non-zero-indices           (get-non-zero-indices fire-spread-matrix)
         flame-length-matrix        (initialize-matrix num-rows num-cols non-zero-indices)
         fire-line-intensity-matrix (initialize-matrix num-rows num-cols non-zero-indices)
-        perimiter-indices          (filter #(burnable-neighbors? fire-spread-matrix
-                                                                 fuel-model-matrix
+        perimeter-indices          (filter #(burnable-neighbors? fire-spread-matrix
+                                                                 (:fuel-model landfire-rasters)
                                                                  num-rows
                                                                  num-cols
                                                                  %)
                                            non-zero-indices)
         ignited-cells              (into {}
-                                         (for [index perimiter-indices
+                                         (for [index perimeter-indices
                                                :let  [ignition-trajectories
                                                       (compute-neighborhood-fire-spread-rates!
                                                        constants

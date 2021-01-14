@@ -104,7 +104,7 @@ complete deps.edn is shown below.
         org.postgresql/postgresql           {:mvn/version "42.2.16"}
         net.mikera/core.matrix              {:mvn/version "0.62.0"}
         net.mikera/vectorz-clj              {:mvn/version "0.48.0"}
-        sig-gis/magellan                    {:mvn/version "20200909.105353"}
+        sig-gis/magellan                    {:mvn/version "20210113"}
         org.clojars.lambdatronic/matrix-viz {:mvn/version "0.1.7"}}
 
  :mvn/repos {"osgeo" {:url "https://repo.osgeo.org/repository/release/"}}
@@ -1861,6 +1861,7 @@ pseudo-code lays out the steps taken in this procedure:
                             (moisturize fuel-moisture))
         spread-info-min (rothermel-surface-fire-spread-no-wind-no-slope fuel-model)]
     [fuel-model spread-info-min]))
+
 (def rothermel-fast-wrapper (memoize rothermel-fast-wrapper))
 
 (defn compute-burn-trajectory
@@ -1981,7 +1982,7 @@ pseudo-code lays out the steps taken in this procedure:
 
 (defn identify-ignition-events
   [ignited-cells timestep]
-  (->> (for [[source destinations] ignited-cells
+  (->> (for [[_ destinations] ignited-cells
              {:keys [cell trajectory terrain-distance spread-rate flame-length
                      fire-line-intensity fractional-distance]} destinations]
          (let [new-spread-fraction (/ (* spread-rate timestep) terrain-distance)
@@ -1992,7 +1993,7 @@ pseudo-code lays out the steps taken in this procedure:
               :flame-length flame-length :fire-line-intensity fire-line-intensity})))
        (remove nil?)
        (group-by :cell)
-       (map (fn [[cell trajectories]] (apply max-key :fractional-distance trajectories)))
+       (map (fn [[_ trajectories]] (apply max-key :fractional-distance trajectories)))
        (into [])))
 
 (defn update-ignited-cells
@@ -2069,7 +2070,7 @@ pseudo-code lays out the steps taken in this procedure:
   "Runs the raster-based fire spread model with a map of these arguments:
   - max-runtime: double (minutes)
   - cell-size: double (feet)
-  - landfire-layers: map containing of these entries;
+  - landfire-layers: map containing these entries;
     - elevation: core.matrix 2D double array (feet)
     - slope: core.matrix 2D double array (vertical feet/horizontal feet)
     - aspect: core.matrix 2D double array (degrees clockwise from north)
@@ -2130,19 +2131,19 @@ pseudo-code lays out the steps taken in this procedure:
                   fire-line-intensity-matrix)))))
 
 (defmethod run-fire-spread :ignition-perimeter
-  [{:keys [num-rows num-cols initial-ignition-site] :as constants}]
+  [{:keys [num-rows num-cols initial-ignition-site landfire-rasters] :as constants}]
   (let [fire-spread-matrix         (:matrix initial-ignition-site)
         non-zero-indices           (get-non-zero-indices fire-spread-matrix)
         flame-length-matrix        (initialize-matrix num-rows num-cols non-zero-indices)
         fire-line-intensity-matrix (initialize-matrix num-rows num-cols non-zero-indices)
-        perimiter-indices          (filter #(burnable-neighbors? fire-spread-matrix
-                                                                 fuel-model-matrix
+        perimeter-indices          (filter #(burnable-neighbors? fire-spread-matrix
+                                                                 (:fuel-model landfire-rasters)
                                                                  num-rows
                                                                  num-cols
                                                                  %)
                                            non-zero-indices)
         ignited-cells              (into {}
-                                         (for [index perimiter-indices
+                                         (for [index perimeter-indices
                                                :let  [ignition-trajectories
                                                       (compute-neighborhood-fire-spread-rates!
                                                        constants
@@ -2455,11 +2456,7 @@ or false:
             [clojure.java.io :as io]
             [gridfire.fetch :as fetch]
             [gridfire.fire-spread :refer [run-fire-spread]]
-            [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
-            [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]
-            [gridfire.surface-fire :refer [degrees-to-radians]]
-            [magellan.core :refer [make-envelope
-                                   matrix-to-raster
+            [magellan.core :refer [make-envelope matrix-to-raster
                                    register-new-crs-definitions-from-properties-file!
                                    write-raster]]
             [matrix-viz.core :refer [save-matrix-as-png]])
@@ -2578,7 +2575,7 @@ or false:
                                       :foliar-moisture           (* 0.01 (foliar-moisture i))
                                       :ellipse-adjustment-factor (ellipse-adjustment-factor i)
                                       :num-rows                  (m/row-count (:fuel-model landfire-rasters))
-                                      :num-cols                  (m/col-count (:fuel-model landfire-rasters))
+                                      :num-cols                  (m/column-count (:fuel-model landfire-rasters))
                                       :initial-ignition-site     initial-ignition-site})]
          (do
            (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
@@ -2619,7 +2616,7 @@ or false:
             :flame-length-stddev        0.0
             :fire-line-intensity-mean   0.0
             :fire-line-intensity-stddev 0.0
-            :exit-condition             (:exit-condition fire-spread-results)}))))
+            :exit-condition             :no-fire-spread}))))
    (range simulations)))
 
 (defn write-csv-outputs
@@ -2673,7 +2670,7 @@ or false:
   [& config-files]
   (doseq [config-file config-files]
     (let [config           (edn/read-string (slurp config-file))
-          landfire-layers  (fetch/landfire-layers config)
+          landfire-layers  (fetch/landfire-rasters config)
           landfire-rasters (into {}
                                  (map (fn [[layer info]] [layer (:matrix info)]))
                                  landfire-layers)
@@ -2837,11 +2834,14 @@ on what is in the config file. Here's the namespace that implements
 this functionality.
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fetch.clj :padline no :no-expand :comments link
 (ns gridfire.fetch
-  (:require [clojure.string :as s]
-            [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix
-                                              geotiff-raster-to-matrix-multiband]]
-            [gridfire.postgis-bridge :refer [postgis-raster-to-matrix
-                                             postgis-raster-to-matrix-multiband]]))
+  (:require
+   [clojure.string :as s]
+   [clojure.core.matrix :as m]
+   [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix
+                                     geotiff-raster-to-matrix-multiband]]
+   [gridfire.postgis-bridge :refer [postgis-raster-to-matrix
+                                    postgis-raster-to-matrix-multiband]]
+   [gridfire.surface-fire :refer [degrees-to-radians]]))
 
 ;;-----------------------------------------------------------------------------
 ;; Landfire
@@ -2874,7 +2874,7 @@ this functionality.
       (update-in [:crown-bulk-density :matrix]
                  (fn [matrix] (m/emap #(* % 0.0624) matrix))))) ; kg/m^3 -> lb/ft^3
 
-(defmulti landfire-layers
+(defmulti landfire-rasters
   "Returns a map of LANDFIRE rasters (represented as maps) with the following units:
    {:elevation          feet
     :slope              vertical feet/horizontal feet
@@ -2887,7 +2887,7 @@ this functionality.
   (fn [config]
     (:fetch-layer-method config)))
 
-(defmethod landfire-layers :postgis
+(defmethod landfire-rasters :postgis
   [{:keys [db-spec landfire-layers]}]
   (convert-metrics
    (reduce (fn [amap layer-name]
@@ -2897,7 +2897,7 @@ this functionality.
            {}
            layer-names)))
 
-(defmethod landfire-layers :geotiff
+(defmethod landfire-rasters :geotiff
   [{:keys [landfire-layers]}]
   (convert-metrics
    (reduce (fn [amap layer-name]
@@ -2906,7 +2906,6 @@ this functionality.
                       (geotiff-raster-to-matrix file-name))))
            {}
            layer-names)))
-
 
 ;;-----------------------------------------------------------------------------
 ;; Initial Ignition
@@ -3055,7 +3054,7 @@ of values.
  :srid                      "CUSTOM:900914"
  :cell-size                 98.425         ; (feet)
 
- ;; Section 2: Ignition data and weather data from which to build simulation inputs
+ ;; Section 2: Ignition data from which to build simulation inputs
  :ignition-row              [10 90]
  :ignition-col              [20 80]
 
