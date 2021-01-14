@@ -7,11 +7,7 @@
             [clojure.java.io :as io]
             [gridfire.fetch :as fetch]
             [gridfire.fire-spread :refer [run-fire-spread]]
-            [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
-            [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]
-            [gridfire.surface-fire :refer [degrees-to-radians]]
-            [magellan.core :refer [make-envelope
-                                   matrix-to-raster
+            [magellan.core :refer [make-envelope matrix-to-raster
                                    register-new-crs-definitions-from-properties-file!
                                    write-raster]]
             [matrix-viz.core :refer [save-matrix-as-png]])
@@ -130,7 +126,7 @@
                                       :foliar-moisture           (* 0.01 (foliar-moisture i))
                                       :ellipse-adjustment-factor (ellipse-adjustment-factor i)
                                       :num-rows                  (m/row-count (:fuel-model landfire-rasters))
-                                      :num-cols                  (m/col-count (:fuel-model landfire-rasters))
+                                      :num-cols                  (m/column-count (:fuel-model landfire-rasters))
                                       :initial-ignition-site     initial-ignition-site})]
          (do
            (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
@@ -171,7 +167,7 @@
             :flame-length-stddev        0.0
             :fire-line-intensity-mean   0.0
             :fire-line-intensity-stddev 0.0
-            :exit-condition             (:exit-condition fire-spread-results)}))))
+            :exit-condition             :no-fire-spread}))))
    (range simulations)))
 
 (defn write-csv-outputs
@@ -215,7 +211,7 @@
   [& config-files]
   (doseq [config-file config-files]
     (let [config           (edn/read-string (slurp config-file))
-          landfire-layers  (fetch/landfire-layers config)
+          landfire-layers  (fetch/landfire-rasters config)
           landfire-rasters (into {}
                                  (map (fn [[layer info]] [layer (:matrix info)]))
                                  landfire-layers)
