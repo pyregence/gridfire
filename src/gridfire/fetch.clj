@@ -1,7 +1,9 @@
 ;; [[file:../../org/GridFire.org::*Section 2: Ignition from which to build simulation inputs][Section 2: Ignition from which to build simulation inputs:4]]
 (ns gridfire.fetch
-  (:require [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
-            [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]))
+  (:require [clojure.core.matrix :as m]
+            [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
+            [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]
+            [gridfire.surface-fire :refer [degrees-to-radians]]))
 
 ;;-----------------------------------------------------------------------------
 ;; Landfire
@@ -34,7 +36,7 @@
       (update-in [:crown-bulk-density :matrix]
                  (fn [matrix] (m/emap #(* % 0.0624) matrix))))) ; kg/m^3 -> lb/ft^3
 
-(defmulti landfire-layers
+(defmulti landfire-rasters
   "Returns a map of LANDFIRE rasters (represented as maps) with the following units:
    {:elevation          feet
     :slope              vertical feet/horizontal feet
@@ -47,7 +49,7 @@
   (fn [config]
     (:fetch-layer-method config)))
 
-(defmethod landfire-layers :postgis
+(defmethod landfire-rasters :postgis
   [{:keys [db-spec landfire-layers]}]
   (convert-metrics
    (reduce (fn [amap layer-name]
@@ -57,7 +59,7 @@
            {}
            layer-names)))
 
-(defmethod landfire-layers :geotiff
+(defmethod landfire-rasters :geotiff
   [{:keys [landfire-layers]}]
   (convert-metrics
    (reduce (fn [amap layer-name]
@@ -66,7 +68,6 @@
                       (geotiff-raster-to-matrix file-name))))
            {}
            layer-names)))
-
 
 ;;-----------------------------------------------------------------------------
 ;; Initial Ignition
