@@ -36,7 +36,7 @@
       (update-in [:crown-bulk-density :matrix]
                  (fn [matrix] (m/emap #(* % 0.0624) matrix))))) ; kg/m^3 -> lb/ft^3
 
-(defmulti landfire-rasters
+(defmulti landfire-layers
   "Returns a map of LANDFIRE rasters (represented as maps) with the following units:
    {:elevation          feet
     :slope              vertical feet/horizontal feet
@@ -49,7 +49,7 @@
   (fn [config]
     (:fetch-layer-method config)))
 
-(defmethod landfire-rasters :postgis
+(defmethod landfire-layers :postgis
   [{:keys [db-spec landfire-layers]}]
   (convert-metrics
    (reduce (fn [amap layer-name]
@@ -59,7 +59,7 @@
            {}
            layer-names)))
 
-(defmethod landfire-rasters :geotiff
+(defmethod landfire-layers :geotiff
   [{:keys [landfire-layers]}]
   (convert-metrics
    (reduce (fn [amap layer-name]
@@ -73,19 +73,19 @@
 ;; Initial Ignition
 ;;-----------------------------------------------------------------------------
 
-(defmulti initial-ignition-layers
+(defmulti ignition-layer
   (fn [config]
     (:fetch-ignition-method config)))
 
-(defmethod initial-ignition-layers :postgis
+(defmethod ignition-layer :postgis
   [{:keys [db-spec ignition-layer]}]
   (postgis-raster-to-matrix db-spec ignition-layer))
 
-(defmethod initial-ignition-layers :geotiff
+(defmethod ignition-layer :geotiff
   [{:keys [ignition-layer]}]
   (geotiff-raster-to-matrix ignition-layer))
 
-(defmethod initial-ignition-layers :default
+(defmethod ignition-layer :default
   [_]
   nil)
 ;; Section 2: Ignition from which to build simulation inputs:4 ends here

@@ -103,7 +103,7 @@
   [simulations landfire-rasters envelope cell-size ignition-row
    ignition-col max-runtime temperature relative-humidity wind-speed-20ft
    wind-from-direction foliar-moisture ellipse-adjustment-factor
-   outfile-suffix output-geotiffs? output-pngs? output-csvs? ignition-raster]
+   outfile-suffix output-geotiffs? output-pngs? output-csvs? ignition-layer]
   (mapv
    (fn [i]
      (let [equilibrium-moisture  (calc-emc (relative-humidity i) (temperature i))
@@ -112,7 +112,7 @@
                                          :100hr (+ equilibrium-moisture 0.025)}
                                   :live {:herbaceous (* equilibrium-moisture 2.0)
                                          :woody      (* equilibrium-moisture 0.5)}}
-           initial-ignition-site (or ignition-raster
+           initial-ignition-site (or ignition-layer
                                      (and (ignition-row i)
                                           (ignition-col i)
                                           [(ignition-row i) (ignition-col i)]))]
@@ -211,11 +211,11 @@
   [& config-files]
   (doseq [config-file config-files]
     (let [config           (edn/read-string (slurp config-file))
-          landfire-layers  (fetch/landfire-rasters config)
+          landfire-layers  (fetch/landfire-layers config)
           landfire-rasters (into {}
                                  (map (fn [[layer info]] [layer (:matrix info)]))
                                  landfire-layers)
-          ignition-raster  (fetch/initial-ignition-layers config)
+          ignition-layer   (fetch/ignition-layer config)
           envelope         (get-envelope config landfire-layers)
           simulations      (:simulations config)
           rand-generator   (if-let [seed (:random-seed config)]
@@ -243,7 +243,7 @@
             (:output-geotiffs? config)
             (:output-pngs? config)
             (:output-csvs? config)
-            ignition-raster)
+            ignition-layer)
            (write-csv-outputs
             (:output-csvs? config)
             (str "summary_stats" (:outfile-suffix config) ".csv"))))))

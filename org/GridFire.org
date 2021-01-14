@@ -2457,7 +2457,7 @@ or false:
   [simulations landfire-rasters envelope cell-size ignition-row
    ignition-col max-runtime temperature relative-humidity wind-speed-20ft
    wind-from-direction foliar-moisture ellipse-adjustment-factor
-   outfile-suffix output-geotiffs? output-pngs? output-csvs? ignition-raster]
+   outfile-suffix output-geotiffs? output-pngs? output-csvs? ignition-layer]
   (mapv
    (fn [i]
      (let [equilibrium-moisture  (calc-emc (relative-humidity i) (temperature i))
@@ -2466,7 +2466,7 @@ or false:
                                          :100hr (+ equilibrium-moisture 0.025)}
                                   :live {:herbaceous (* equilibrium-moisture 2.0)
                                          :woody      (* equilibrium-moisture 0.5)}}
-           initial-ignition-site (or ignition-raster
+           initial-ignition-site (or ignition-layer
                                      (and (ignition-row i)
                                           (ignition-col i)
                                           [(ignition-row i) (ignition-col i)]))]
@@ -2565,11 +2565,11 @@ or false:
   [& config-files]
   (doseq [config-file config-files]
     (let [config           (edn/read-string (slurp config-file))
-          landfire-layers  (fetch/landfire-rasters config)
+          landfire-layers  (fetch/landfire-layers config)
           landfire-rasters (into {}
                                  (map (fn [[layer info]] [layer (:matrix info)]))
                                  landfire-layers)
-          ignition-raster  (fetch/initial-ignition-layers config)
+          ignition-layer   (fetch/ignition-layer config)
           envelope         (get-envelope config landfire-layers)
           simulations      (:simulations config)
           rand-generator   (if-let [seed (:random-seed config)]
@@ -2597,7 +2597,7 @@ or false:
             (:output-geotiffs? config)
             (:output-pngs? config)
             (:output-csvs? config)
-            ignition-raster)
+            ignition-layer)
            (write-csv-outputs
             (:output-csvs? config)
             (str "summary_stats" (:outfile-suffix config) ".csv"))))))
@@ -2766,7 +2766,7 @@ this functionality.
       (update-in [:crown-bulk-density :matrix]
                  (fn [matrix] (m/emap #(* % 0.0624) matrix))))) ; kg/m^3 -> lb/ft^3
 
-(defmulti landfire-rasters
+(defmulti landfire-layers
   "Returns a map of LANDFIRE rasters (represented as maps) with the following units:
    {:elevation          feet
     :slope              vertical feet/horizontal feet
@@ -2779,7 +2779,7 @@ this functionality.
   (fn [config]
     (:fetch-layer-method config)))
 
-(defmethod landfire-rasters :postgis
+(defmethod landfire-layers :postgis
   [{:keys [db-spec landfire-layers]}]
   (convert-metrics
    (reduce (fn [amap layer-name]
@@ -2789,7 +2789,7 @@ this functionality.
            {}
            layer-names)))
 
-(defmethod landfire-rasters :geotiff
+(defmethod landfire-layers :geotiff
   [{:keys [landfire-layers]}]
   (convert-metrics
    (reduce (fn [amap layer-name]
@@ -2803,19 +2803,19 @@ this functionality.
 ;; Initial Ignition
 ;;-----------------------------------------------------------------------------
 
-(defmulti initial-ignition-layers
+(defmulti ignition-layer
   (fn [config]
     (:fetch-ignition-method config)))
 
-(defmethod initial-ignition-layers :postgis
+(defmethod ignition-layer :postgis
   [{:keys [db-spec ignition-layer]}]
   (postgis-raster-to-matrix db-spec ignition-layer))
 
-(defmethod initial-ignition-layers :geotiff
+(defmethod ignition-layer :geotiff
   [{:keys [ignition-layer]}]
   (geotiff-raster-to-matrix ignition-layer))
 
-(defmethod initial-ignition-layers :default
+(defmethod ignition-layer :default
   [_]
   nil)
 #+end_src
