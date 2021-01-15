@@ -2137,10 +2137,10 @@ pseudo-code lays out the steps taken in this procedure:
         flame-length-matrix        (initialize-matrix num-rows num-cols non-zero-indices)
         fire-line-intensity-matrix (initialize-matrix num-rows num-cols non-zero-indices)
         perimeter-indices          (filter #(burnable-neighbors? fire-spread-matrix
-                                                                (:fuel-model landfire-rasters)
-                                                                num-rows
-                                                                num-cols
-                                                                %)
+                                                                 (:fuel-model landfire-rasters)
+                                                                 num-rows
+                                                                 num-cols
+                                                                 %)
                                            non-zero-indices)
         ignited-cells              (into {}
                                          (for [index perimeter-indices
@@ -2856,7 +2856,6 @@ values.
  :output-csvs?            true}
 #+end_src
 
-
 * Configuration Examples
 
 Here is a complete sample configuration for using landfire layers from
@@ -3293,5 +3292,3 @@ This concludes our discussion of GridFire's command line interface.
    "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
    30000 41423 100))
 #+end_src
-
-* raster2pgsql-import-ignition-rater

@@ -48,13 +48,13 @@
   (str resources-path filename))
 
 (defn run-simulation [config]
-  (let [simulations     (:simulations config)
-        rand-generator  (if-let [seed (:random-seed config)]
+  (let [simulations      (:simulations config)
+        rand-generator   (if-let [seed (:random-seed config)]
                            (Random. seed)
                            (Random.))
-        landfire-layers (fetch/landfire-layers config)
+        landfire-layers  (fetch/landfire-layers config)
         landfire-rasters (into {} (map (fn [[layer-name info]] [layer-name (:matrix info)])) landfire-layers)
-        ignition-layer  (fetch/ignition-layer config)]
+        ignition-layer   (fetch/ignition-layer config)]
     (gf/run-simulations
      simulations
      landfire-rasters
@@ -80,13 +80,13 @@
 ;;-----------------------------------------------------------------------------
 
 (deftest fetch-ignition-layer-test
-  (testing "Fetching ignition layer from postgis and geotiff files"
-    (let [geotiff-config          (merge test-config-base
-                                         {:fetch-ignition-method :geotiff
-                                          :ignition-layer        (in-file-path "ign.tif")})
-          postgis-config          (merge test-config-base
-                                         {:fetch-ignition-method :postgis
-                                          :ignition-layer        "ignition.ign WHERE rid=1"})
+  (testing "Fetching ignition layer from postgis and geotiff file"
+    (let [geotiff-config         (merge test-config-base
+                                        {:fetch-ignition-method :geotiff
+                                         :ignition-layer        (in-file-path "ign.tif")})
+          postgis-config         (merge test-config-base
+                                        {:fetch-ignition-method :postgis
+                                         :ignition-layer        "ignition.ign WHERE rid=1"})
           geotiff-ignition-layer (fetch/ignition-layer postgis-config)
           postgis-ignition-layer (fetch/ignition-layer geotiff-config)]
 
@@ -94,15 +94,15 @@
              (:matrix postgis-ignition-layer))))))
 
 (deftest omit-ignition-method-test
-  (testing "Omitting fetch-igntion-method key in config"
-    (let [geotiff-config          (merge test-config-base
-                                         {:ignition-layer (in-file-path "ign.tif")})
+  (testing "Omitting fetch-ignition-method key in config"
+    (let [geotiff-config         (merge test-config-base
+                                        {:ignition-layer (in-file-path "ign.tif")})
           geotiff-ignition-layer (fetch/ignition-layer geotiff-config)]
 
       (is (nil? geotiff-ignition-layer)))))
 
 (deftest geotiff-ignition-test
-  (testing "Running simulation with ignition layer read from geotiff files"
+  (testing "Running simulation with ignition layer read from geotiff file"
     (let [geotiff-config (merge test-config-base
                                 {:fetch-ignition-method :geotiff
                                  :ignition-layer        (in-file-path "ign.tif")})
@@ -111,7 +111,7 @@
       (is (every? some? results)))))
 
 (deftest postgis-ignition-test
-  (testing "Running simulation with ignition layer read from geotiff files"
+  (testing "Running simulation with ignition layer read from geotiff file"
     (let [postgis-config (merge test-config-base
                                 {:db-spec               db-spec
                                  :fetch-ignition-method :postgis

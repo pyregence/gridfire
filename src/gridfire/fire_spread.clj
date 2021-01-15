@@ -364,10 +364,10 @@
         flame-length-matrix        (initialize-matrix num-rows num-cols non-zero-indices)
         fire-line-intensity-matrix (initialize-matrix num-rows num-cols non-zero-indices)
         perimeter-indices          (filter #(burnable-neighbors? fire-spread-matrix
-                                                                (:fuel-model landfire-rasters)
-                                                                num-rows
-                                                                num-cols
-                                                                %)
+                                                                 (:fuel-model landfire-rasters)
+                                                                 num-rows
+                                                                 num-cols
+                                                                 %)
                                            non-zero-indices)
         ignited-cells              (into {}
                                          (for [index perimeter-indices
