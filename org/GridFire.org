@@ -417,7 +417,7 @@ SCHEMA=$2
 SRID=$3
 
 LAYER="ign"
-raster2pgsql -I -C -s $SRID $LAYER.tif $SCHEMA.$LAYER | psql -h localhost -U $USERNAME
+raster2pgsql -I -C -t auto -s $SRID $LAYER.tif $SCHEMA.$LAYER | psql -h localhost -U $USERNAME
 #+end_src
 
 To run the script, give it the username name, schema name, and srid we wish the layers to have.
@@ -1867,7 +1867,7 @@ pseudo-code lays out the steps taken in this procedure:
 (defn compute-burn-trajectory
   [neighbor here spread-info-min spread-info-max fuel-model crown-bulk-density
    canopy-cover canopy-height canopy-base-height foliar-moisture crown-spread-max
-   crown-eccentricity landfire-layers cell-size overflow-trajectory overflow-heat]
+   crown-eccentricity landfire-rasters cell-size overflow-trajectory overflow-heat]
   (let [trajectory          (mop/- neighbor here)
         spread-direction    (offset-to-degrees trajectory)
         surface-spread-rate (rothermel-surface-fire-spread-any spread-info-max
@@ -1902,7 +1902,7 @@ pseudo-code lays out the steps taken in this procedure:
         flame-length        (byram-flame-length fire-line-intensity)]
     {:cell                neighbor
      :trajectory          trajectory
-     :terrain-distance    (distance-3d (:elevation landfire-layers) cell-size here neighbor)
+     :terrain-distance    (distance-3d (:elevation landfire-rasters) cell-size here neighbor)
      :spread-rate         spread-rate
      :fire-line-intensity fire-line-intensity
      :flame-length        flame-length
@@ -1919,7 +1919,7 @@ pseudo-code lays out the steps taken in this procedure:
   :fire-line-intensity Btu/ft/s,
   :flame-length ft,
   :fractional-distance [0-1]}, one for each cell adjacent to here."
-  [{:keys [landfire-layers
+  [{:keys [landfire-rasters
            wind-speed-20ft
            wind-from-direction
            fuel-moisture
@@ -1932,13 +1932,13 @@ pseudo-code lays out the steps taken in this procedure:
    [i j :as here]
    overflow-trajectory
    overflow-heat]
-  (let [fuel-model-number   (m/mget (:fuel-model         landfire-layers) i j)
-        slope               (m/mget (:slope              landfire-layers) i j)
-        aspect              (m/mget (:aspect             landfire-layers) i j)
-        canopy-height       (m/mget (:canopy-height      landfire-layers) i j)
-        canopy-base-height  (m/mget (:canopy-base-height landfire-layers) i j)
-        crown-bulk-density  (m/mget (:crown-bulk-density landfire-layers) i j)
-        canopy-cover        (m/mget (:canopy-cover       landfire-layers) i j)
+  (let [fuel-model-number   (m/mget (:fuel-model         landfire-rasters) i j)
+        slope               (m/mget (:slope              landfire-rasters) i j)
+        aspect              (m/mget (:aspect             landfire-rasters) i j)
+        canopy-height       (m/mget (:canopy-height      landfire-rasters) i j)
+        canopy-base-height  (m/mget (:canopy-base-height landfire-rasters) i j)
+        crown-bulk-density  (m/mget (:crown-bulk-density landfire-rasters) i j)
+        canopy-cover        (m/mget (:canopy-cover       landfire-rasters) i j)
         [fuel-model spread-info-min] (rothermel-fast-wrapper fuel-model-number fuel-moisture)
         midflame-wind-speed (* wind-speed-20ft 88.0
                                (wind-adjustment-factor (:delta fuel-model)
@@ -1954,11 +1954,11 @@ pseudo-code lays out the steps taken in this procedure:
     (into []
           (comp
            (filter #(and (in-bounds? num-rows num-cols %)
-                         (burnable? fire-spread-matrix (:fuel-model landfire-layers) %)))
+                         (burnable? fire-spread-matrix (:fuel-model landfire-rasters) %)))
            (map #(compute-burn-trajectory % here spread-info-min spread-info-max fuel-model
                                           crown-bulk-density canopy-cover canopy-height
                                           canopy-base-height foliar-moisture crown-spread-max
-                                          crown-eccentricity landfire-layers cell-size
+                                          crown-eccentricity landfire-rasters cell-size
                                           overflow-trajectory overflow-heat)))
           (get-neighbors here))))
 
@@ -1997,12 +1997,12 @@ pseudo-code lays out the steps taken in this procedure:
        (into [])))
 
 (defn update-ignited-cells
-  [{:keys [landfire-layers num-rows num-cols] :as constants}
+  [{:keys [landfire-rasters num-rows num-cols] :as constants}
    ignited-cells
    ignition-events
    fire-spread-matrix]
   (let [newly-ignited-cells (into #{} (map :cell) ignition-events)
-        fuel-model-matrix   (:fuel-model landfire-layers)]
+        fuel-model-matrix   (:fuel-model landfire-rasters)]
     (into {}
           (concat
            (for [[cell spread-info] ignited-cells
@@ -2070,7 +2070,7 @@ pseudo-code lays out the steps taken in this procedure:
   "Runs the raster-based fire spread model with a map of these arguments:
   - max-runtime: double (minutes)
   - cell-size: double (feet)
-  - landfire-layers: map containing these entries;
+  - landfire-rasters: map containing these entries;
     - elevation: core.matrix 2D double array (feet)
     - slope: core.matrix 2D double array (vertical feet/horizontal feet)
     - aspect: core.matrix 2D double array (degrees clockwise from north)
@@ -2097,15 +2097,15 @@ pseudo-code lays out the steps taken in this procedure:
       :random-ignition-point)))
 
 (defmethod run-fire-spread :random-ignition-point
-  [{:keys [landfire-layers] :as constants}]
+  [{:keys [landfire-rasters] :as constants}]
   (run-fire-spread (assoc constants
                           :initial-ignition-site
-                          (select-random-ignition-site (:fuel-model landfire-layers)))))
+                          (select-random-ignition-site (:fuel-model landfire-rasters)))))
 
 (defmethod run-fire-spread :ignition-point
-  [{:keys [landfire-layers num-rows num-cols initial-ignition-site] :as constants}]
+  [{:keys [landfire-rasters num-rows num-cols initial-ignition-site] :as constants}]
   (let [[i j]                      initial-ignition-site
-        fuel-model-matrix          (:fuel-model landfire-layers)
+        fuel-model-matrix          (:fuel-model landfire-rasters)
         fire-spread-matrix         (m/zero-matrix num-rows num-cols)
         flame-length-matrix        (m/zero-matrix num-rows num-cols)
         fire-line-intensity-matrix (m/zero-matrix num-rows num-cols)]
@@ -2136,12 +2136,17 @@ pseudo-code lays out the steps taken in this procedure:
         non-zero-indices           (get-non-zero-indices fire-spread-matrix)
         flame-length-matrix        (initialize-matrix num-rows num-cols non-zero-indices)
         fire-line-intensity-matrix (initialize-matrix num-rows num-cols non-zero-indices)
-        perimeter-indices          (filter #(burnable-neighbors? fire-spread-matrix
-                                                                 (:fuel-model landfire-rasters)
-                                                                 num-rows
-                                                                 num-cols
-                                                                 %)
+        perimeter-indices          (filter (and
+                                            #(in-bounds? num-rows num-cols %)
+                                            #(burnable-neighbors? fire-spread-matrix
+                                                                  (:fuel-model landfire-rasters)
+                                                                  num-rows
+                                                                  num-cols
+                                                                  %))
                                            non-zero-indices)
+        ;; _ (prn (m/row-count (:matrix initial-ignition-site)) (m/column-count (:matrix initial-ignition-site)))
+        ;; _ (prn num-rows num-cols)
+        ;; _ (prn (remove #(in-bounds? num-rows num-cols %) perimeter-indices))
         ignited-cells              (into {}
                                          (for [index perimeter-indices
                                                :let  [ignition-trajectories
@@ -2361,7 +2366,8 @@ or false:
             [clojure.java.io :as io]
             [gridfire.fetch :as fetch]
             [gridfire.fire-spread :refer [run-fire-spread]]
-            [magellan.core :refer [make-envelope matrix-to-raster
+            [magellan.core :refer [make-envelope
+                                   matrix-to-raster
                                    register-new-crs-definitions-from-properties-file!
                                    write-raster]]
             [matrix-viz.core :refer [save-matrix-as-png]])
@@ -2473,7 +2479,7 @@ or false:
        (if-let [fire-spread-results (run-fire-spread
                                      {:max-runtime               (max-runtime i)
                                       :cell-size                 cell-size
-                                      :landfire-layers           landfire-rasters
+                                      :landfire-rasters          landfire-rasters
                                       :wind-speed-20ft           (wind-speed-20ft i)
                                       :wind-from-direction       (wind-from-direction i)
                                       :fuel-moisture             fuel-moisture
@@ -2780,24 +2786,26 @@ this functionality.
     (:fetch-layer-method config)))
 
 (defmethod landfire-layers :postgis
-  [{:keys [db-spec landfire-layers]}]
+  [{:keys [db-spec] :as config}]
   (convert-metrics
-   (reduce (fn [amap layer-name]
-             (let [table (landfire-layers layer-name)]
-               (assoc amap layer-name
-                      (postgis-raster-to-matrix db-spec table))))
-           {}
-           layer-names)))
+   (let [tables (:landfire-layers config)]
+     (reduce (fn [amap layer-name]
+               (let [table (get tables layer-name)]
+                 (assoc amap layer-name
+                        (postgis-raster-to-matrix db-spec table))))
+             {}
+             layer-names))))
 
 (defmethod landfire-layers :geotiff
-  [{:keys [landfire-layers]}]
+  [config]
   (convert-metrics
-   (reduce (fn [amap layer-name]
-             (let [file-name (landfire-layers layer-name)]
-               (assoc amap layer-name
-                      (geotiff-raster-to-matrix file-name))))
-           {}
-           layer-names)))
+   (let [file-names (:landfire-layers config)]
+    (reduce (fn [amap layer-name]
+              (let [file-name (get file-names layer-name)]
+                (assoc amap layer-name
+                       (geotiff-raster-to-matrix file-name))))
+            {}
+            layer-names))))
 
 ;;-----------------------------------------------------------------------------
 ;; Initial Ignition
@@ -2808,12 +2816,12 @@ this functionality.
     (:fetch-ignition-method config)))
 
 (defmethod ignition-layer :postgis
-  [{:keys [db-spec ignition-layer]}]
-  (postgis-raster-to-matrix db-spec ignition-layer))
+  [{:keys [db-spec] :as config}]
+  (postgis-raster-to-matrix db-spec (:ignition-layer config)))
 
 (defmethod ignition-layer :geotiff
-  [{:keys [ignition-layer]}]
-  (geotiff-raster-to-matrix ignition-layer))
+  [config]
+  (geotiff-raster-to-matrix (:ignition-layer config)))
 
 (defmethod ignition-layer :default
   [_]

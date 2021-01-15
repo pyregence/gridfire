@@ -50,24 +50,26 @@
     (:fetch-layer-method config)))
 
 (defmethod landfire-layers :postgis
-  [{:keys [db-spec landfire-layers]}]
+  [{:keys [db-spec] :as config}]
   (convert-metrics
-   (reduce (fn [amap layer-name]
-             (let [table (landfire-layers layer-name)]
-               (assoc amap layer-name
-                      (postgis-raster-to-matrix db-spec table))))
-           {}
-           layer-names)))
+   (let [tables (:landfire-layers config)]
+     (reduce (fn [amap layer-name]
+               (let [table (get tables layer-name)]
+                 (assoc amap layer-name
+                        (postgis-raster-to-matrix db-spec table))))
+             {}
+             layer-names))))
 
 (defmethod landfire-layers :geotiff
-  [{:keys [landfire-layers]}]
+  [config]
   (convert-metrics
-   (reduce (fn [amap layer-name]
-             (let [file-name (landfire-layers layer-name)]
-               (assoc amap layer-name
-                      (geotiff-raster-to-matrix file-name))))
-           {}
-           layer-names)))
+   (let [file-names (:landfire-layers config)]
+    (reduce (fn [amap layer-name]
+              (let [file-name (get file-names layer-name)]
+                (assoc amap layer-name
+                       (geotiff-raster-to-matrix file-name))))
+            {}
+            layer-names))))
 
 ;;-----------------------------------------------------------------------------
 ;; Initial Ignition
@@ -78,12 +80,12 @@
     (:fetch-ignition-method config)))
 
 (defmethod ignition-layer :postgis
-  [{:keys [db-spec ignition-layer]}]
-  (postgis-raster-to-matrix db-spec ignition-layer))
+  [{:keys [db-spec] :as config}]
+  (postgis-raster-to-matrix db-spec (:ignition-layer config)))
 
 (defmethod ignition-layer :geotiff
-  [{:keys [ignition-layer]}]
-  (geotiff-raster-to-matrix ignition-layer))
+  [config]
+  (geotiff-raster-to-matrix (:ignition-layer config)))
 
 (defmethod ignition-layer :default
   [_]

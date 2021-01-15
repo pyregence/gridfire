@@ -7,7 +7,8 @@
             [clojure.java.io :as io]
             [gridfire.fetch :as fetch]
             [gridfire.fire-spread :refer [run-fire-spread]]
-            [magellan.core :refer [make-envelope matrix-to-raster
+            [magellan.core :refer [make-envelope
+                                   matrix-to-raster
                                    register-new-crs-definitions-from-properties-file!
                                    write-raster]]
             [matrix-viz.core :refer [save-matrix-as-png]])
@@ -119,7 +120,7 @@
        (if-let [fire-spread-results (run-fire-spread
                                      {:max-runtime               (max-runtime i)
                                       :cell-size                 cell-size
-                                      :landfire-layers           landfire-rasters
+                                      :landfire-rasters          landfire-rasters
                                       :wind-speed-20ft           (wind-speed-20ft i)
                                       :wind-from-direction       (wind-from-direction i)
                                       :fuel-moisture             fuel-moisture
