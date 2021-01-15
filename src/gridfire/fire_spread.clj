@@ -363,17 +363,12 @@
         non-zero-indices           (get-non-zero-indices fire-spread-matrix)
         flame-length-matrix        (initialize-matrix num-rows num-cols non-zero-indices)
         fire-line-intensity-matrix (initialize-matrix num-rows num-cols non-zero-indices)
-        perimeter-indices          (filter (and
-                                            #(in-bounds? num-rows num-cols %)
-                                            #(burnable-neighbors? fire-spread-matrix
-                                                                  (:fuel-model landfire-rasters)
-                                                                  num-rows
-                                                                  num-cols
-                                                                  %))
+        perimeter-indices          (filter #(burnable-neighbors? fire-spread-matrix
+                                                                (:fuel-model landfire-rasters)
+                                                                num-rows
+                                                                num-cols
+                                                                %)
                                            non-zero-indices)
-        ;; _ (prn (m/row-count (:matrix initial-ignition-site)) (m/column-count (:matrix initial-ignition-site)))
-        ;; _ (prn num-rows num-cols)
-        ;; _ (prn (remove #(in-bounds? num-rows num-cols %) perimeter-indices))
         ignited-cells              (into {}
                                          (for [index perimeter-indices
                                                :let  [ignition-trajectories
