@@ -2465,12 +2465,12 @@ or false:
             [clojure.data.csv :as csv]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [clojure.string :as s]
             [gridfire.fetch :as fetch]
             [gridfire.fire-spread :refer [run-fire-spread]]
-            [magellan.core :refer [make-envelope
-                                   matrix-to-raster
-                                   register-new-crs-definitions-from-properties-file!
-                                   write-raster]]
+            [magellan.core :refer [make-envelope matrix-to-raster
+                                  register-new-crs-definitions-from-properties-file!
+                                  write-raster]]
             [matrix-viz.core :refer [save-matrix-as-png]])
   (:import java.util.Random))
 
@@ -2751,7 +2751,6 @@ following mappings:
 - *db-spec*: a map of database connection information for our Postgresql
   database
 - *landfire-layers*: a map of layer names to a partial sql statement
->>>>>>> cc67992f21607e5152fc1f0413639252fdbcdf23
 
 #+begin_src clojure
 {:fetch-layer-method :postgis
@@ -3006,13 +3005,14 @@ values.
  :foliar-moisture           90}            ; (%)
 #+end_src
 
-Temperature, relative humidity, wind speed, and wind direction accepts an
-additional type of input. Gridfire allows us to use weather data from rasters.
-To use weather data from raster we have two options. We can read rasters from a
-PostGIS database or a raster file on disk.
+Temperature, relative humidity, wind speed, and wind direction accepts
+an additional type of input. GridFire allows us to use weather data
+from rasters. To use weather data from raster we have two options. We
+can read rasters from a PostGIS database or a raster file on disk.
 
-To use weather raster in our PostGIS database include the
-following mappings:
+To use weather raster in our PostGIS database include the following
+mappings: 
+
 - *fetch-<weather-type>-method*: a keyword to denote which method we want to use
 - *<weather-type>*: a mapping of layer names to a partial sql statement
 
@@ -3023,6 +3023,7 @@ following mappings:
 
 To use weather raster from a raster file on disk include the
 following mappings:
+
 - *fetch-<weather-type>-method*: a keyword to denote which method we want to use
 - *<weather-type>*: a mapping of layer names to file paths
 

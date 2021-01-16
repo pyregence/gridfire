@@ -1,8 +1,9 @@
 ;; [[file:../../org/GridFire.org::postgis-bridge][postgis-bridge]]
 (ns gridfire.postgis-bridge
-  (:require [clojure.java.jdbc :as jdbc]
-            [clojure.core.matrix :as m])
-  (:import (org.postgresql.jdbc PgArray)))
+  (:require [clojure.core.matrix :as m]
+            [clojure.java.jdbc :as jdbc]
+            [clojure.string :as s])
+  (:import org.postgresql.jdbc.PgArray))
 
 (m/set-current-implementation :vectorz)
 
@@ -67,8 +68,8 @@
        .getValue
        read-string
        second
-       (#(clojure.string/replace % #"\{" "["))
-       (#(clojure.string/replace % #"\}" "]"))
+       (#(s/replace % #"\{" "["))
+       (#(s/replace % #"\}" "]"))
        read-string
        (m/emap #(or % -1.0))
        m/matrix))
