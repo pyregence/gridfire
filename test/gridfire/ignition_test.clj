@@ -18,14 +18,15 @@
 
 (def test-config-base
   {:db-spec                   db-spec
-   :landfire-layers           {:aspect             "landfire.asp WHERE rid=1"
-                               :canopy-base-height "landfire.cbh WHERE rid=1"
-                               :canopy-cover       "landfire.cc WHERE rid=1"
-                               :canopy-height      "landfire.ch WHERE rid=1"
-                               :crown-bulk-density "landfire.cbd WHERE rid=1"
-                               :fuel-model         "landfire.fbfm40 WHERE rid=1"
-                               :slope              "landfire.slp WHERE rid=1"
-                               :elevation          "landfire.dem WHERE rid=1"}
+   :fetch-layer-method        :geotiff
+   :landfire-layers           {:aspect             "test/gridfire/resources/asp.tif"
+                               :canopy-base-height "test/gridfire/resources/cbh.tif"
+                               :canopy-cover       "test/gridfire/resources/cc.tif"
+                               :canopy-height      "test/gridfire/resources/ch.tif"
+                               :crown-bulk-density "test/gridfire/resources/cbd.tif"
+                               :elevation          "test/gridfire/resources/dem.tif"
+                               :fuel-model         "test/gridfire/resources/fbfm40.tif"
+                               :slope              "test/gridfire/resources/slp.tif"}
    :srid                      "CUSTOM:900914"
    :cell-size                 98.425     ; (feet)
    :max-runtime               60         ; (minutes)
@@ -37,8 +38,7 @@
    :ellipse-adjustment-factor 1.0        ; (< 1.0 = more circular, > 1.0 = more elliptical)
    :simulations               1
    :random-seed               1234567890 ; long value (optional)
-   :output-csvs?              true
-   :fetch-layer-method        :postgis})
+   :output-csvs?              true})
 
 ;;-----------------------------------------------------------------------------
 ;; Utils
@@ -52,12 +52,12 @@
         rand-generator   (if-let [seed (:random-seed config)]
                            (Random. seed)
                            (Random.))
-        landfire-layers  (gf/fetch-landfire-layers config)
-        landfire-matrix  (into {} (map (fn [[layer-name info]] [layer-name (:matrix info)])) landfire-layers)
-        ignition-raster  (fetch/initial-ignition-layers config)]
+        landfire-layers  (fetch/landfire-layers config)
+        landfire-rasters (into {} (map (fn [[layer-name info]] [layer-name (:matrix info)])) landfire-layers)
+        ignition-layer   (fetch/ignition-layer config)]
     (gf/run-simulations
      simulations
-     landfire-matrix
+     landfire-rasters
      (gf/get-envelope config landfire-layers)
      (:cell-size config)
      (gf/draw-samples rand-generator simulations (:ignition-row config))
@@ -73,36 +73,36 @@
      (:output-geotiffs? config)
      (:output-pngs? config)
      (:output-csvs? config)
-     ignition-raster)))
+     ignition-layer)))
 
 ;;-----------------------------------------------------------------------------
 ;; Tests
 ;;-----------------------------------------------------------------------------
 
-(deftest fetch-ignition-layers-test
-  (testing "Fetching ignition layers from postgis and geotiff files"
-    (let [geotiff-config          (merge test-config-base
-                                         {:fetch-ignition-method :geotiff
-                                          :ignition-layer        (in-file-path "ign.tif")})
-          postgis-config          (merge test-config-base
-                                         {:fetch-ignition-method :postgis
-                                          :ignition-layer        "ignition.ign WHERE rid=1"})
-          geotiff-ignition-layers (fetch/initial-ignition-layers postgis-config)
-          postgis-ignition-layers (fetch/initial-ignition-layers geotiff-config)]
+(deftest fetch-ignition-layer-test
+  (testing "Fetching ignition layer from postgis and geotiff file"
+    (let [geotiff-config         (merge test-config-base
+                                        {:fetch-ignition-method :geotiff
+                                         :ignition-layer        (in-file-path "ign.tif")})
+          postgis-config         (merge test-config-base
+                                        {:fetch-ignition-method :postgis
+                                         :ignition-layer        "ignition.ign WHERE rid=1"})
+          geotiff-ignition-layer (fetch/ignition-layer postgis-config)
+          postgis-ignition-layer (fetch/ignition-layer geotiff-config)]
 
-      (is (= (:matrix geotiff-ignition-layers)
-             (:matrix postgis-ignition-layers))))))
+      (is (= (:matrix geotiff-ignition-layer)
+             (:matrix postgis-ignition-layer))))))
 
 (deftest omit-ignition-method-test
-  (testing "Omitting fetch-igntion-method key in config"
-    (let [geotiff-config          (merge test-config-base
-                                         {:ignition-layer (in-file-path "ign.tif")})
-          geotiff-ignition-layers (fetch/initial-ignition-layers geotiff-config)]
+  (testing "Omitting fetch-ignition-method key in config"
+    (let [geotiff-config         (merge test-config-base
+                                        {:ignition-layer (in-file-path "ign.tif")})
+          geotiff-ignition-layer (fetch/ignition-layer geotiff-config)]
 
-      (is (nil? geotiff-ignition-layers)))))
+      (is (nil? geotiff-ignition-layer)))))
 
 (deftest geotiff-ignition-test
-  (testing "Running simulation with ignition layers read from geotiff files"
+  (testing "Running simulation with ignition layer read from geotiff file"
     (let [geotiff-config (merge test-config-base
                                 {:fetch-ignition-method :geotiff
                                  :ignition-layer        (in-file-path "ign.tif")})
@@ -111,9 +111,10 @@
       (is (every? some? results)))))
 
 (deftest postgis-ignition-test
-  (testing "Running simulation with ignition layers read from geotiff files"
+  (testing "Running simulation with ignition layer read from geotiff file"
     (let [postgis-config (merge test-config-base
-                                {:fetch-ignition-method :postgis
+                                {:db-spec               db-spec
+                                 :fetch-ignition-method :postgis
                                  :ignition-layer        "ignition.ign WHERE rid=1"})
-          results (run-simulation postgis-config)]
+          results        (run-simulation postgis-config)]
       (is (every? some? results)))))

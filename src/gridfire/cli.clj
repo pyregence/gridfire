@@ -7,7 +7,8 @@
             [clojure.java.io :as io]
             [gridfire.fetch :as fetch]
             [gridfire.fire-spread :refer [run-fire-spread]]
-            [magellan.core :refer [make-envelope matrix-to-raster
+            [magellan.core :refer [make-envelope
+                                   matrix-to-raster
                                    register-new-crs-definitions-from-properties-file!
                                    write-raster]]
             [matrix-viz.core :refer [save-matrix-as-png]])
@@ -103,7 +104,7 @@
   [simulations landfire-rasters envelope cell-size ignition-row
    ignition-col max-runtime temperature relative-humidity wind-speed-20ft
    wind-from-direction foliar-moisture ellipse-adjustment-factor
-   outfile-suffix output-geotiffs? output-pngs? output-csvs? ignition-raster]
+   outfile-suffix output-geotiffs? output-pngs? output-csvs? ignition-layer]
   (mapv
    (fn [i]
      (let [equilibrium-moisture  (calc-emc (relative-humidity i) (temperature i))
@@ -112,14 +113,14 @@
                                          :100hr (+ equilibrium-moisture 0.025)}
                                   :live {:herbaceous (* equilibrium-moisture 2.0)
                                          :woody      (* equilibrium-moisture 0.5)}}
-           initial-ignition-site (or ignition-raster
+           initial-ignition-site (or ignition-layer
                                      (and (ignition-row i)
                                           (ignition-col i)
                                           [(ignition-row i) (ignition-col i)]))]
        (if-let [fire-spread-results (run-fire-spread
                                      {:max-runtime               (max-runtime i)
                                       :cell-size                 cell-size
-                                      :landfire-layers           landfire-rasters
+                                      :landfire-rasters          landfire-rasters
                                       :wind-speed-20ft           (wind-speed-20ft i)
                                       :wind-from-direction       (wind-from-direction i)
                                       :fuel-moisture             fuel-moisture
@@ -221,11 +222,11 @@
   [& config-files]
   (doseq [config-file config-files]
     (let [config           (edn/read-string (slurp config-file))
-          landfire-layers  (fetch/landfire-rasters config)
+          landfire-layers  (fetch/landfire-layers config)
           landfire-rasters (into {}
                                  (map (fn [[layer info]] [layer (:matrix info)]))
                                  landfire-layers)
-          ignition-raster  (fetch/initial-ignition-layers config)
+          ignition-layer   (fetch/ignition-layer config)
           envelope         (get-envelope config landfire-layers)
           simulations      (:simulations config)
           rand-generator   (if-let [seed (:random-seed config)]
@@ -253,7 +254,7 @@
             (:output-geotiffs? config)
             (:output-pngs? config)
             (:output-csvs? config)
-            ignition-raster)
+            ignition-layer)
            (write-csv-outputs
             (:output-csvs? config)
             (str "summary_stats" (:outfile-suffix config) ".csv"))))))

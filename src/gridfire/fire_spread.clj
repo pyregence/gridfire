@@ -83,18 +83,18 @@
    [ 0 -1] 270.0   ; W
    [-1 -1] 315.0}) ; NW
 
-(defn rothermel-fast-wrapper [fuel-model-number fuel-moisture]
-  (let [fuel-model      (-> (build-fuel-model (int fuel-model-number))
-                            (moisturize fuel-moisture))
-        spread-info-min (rothermel-surface-fire-spread-no-wind-no-slope fuel-model)]
-    [fuel-model spread-info-min]))
-
-(def rothermel-fast-wrapper (memoize rothermel-fast-wrapper))
+(def rothermel-fast-wrapper
+  (memoize
+   (fn [fuel-model-number fuel-moisture]
+     (let [fuel-model      (-> (build-fuel-model (int fuel-model-number))
+                               (moisturize fuel-moisture))
+           spread-info-min (rothermel-surface-fire-spread-no-wind-no-slope fuel-model)]
+       [fuel-model spread-info-min]))))
 
 (defn compute-burn-trajectory
   [neighbor here spread-info-min spread-info-max fuel-model crown-bulk-density
    canopy-cover canopy-height canopy-base-height foliar-moisture crown-spread-max
-   crown-eccentricity landfire-layers cell-size overflow-trajectory overflow-heat]
+   crown-eccentricity landfire-rasters cell-size overflow-trajectory overflow-heat]
   (let [trajectory          (mop/- neighbor here)
         spread-direction    (offset-to-degrees trajectory)
         surface-spread-rate (rothermel-surface-fire-spread-any spread-info-max
@@ -129,7 +129,7 @@
         flame-length        (byram-flame-length fire-line-intensity)]
     {:cell                neighbor
      :trajectory          trajectory
-     :terrain-distance    (distance-3d (:elevation landfire-layers) cell-size here neighbor)
+     :terrain-distance    (distance-3d (:elevation landfire-rasters) cell-size here neighbor)
      :spread-rate         spread-rate
      :fire-line-intensity fire-line-intensity
      :flame-length        flame-length
@@ -140,13 +140,13 @@
 (defn compute-neighborhood-fire-spread-rates!
   "Returns a vector of entries of the form:
   {:cell [i j],
-  :trajectory [di dj],
-  :terrain-distance ft,
-  :spread-rate ft/min,
-  :fire-line-intensity Btu/ft/s,
-  :flame-length ft,
-  :fractional-distance [0-1]}, one for each cell adjacent to here."
-  [{:keys [landfire-layers
+   :trajectory [di dj],
+   :terrain-distance ft,
+   :spread-rate ft/min,
+   :fire-line-intensity Btu/ft/s,
+   :flame-length ft,
+   :fractional-distance [0-1]}, one for each cell adjacent to here."
+  [{:keys [landfire-rasters
            wind-speed-20ft
            wind-from-direction
            fuel-moisture
@@ -159,13 +159,13 @@
    [i j :as here]
    overflow-trajectory
    overflow-heat]
-  (let [fuel-model-number   (m/mget (:fuel-model         landfire-layers) i j)
-        slope               (m/mget (:slope              landfire-layers) i j)
-        aspect              (m/mget (:aspect             landfire-layers) i j)
-        canopy-height       (m/mget (:canopy-height      landfire-layers) i j)
-        canopy-base-height  (m/mget (:canopy-base-height landfire-layers) i j)
-        crown-bulk-density  (m/mget (:crown-bulk-density landfire-layers) i j)
-        canopy-cover        (m/mget (:canopy-cover       landfire-layers) i j)
+  (let [fuel-model-number   (m/mget (:fuel-model         landfire-rasters) i j)
+        slope               (m/mget (:slope              landfire-rasters) i j)
+        aspect              (m/mget (:aspect             landfire-rasters) i j)
+        canopy-height       (m/mget (:canopy-height      landfire-rasters) i j)
+        canopy-base-height  (m/mget (:canopy-base-height landfire-rasters) i j)
+        crown-bulk-density  (m/mget (:crown-bulk-density landfire-rasters) i j)
+        canopy-cover        (m/mget (:canopy-cover       landfire-rasters) i j)
         [fuel-model spread-info-min] (rothermel-fast-wrapper fuel-model-number fuel-moisture)
         midflame-wind-speed (* wind-speed-20ft 88.0
                                (wind-adjustment-factor (:delta fuel-model)
@@ -181,11 +181,11 @@
     (into []
           (comp
            (filter #(and (in-bounds? num-rows num-cols %)
-                         (burnable? fire-spread-matrix (:fuel-model landfire-layers) %)))
+                         (burnable? fire-spread-matrix (:fuel-model landfire-rasters) %)))
            (map #(compute-burn-trajectory % here spread-info-min spread-info-max fuel-model
                                           crown-bulk-density canopy-cover canopy-height
                                           canopy-base-height foliar-moisture crown-spread-max
-                                          crown-eccentricity landfire-layers cell-size
+                                          crown-eccentricity landfire-rasters cell-size
                                           overflow-trajectory overflow-heat)))
           (get-neighbors here))))
 
@@ -224,12 +224,12 @@
        (into [])))
 
 (defn update-ignited-cells
-  [{:keys [landfire-layers num-rows num-cols] :as constants}
+  [{:keys [landfire-rasters num-rows num-cols] :as constants}
    ignited-cells
    ignition-events
    fire-spread-matrix]
   (let [newly-ignited-cells (into #{} (map :cell) ignition-events)
-        fuel-model-matrix   (:fuel-model landfire-layers)]
+        fuel-model-matrix   (:fuel-model landfire-rasters)]
     (into {}
           (concat
            (for [[cell spread-info] ignited-cells
@@ -297,7 +297,7 @@
   "Runs the raster-based fire spread model with a map of these arguments:
   - max-runtime: double (minutes)
   - cell-size: double (feet)
-  - landfire-layers: map containing these entries;
+  - landfire-rasters: map containing these entries;
     - elevation: core.matrix 2D double array (feet)
     - slope: core.matrix 2D double array (vertical feet/horizontal feet)
     - aspect: core.matrix 2D double array (degrees clockwise from north)
@@ -314,7 +314,7 @@
   - initial-ignition-site: One of the following:
      - point represented as [row col]
      - map containing a :matrix field of type core.matrix 2D double array (0-2)
-     - nil (this causes Gridfire to select a random ignition-point)
+     - nil (this causes GridFire to select a random ignition-point)
   - num-rows: integer
   - num-cols: integer"
   (fn [{:keys [initial-ignition-site]}]
@@ -324,15 +324,15 @@
       :random-ignition-point)))
 
 (defmethod run-fire-spread :random-ignition-point
-  [{:keys [landfire-layers] :as constants}]
+  [{:keys [landfire-rasters] :as constants}]
   (run-fire-spread (assoc constants
                           :initial-ignition-site
-                          (select-random-ignition-site (:fuel-model landfire-layers)))))
+                          (select-random-ignition-site (:fuel-model landfire-rasters)))))
 
 (defmethod run-fire-spread :ignition-point
-  [{:keys [landfire-layers num-rows num-cols initial-ignition-site] :as constants}]
+  [{:keys [landfire-rasters num-rows num-cols initial-ignition-site] :as constants}]
   (let [[i j]                      initial-ignition-site
-        fuel-model-matrix          (:fuel-model landfire-layers)
+        fuel-model-matrix          (:fuel-model landfire-rasters)
         fire-spread-matrix         (m/zero-matrix num-rows num-cols)
         flame-length-matrix        (m/zero-matrix num-rows num-cols)
         fire-line-intensity-matrix (m/zero-matrix num-rows num-cols)]

@@ -1,4 +1,4 @@
-;; [[file:../../org/GridFire.org::*Section 2: Ignition from which to build simulation inputs][Section 2: Ignition from which to build simulation inputs:4]]
+;; [[file:../../org/GridFire.org::*Section 2: Ignition data from which to build simulation inputs][Section 2: Ignition data from which to build simulation inputs:4]]
 (ns gridfire.fetch
   (:require
    [clojure.string :as s]
@@ -10,7 +10,7 @@
    [gridfire.surface-fire :refer [degrees-to-radians]]))
 
 ;;-----------------------------------------------------------------------------
-;; Landfire
+;; LANDFIRE
 ;;-----------------------------------------------------------------------------
 
 (def layer-names
@@ -40,7 +40,7 @@
       (update-in [:crown-bulk-density :matrix]
                  (fn [matrix] (m/emap #(* % 0.0624) matrix))))) ; kg/m^3 -> lb/ft^3
 
-(defmulti landfire-rasters
+(defmulti landfire-layers
   "Returns a map of LANDFIRE rasters (represented as maps) with the following units:
    {:elevation          feet
     :slope              vertical feet/horizontal feet
@@ -53,43 +53,45 @@
   (fn [config]
     (:fetch-layer-method config)))
 
-(defmethod landfire-rasters :postgis
-  [{:keys [db-spec landfire-layers]}]
+(defmethod landfire-layers :postgis
+  [{:keys [db-spec] :as config}]
   (convert-metrics
-   (reduce (fn [amap layer-name]
-             (let [table (landfire-layers layer-name)]
-               (assoc amap layer-name
-                      (postgis-raster-to-matrix db-spec table))))
-           {}
-           layer-names)))
+   (let [tables (:landfire-layers config)]
+     (reduce (fn [amap layer-name]
+               (let [table (get tables layer-name)]
+                 (assoc amap layer-name
+                        (postgis-raster-to-matrix db-spec table))))
+             {}
+             layer-names))))
 
-(defmethod landfire-rasters :geotiff
-  [{:keys [landfire-layers]}]
+(defmethod landfire-layers :geotiff
+  [config]
   (convert-metrics
-   (reduce (fn [amap layer-name]
-             (let [file-name (landfire-layers layer-name)]
-               (assoc amap layer-name
-                      (geotiff-raster-to-matrix file-name))))
-           {}
-           layer-names)))
+   (let [file-names (:landfire-layers config)]
+    (reduce (fn [amap layer-name]
+              (let [file-name (get file-names layer-name)]
+                (assoc amap layer-name
+                       (geotiff-raster-to-matrix file-name))))
+            {}
+            layer-names))))
 
 ;;-----------------------------------------------------------------------------
 ;; Initial Ignition
 ;;-----------------------------------------------------------------------------
 
-(defmulti initial-ignition-layers
+(defmulti ignition-layer
   (fn [config]
     (:fetch-ignition-method config)))
 
-(defmethod initial-ignition-layers :postgis
-  [{:keys [db-spec ignition-layer]}]
-  (postgis-raster-to-matrix db-spec ignition-layer))
+(defmethod ignition-layer :postgis
+  [{:keys [db-spec] :as config}]
+  (postgis-raster-to-matrix db-spec (:ignition-layer config)))
 
-(defmethod initial-ignition-layers :geotiff
-  [{:keys [ignition-layer]}]
-  (geotiff-raster-to-matrix ignition-layer))
+(defmethod ignition-layer :geotiff
+  [config]
+  (geotiff-raster-to-matrix (:ignition-layer config)))
 
-(defmethod initial-ignition-layers :default
+(defmethod ignition-layer :default
   [_]
   nil)
 
