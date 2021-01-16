@@ -140,12 +140,12 @@
 (defn compute-neighborhood-fire-spread-rates!
   "Returns a vector of entries of the form:
   {:cell [i j],
-  :trajectory [di dj],
-  :terrain-distance ft,
-  :spread-rate ft/min,
-  :fire-line-intensity Btu/ft/s,
-  :flame-length ft,
-  :fractional-distance [0-1]}, one for each cell adjacent to here."
+   :trajectory [di dj],
+   :terrain-distance ft,
+   :spread-rate ft/min,
+   :fire-line-intensity Btu/ft/s,
+   :flame-length ft,
+   :fractional-distance [0-1]}, one for each cell adjacent to here."
   [{:keys [landfire-rasters
            wind-speed-20ft
            wind-from-direction
@@ -314,7 +314,7 @@
   - initial-ignition-site: One of the following:
      - point represented as [row col]
      - map containing a :matrix field of type core.matrix 2D double array (0-2)
-     - nil (this causes Gridfire to select a random ignition-point)
+     - nil (this causes GridFire to select a random ignition-point)
   - num-rows: integer
   - num-cols: integer"
   (fn [{:keys [initial-ignition-site]}]

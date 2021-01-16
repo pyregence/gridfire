@@ -1,4 +1,4 @@
-;; [[file:../../org/GridFire.org::*Section 2: Ignition from which to build simulation inputs][Section 2: Ignition from which to build simulation inputs:4]]
+;; [[file:../../org/GridFire.org::*Section 2: Ignition data from which to build simulation inputs][Section 2: Ignition data from which to build simulation inputs:4]]
 (ns gridfire.fetch
   (:require [clojure.core.matrix :as m]
             [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
@@ -6,7 +6,7 @@
             [gridfire.surface-fire :refer [degrees-to-radians]]))
 
 ;;-----------------------------------------------------------------------------
-;; Landfire
+;; LANDFIRE
 ;;-----------------------------------------------------------------------------
 
 (def layer-names
@@ -90,4 +90,4 @@
 (defmethod ignition-layer :default
   [_]
   nil)
-;; Section 2: Ignition from which to build simulation inputs:4 ends here
+;; Section 2: Ignition data from which to build simulation inputs:4 ends here

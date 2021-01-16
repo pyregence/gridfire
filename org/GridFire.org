@@ -135,10 +135,11 @@ these library dependencies and then run the built-in test suite to
 verify that GridFire compiles and runs as expected on our local
 computer.
 
-Before we run tests we'll need to setup a test database and import rasters
-into it. We will be prompted for the postgres and gridfire_test user's password.
-Postgres user's password will be whatever it is when we setup postgres. for
-gridfire_test user's password refer to ``src/sql/create_test_db.sql''
+Before we run tests we'll need to setup a test database and import
+rasters into it. We will be prompted for the postgres and
+gridfire_test user's password. Postgres user's password will be
+whatever it is when we setup postgres. For gridfire_test user's
+password refer to ``src/sql/create_test_db.sql''
 
 #+name: clojure-test-db
 #+begin_src sh :results silent :exports code
@@ -358,7 +359,8 @@ do
 done
 #+end_src
 
-To run the script, give it our database name, schema, and SRID
+To run the script, give it our username, schema, and srid we wish the layers to
+have.
 
 #+begin_src sh
 sh import_landfire_rasters.sh gridfire landfire 90914
@@ -396,18 +398,20 @@ VALUES (900914, 'user-generated', 900914,
 We may also want to import initial ignition rasters into our database.
 We can do so with a similar script as importing landfire rasters.
 
-First create a new schema
+First create a new schema.
+
 #+name: create-ignition-schema
 #+begin_src sql :engine postgresql :cmdline -U gridfire :results silent :exports code
 CREATE SCHEMA ignition;
 #+end_src
 
-Then we can use the following script to import ignition rasters into
-our  database given the schema and username as inputs.
+Then we can use the following script to import an ignition raster into
+our database given the schema and username as inputs.
 
 *Note:* This script needs to be run in the same folder as where these
 rasters reside. The filenames of these rasters should match the
 elements in the for loop (i.e. ign.tif)
+
 #+name: raster2pgsql-import-ignition-raster
 #+begin_src sh :results silent :exports code :tangle ../resources/import_ignition_rasters.sh :padline no :no-expand :comments link
 #!/bin/sh
@@ -420,7 +424,8 @@ LAYER="ign"
 raster2pgsql -I -C -t auto -s $SRID $LAYER.tif $SCHEMA.$LAYER | psql -h localhost -U $USERNAME
 #+end_src
 
-To run the script, give it the username name, schema name, and srid we wish the layers to have.
+To run the script, give it the username, schema name, and srid we wish the layers to have.
+
 #+begin_src bash
 sh import_ignition_rasters.sh gridfire ignition 90014
 #+end_src
@@ -504,8 +509,8 @@ fire spread modelling (particularly those reliant on the curing
 formulas of dynamic fuel loading) until it is provided as a
 characteristic of local weather conditions.
 
-The fuel models supported by GridFire include the standard 13 fuel models
-of Rothermel, Albini, and Anderson\citep{Anderson1982} and the
+The fuel models supported by GridFire include the standard 13 fuel
+models of Rothermel, Albini, and Anderson\citep{Anderson1982} and the
 additional 40 fuel models defined by Scott and
 Burgan\citep{Scott2005}. These are all concisely encoded in an
 internal data structure, which may be updated to include additional
@@ -1913,12 +1918,12 @@ pseudo-code lays out the steps taken in this procedure:
 (defn compute-neighborhood-fire-spread-rates!
   "Returns a vector of entries of the form:
   {:cell [i j],
-  :trajectory [di dj],
-  :terrain-distance ft,
-  :spread-rate ft/min,
-  :fire-line-intensity Btu/ft/s,
-  :flame-length ft,
-  :fractional-distance [0-1]}, one for each cell adjacent to here."
+   :trajectory [di dj],
+   :terrain-distance ft,
+   :spread-rate ft/min,
+   :fire-line-intensity Btu/ft/s,
+   :flame-length ft,
+   :fractional-distance [0-1]}, one for each cell adjacent to here."
   [{:keys [landfire-rasters
            wind-speed-20ft
            wind-from-direction
@@ -2087,7 +2092,7 @@ pseudo-code lays out the steps taken in this procedure:
   - initial-ignition-site: One of the following:
      - point represented as [row col]
      - map containing a :matrix field of type core.matrix 2D double array (0-2)
-     - nil (this causes Gridfire to select a random ignition-point)
+     - nil (this causes GridFire to select a random ignition-point)
   - num-rows: integer
   - num-cols: integer"
   (fn [{:keys [initial-ignition-site]}]
@@ -2171,12 +2176,17 @@ their map layers as 2D Clojure core.matrix values. In order to enable
 GridFire to easily access a wide range of raster formatted GIS layers
 directly, we have the following options:
 
-1. Postgresql (an open source database) with the PostGIS spatial
-   extensions. This interface is described in Section [[PostGIS Bridge]].
+1. A simple Clojure interface to a Postgresql database, containing
+   the PostGIS spatial extensions. This interface is described in
+   Section [[PostGIS Bridge]].
 
-2. Magellan A Clojure library for interacting with GeoTools, an open
-   source Java library that provides tools for geospatial data. This
-   interface is described in Section [[Magellan]].
+2. Magellan, a Clojure library for interacting with geospatial
+   datasets. This interface is described in Section [[Magellan]].
+
+Section [[Command Line Interface]] describes GridFire's command line
+interface along with its input configuration file format, which
+allows users to select between the PostGIS and Magellan data import
+options easily.
 
 Using one of these options along with a simple client interface in
 clojure Section [[Command Line Interface]] which describes GridFire's
@@ -2261,9 +2271,10 @@ command line interface.
 ** Magellan
 
 Reading raster layers from disk is performed by a single function,
-called *geotiff-raster-to-matrix*, which given a filepath to the raster
-file, constructs the same map of information as
-*postgis-raster-to-matrix* in the previous section.
+called *geotiff-raster-to-matrix*. Given the location of a GeoTIFF
+file, this function will read the raster into memory and return the
+same map of information as the *postgis-raster-to-matrix* function,
+described in the previous section.
 
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/magellan_bridge.clj :padline no :no-expand :comments link
 (ns gridfire.magellan-bridge
@@ -2604,7 +2615,7 @@ or false:
             (str "summary_stats" (:outfile-suffix config) ".csv"))))))
 #+end_src
 
-* Configuration file
+* Configuration File
 
 The configuration file for GridFire's command line interface is a text
 file in Extensible Data Notation (EDN) format.[fn::
@@ -2623,17 +2634,18 @@ below:
 
 ** Section 1: Landscape data to be shared by all simulations
 
-Gridfire allows us to choose how we want to ingest landscape data
+GridFire allows us to choose how we want to ingest landscape data
 through the configuration file. We can choose to get landfire layers
-from our PostGIS database or we can read raster files from disk. This
+from our PostGIS database, or we can read raster files from disk. This
 behavior is controlled as follows:
 
-To fetch landfire layers from a Postgersql database include the
+To fetch landfire layers from a Postgresql database, include the
 following mappings:
+
 - *fetch-layer-method*: a keyword to denote which method we want to use
-- *db-spec*: a map of database connection information to our Postgresql
-  database.
-- *landfire-layers*: a map of layer names to a partial sql statement.
+- *db-spec*: a map of database connection information for our Postgresql
+  database
+- *landfire-layers*: a map of layer names to a partial sql statement
 
 #+begin_src clojure
 {:fetch-layer-method :postgis
@@ -2651,8 +2663,9 @@ following mappings:
                       :elevation          "landfire.dem WHERE rid=100"}}
 #+end_src
 
-To fetch landfire layers from a Postgresql database include the
+To fetch landfire layers from GeoTIFF files, include the
 following mappings:
+
 - *fetch-layer-method*: a keyword to denote which method we want to use
 - *landfire-layers*: a map of layer names to file paths (paths are
   relative to the GridFire project root)
@@ -2676,59 +2689,63 @@ Include the following required mapping on all configurations:
  :cell-size 98.425} ; (feet)
 #+end_src
 
-** Section 2: Ignition from which to build simulation inputs
+** Section 2: Ignition data from which to build simulation inputs
 
-Gridfire allows us to choose how we want to initialize the ignition
+GridFire allows us to choose how we want to initialize the ignition
 area. We can choose one of 2 options: to initialize a single point or
-an existing burn paremeter (raster).
+an existing burn perimeter (raster).
 
-To initialize a single point include the following mappings:
+To initialize a single point, include the following mappings:
+
 - *ignition-row*: (single, list, or range of values)
-- *ignition-col*: (single, lsit, or range of values)
+- *ignition-col*: (single, list, or range of values)
 
-For this method of ignition values maybe entered in one of three ways:
+For this method of ignition, values may be entered in one of three ways:
 
 1. If a single value is provided, it will be kept the same for all
    simulations.
 2. For a list of values, a value from the list will be randomly
    selected in each simulation.
-3. For a range of values, a range of values, a value from the range
-   [inclusive exclusive] will be randomly selected in each simulation
+3. For a range of values, a value from the range [inclusive exclusive]
+   will be randomly selected in each simulation.
 
 #+begin_src clojure
 {:ignition-row [10 90]
  :ignition-col [20 80]}
- #+end_src
+#+end_src
 
-To initialize an existing burn paremeter from a raster we have two
+To initialize an existing burn perimeter from a raster, we have two
 options. We can read rasters from a Postgresql database or a raster
 file on disk.
 
-To initialize a burn paremeter from a raster in our PostGIS database
+To initialize a burn perimeter from a raster in our PostGIS database,
 include the following mappings:
+
 - *fetch-ignition-method*: a keyword to denote which method we want to
   use
-- *ignition-layers*: a partial sql statement
+- *ignition-layer*: a partial sql statement
 
 #+begin_src clojure
 {:fetch-ignition-method :postgis
- :ignition-layers       "ignition.scar WHERE rid=1"}
+ :ignition-layers       "ignition.ign WHERE rid=1"}
 #+end_src
 
-To initialize a burn paremeter from a raster file on disk include the
+To initialize a burn perimeter from a raster file on disk, include the
 following mappings:
+
 - *fetch-ignition-method*: a keyword to denote which method we want to use
-- *ignition-layers*: a filepath
+- *ignition-layer*: a filepath
 
 #+begin_src clojure
 {:fetch-ignition-method :geotiff
- :ignition-layers       "test/gridfire/resources/scar.tif"}
+ :ignition-layers       "test/gridfire/resources/ign.tif"}
 #+end_src
 
-Gridfire makes use of clojure's multimethods to dispatch control to
+GridFire makes use of clojure's multimethods to dispatch control to
 different handlers for fetching ignition layers. The dispatch depends
 on what is in the config file. Here's the namespace that implements
 this functionality.
+
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fetch.clj :padline no :no-expand :comments link
 (ns gridfire.fetch
   (:require [clojure.core.matrix :as m]
@@ -2737,7 +2754,7 @@ this functionality.
             [gridfire.surface-fire :refer [degrees-to-radians]]))
 
 ;;-----------------------------------------------------------------------------
-;; Landfire
+;; LANDFIRE
 ;;-----------------------------------------------------------------------------
 
 (def layer-names
@@ -2829,21 +2846,21 @@ For all options in this section, you may enter values in one of the
 three ways (as described in section 2): single, list, or range of
 values.
 
- #+begin_src clojure
-{:max-runtime               60             ; (minutes)
- :temperature               (50 65 80)     ; (degrees Fahrenheit)
+#+begin_src clojure
+{:temperature               (50 65 80)     ; (degrees Fahrenheit)
  :relative-humidity         (1 10 20)      ; (%)
  :wind-speed-20ft           (10 15 20)     ; (miles/hour)
  :wind-from-direction       (0 90 180 270) ; (degrees clockwise from north)
- :foliar-moisture           90             ; (%)
- :ellipse-adjustment-factor 1.0}           ; (< 1.0 = more circular, > 1.0 = more elliptical)
- #+end_src
+ :foliar-moisture           90}            ; (%)
+#+end_src
 
 ** Section 4: Number of simulations and (optional) random seed parameter
 
 #+begin_src clojure
-{:simulations 10
- :random-seed 1234567890} ;; long value (optional)
+{:max-runtime               60             ; (minutes)
+ :simulations               10
+ :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
+ :random-seed 1234567890}                  ; long value (optional)
 #+end_src
 
 ** Section 5: Types and names of outputs
@@ -2858,12 +2875,12 @@ values.
 
 * Configuration Examples
 
-Here is a complete sample configuration for using landfire layers from
-our postigs enabled database and initializing burn points from a range
+Here is a complete sample configuration for using LANDFIRE layers from
+our PostGIS-enabled database and initializing burn points from a range
 of values.
 
- #+name: sample_postgis_config.edn
- #+begin_src clojure :results silent :exports code :tangle ../resources/sample_postgis_config.edn :padline no :no-expand :comments link
+#+name: sample_postgis_config.edn
+#+begin_src clojure :results silent :exports code :tangle ../resources/sample_postgis_config.edn :padline no :no-expand :comments link
 {;; Section 1: Landscape data to be shared by all simulations
  :fetch-layer-method        :postgis
  :db-spec                   {:classname   "org.postgresql.Driver"
@@ -2912,14 +2929,14 @@ of values.
  :output-geotiffs?          true
  :output-pngs?              true
  :output-csvs?              true}
- #+end_src
+#+end_src
 
 Here is a complete sample config for reading landfire-layers from disk
-and initializing a burn paremeter from reading a raster file from
+and initializing a burn perimeter from reading a raster file from
 disk.
 
- #+name: sample_geotiff_config.edn
- #+begin_src clojure :results silent :exports code :tangle ../resources/sample_geotiff_config.edn :padline no :no-expand :comments link
+#+name: sample_geotiff_config.edn
+#+begin_src clojure :results silent :exports code :tangle ../resources/sample_geotiff_config.edn :padline no :no-expand :comments link
 {;; Section 1: Landscape data to be shared by all simulations
  :fetch-layer-method        :geotiff
  :landfire-layers           {:aspect             "test/gridfire/resources/asp.tif"
@@ -2964,12 +2981,12 @@ disk.
  :output-geotiffs?          true
  :output-pngs?              true
  :output-csvs?              true}
- #+end_src
+#+end_src
 
 This concludes our discussion of GridFire's command line interface.
 
- #+LATEX: \bibliographystyle{plainnat}
- #+LATEX: \bibliography{GridFire}
+#+LATEX: \bibliographystyle{plainnat}
+#+LATEX: \bibliography{GridFire}
 
 * Monte Carlo Simulation :noexport:
 
