@@ -6,6 +6,7 @@
             [clojure.java.jdbc :as jdbc]
             [clojure.test :refer [deftest is testing]]
             [magellan.core :as mg]
+            [gridfire.fetch :as fetch]
             [gridfire.cli :as gf])
   (:import (java.util Random)))
 
@@ -71,8 +72,8 @@
                                                :fuel-model         (in-file-path "fbfm40.tif")
                                                :slope              (in-file-path "slp.tif")}
                           :fetch-layer-method :geotiff}
-          postgis        (gf/fetch-landfire-layers postgis-config)
-          geotiff        (gf/fetch-landfire-layers geotiff-config)]
+          postgis        (fetch/landfire-layers postgis-config)
+          geotiff        (fetch/landfire-layers geotiff-config)]
 
       (is (= (get-in postgis [:aspect :matrix])
              (get-in geotiff [:aspect :matrix])))
@@ -124,7 +125,7 @@
           rand-generator  (if-let [seed (:random-seed test-config-base)]
                             (Random. seed)
                             (Random.))
-          postgis-layers  (gf/fetch-landfire-layers postgis-config)
+          postgis-layers  (fetch/landfire-layers postgis-config)
           postgis-results (gf/run-simulations
                            simulations
                            (reduce (fn [acc [layer info]] (assoc acc layer (:matrix info)))
@@ -144,9 +145,10 @@
                            (:outfile-suffix test-config-base)
                            (:output-geotiffs? test-config-base)
                            (:output-pngs? test-config-base)
-                           (:output-csvs? test-config-base))
+                           (:output-csvs? test-config-base)
+                           nil)
 
-          geotiff-layers  (gf/fetch-landfire-layers geotiff-config)
+          geotiff-layers  (fetch/landfire-layers geotiff-config)
           geotiff-results (gf/run-simulations
                            simulations
                            (reduce (fn [acc [layer info]] (assoc acc layer (:matrix info)))
@@ -166,7 +168,8 @@
                            (:outfile-suffix test-config-base)
                            (:output-geotiffs? test-config-base)
                            (:output-pngs? test-config-base)
-                           (:output-csvs? test-config-base))]
+                           (:output-csvs? test-config-base)
+                           nil)]
 
       (is (every? some? postgis-results))
 
