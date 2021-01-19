@@ -408,8 +408,8 @@ CREATE SCHEMA ignition;
 Then we can use the following script to import an ignition raster into
 our database given the schema and username as inputs.
 
-*Note:* This script needs to be run in the same folder as where these
-rasters reside. The filename of this raster should match the
+*Note:* This script needs to be run in the same folder as where this
+raster resides. The filename of this raster should match the
 elements in the for loop (i.e. ign.tif)
 
 #+name: raster2pgsql-import-ignition-raster
