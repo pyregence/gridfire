@@ -138,7 +138,7 @@ computer.
 Before we run tests we'll need to setup a test database and import
 rasters into it. We will be prompted for the postgres and
 gridfire_test user's password. Postgres user's password will be
-whatever it is when we setup postgres. For gridfire_test user's
+whatever it is when we setup Postgres. For gridfire_test user's
 password refer to ``src/sql/create_test_db.sql''
 
 #+name: clojure-test-db
@@ -339,7 +339,7 @@ First create the schema in our database.
 CREATE SCHEMA landfire;
 #+end_src
 
-Then we can use the following script to import landfire layers into
+Then we can use the following script to import LANDFIRE layers into
 our database given the username and schema as inputs.
 
 *Note:* This script needs to be run in the same folder as where these
@@ -396,7 +396,7 @@ VALUES (900914, 'user-generated', 900914,
 #+end_src
 
 We may also want to import initial ignition rasters into our database.
-We can do so with a similar script as importing landfire rasters.
+We can do so with a similar script as importing LANDFIRE rasters.
 
 First create a new schema.
 
@@ -408,8 +408,8 @@ CREATE SCHEMA ignition;
 Then we can use the following script to import an ignition raster into
 our database given the schema and username as inputs.
 
-*Note:* This script needs to be run in the same folder as where these
-rasters reside. The filenames of these rasters should match the
+*Note:* This script needs to be run in the same folder as where this
+raster resides. The filename of this raster should match the
 elements in the for loop (i.e. ign.tif)
 
 #+name: raster2pgsql-import-ignition-raster
@@ -2740,11 +2740,11 @@ below:
 ** Section 1: Landscape data to be shared by all simulations
 
 GridFire allows us to choose how we want to ingest landscape data
-through the configuration file. We can choose to get landfire layers
+through the configuration file. We can choose to get LANDFIRE layers
 from our PostGIS database, or we can read raster files from disk. This
 behavior is controlled as follows:
 
-To fetch landfire layers from a Postgresql database, include the
+To fetch LANDFIRE layers from a Postgresql database, include the
 following mappings:
 
 - *fetch-layer-method*: a keyword to denote which method we want to use
@@ -2768,7 +2768,7 @@ following mappings:
                       :elevation          "landfire.dem WHERE rid=100"}}
 #+end_src
 
-To fetch landfire layers from GeoTIFF files, include the
+To fetch LANDFIRE layers from GeoTIFF files, include the
 following mappings:
 
 - *fetch-layer-method*: a keyword to denote which method we want to use
@@ -2832,7 +2832,7 @@ include the following mappings:
 
 #+begin_src clojure
 {:fetch-ignition-method :postgis
- :ignition-layers       "ignition.ign WHERE rid=1"}
+ :ignition-layer       "ignition.ign WHERE rid=1"}
 #+end_src
 
 To initialize a burn perimeter from a raster file on disk, include the
@@ -2843,7 +2843,7 @@ following mappings:
 
 #+begin_src clojure
 {:fetch-ignition-method :geotiff
- :ignition-layers       "test/gridfire/resources/ign.tif"}
+ :ignition-layer       "test/gridfire/resources/ign.tif"}
 #+end_src
 
 GridFire makes use of clojure's multimethods to dispatch control to
@@ -2993,7 +2993,7 @@ this functionality.
 
 ** Section 3: Weather data from which to build simulation inputs
 
-For all options in this section, you may enter values in one of the
+For all the options in this section, you may enter values in one of
 three ways (as described in section 2): single, list, or range of
 values.
 
@@ -3054,8 +3054,8 @@ following mappings:
 * Configuration Examples
 
 Here is a complete sample configuration for using LANDFIRE layers from
-our PostGIS-enabled database and initializing burn points from a range
-of values.
+our PostGIS-enabled database with ignition points randomly sampled
+from a range.
 
 #+name: sample_postgis_config.edn
 #+begin_src clojure :results silent :exports code :tangle ../resources/sample_postgis_config.edn :padline no :no-expand :comments link
@@ -3109,9 +3109,8 @@ of values.
  :output-csvs?              true}
 #+end_src
 
-Here is a complete sample config for reading landfire-layers from disk
-and initializing a burn perimeter from reading a raster file from
-disk.
+Here is a complete sample configuration for reading both the LANDFIRE
+layers and an initial burn perimeter from GeoTIFF files on disk.
 
 #+name: sample_geotiff_config.edn
 #+begin_src clojure :results silent :exports code :tangle ../resources/sample_geotiff_config.edn :padline no :no-expand :comments link
