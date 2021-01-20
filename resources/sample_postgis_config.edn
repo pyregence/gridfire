@@ -26,6 +26,8 @@
  ;;   1. Single Value: 25
  ;;   2. List of Values: (2 17 9)
  ;;   3. Range of Values: [10 20]
+ ;;   4. Raster from file on disk: "path/to/file/weather.tif"
+ ;;   5. Raster from Postgres database: "weather.ws WHERE rid=1"
  ;;
  ;; If a single value is provided, it will be kept the same for all simulations.
  ;; For a list of values, the list will be randomly sampled from in each simulation.

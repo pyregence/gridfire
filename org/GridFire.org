@@ -2616,10 +2616,9 @@ or false:
                    (* -1.0 height scaley))))
 
 (defn get-weather [{:keys [simulations] :as config} rand-generator weather-type]
-  (let [fetch-method (keyword (s/join "-" ["fetch" (name weather-type) "method"]))]
-    (if-let [method (fetch-method config)]
-      (fetch/weather config method weather-type)
-      (draw-samples rand-generator simulations (get config weather-type)))))
+  (if-let [method ((keyword (s/join "-" ["fetch" (name weather-type) "method"])) config)]
+    (fetch/weather config method weather-type)
+    (draw-samples rand-generator simulations (get config weather-type))))
 
 (defn -main
   [& config-files]
@@ -2948,13 +2947,11 @@ an additional type of input. GridFire allows us to use weather data
 from rasters. To use weather data from raster we have two options.
 This behavior is controlled as follows:
 
-To use weather raster in our PostGIS database include the following
+To fetch weather raster in our PostGIS database include the following
 mappings:
 
-- *fetch-<weather-type>-method*: a keyword to denote which method we want to use
-- *<weather-type>*: a mapping of layer names to a partial sql statement
-  Acceptable layer names include temperature, relative-humidity,
-  wind-speed-20ft, and wind-from-direction
+- *fetch-[weather-type]-method*: a keyword to denote which method we want to use
+- *[weather-type]*: a mapping of layer names to a partial sql statement
 
 #+begin_src clojure
 {:fetch-temperature-method         :postgis
@@ -2967,11 +2964,11 @@ mappings:
  :wind-from-direction              "weather.wd WHERE rid=100"}
 #+end_src
 
-To use weather raster from a raster file on disk include the
+To fetch weather raster from a raster file on disk include the
 following mappings:
 
-- *fetch-<weather-type>-method*: a keyword to denote which method we want to use
-- *<weather-type>*: a mapping of layer names to file paths.
+- *fetch-[weather-type]-method*: a keyword to denote which method we want to use
+- *[weather-type]*: a mapping of layer names to file paths
 
 #+begin_src clojure
 {:fetch-temperature-method         :geotiff
@@ -3038,6 +3035,8 @@ from a range.
  ;;   1. Single Value: 25
  ;;   2. List of Values: (2 17 9)
  ;;   3. Range of Values: [10 20]
+ ;;   4. Raster from file on disk: "path/to/file/weather.tif"
+ ;;   5. Raster from Postgres database: "weather.ws WHERE rid=1"
  ;;
  ;; If a single value is provided, it will be kept the same for all simulations.
  ;; For a list of values, the list will be randomly sampled from in each simulation.
@@ -3063,7 +3062,7 @@ from a range.
 #+end_src
 
 Here is a complete sample configuration for reading both the LANDFIRE
-layers , and initial burn perimeter, and weather layers from GeoTIFF
+layers, and initial burn perimeter, and weather layers from GeoTIFF
 files on disk.
 
 #+name: sample_geotiff_config.edn
@@ -3086,10 +3085,12 @@ files on disk.
  :ignition-layer            "test/gridfire/resources/ign.tif"
 
  ;; Section 3: Weather data from which to build simulation inputs
- ;; For all options in this section, you may enter values in one of three ways:
+ ;; For all options in this section, you may enter values in one of five ways:
  ;;   1. Single Value: 25
  ;;   2. List of Values: (2 17 9)
  ;;   3. Range of Values: [10 20]
+ ;;   4. Raster from file on disk: "path/to/file/weather.tif"
+ ;;   5. Raster from Postgres database: "weather.ws WHERE rid=1"
  ;;
  ;; If a single value is provided, it will be kept the same for all simulations.
  ;; For a list of values, the list will be randomly sampled from in each simulation.

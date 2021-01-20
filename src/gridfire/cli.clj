@@ -209,10 +209,9 @@
                    (* -1.0 height scaley))))
 
 (defn get-weather [{:keys [simulations] :as config} rand-generator weather-type]
-  (let [fetch-method (keyword (s/join "-" ["fetch" (name weather-type) "method"]))]
-    (if-let [method (fetch-method config)]
-      (fetch/weather config method weather-type)
-      (draw-samples rand-generator simulations (get config weather-type)))))
+  (if-let [method ((keyword (s/join "-" ["fetch" (name weather-type) "method"])) config)]
+    (fetch/weather config method weather-type)
+    (draw-samples rand-generator simulations (get config weather-type))))
 
 (defn -main
   [& config-files]
