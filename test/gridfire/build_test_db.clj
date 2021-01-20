@@ -41,7 +41,7 @@
     (->> (sh-wrapper "./test/gridfire/resources/weather-test"
                      {:PGPASSWORD password}
                      verbose
-                     "sh ../../../../resources/import_weather_rasters.sh gridfire_test weather")
+                     "sh ../../../../resources/import_weather_rasters.sh gridfire_test weather 900914")
          (println))))
 
 (defn build-everything [verbose]

@@ -25,11 +25,16 @@
  ;; If a single value is provided, it will be kept the same for all simulations.
  ;; For a list of values, the list will be randomly sampled from in each simulation.
  ;; For a range of values, the range [inclusive exclusive] will be randomly sampled from in each simulation.
- :temperature               (50 65 80)     ; (degrees Fahrenheit)
- :relative-humidity         (1 10 20)      ; (%)
- :wind-speed-20ft           (10 15 20)     ; (miles/hour)
- :wind-from-direction       (0 90 180 270) ; (degrees clockwise from north)
- :foliar-moisture           90             ; (%)
+
+ :fetch-temperature-method         :geotiff
+ :temperature                      "test/gridfire/resources/weather-test/tmpf_to_sample.tif" ; (degrees Fahrenheit)
+ :fetch-relative-humidity-method   :geotiff
+ :relative-humidity                "test/gridfire/resources/weather-test/rh_to_sample.tif"   ; (%)
+ :fetch-wind-speed-20ft-method     :geotiff
+ :wind-speed-20ft                  "test/gridfire/resources/weather-test/ws_to_sample.tif"   ; (miles/hour)
+ :fetch-wind-from-direction-method :geotiff
+ :wind-from-direction              "test/gridfire/resources/weather-test/d_to_sample.tif"    ; (degrees clockwise from north)
+ :foliar-moisture                  90                                                        ; (%)
 
  ;; Section 4: Number of simulations and (optional) random seed parameter
  :max-runtime               60             ; (minutes)

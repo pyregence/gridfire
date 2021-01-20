@@ -1,14 +1,8 @@
 (ns gridfire.cli-test
-  (:require [clojure.core.matrix :as m]
-            [clojure.data.csv :as csv]
-            [clojure.edn :as edn]
-            [clojure.java.io :as io]
-            [clojure.java.jdbc :as jdbc]
-            [clojure.test :refer [deftest is testing]]
-            [magellan.core :as mg]
-            [gridfire.fetch :as fetch]
-            [gridfire.cli :as gf])
-  (:import (java.util Random)))
+  (:require [clojure.test   :refer [deftest is testing]]
+            [gridfire.cli   :as gf]
+            [gridfire.fetch :as fetch])
+  (:import java.util.Random))
 
 ;;-----------------------------------------------------------------------------
 ;; Config

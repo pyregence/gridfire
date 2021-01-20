@@ -53,7 +53,7 @@
                            (Random. seed)
                            (Random.))
         landfire-layers  (fetch/landfire-layers config)
-        landfire-rasters (into {} (map (fn [[layer-name info]] [layer-name (:matrix info)])) landfire-layers)
+        landfire-rasters (into {} (map (fn [[layer-name info]] [layer-name (first (:matrix info))])) landfire-layers)
         ignition-layer   (fetch/ignition-layer config)]
     (gf/run-simulations
      simulations

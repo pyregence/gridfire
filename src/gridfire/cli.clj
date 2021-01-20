@@ -1,17 +1,17 @@
 ;; [[file:../../org/GridFire.org::command-line-interface][command-line-interface]]
 (ns gridfire.cli
   (:gen-class)
-  (:require [clojure.core.matrix :as m]
-            [clojure.data.csv :as csv]
-            [clojure.edn :as edn]
-            [clojure.java.io :as io]
-            [clojure.string :as s]
-            [gridfire.fetch :as fetch]
+  (:require [clojure.core.matrix  :as m]
+            [clojure.data.csv     :as csv]
+            [clojure.edn          :as edn]
+            [clojure.java.io      :as io]
+            [clojure.string       :as s]
+            [gridfire.fetch       :as fetch]
             [gridfire.fire-spread :refer [run-fire-spread]]
-            [magellan.core :refer [make-envelope matrix-to-raster
-                                  register-new-crs-definitions-from-properties-file!
-                                  write-raster]]
-            [matrix-viz.core :refer [save-matrix-as-png]])
+            [magellan.core        :refer [make-envelope matrix-to-raster
+                                          register-new-crs-definitions-from-properties-file!
+                                          write-raster]]
+            [matrix-viz.core      :refer [save-matrix-as-png]])
   (:import java.util.Random))
 
 (m/set-current-implementation :vectorz)
@@ -208,15 +208,11 @@
                    (* width scalex)
                    (* -1.0 height scaley))))
 
-
-(defn get-weather [config rand-generator weather-type]
-  (let [val          (config weather-type)
-        fetch-method (keyword (s/join "-" ["fetch" (name weather-type) "method"]))
-        n            (:simulations config)]
-    (if (contains? config fetch-method)
-      (let [raster (fetch/weather config weather-type)]
-        raster)
-      (draw-samples rand-generator n val))))
+(defn get-weather [{:keys [simulations] :as config} rand-generator weather-type]
+  (let [fetch-method (keyword (s/join "-" ["fetch" (name weather-type) "method"]))]
+    (if-let [method (fetch-method config)]
+      (fetch/weather config method weather-type)
+      (draw-samples rand-generator simulations (get config weather-type)))))
 
 (defn -main
   [& config-files]
@@ -224,7 +220,7 @@
     (let [config           (edn/read-string (slurp config-file))
           landfire-layers  (fetch/landfire-layers config)
           landfire-rasters (into {}
-                                 (map (fn [[layer info]] [layer (:matrix info)]))
+                                 (map (fn [[layer info]] [layer (first (:matrix info))]))
                                  landfire-layers)
           ignition-layer   (fetch/ignition-layer config)
           envelope         (get-envelope config landfire-layers)

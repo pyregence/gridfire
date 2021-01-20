@@ -1,12 +1,10 @@
 ;; [[file:../../org/GridFire.org::*Section 2: Ignition data from which to build simulation inputs][Section 2: Ignition data from which to build simulation inputs:4]]
 (ns gridfire.fetch
-  (:require [clojure.core.matrix :as m]
-            [clojure.string :as s]
-            [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix
-                                              geotiff-raster-to-matrix-multiband]]
-            [gridfire.postgis-bridge :refer [postgis-raster-to-matrix
-                                            postgis-raster-to-matrix-multiband]]
-            [gridfire.surface-fire :refer [degrees-to-radians]]))
+  (:require [clojure.core.matrix      :as m]
+            [clojure.string           :as s]
+            [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
+            [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]
+            [gridfire.surface-fire    :refer [degrees-to-radians]]))
 
 ;;-----------------------------------------------------------------------------
 ;; LANDFIRE
@@ -99,40 +97,38 @@
 ;;-----------------------------------------------------------------------------
 
 (defmulti weather
-  (fn [config type]
-    (let [stype  (name type)
-          method ((keyword (s/join "-" ["fetch" stype "method"])) config)]
-      (keyword (str (name method) "-" stype)))))
+  (fn [_ fetch-method weather-type]
+    (keyword (s/join "-" [(name fetch-method) (name weather-type)]))))
 
 (defmethod weather :postgis-temperature
-  [{:keys [temperature db-spec]} _]
-  (:matrix (postgis-raster-to-matrix-multiband db-spec temperature)))
+  [{:keys [temperature db-spec]} _ _]
+  (:matrix (postgis-raster-to-matrix db-spec temperature)))
 
 (defmethod weather :geotiff-temperature
-  [{:keys [temperature]} _]
-  (:matrix (geotiff-raster-to-matrix-multiband temperature)))
+  [{:keys [temperature]} _ _]
+  (:matrix (geotiff-raster-to-matrix temperature)))
 
 (defmethod weather :postgis-relative-humidity
-  [{:keys [relative-humidity db-spec]} _]
-  (:matrix (postgis-raster-to-matrix-multiband db-spec relative-humidity)))
+  [{:keys [relative-humidity db-spec]} _ _]
+  (:matrix (postgis-raster-to-matrix db-spec relative-humidity)))
 
 (defmethod weather :geotiff-relative-humidity
-  [{:keys [relative-humidity]} _]
-  (:matrix (geotiff-raster-to-matrix-multiband relative-humidity)))
+  [{:keys [relative-humidity]} _ _]
+  (:matrix (geotiff-raster-to-matrix relative-humidity)))
 
 (defmethod weather :postgis-wind-speed-20ft
-  [{:keys [wind-speed-20ft db-spec]} _]
-  (:matrix (postgis-raster-to-matrix-multiband db-spec wind-speed-20ft)))
+  [{:keys [wind-speed-20ft db-spec]} _ _]
+  (:matrix (postgis-raster-to-matrix db-spec wind-speed-20ft)))
 
 (defmethod weather :geotiff-wind-speed-20ft
-  [{:keys [wind-speed-20ft]} _]
-  (:matrix (geotiff-raster-to-matrix-multiband wind-speed-20ft)))
+  [{:keys [wind-speed-20ft]} _ _]
+  (:matrix (geotiff-raster-to-matrix wind-speed-20ft)))
 
 (defmethod weather :postgis-wind-from-direction
-  [{:keys [wind-from-direction db-spec]} _]
-  (:matrix (postgis-raster-to-matrix-multiband db-spec wind-from-direction)))
+  [{:keys [wind-from-direction db-spec]} _ _]
+  (:matrix (postgis-raster-to-matrix db-spec wind-from-direction)))
 
 (defmethod weather :geotiff-wind-from-direction
-  [{:keys [wind-from-direction]} _]
-  (:matrix (geotiff-raster-to-matrix-multiband wind-from-direction)))
-;; Section 2: Ignition from which to build simulation inputs:4 ends here
+  [{:keys [wind-from-direction]} _ _]
+  (:matrix (geotiff-raster-to-matrix wind-from-direction)))
+;; Section 2: Ignition data from which to build simulation inputs:4 ends here

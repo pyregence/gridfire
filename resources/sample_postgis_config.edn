@@ -4,7 +4,8 @@
  :db-spec                   {:classname   "org.postgresql.Driver"
                              :subprotocol "postgresql"
                              :subname     "//localhost:5432/gridfire"
-                             :user        "gridfire"}
+                             :user        "gridfire"
+                             :password    "gridfire"}
  :landfire-layers           {:aspect             "landfire.asp WHERE rid=100"
                              :canopy-base-height "landfire.cbh WHERE rid=100"
                              :canopy-cover       "landfire.cc WHERE rid=100"

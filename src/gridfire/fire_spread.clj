@@ -359,7 +359,7 @@
 
 (defmethod run-fire-spread :ignition-perimeter
   [{:keys [num-rows num-cols initial-ignition-site landfire-rasters] :as constants}]
-  (let [fire-spread-matrix         (:matrix initial-ignition-site)
+  (let [fire-spread-matrix         (first (:matrix initial-ignition-site))
         non-zero-indices           (get-non-zero-indices fire-spread-matrix)
         flame-length-matrix        (initialize-matrix num-rows num-cols non-zero-indices)
         fire-line-intensity-matrix (initialize-matrix num-rows num-cols non-zero-indices)

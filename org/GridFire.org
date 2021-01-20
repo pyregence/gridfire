@@ -430,6 +430,43 @@ To run the script, give it the username, schema name, and srid we wish the layer
 sh import_ignition_rasters.sh gridfire ignition 90014
 #+end_src
 
+We may also want to import weather rasters into our database.
+We can do so with a similar script as importing LANDFIRE rasters.
+
+First create a new schema.
+
+#+name: create-weather-schema
+#+begin_src sql :engine postgresql :cmdline -U gridfire :results silent :exports code
+CREATE SCHEMA weather;
+#+end_src
+
+Then we can use the following script to import weather rasters into
+our database given the schema and username as inputs.
+
+*Note:* This script needs to be run in the same folder as where this
+rasters resides. The filename of these rasters should match the
+elements in the for loop (i.e. tmpf_to_sample.tif)
+
+#+name: raster2pgsql-import-weather-rasters
+#+begin_src sh :results silent :exports code :tangle ../resources/import_weather_rasters.sh :padline no :no-expand :comments link
+#!/bin/sh
+
+USERNAME=$1
+SCHEMA=$2
+SRID=$3
+
+for LAYER in tmpf wd ws rh
+do
+    raster2pgsql -I -C -t auto -s $SRID ${LAYER}_to_sample.tif $SCHEMA.$LAYER | psql -h localhost -U $USERNAME
+done
+#+end_src
+
+To run the script, give it the username, schema name, and srid we wish the layers to have.
+
+#+begin_src bash
+sh import_weather_rasters.sh gridfire weather 90014
+#+end_src
+
 * Fire Spread Model
 
 GridFire implements the following fire behavior formulas from the fire
@@ -2137,7 +2174,7 @@ pseudo-code lays out the steps taken in this procedure:
 
 (defmethod run-fire-spread :ignition-perimeter
   [{:keys [num-rows num-cols initial-ignition-site landfire-rasters] :as constants}]
-  (let [fire-spread-matrix         (:matrix initial-ignition-site)
+  (let [fire-spread-matrix         (first (:matrix initial-ignition-site))
         non-zero-indices           (get-non-zero-indices fire-spread-matrix)
         flame-length-matrix        (initialize-matrix num-rows num-cols non-zero-indices)
         fire-line-intensity-matrix (initialize-matrix num-rows num-cols non-zero-indices)
@@ -2206,11 +2243,24 @@ command line interface.
 #+name: postgis-bridge
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/postgis_bridge.clj :padline no :no-expand :comments link
 (ns gridfire.postgis-bridge
-  (:require [clojure.java.jdbc :as jdbc]
-            [clojure.core.matrix :as m])
-  (:import (org.postgresql.jdbc PgArray)))
+  (:require [clojure.core.matrix :as m]
+            [clojure.java.jdbc   :as jdbc]
+            [clojure.string      :as s])
+  (:import org.postgresql.jdbc.PgArray))
 
 (m/set-current-implementation :vectorz)
+
+(defn extract-matrix [result]
+  (->> result
+       :matrix
+       .getValue
+       read-string
+       second
+       (#(s/replace % #"\{" "["))
+       (#(s/replace % #"\}" "]"))
+       read-string
+       (m/emap #(or % -1.0))
+       m/matrix))
 
 (defn postgis-raster-to-matrix
   "Send a SQL query to the PostGIS database given by db-spec for a
@@ -2228,75 +2278,8 @@ command line interface.
    :scaley -2000.0,
    :skewx 0.0,
    :skewy 0.0,
-   :numbands 1,
-   :matrix #vectorz/matrix Large matrix with shape: [534,486]}"
-  ([db-spec table-name]
-   (let [meta-query (str "SELECT (ST_Metadata(rast)).* FROM " table-name)
-         data-query (str "SELECT ST_DumpValues(rast,1) AS matrix FROM " table-name)]
-     (jdbc/with-db-transaction [conn db-spec]
-       (let [metadata (first (jdbc/query conn [meta-query]))
-             matrix   (when-let [result (seq (jdbc/query conn [data-query]))]
-                        (->> (first result)
-                             :matrix
-                             (#(.getArray ^PgArray %))
-                             (m/emap #(or % -1.0))
-                             m/matrix))]
-         (assoc metadata :matrix matrix)))))
-  ([db-spec table-name resolution threshold]
-   (let [rescale-query   (if resolution
-                           (format "ST_Rescale(rast,%s,-%s,'NearestNeighbor')"
-                                   resolution resolution)
-                           "rast")
-         threshold-query (if threshold
-                           (format (str "ST_MapAlgebra(%s,NULL,"
-                                        "'CASE WHEN [rast.val] < %s"
-                                        " THEN 0.0 ELSE [rast.val] END')")
-                                   rescale-query threshold)
-                           rescale-query)
-         meta-query      (format "SELECT (ST_Metadata(%s)).* FROM %s"
-                                 threshold-query table-name)
-         data-query      (format "SELECT ST_DumpValues(%s,1) AS matrix FROM %s"
-                                 threshold-query table-name)]
-     (jdbc/with-db-transaction [conn db-spec]
-       (let [metadata (first (jdbc/query conn [meta-query]))
-             matrix   (when-let [result (seq (jdbc/query conn [data-query]))]
-                        (->> (first result)
-                             :matrix
-                             (#(.getArray ^PgArray %))
-                             (m/emap #(or % -1.0))
-                             m/matrix))]
-         (assoc metadata :matrix matrix))))))
-
-(defn extract-matrix [result]
-  (->> result
-       :matrix
-       .getValue
-       read-string
-       second
-       (#(clojure.string/replace % #"\{" "["))
-       (#(clojure.string/replace % #"\}" "]"))
-       read-string
-       (m/emap #(or % -1.0))
-       m/matrix))
-
-(defn postgis-raster-to-matrix-multiband
-  "Send a SQL query to the PostGIS database given by db-spec for a
-  raster tile from table table-name. Optionally resample the raster to
-  match resolution and set any values below threshold to 0. Return the
-  post-processed raster values as a Clojure matrix using the
-  core.matrix API along with all of the georeferencing information
-  associated with this tile in a hash-map with the following form:
-  {:srid 900916,
-   :upperleftx -321043.875,
-   :upperlefty -1917341.5,
-   :width 486,
-   :height 534,
-   :scalex 2000.0,
-   :scaley -2000.0,
-   :skewx 0.0,
-   :skewy 0.0,
    :numbands 10,
-   :matrix #vectorz/matrix Large matrix with shape: [10, 534,486]}"
+   :matrix #vectorz/matrix Large matrix with shape: [10,534,486]}"
   ([db-spec table-name]
    (let [meta-query (str "SELECT (ST_Metadata(rast)).* FROM " table-name)
          data-query (str "SELECT ST_DumpValues(rast) AS matrix FROM " table-name)]
@@ -2305,7 +2288,6 @@ command line interface.
              matrix   (when-let [results (seq (jdbc/query conn [data-query]))]
                         (m/matrix (mapv extract-matrix results)))]
          (assoc metadata :matrix matrix)))))
-
   ([db-spec table-name resolution threshold]
    (let [rescale-query   (if resolution
                            (format "ST_Rescale(rast,%s,-%s,'NearestNeighbor')"
@@ -2356,41 +2338,6 @@ described in the previous section.
    :scaley -2000.0,
    :skewx 0.0,
    :skewy 0.0,
-   :numbands 1,
-   :matrix #vectorz/matrix Large matrix with shape: [534,486]}"
-  [file-path]
-  (let [raster   (read-raster file-path)
-        grid     (:grid raster)
-        r-info   (inspect/describe-raster raster)
-        matrix   (first (inspect/extract-matrix raster))
-        image    (:image r-info)
-        envelope (:envelope r-info)]
-    {:srid       (:srid r-info)
-     :upperleftx (get-in envelope [:x :min])
-     :upperlefty (get-in envelope [:y :min])
-     :width      (:width image)
-     :height     (:height image)
-     :scalex     (.getScaleX (.getGridToCRS2D grid))
-     :scaley     (.getScaleY (.getGridToCRS2D grid))
-     :skewx      0.0 ;FIXME not used?
-     :skewy      0.0 ;FIXME not used?
-     :numbands   (:bands image)
-     :matrix     (m/matrix matrix)}))
-
-(defn geotiff-raster-to-matrix-multiband
-  "Reads a raster from a file using the magellan.core library. Returns the
-   post-processed raster values as a Clojure matrix using the core.matrix API
-   along with all of the georeferencing information associated with this tile in a
-   hash-map with the following form:
-  {:srid 900916,
-   :upperleftx -321043.875,
-   :upperlefty -1917341.5,
-   :width 486,
-   :height 534,
-   :scalex 2000.0,
-   :scaley -2000.0,
-   :skewx 0.0,
-   :skewy 0.0,
    :numbands 10,
    :matrix #vectorz/matrix Large matrix with shape: [10,534,486]}"
   [file-path]
@@ -2409,7 +2356,7 @@ described in the previous section.
      :scaley     (.getScaleY (.getGridToCRS2D grid))
      :skewx      0.0 ;FIXME not used?
      :skewy      0.0 ;FIXME not used?
-     :numbands   (get-in r-info [:image :bands])
+     :numbands   (:bands image)
      :matrix     (m/matrix matrix)}))
 #+end_src
 
@@ -2461,17 +2408,17 @@ or false:
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/cli.clj :padline no :no-expand :comments link
 (ns gridfire.cli
   (:gen-class)
-  (:require [clojure.core.matrix :as m]
-            [clojure.data.csv :as csv]
-            [clojure.edn :as edn]
-            [clojure.java.io :as io]
-            [clojure.string :as s]
-            [gridfire.fetch :as fetch]
+  (:require [clojure.core.matrix  :as m]
+            [clojure.data.csv     :as csv]
+            [clojure.edn          :as edn]
+            [clojure.java.io      :as io]
+            [clojure.string       :as s]
+            [gridfire.fetch       :as fetch]
             [gridfire.fire-spread :refer [run-fire-spread]]
-            [magellan.core :refer [make-envelope matrix-to-raster
-                                  register-new-crs-definitions-from-properties-file!
-                                  write-raster]]
-            [matrix-viz.core :refer [save-matrix-as-png]])
+            [magellan.core        :refer [make-envelope matrix-to-raster
+                                          register-new-crs-definitions-from-properties-file!
+                                          write-raster]]
+            [matrix-viz.core      :refer [save-matrix-as-png]])
   (:import java.util.Random))
 
 (m/set-current-implementation :vectorz)
@@ -2668,15 +2615,11 @@ or false:
                    (* width scalex)
                    (* -1.0 height scaley))))
 
-
-(defn get-weather [config rand-generator weather-type]
-  (let [val          (config weather-type)
-        fetch-method (keyword (s/join "-" ["fetch" (name weather-type) "method"]))
-        n            (:simulations config)]
-    (if (contains? config fetch-method)
-      (let [raster (fetch/weather config weather-type)]
-        raster)
-      (draw-samples rand-generator n val))))
+(defn get-weather [{:keys [simulations] :as config} rand-generator weather-type]
+  (let [fetch-method (keyword (s/join "-" ["fetch" (name weather-type) "method"]))]
+    (if-let [method (fetch-method config)]
+      (fetch/weather config method weather-type)
+      (draw-samples rand-generator simulations (get config weather-type)))))
 
 (defn -main
   [& config-files]
@@ -2684,7 +2627,7 @@ or false:
     (let [config           (edn/read-string (slurp config-file))
           landfire-layers  (fetch/landfire-layers config)
           landfire-rasters (into {}
-                                 (map (fn [[layer info]] [layer (:matrix info)]))
+                                 (map (fn [[layer info]] [layer (first (:matrix info))]))
                                  landfire-layers)
           ignition-layer   (fetch/ignition-layer config)
           envelope         (get-envelope config landfire-layers)
@@ -2853,14 +2796,11 @@ this functionality.
 
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fetch.clj :padline no :no-expand :comments link
 (ns gridfire.fetch
-  (:require
-   [clojure.string :as s]
-   [clojure.core.matrix :as m]
-   [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix
-                                     geotiff-raster-to-matrix-multiband]]
-   [gridfire.postgis-bridge :refer [postgis-raster-to-matrix
-                                    postgis-raster-to-matrix-multiband]]
-   [gridfire.surface-fire :refer [degrees-to-radians]]))
+  (:require [clojure.core.matrix      :as m]
+            [clojure.string           :as s]
+            [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
+            [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]
+            [gridfire.surface-fire    :refer [degrees-to-radians]]))
 
 ;;-----------------------------------------------------------------------------
 ;; LANDFIRE
@@ -2953,42 +2893,40 @@ this functionality.
 ;;-----------------------------------------------------------------------------
 
 (defmulti weather
-  (fn [config type]
-    (let [stype  (name type)
-          method ((keyword (s/join "-" ["fetch" stype "method"])) config)]
-      (keyword (str (name method) "-" stype)))))
+  (fn [_ fetch-method weather-type]
+    (keyword (s/join "-" [(name fetch-method) (name weather-type)]))))
 
 (defmethod weather :postgis-temperature
-  [{:keys [temperature db-spec] :as config} type]
-  (:matrix (postgis-raster-to-matrix-multiband db-spec temperature)))
+  [{:keys [temperature db-spec]} _ _]
+  (:matrix (postgis-raster-to-matrix db-spec temperature)))
 
 (defmethod weather :geotiff-temperature
-  [{:keys [temperature] :as config} type]
-  (:matrix (geotiff-raster-to-matrix-multiband temperature)))
+  [{:keys [temperature]} _ _]
+  (:matrix (geotiff-raster-to-matrix temperature)))
 
 (defmethod weather :postgis-relative-humidity
-  [{:keys [relative-humidity db-spec] :as config} type]
-  (:matrix (postgis-raster-to-matrix-multiband db-spec relative-humidity)))
+  [{:keys [relative-humidity db-spec]} _ _]
+  (:matrix (postgis-raster-to-matrix db-spec relative-humidity)))
 
 (defmethod weather :geotiff-relative-humidity
-  [{:keys [relative-humidity] :as config} type]
-  (:matrix (geotiff-raster-to-matrix-multiband relative-humidity)))
+  [{:keys [relative-humidity]} _ _]
+  (:matrix (geotiff-raster-to-matrix relative-humidity)))
 
 (defmethod weather :postgis-wind-speed-20ft
-  [{:keys [wind-speed-20ft db-spec] :as config} type]
-  (:matrix (postgis-raster-to-matrix-multiband db-spec wind-speed-20ft)))
+  [{:keys [wind-speed-20ft db-spec]} _ _]
+  (:matrix (postgis-raster-to-matrix db-spec wind-speed-20ft)))
 
 (defmethod weather :geotiff-wind-speed-20ft
-  [{:keys [wind-speed-20ft] :as config} type]
-  (:matrix (geotiff-raster-to-matrix-multiband wind-speed-20ft)))
+  [{:keys [wind-speed-20ft]} _ _]
+  (:matrix (geotiff-raster-to-matrix wind-speed-20ft)))
 
 (defmethod weather :postgis-wind-from-direction
-  [{:keys [wind-from-direction db-spec] :as config} type]
-  (:matrix (postgis-raster-to-matrix-multiband db-spec wind-from-direction)))
+  [{:keys [wind-from-direction db-spec]} _ _]
+  (:matrix (postgis-raster-to-matrix db-spec wind-from-direction)))
 
 (defmethod weather :geotiff-wind-from-direction
-  [{:keys [wind-from-direction] :as config} type]
-  (:matrix (geotiff-raster-to-matrix-multiband wind-from-direction)))
+  [{:keys [wind-from-direction]} _ _]
+  (:matrix (geotiff-raster-to-matrix wind-from-direction)))
 #+end_src
 
 ** Section 3: Weather data from which to build simulation inputs
@@ -3007,29 +2945,43 @@ values.
 
 Temperature, relative humidity, wind speed, and wind direction accepts
 an additional type of input. GridFire allows us to use weather data
-from rasters. To use weather data from raster we have two options. We
-can read rasters from a PostGIS database or a raster file on disk.
+from rasters. To use weather data from raster we have two options.
+This behavior is controlled as follows:
 
 To use weather raster in our PostGIS database include the following
-mappings: 
+mappings:
 
 - *fetch-<weather-type>-method*: a keyword to denote which method we want to use
 - *<weather-type>*: a mapping of layer names to a partial sql statement
+  Acceptable layer names include temperature, relative-humidity,
+  wind-speed-20ft, and wind-from-direction
 
 #+begin_src clojure
-{:fetch-temperature-method :postgis
- :temperature              "test/gridfire/resources/weather-test/tmpf_to_sample.tif"}
+{:fetch-temperature-method         :postgis
+ :temperature                      "weather.temp WHERE rid=100"
+ :fetch-relative-humidity-method   :postgis
+ :relative-humidity                "weather.rh WHERE rid=100"
+ :fetch-wind-speed-20ft-method     :postgis
+ :wind-speed-20ft                  "weather.ws WHERE rid=100"
+ :fetch-wind-from-direction-method :postgis
+ :wind-from-direction              "weather.wd WHERE rid=100"}
 #+end_src
 
 To use weather raster from a raster file on disk include the
 following mappings:
 
 - *fetch-<weather-type>-method*: a keyword to denote which method we want to use
-- *<weather-type>*: a mapping of layer names to file paths
+- *<weather-type>*: a mapping of layer names to file paths.
 
 #+begin_src clojure
-{:fetch-temperature-method :geotiff
- :temperature              "test/gridfire/resources/weather-test/tmpf_to_sample.tif"}
+{:fetch-temperature-method         :geotiff
+ :temperature                      "test/gridfire/resources/weather-test/tmpf_to_sample.tif"
+ :fetch-relative-humidity-method   :geotiff
+ :relative-humidity                "test/gridfire/resources/weather-test/rh_to_sample.tif"
+ :fetch-wind-speed-20ft-method     :geotiff
+ :wind-speed-20ft                  "test/gridfire/resources/weather-test/ws_to_sample.tif"
+ :fetch-wind-from-direction-method :geotiff
+ :wind-from-direction              "test/gridfire/resources/weather-test/d_to_sample.tif"}
 #+end_src
 
 ** Section 4: Number of simulations and (optional) random seed perimeter
@@ -3064,7 +3016,8 @@ from a range.
  :db-spec                   {:classname   "org.postgresql.Driver"
                              :subprotocol "postgresql"
                              :subname     "//localhost:5432/gridfire"
-                             :user        "gridfire"}
+                             :user        "gridfire"
+                             :password    "gridfire"}
  :landfire-layers           {:aspect             "landfire.asp WHERE rid=100"
                              :canopy-base-height "landfire.cbh WHERE rid=100"
                              :canopy-cover       "landfire.cc WHERE rid=100"
@@ -3110,7 +3063,8 @@ from a range.
 #+end_src
 
 Here is a complete sample configuration for reading both the LANDFIRE
-layers and an initial burn perimeter from GeoTIFF files on disk.
+layers , and initial burn perimeter, and weather layers from GeoTIFF
+files on disk.
 
 #+name: sample_geotiff_config.edn
 #+begin_src clojure :results silent :exports code :tangle ../resources/sample_geotiff_config.edn :padline no :no-expand :comments link
@@ -3140,11 +3094,16 @@ layers and an initial burn perimeter from GeoTIFF files on disk.
  ;; If a single value is provided, it will be kept the same for all simulations.
  ;; For a list of values, the list will be randomly sampled from in each simulation.
  ;; For a range of values, the range [inclusive exclusive] will be randomly sampled from in each simulation.
- :temperature               (50 65 80)     ; (degrees Fahrenheit)
- :relative-humidity         (1 10 20)      ; (%)
- :wind-speed-20ft           (10 15 20)     ; (miles/hour)
- :wind-from-direction       (0 90 180 270) ; (degrees clockwise from north)
- :foliar-moisture           90             ; (%)
+
+ :fetch-temperature-method         :geotiff
+ :temperature                      "test/gridfire/resources/weather-test/tmpf_to_sample.tif" ; (degrees Fahrenheit)
+ :fetch-relative-humidity-method   :geotiff
+ :relative-humidity                "test/gridfire/resources/weather-test/rh_to_sample.tif"   ; (%)
+ :fetch-wind-speed-20ft-method     :geotiff
+ :wind-speed-20ft                  "test/gridfire/resources/weather-test/ws_to_sample.tif"   ; (miles/hour)
+ :fetch-wind-from-direction-method :geotiff
+ :wind-from-direction              "test/gridfire/resources/weather-test/d_to_sample.tif"    ; (degrees clockwise from north)
+ :foliar-moisture                  90                                                        ; (%)
 
  ;; Section 4: Number of simulations and (optional) random seed parameter
  :max-runtime               60             ; (minutes)
