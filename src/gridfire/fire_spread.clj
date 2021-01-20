@@ -2,25 +2,25 @@
 (ns gridfire.fire-spread
   (:require [clojure.core.matrix           :as m]
             [clojure.core.matrix.operators :as mop]
-            [gridfire.common               :refer [extract-constants
+            [gridfire.common               :refer [burnable-fuel-model?
+                                                   burnable?
+                                                   extract-constants
                                                    fuel-moisture
-                                                   in-bounds?
-                                                   burnable-fuel-model?
-                                                   burnable?]]
-            [gridfire.crown-fire           :refer [crown-fire-eccentricity
-                                                   crown-fire-line-intensity
-                                                   cruz-crown-fire-spread
-                                                   van-wagner-crown-fire-initiation?]]
-            [gridfire.fuel-models          :refer [build-fuel-model moisturize]]
-            [gridfire.surface-fire         :refer [anderson-flame-depth
-                                                   byram-fire-line-intensity
-                                                   byram-flame-length
-                                                   rothermel-surface-fire-spread-any
-                                                   rothermel-surface-fire-spread-max
-                                                   rothermel-surface-fire-spread-no-wind-no-slope
-                                                   wind-adjustment-factor]]
-            [gridfire.perturbation         :as perturbation]
-            [gridfire.spotting             :as spot]))
+                                                   in-bounds?]]
+            [gridfire.crown-fire          :refer [crown-fire-eccentricity
+                                                  crown-fire-line-intensity
+                                                  cruz-crown-fire-spread
+                                                  van-wagner-crown-fire-initiation?]]
+            [gridfire.fuel-models         :refer [build-fuel-model moisturize]]
+            [gridfire.perturbation        :as perturbation]
+            [gridfire.spotting            :as spot]
+            [gridfire.surface-fire        :refer [anderson-flame-depth
+                                                  byram-fire-line-intensity
+                                                  byram-flame-length
+                                                  rothermel-surface-fire-spread-any
+                                                  rothermel-surface-fire-spread-max
+                                                  rothermel-surface-fire-spread-no-wind-no-slope
+                                                  wind-adjustment-factor]]))
 
 (m/set-current-implementation :vectorz)
 
