@@ -220,6 +220,15 @@
           :let           [new-count (inc (m/mget firebrand-count-matrix x y))]]
     (m/mset! firebrand-count-matrix x y new-count)))
 
+(defn spot-fire? [{:keys [spotting rand-gen]} crown-fire?]
+  (when crown-fire?
+    (when-let [spot-percent (:crown-fire-spotting-percent spotting)]
+      (let [p (if (seq spot-percent)
+                (let [[lo hi] spot-percent]
+                  (random-float lo hi rand-gen))
+                spot-percent)]
+           (>= p (random-float 0.0 1.0 rand-gen))))))
+
 (defn spread-firebrands
   "Returns a sequence of key value pairs where
   key: [x y] locations of the cell
@@ -233,8 +242,8 @@
            fire-spread-matrix
            fire-line-intensity-matrix
            flame-length-matrix]}
-   {:keys [cell crown-fire?]}]
-  (when crown-fire?
+   {:keys [cell fire-line-intensity crown-fire?] :as ignition-event}]
+  (when (spot-fire? config crown-fire?)
     (let [{:keys
            [wind-speed-20ft
             temperature
