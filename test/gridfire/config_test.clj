@@ -112,3 +112,22 @@
                    :output-landfire-inputs?   false}))
 
     (is (s/valid? ::spec/config config))))
+
+(deftest extract-num-firbrands-test
+  (let [config  (->> (in-file-path "sample-elmfire.data")
+                     slurp
+                     config/parse)
+        results (config/extract-num-firebrands config)]
+
+    (is (= {:lo 1
+            :hi [1 1]}
+           results))))
+
+(deftest extract-crown-fire-spotting-percent-test
+  (let [config  (->> (in-file-path "sample-elmfire.data")
+                     slurp
+                     config/parse)
+        results (config/extract-crown-fire-spotting-percent config)]
+
+    (is (= [0.1 0.2]
+           results))))
