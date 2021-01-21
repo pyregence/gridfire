@@ -92,19 +92,19 @@
 ;;-----------------------------------------------------------------------------
 
 (defn process-weather
-  [{:strs [STOCHASTIC_TMP_FILENAME STOCHASTIC_RH_FILENAME STOCHASTIC_WS_FILENAME
-           STOCHASTIC_WD_FILENAME WEATHER_DIRECTORY]}
+  [{:strs [TMP_FILENAME RH_FILENAME WS_FILENAME
+           WD_FILENAME WEATHER_DIRECTORY]}
    _
    config]
   (let [dir    WEATHER_DIRECTORY
         layers {:temperature         {:type   :geotiff
-                                      :source (file-path dir STOCHASTIC_TMP_FILENAME)}
+                                      :source (file-path dir "tmpf")}
                 :relative-humidity   {:type   :geotiff
-                                      :source (file-path dir STOCHASTIC_RH_FILENAME)}
+                                      :source (file-path dir "rh")}
                 :wind-speed-20ft     {:type   :geotiff
-                                      :source (file-path dir STOCHASTIC_WS_FILENAME)}
+                                      :source (file-path dir WS_FILENAME)}
                 :wind-from-direction {:type   :geotiff
-                                      :source (file-path dir STOCHASTIC_WD_FILENAME)}}]
+                                      :source (file-path dir WD_FILENAME)}}]
     (merge config
            layers)))
 
@@ -175,32 +175,60 @@
 ;;-----------------------------------------------------------------------------
 
 
+(defn- extract-fuel-range [s]
+  (mapv #(Integer/parseInt %) (str/split (re-find #"\d+:\d+" s) #":")))
+
+(defn extract-surface-spotting-percents
+  [{:keys [data]}]
+  (if-let [SURFACE_FIRE_SPOTTING_PERCENT (get data "SURFACE_FIRE_SPOTTING_PERCENT(:)")]
+    [[[1 204] SURFACE_FIRE_SPOTTING_PERCENT]]
+    (let [kys (filter #(str/includes? (name %) "SURFACE_FIRE_SPOTTING_PERCENT") (keys data))]
+      (reduce-kv (fn [acc k v]
+                   (conj acc (extract-fuel-range k) v))
+                 []
+                 (select-keys data kys)))))
+
+(defn extract-global-surface-spotting-percents
+  [{:strs
+    [GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN
+     GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MAX
+     GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT
+     ENABLE_SPOTTING] :as data}]
+  (if (or GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN)
+    (if ENABLE_SPOTTING
+      [[[1 204] [GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MAX]]]
+      [[[1 204] GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT]])
+    (extract-surface-spotting-percents data)))
+
 (defn extract-crown-fire-spotting-percent
   [{:strs [CROWN_FIRE_SPOTTING_PERCENT_MIN CROWN_FIRE_SPOTTING_PERCENT_MAX
-           CROWN_FIRE_SPOTTING_PERCENT STOCHASTIC_SPOTTING]}]
-  (if STOCHASTIC_SPOTTING
+           CROWN_FIRE_SPOTTING_PERCENT ENABLE_SPOTTING]}]
+  (if ENABLE_SPOTTING
     [CROWN_FIRE_SPOTTING_PERCENT_MIN CROWN_FIRE_SPOTTING_PERCENT_MAX]
     CROWN_FIRE_SPOTTING_PERCENT))
 
 (defn extract-num-firebrands
   [{:strs [NEMBERS NEMBERS_MIN NEMBERS_MIN_LO NEMBERS_MIN_HI NEMBERS_MAX
-           NEMBERS_MAX_LO NEMBERS_MAX_HI STOCHASTIC_SPOTTING]}]
+           NEMBERS_MAX_LO NEMBERS_MAX_HI ENABLE_SPOTTING]}]
 
-  (if STOCHASTIC_SPOTTING
+  (if ENABLE_SPOTTING
     {:lo (if NEMBERS_MIN_LO [NEMBERS_MIN_LO NEMBERS_MIN_HI] NEMBERS_MIN)
      :hi (if NEMBERS_MAX_LO [NEMBERS_MAX_LO NEMBERS_MAX_HI] NEMBERS_MAX)}
     NEMBERS))
 
 (defn process-spotting
-  [{:strs [ENABLE_SPOTTING] :as data} _ config]
-  (if (ENABLE_SPOTTING)
-    (merge config {:spotting {:ambient-gas-density         1.1
-                              :crown-fire-spotting-percent (extract-crown-fire-spotting-percent data)
-                              :num-firebrands              (extract-num-firebrands data)
-                              :specific-heat-gas           1121.0
-                              :surface-fire-spotting       {:spotting-percent [[[1   149] 1.0]
-                                                                               [[150 169] 2.0]
-                                                                               [[169 204] 3.0]]}}})
+  [{:strs [ENABLE_SPOTTING ENABLE_SURFACE_FIRE_SPOTTING CRITICAL_SPOTTING_FIRELINE_INTENSITY] :as data} _ config]
+  (if ENABLE_SPOTTING
+    (let [spotting-config (cond-> {:spotting {:ambient-gas-density         1.1
+                                              :crown-fire-spotting-percent (extract-crown-fire-spotting-percent data)
+                                              :num-firebrands              (extract-num-firebrands data)
+                                              :specific-heat-gas           1121.0}}
+
+                            ENABLE_SURFACE_FIRE_SPOTTING
+                            (assoc-in [:spotting :surface-fire-spotting]
+                                      {:spotting-percent             (extract-global-surface-spotting-percents data)
+                                       :critical-fire-line-intensity CRITICAL_SPOTTING_FIRELINE_INTENSITY}))]
+      (merge config spotting-config))
     config))
 
 
@@ -211,21 +239,22 @@
 (defn build-edn
   [{:strs
     [COMPUTATIONAL_DOMAIN_CELLSIZE SIMULATION_TSTOP NUM_ENSEMBLE_MEMBERS
-     A_SRS FOLIAR_MOISTURE_CONTENT SEED] :as data}
+     A_SRS FOLIAR_MOISTURE_CONTENT SEED] :as d}
    options]
-  (->> {:cell-size                 (m->ft COMPUTATIONAL_DOMAIN_CELLSIZE)
-        :srid                      A_SRS
-        :max-runtime               (sec->min SIMULATION_TSTOP)
-        :simulations               NUM_ENSEMBLE_MEMBERS
-        :random-seed               SEED
-        :foliar-moisture           FOLIAR_MOISTURE_CONTENT
-        :ellipse-adjustment-factor 1.0}
-       (process-landfire-layers data options)
-       (process-ignition data options)
-       (process-weather data options)
-       (process-output data options)
-       (process-perturbations data options)
-       (process-spotting data options)))
+  (let [data (into (sorted-map ) d)]
+    (->> {:cell-size                 (m->ft COMPUTATIONAL_DOMAIN_CELLSIZE)
+          :srid                      A_SRS
+          :max-runtime               (sec->min SIMULATION_TSTOP)
+          :simulations               NUM_ENSEMBLE_MEMBERS
+          :random-seed               SEED
+          :foliar-moisture           FOLIAR_MOISTURE_CONTENT
+          :ellipse-adjustment-factor 1.0}
+         (process-landfire-layers data options)
+         (process-ignition data options)
+         (process-weather data options)
+         (process-output data options)
+         (process-perturbations data options)
+         (process-spotting data options))))
 
 (defn write-config [config-params]
   (let [file "gridfire.edn"]
