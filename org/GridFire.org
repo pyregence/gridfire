@@ -3062,7 +3062,7 @@ from a range.
 #+end_src
 
 Here is a complete sample configuration for reading both the LANDFIRE
-layers, and initial burn perimeter, and weather layers from GeoTIFF
+layers, initial burn perimeter, and weather layers from GeoTIFF
 files on disk.
 
 #+name: sample_geotiff_config.edn
