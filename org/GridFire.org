@@ -3185,9 +3185,9 @@ To specify this in the config file include the following mappings:
 
 The above config specify that a randomly selected value between -1.0
 and 1.0 should be added to the canopy height value. This perturbation
-will be applied globally to all cells `{:spatial-type :global}`. We
-could also specify that each cell should be perturbed individually
-by setting `{:spatial-type :pixel}.
+will be applied globally to all cells. We could also, instead, specify
+that each cell should be perturbed individually by setting spatial
+type to *:pixel*.
 
  #+name: perturbation
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/perturbation.clj :padline no :no-expand :comments link
