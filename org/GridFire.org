@@ -454,10 +454,19 @@ elements in the for loop (i.e. tmpf_to_sample.tif)
 USERNAME=$1
 SCHEMA=$2
 SRID=$3
+TILING=$4
+
+echo $4
 
 for LAYER in tmpf wd ws rh
 do
-    raster2pgsql -I -C -t auto -s $SRID ${LAYER}_to_sample.tif $SCHEMA.$LAYER | psql -h localhost -U $USERNAME
+    if [ -z "$4" ]
+    then
+        raster2pgsql -I -C -t auto -s $SRID ${LAYER}_to_sample.tif $SCHEMA.$LAYER | psql -h localhost -U $USERNAME
+    else
+        raster2pgsql -I -C -t $TILING -s $SRID ${LAYER}_to_sample.tif $SCHEMA.$LAYER | psql -h localhost -U $USERNAME
+
+    fi
 done
 #+end_src
 
@@ -465,6 +474,12 @@ To run the script, give it the username, schema name, and srid we wish the layer
 
 #+begin_src bash
 sh import_weather_rasters.sh gridfire weather 90014
+#+end_src
+
+You may optionally include a fourth argument to set the tiling (defaults to auto).
+
+#+begin_src bash
+sh import_weather_rasters.sh gridfire weather 90014 800x800
 #+end_src
 
 * Fire Spread Model
