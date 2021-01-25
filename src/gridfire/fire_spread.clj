@@ -149,7 +149,7 @@
 
 (defn sample-at
   [[i j] global-clock raster]
-  (let [band (int (quot global-clock 60.0))] ;; Assuming each band is 1 hour
+  (let [band (int (quot global-clock 60.0))] ; Assuming each band is 1 hour
     (m/mget raster band i j)))
 
 (defn fuel-moisture [here temperature relative-humidity global-clock]
