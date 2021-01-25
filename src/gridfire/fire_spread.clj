@@ -247,7 +247,7 @@
                     (- fractional-distance 1.0))])))))
 
 (defn run-loop
-  [{:keys [max-runtime cell-size initial-ignition-site] :as constants}
+  [{:keys [max-runtime cell-size] :as constants}
    ignited-cells
    fire-spread-matrix
    flame-length-matrix
