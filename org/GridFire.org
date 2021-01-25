@@ -2380,7 +2380,7 @@ described in the previous section.
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/magellan_bridge.clj :padline no :no-expand :comments link
 (ns gridfire.magellan-bridge
   (:require [clojure.core.matrix :as m]
-            [magellan.core :refer [read-raster resample-raster]]
+            [magellan.core :refer [read-raster]]
             [magellan.raster.inspect :as inspect]))
 
 (defn geotiff-raster-to-matrix
