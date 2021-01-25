@@ -46,8 +46,8 @@
         postgis-config  (merge test-config-base
                                {:fetch-temperature-method :postgis
                                 :temperature              postgis-table})
-        geotiff-results (fetch/weather geotiff-config :temperature)
-        postgis-results (fetch/weather postgis-config :temperature)]
+        geotiff-results (fetch/weather geotiff-config :geotiff :temperature)
+        postgis-results (fetch/weather postgis-config :postgis :temperature)]
 
     (is (every? m/matrix? geotiff-results))
 

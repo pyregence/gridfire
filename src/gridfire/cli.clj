@@ -1,86 +1,23 @@
 ;; [[file:../../org/GridFire.org::command-line-interface][command-line-interface]]
 (ns gridfire.cli
   (:gen-class)
-  (:require [clojure.core.matrix :as m]
-            [clojure.data.csv :as csv]
-            [clojure.edn :as edn]
-            [clojure.java.io :as io]
-            [gridfire.fetch :as fetch]
+  (:require [clojure.core.matrix  :as m]
+            [clojure.data.csv     :as csv]
+            [clojure.edn          :as edn]
+            [clojure.java.io      :as io]
+            [clojure.string       :as s]
+            [gridfire.fetch       :as fetch]
             [gridfire.fire-spread :refer [run-fire-spread]]
-            [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
-            [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]
-            [gridfire.surface-fire :refer [degrees-to-radians]]
-            [magellan.core :refer [make-envelope
-                                   matrix-to-raster
-                                   register-new-crs-definitions-from-properties-file!
-                                   write-raster]]
-            [matrix-viz.core :refer [save-matrix-as-png]])
+            [magellan.core        :refer [make-envelope matrix-to-raster
+                                          register-new-crs-definitions-from-properties-file!
+                                          write-raster]]
+            [matrix-viz.core      :refer [save-matrix-as-png]])
   (:import java.util.Random))
 
 (m/set-current-implementation :vectorz)
 
 (register-new-crs-definitions-from-properties-file! "CUSTOM"
                                                     (io/resource "custom_projections.properties"))
-
-(def layer-names
-  [:aspect
-   :canopy-base-height
-   :canopy-cover
-   :canopy-height
-   :crown-bulk-density
-   :elevation
-   :fuel-model
-   :slope])
-
-(defn convert-metrics
-  "Converting metrics in layers:
-  meters to feet
-  degrees to percent"
-  [landfire-layers]
-  (-> landfire-layers
-      (update-in [:elevation :matrix]
-                 (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
-      (update-in [:slope :matrix]
-                 (fn [matrix] (m/emap #(Math/tan (degrees-to-radians %)) matrix))) ; degrees -> %
-      (update-in [:canopy-height :matrix]
-                 (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
-      (update-in [:canopy-base-height :matrix]
-                 (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
-      (update-in [:crown-bulk-density :matrix]
-                 (fn [matrix] (m/emap #(* % 0.0624) matrix))))) ; kg/m^3 -> lb/ft^3
-
-(defmulti fetch-landfire-layers
-  "Returns a map of LANDFIRE rasters (represented as maps) with the following units:
-   {:elevation          feet
-    :slope              vertical feet/horizontal feet
-    :aspect             degrees clockwise from north
-    :fuel-model         fuel model numbers 1-256
-    :canopy-height      feet
-    :canopy-base-height feet
-    :crown-bulk-density lb/ft^3
-    :canopy-cover       % (0-100)}"
-  (fn [config]
-    (:fetch-layer-method config)))
-
-(defmethod fetch-landfire-layers :postgis
-  [{:keys [db-spec landfire-layers]}]
-  (convert-metrics
-   (reduce (fn [amap layer-name]
-             (let [table (landfire-layers layer-name)]
-               (assoc amap layer-name
-                      (postgis-raster-to-matrix db-spec table))))
-           {}
-           layer-names)))
-
-(defmethod fetch-landfire-layers :geotiff
-  [{:keys [landfire-layers]}]
-  (convert-metrics
-   (reduce (fn [amap layer-name]
-             (let [file-name (landfire-layers layer-name)]
-               (assoc amap layer-name
-                      (geotiff-raster-to-matrix file-name))))
-           {}
-           layer-names)))
 
 (defn my-rand
   ([^Random rand-generator] (.nextDouble rand-generator))
@@ -167,10 +104,10 @@
   [simulations landfire-rasters envelope cell-size ignition-row
    ignition-col max-runtime temperature relative-humidity wind-speed-20ft
    wind-from-direction foliar-moisture ellipse-adjustment-factor
-   outfile-suffix output-geotiffs? output-pngs? output-csvs? ignition-raster config]
+   outfile-suffix output-geotiffs? output-pngs? output-csvs? ignition-layer config]
   (mapv
    (fn [i]
-     (let [initial-ignition-site (or ignition-raster
+     (let [initial-ignition-site (or ignition-layer
                                      [(ignition-row i) (ignition-col i)])
            temperature           (if (config :fetch-temperature-method) temperature (temperature i))
            wind-speed-20ft       (if (config :fetch-wind-speed-20ft-method) wind-speed-20ft (wind-speed-20ft i))
@@ -179,7 +116,7 @@
        (if-let [fire-spread-results (run-fire-spread
                                      {:max-runtime               (max-runtime i)
                                       :cell-size                 cell-size
-                                      :landfire-layers           landfire-rasters
+                                      :landfire-rasters          landfire-rasters
                                       :wind-speed-20ft           wind-speed-20ft
                                       :wind-from-direction       wind-from-direction
                                       :temperature               temperature
@@ -187,7 +124,7 @@
                                       :foliar-moisture           (* 0.01 (foliar-moisture i))
                                       :ellipse-adjustment-factor (ellipse-adjustment-factor i)
                                       :num-rows                  (m/row-count (:fuel-model landfire-rasters))
-                                      :num-cols                  (m/row-count (:fuel-model landfire-rasters))
+                                      :num-cols                  (m/column-count (:fuel-model landfire-rasters))
                                       :initial-ignition-site     initial-ignition-site})]
          (do
            (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
@@ -204,19 +141,18 @@
              (merge
               {:ignition-row              (ignition-row i)
                :ignition-col              (ignition-col i)
-               :ignition-raster           ignition-raster
                :max-runtime               (max-runtime i)
                :temperature               temperature
                :relative-humidity         relative-humidity
                :wind-speed-20ft           wind-speed-20ft
                :wind-from-direction       wind-from-direction
                :foliar-moisture           (foliar-moisture i)
-               :ellipse-adjustment-factor (ellipse-adjustment-factor i)}
+               :ellipse-adjustment-factor (ellipse-adjustment-factor i)
+               :exit-condition            (:exit-condition fire-spread-results)}
               (summarize-fire-spread-results fire-spread-results cell-size))))
          (when output-csvs?
            {:ignition-row               (ignition-row i)
             :ignition-col               (ignition-col i)
-            :ignition-raster            ignition-raster
             :max-runtime                (max-runtime i)
             :temperature                temperature
             :relative-humidity          relative-humidity
@@ -228,7 +164,8 @@
             :flame-length-mean          0.0
             :flame-length-stddev        0.0
             :fire-line-intensity-mean   0.0
-            :fire-line-intensity-stddev 0.0}))))
+            :fire-line-intensity-stddev 0.0
+            :exit-condition             :no-fire-spread}))))
    (range simulations)))
 
 (defn write-csv-outputs
@@ -268,23 +205,20 @@
                    (* width scalex)
                    (* -1.0 height scaley))))
 
-(defn get-weather [config rand-generator weather-type]
-  (let [val          (config weather-type)
-        fetch-method (keyword (s/join "-" ["fetch" (name weather-type) "method"]))]
-    (if (contains? config fetch-method)
-      (let [raster (fetch/weather config weather-type)]
-        raster)
-      (draw-samples rand-generator (:simulations config) val))))
+(defn get-weather [{:keys [simulations] :as config} rand-generator weather-type]
+  (if-let [method ((keyword (s/join "-" ["fetch" (name weather-type) "method"])) config)]
+    (fetch/weather config method weather-type)
+    (draw-samples rand-generator simulations (get config weather-type))))
 
 (defn -main
   [& config-files]
   (doseq [config-file config-files]
     (let [config           (edn/read-string (slurp config-file))
-          landfire-layers  (fetch-landfire-layers config)
+          landfire-layers  (fetch/landfire-layers config)
           landfire-rasters (into {}
-                                 (map (fn [[layer info]] [layer (:matrix info)]))
+                                 (map (fn [[layer info]] [layer (first (:matrix info))]))
                                  landfire-layers)
-          ignition-raster  (fetch/initial-ignition-layers config)
+          ignition-layer   (fetch/ignition-layer config)
           envelope         (get-envelope config landfire-layers)
           simulations      (:simulations config)
           rand-generator   (if-let [seed (:random-seed config)]
@@ -312,7 +246,7 @@
             (:output-geotiffs? config)
             (:output-pngs? config)
             (:output-csvs? config)
-            ignition-raster
+            ignition-layer
             config)
            (write-csv-outputs
             (:output-csvs? config)

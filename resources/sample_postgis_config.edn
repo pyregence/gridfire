@@ -4,7 +4,8 @@
  :db-spec                   {:classname   "org.postgresql.Driver"
                              :subprotocol "postgresql"
                              :subname     "//localhost:5432/gridfire"
-                             :user        "gridfire"}
+                             :user        "gridfire"
+                             :password    "gridfire"}
  :landfire-layers           {:aspect             "landfire.asp WHERE rid=100"
                              :canopy-base-height "landfire.cbh WHERE rid=100"
                              :canopy-cover       "landfire.cc WHERE rid=100"
@@ -16,7 +17,7 @@
  :srid                      "CUSTOM:900914"
  :cell-size                 98.425         ; (feet)
 
- ;; Section 2: Ignition and weather data from which to build simulation inputs
+ ;; Section 2: Ignition data from which to build simulation inputs
  :ignition-row              [10 90]
  :ignition-col              [20 80]
 
@@ -25,19 +26,21 @@
  ;;   1. Single Value: 25
  ;;   2. List of Values: (2 17 9)
  ;;   3. Range of Values: [10 20]
+ ;;   4. Raster from file on disk: "path/to/file/weather.tif"
+ ;;   5. Raster from Postgres database: "weather.ws WHERE rid=1"
  ;;
  ;; If a single value is provided, it will be kept the same for all simulations.
  ;; For a list of values, the list will be randomly sampled from in each simulation.
  ;; For a range of values, the range [inclusive exclusive] will be randomly sampled from in each simulation.
- :max-runtime               60             ; (minutes)
  :temperature               (50 65 80)     ; (degrees Fahrenheit)
  :relative-humidity         (1 10 20)      ; (%)
  :wind-speed-20ft           (10 15 20)     ; (miles/hour)
  :wind-from-direction       (0 90 180 270) ; (degrees clockwise from north)
  :foliar-moisture           90             ; (%)
- :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
 
  ;; Section 4: Number of simulations and (optional) random seed parameter
+ :max-runtime               60             ; (minutes)
+ :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
  :simulations               10
  :random-seed               1234567890     ; long value (optional)
 

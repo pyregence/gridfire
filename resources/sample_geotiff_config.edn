@@ -12,33 +12,40 @@
  :srid                      "CUSTOM:900914"
  :cell-size                 98.425         ; (feet)
 
- ;; Section 2: Ignition from which to build simulation inputs
+ ;; Section 2: Ignition data from which to build simulation inputs
  :fetch-ignition-method     :geotiff
  :ignition-layer            "test/gridfire/resources/ign.tif"
 
  ;; Section 3: Weather data from which to build simulation inputs
- ;; For all options in this section, you may enter values in one of three ways:
+ ;; For all options in this section, you may enter values in one of five ways:
  ;;   1. Single Value: 25
  ;;   2. List of Values: (2 17 9)
  ;;   3. Range of Values: [10 20]
+ ;;   4. Raster from file on disk: "path/to/file/weather.tif"
+ ;;   5. Raster from Postgres database: "weather.ws WHERE rid=1"
  ;;
  ;; If a single value is provided, it will be kept the same for all simulations.
  ;; For a list of values, the list will be randomly sampled from in each simulation.
  ;; For a range of values, the range [inclusive exclusive] will be randomly sampled from in each simulation.
- :max-runtime               60             ; (minutes)
- :temperature               (50 65 80)     ; (degrees Fahrenheit)
- :relative-humidity         (1 10 20)      ; (%)
- :wind-speed-20ft           (10 15 20)     ; (miles/hour)
- :wind-from-direction       (0 90 180 270) ; (degrees clockwise from north)
- :foliar-moisture           90             ; (%)
- :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
+
+ :fetch-temperature-method         :geotiff
+ :temperature                      "test/gridfire/resources/weather-test/tmpf_to_sample.tif" ; (degrees Fahrenheit)
+ :fetch-relative-humidity-method   :geotiff
+ :relative-humidity                "test/gridfire/resources/weather-test/rh_to_sample.tif"   ; (%)
+ :fetch-wind-speed-20ft-method     :geotiff
+ :wind-speed-20ft                  "test/gridfire/resources/weather-test/ws_to_sample.tif"   ; (miles/hour)
+ :fetch-wind-from-direction-method :geotiff
+ :wind-from-direction              "test/gridfire/resources/weather-test/d_to_sample.tif"    ; (degrees clockwise from north)
+ :foliar-moisture                  90                                                        ; (%)
 
  ;; Section 4: Number of simulations and (optional) random seed parameter
+ :max-runtime               60             ; (minutes)
+ :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
  :simulations               10
  :random-seed               1234567890     ; long value (optional)
 
  ;; Section 5: Types and names of outputs
- :outfile-suffix            "_tile_100"
+ :outfile-suffix            "_from_raster_ignition"
  :output-landfire-inputs?   true
  :output-geotiffs?          true
  :output-pngs?              true

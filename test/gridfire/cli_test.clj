@@ -54,9 +54,9 @@
         rand-generator  (if-let [seed (:random-seed config)]
                           (Random. seed)
                           (Random.))
-        landfire-layers (cli/fetch-landfire-layers config)
-        landfire-matrix (into {} (map (fn [[layer-name info]] [layer-name (:matrix info)])) landfire-layers)
-        ignition-raster (fetch/initial-ignition-layers config)]
+        landfire-layers (fetch/landfire-layers config)
+        landfire-matrix (into {} (map (fn [[layer-name info]] [layer-name (first (:matrix info))])) landfire-layers)
+        ignition-raster (fetch/ignition-layer config)]
     (cli/run-simulations
      simulations
      landfire-matrix
@@ -104,8 +104,8 @@
                                                :fuel-model         (in-file-path "fbfm40.tif")
                                                :slope              (in-file-path "slp.tif")}
                           :fetch-layer-method :geotiff}
-          postgis        (cli/fetch-landfire-layers postgis-config)
-          geotiff        (cli/fetch-landfire-layers geotiff-config)]
+          postgis        (fetch/landfire-layers postgis-config)
+          geotiff        (fetch/landfire-layers geotiff-config)]
 
       (is (= (get-in postgis [:aspect :matrix])
              (get-in geotiff [:aspect :matrix])))
@@ -158,10 +158,10 @@
                                                        :slope              (in-file-path "slp.tif")}
                                   :fetch-layer-method :geotiff})
           simulations     (:simulations test-config-base)
-          postgis-layers  (cli/fetch-landfire-layers postgis-config)
+          postgis-layers  (fetch/landfire-layers postgis-config)
           postgis-results (run-simulation postgis-config)
 
-          geotiff-layers  (cli/fetch-landfire-layers geotiff-config)
+          geotiff-layers  (fetch/landfire-layers geotiff-config)
           geotiff-results (run-simulation geotiff-config)]
 
       (is (every? some? postgis-results))
