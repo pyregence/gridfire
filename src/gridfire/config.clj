@@ -43,7 +43,7 @@
                                  :slope              (file-path dir SLP_FILENAME)}})))
 
 (defn process-ignition
-  [{:strs [NUM_IGNITIONS PHI_FILENAME FUELS_AND_TOPOGRAPHY_DIRECTORY]}
+  [{:strs [PHI_FILENAME FUELS_AND_TOPOGRAPHY_DIRECTORY]}
    _
    config]
   (let [dir FUELS_AND_TOPOGRAPHY_DIRECTORY]
@@ -65,7 +65,7 @@
             :foliar-moisture     FOLIAR_MOISTURE_CONTENT})))
 
 (defn process-output
-  [data {:keys [verbose]} config]
+  [_ {:keys [verbose]} config]
   (merge config
          {:outfile-suffix          ""
           :output-landfire-inputs? false
@@ -96,7 +96,7 @@
     (spit file (with-out-str (pprint/pprint config-params)))))
 
 (defn process-options
-  [{:keys [config-file verbose] :as options}]
+  [{:keys [config-file] :as options}]
   (let [data (parse (slurp config-file))]
     (build-edn data options)))
 
@@ -107,7 +107,7 @@
 (defn -main
   [& args]
   (println (str "Converting configuration file to one that Gridfire accepts."))
-  (let [{:keys [options arguments summary errors]} (parse-opts args cli-options)]
+  (let [{:keys [options summary errors]} (parse-opts args cli-options)]
     (if (or (seq errors) (empty? options))
       (do
         (when (seq errors)
