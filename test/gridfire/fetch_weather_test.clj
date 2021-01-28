@@ -125,7 +125,7 @@
                                {:fetch-wind-from-direction-method :postgis
                                 :wind-from-direction              postgis-table})
         geotiff-results (fetch/weather geotiff-config :geotiff :wind-from-direction)
-        postgis-results (fetch/weather postgis-config :geotiff :wind-from-direction)]
+        postgis-results (fetch/weather postgis-config :postgis :wind-from-direction)]
 
     (is (every? m/matrix? geotiff-results))
 
