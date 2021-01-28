@@ -1,17 +1,17 @@
 ;; [[file:../../org/GridFire.org::fire-spread-algorithm][fire-spread-algorithm]]
 (ns gridfire.fire-spread
-  (:require [clojure.core.matrix :as m]
+  (:require [clojure.core.matrix           :as m]
             [clojure.core.matrix.operators :as mop]
-            [gridfire.fuel-models :refer [build-fuel-model moisturize]]
-            [gridfire.surface-fire :refer [rothermel-surface-fire-spread-no-wind-no-slope
-                                           rothermel-surface-fire-spread-max
-                                           rothermel-surface-fire-spread-any
-                                           anderson-flame-depth byram-fire-line-intensity
-                                           byram-flame-length wind-adjustment-factor]]
-            [gridfire.crown-fire :refer [van-wagner-crown-fire-initiation?
-                                         cruz-crown-fire-spread
-                                         crown-fire-line-intensity
-                                         crown-fire-eccentricity]]))
+            [gridfire.fuel-models          :refer [build-fuel-model moisturize]]
+            [gridfire.surface-fire         :refer [rothermel-surface-fire-spread-no-wind-no-slope
+                                                   rothermel-surface-fire-spread-max
+                                                   rothermel-surface-fire-spread-any
+                                                   anderson-flame-depth byram-fire-line-intensity
+                                                   byram-flame-length wind-adjustment-factor]]
+            [gridfire.crown-fire           :refer [van-wagner-crown-fire-initiation?
+                                                   cruz-crown-fire-spread
+                                                   crown-fire-line-intensity
+                                                   crown-fire-eccentricity]]))
 
 (m/set-current-implementation :vectorz)
 
