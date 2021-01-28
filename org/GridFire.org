@@ -2793,10 +2793,11 @@ different handlers for fetching ignition layers. The dispatch depends
 on what is in the config file. Here's the namespace that implements
 this functionality.
 
+
+#+name: fetch.clj
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fetch.clj :padline no :no-expand :comments link
 (ns gridfire.fetch
   (:require [clojure.core.matrix      :as m]
-            [clojure.string           :as s]
             [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
             [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]
             [gridfire.surface-fire    :refer [degrees-to-radians]]))
@@ -2892,40 +2893,16 @@ this functionality.
 ;;-----------------------------------------------------------------------------
 
 (defmulti weather
-  (fn [_ fetch-method weather-type]
-    (keyword (s/join "-" [(name fetch-method) (name weather-type)]))))
+  (fn [_ fetch-method _]
+    fetch-method))
 
-(defmethod weather :postgis-temperature
-  [{:keys [temperature db-spec]} _ _]
-  (:matrix (postgis-raster-to-matrix db-spec temperature)))
+(defmethod weather :postgis
+  [{:keys [db-spec] :as config} _ weather-type]
+  (:matrix (postgis-raster-to-matrix db-spec (get config weather-type))))
 
-(defmethod weather :geotiff-temperature
-  [{:keys [temperature]} _ _]
-  (:matrix (geotiff-raster-to-matrix temperature)))
-
-(defmethod weather :postgis-relative-humidity
-  [{:keys [relative-humidity db-spec]} _ _]
-  (:matrix (postgis-raster-to-matrix db-spec relative-humidity)))
-
-(defmethod weather :geotiff-relative-humidity
-  [{:keys [relative-humidity]} _ _]
-  (:matrix (geotiff-raster-to-matrix relative-humidity)))
-
-(defmethod weather :postgis-wind-speed-20ft
-  [{:keys [wind-speed-20ft db-spec]} _ _]
-  (:matrix (postgis-raster-to-matrix db-spec wind-speed-20ft)))
-
-(defmethod weather :geotiff-wind-speed-20ft
-  [{:keys [wind-speed-20ft]} _ _]
-  (:matrix (geotiff-raster-to-matrix wind-speed-20ft)))
-
-(defmethod weather :postgis-wind-from-direction
-  [{:keys [wind-from-direction db-spec]} _ _]
-  (:matrix (postgis-raster-to-matrix db-spec wind-from-direction)))
-
-(defmethod weather :geotiff-wind-from-direction
-  [{:keys [wind-from-direction]} _ _]
-  (:matrix (geotiff-raster-to-matrix wind-from-direction)))
+(defmethod weather :geotiff
+  [config _ weather-type]
+  (:matrix (geotiff-raster-to-matrix (get config weather-type))))
 #+end_src
 
 ** Section 3: Weather data from which to build simulation inputs
