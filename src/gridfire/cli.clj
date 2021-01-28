@@ -1,20 +1,20 @@
 ;; [[file:../../org/GridFire.org::command-line-interface][command-line-interface]]
 (ns gridfire.cli
   (:gen-class)
-  (:require [clojure.core.matrix      :as m]
-            [clojure.data.csv         :as csv]
-            [clojure.edn              :as edn]
-            [clojure.java.io          :as io]
-            [clojure.string           :as str]
-            [clojure.spec.alpha       :as s]
-            [gridfire.fetch           :as fetch]
-            [gridfire.fire-spread     :refer [run-fire-spread]]
-            [gridfire.validation      :as validation]
-            [magellan.core            :refer [make-envelope
-                                              matrix-to-raster
-                                              register-new-crs-definitions-from-properties-file!
-                                              write-raster]]
-            [matrix-viz.core          :refer [save-matrix-as-png]])
+  (:require [clojure.core.matrix  :as m]
+            [clojure.data.csv     :as csv]
+            [clojure.edn          :as edn]
+            [clojure.java.io      :as io]
+            [clojure.string       :as str]
+            [clojure.spec.alpha   :as s]
+            [gridfire.fetch       :as fetch]
+            [gridfire.fire-spread :refer [run-fire-spread]]
+            [gridfire.validation  :as validation]
+            [magellan.core        :refer [make-envelope
+                                          matrix-to-raster
+                                          register-new-crs-definitions-from-properties-file!
+                                          write-raster]]
+            [matrix-viz.core      :refer [save-matrix-as-png]])
   (:import java.util.Random))
 
 (m/set-current-implementation :vectorz)
