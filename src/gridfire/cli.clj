@@ -5,13 +5,11 @@
             [clojure.data.csv         :as csv]
             [clojure.edn              :as edn]
             [clojure.java.io          :as io]
-            [clojure.string           :as s]
+            [clojure.string           :as str]
+            [clojure.spec.alpha       :as s]
             [gridfire.fetch           :as fetch]
             [gridfire.fire-spread     :refer [run-fire-spread]]
-            [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
-            [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]
-            [gridfire.surface-fire    :refer [degrees-to-radians]]
-            [gridfire.validation      :refer [valid-config?]]
+            [gridfire.validation      :as validation]
             [magellan.core            :refer [make-envelope
                                               matrix-to-raster
                                               register-new-crs-definitions-from-properties-file!
@@ -211,26 +209,20 @@
                    (* -1.0 height scaley))))
 
 (defn get-weather [{:keys [simulations] :as config} rand-generator weather-type]
-  (if-let [method ((keyword (s/join "-" ["fetch" (name weather-type) "method"])) config)]
+  (if-let [method ((keyword (str/join "-" ["fetch" (name weather-type) "method"])) config)]
     (fetch/weather config method weather-type)
     (draw-samples rand-generator simulations (get config weather-type))))
-
-(defn print-error [err config]
-  (prn "CONFIG ERROR for:")
-  (clojure.pprint/pprint config)
-  (prn err))
 
 (defn -main
   [& config-files]
   (doseq [config-file config-files]
-    (let [config           (edn/read-string (slurp config-file))
-          [config err]     (valid-config? config)]
-      (if (valid-config? config)
+    (let [config           (edn/read-string (slurp config-file))]
+      (if (s/valid? ::validation/config config)
         (let [landfire-layers  (fetch/landfire-layers config)
               landfire-rasters (into {}
                                      (map (fn [[layer info]] [layer (:matrix info)]))
                                      landfire-layers)
-              ignition-layer  (fetch/initial-ignition-layer config)
+              ignition-layer  (fetch/ignition-layer config)
               envelope         (get-envelope config landfire-layers)
               simulations      (:simulations config)
               rand-generator   (if-let [seed (:random-seed config)]
