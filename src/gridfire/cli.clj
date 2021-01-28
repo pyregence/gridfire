@@ -244,7 +244,7 @@
               landfire-rasters  (into {}
                                       (map (fn [[layer info]] [layer (:matrix info)]))
                                       landfire-layers)
-              ignition-layer    (fetch/initial-ignition-layers config)
+              ignition-layer    (fetch/ignition-layer config)
               envelope          (get-envelope config landfire-layers)
               simulations       (:simulations config)
               rand-generator    (if-let [seed (:random-seed config)]
