@@ -259,7 +259,7 @@
                          {:fetch-layer-method               :geotiff
                           :landfire-layers                  landfire-layers-weather-test
                           :fetch-ignition-method            :geotiff
-                          :ignition-layer                   (in-file-path "ign.tif")
+                          :ignition-layer                   (in-file-path "weather-test/phi.tif")
                           :fetch-temperature-method         :geotiff
                           :temperature                      (in-file-path "weather-test/tmpf_to_sample.tif")
                           :fetch-relative-humidity-method   :geotiff

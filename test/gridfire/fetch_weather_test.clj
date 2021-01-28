@@ -72,8 +72,8 @@
         postgis-config  (merge test-config-base
                                {:fetch-relative-humidity-method :postgis
                                 :relative-humidity              postgis-table})
-        geotiff-results (fetch/weather geotiff-config :relative-humidity)
-        postgis-results (fetch/weather postgis-config :relative-humidity)]
+        geotiff-results (fetch/weather geotiff-config :geotiff :relative-humidity)
+        postgis-results (fetch/weather postgis-config :postgis :relative-humidity)]
 
     (is (every? m/matrix? geotiff-results))
 
@@ -98,8 +98,8 @@
         postgis-config  (merge test-config-base
                                {:fetch-wind-speed-20ft-method :postgis
                                 :wind-speed-20ft              postgis-table})
-        geotiff-results (fetch/weather geotiff-config :wind-speed-20ft)
-        postgis-results (fetch/weather postgis-config :wind-speed-20ft)]
+        geotiff-results (fetch/weather geotiff-config :geotiff :wind-speed-20ft)
+        postgis-results (fetch/weather postgis-config :postgis :wind-speed-20ft)]
 
     (is (every? m/matrix? geotiff-results))
 
@@ -124,8 +124,8 @@
         postgis-config  (merge test-config-base
                                {:fetch-wind-from-direction-method :postgis
                                 :wind-from-direction              postgis-table})
-        geotiff-results (fetch/weather geotiff-config :wind-from-direction)
-        postgis-results (fetch/weather postgis-config :wind-from-direction)]
+        geotiff-results (fetch/weather geotiff-config :geotiff :wind-from-direction)
+        postgis-results (fetch/weather postgis-config :postgis :wind-from-direction)]
 
     (is (every? m/matrix? geotiff-results))
 

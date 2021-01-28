@@ -9,7 +9,6 @@
         net.mikera/vectorz-clj              {:mvn/version "0.48.0"}
         sig-gis/magellan                    {:mvn/version "20210113"}
         org.clojars.lambdatronic/matrix-viz {:mvn/version "0.1.7"}
-        cider/cider-nrepl                   {:mvn/version "0.25.3"}
         org.clojure/tools.cli               {:mvn/version "1.0.194"}}
 
  :mvn/repos {"osgeo" {:url "https://repo.osgeo.org/repository/release/"}}
