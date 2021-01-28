@@ -409,8 +409,8 @@ Then we can use the following script to import an ignition raster into
 our database given the schema and username as inputs.
 
 *Note:* This script needs to be run in the same folder as where this
-raster resides. The filename of this raster should match the
-elements in the for loop (i.e. ign.tif)
+raster resides. The filename of this raster should match the value
+assigned to the LAYER variable (i.e., ign) plus a .tif extension.
 
 #+name: raster2pgsql-import-ignition-raster
 #+begin_src sh :results silent :exports code :tangle ../resources/import_ignition_rasters.sh :padline no :no-expand :comments link
@@ -2727,7 +2727,7 @@ include the following mappings:
 
 #+begin_src clojure
 {:fetch-ignition-method :postgis
- :ignition-layer       "ignition.ign WHERE rid=1"}
+ :ignition-layer        "ignition.ign WHERE rid=1"}
 #+end_src
 
 To initialize a burn perimeter from a raster file on disk, include the
@@ -2738,7 +2738,7 @@ following mappings:
 
 #+begin_src clojure
 {:fetch-ignition-method :geotiff
- :ignition-layer       "test/gridfire/resources/ign.tif"}
+ :ignition-layer        "test/gridfire/resources/ign.tif"}
 #+end_src
 
 GridFire makes use of clojure's multimethods to dispatch control to
