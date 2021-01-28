@@ -8,7 +8,8 @@
             [clojure.string       :as s]
             [gridfire.fetch       :as fetch]
             [gridfire.fire-spread :refer [run-fire-spread]]
-            [magellan.core        :refer [make-envelope matrix-to-raster
+            [magellan.core        :refer [make-envelope
+                                          matrix-to-raster
                                           register-new-crs-definitions-from-properties-file!
                                           write-raster]]
             [matrix-viz.core      :refer [save-matrix-as-png]])
