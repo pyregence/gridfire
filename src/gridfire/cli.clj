@@ -8,9 +8,6 @@
             [clojure.string           :as s]
             [gridfire.fetch           :as fetch]
             [gridfire.fire-spread     :refer [run-fire-spread]]
-            [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
-            [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]
-            [gridfire.surface-fire    :refer [degrees-to-radians]]
             [gridfire.validation      :refer [valid-config?]]
             [magellan.core            :refer [make-envelope
                                               matrix-to-raster

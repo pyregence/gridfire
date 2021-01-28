@@ -26,9 +26,6 @@
         low-res  (* high-res 10)
         temp     (s/conform ::validation/weather
                             {:path      (in-file-path "weather-test/tmpf_to_sample.tif")
-                             :cell-size low-res})
-        rh       (s/conform ::validation/weather
-                            {:path      (in-file-path "weather-test/rh_to_sample.tif")
                              :cell-size low-res})]
     (testing "Valid cell-size for a weather raster"
       (let [config {:cell-size   high-res
