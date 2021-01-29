@@ -46,7 +46,7 @@
                                {:temperature {:type   :postgis
                                               :source postgis-table}})
         geotiff-results (fetch/weather geotiff-config (:temperature geotiff-config))
-        postgis-results (fetch/weather postgis-config (:temperature geotiff-config))]
+        postgis-results (fetch/weather postgis-config (:temperature postgis-config))]
 
     (is (every? m/matrix? geotiff-results))
 
