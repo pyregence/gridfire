@@ -39,14 +39,14 @@
 (deftest fetch-temperature-test
   (let [geotiff-file    "tmpf_to_sample.tif"
         geotiff-config  (merge test-config-base
-                               {:fetch-temperature-method :geotiff
-                                :temperature              (in-file-path geotiff-file)})
+                               {:temperature {:type   :geotiff
+                                              :source (in-file-path geotiff-file)}})
         postgis-table   "weather.tmpf WHERE rid=1"
         postgis-config  (merge test-config-base
-                               {:fetch-temperature-method :postgis
-                                :temperature              postgis-table})
-        geotiff-results (fetch/weather geotiff-config :geotiff :temperature)
-        postgis-results (fetch/weather postgis-config :postgis :temperature)]
+                               {:temperature {:type   :postgis
+                                              :source postgis-table}})
+        geotiff-results (fetch/weather geotiff-config (:temperature geotiff-config))
+        postgis-results (fetch/weather postgis-config (:temperature geotiff-config))]
 
     (is (every? m/matrix? geotiff-results))
 
@@ -65,14 +65,14 @@
 (deftest fetch-relative-humidity-test
   (let [geotiff-file    "rh_to_sample.tif"
         geotiff-config  (merge test-config-base
-                               {:fetch-relative-humidity-method :geotiff
-                                :relative-humidity              (in-file-path geotiff-file)})
+                               {:relative-humidity {:type   :geotiff
+                                                    :source (in-file-path geotiff-file)}})
         postgis-table   "weather.rh WHERE rid=1"
         postgis-config  (merge test-config-base
-                               {:fetch-relative-humidity-method :postgis
-                                :relative-humidity              postgis-table})
-        geotiff-results (fetch/weather geotiff-config :geotiff :relative-humidity)
-        postgis-results (fetch/weather postgis-config :postgis :relative-humidity)]
+                               {:relative-humidity {:type   :postgis
+                                                    :source postgis-table}})
+        geotiff-results (fetch/weather geotiff-config (:relative-humidity geotiff-config))
+        postgis-results (fetch/weather postgis-config (:relative-humidity postgis-config))]
 
     (is (every? m/matrix? geotiff-results))
 
@@ -91,14 +91,14 @@
 (deftest fetch-wind-speed-20ft-test
   (let [geotiff-file    "ws_to_sample.tif"
         geotiff-config  (merge test-config-base
-                               {:fetch-wind-speed-20ft-method :geotiff
-                                :wind-speed-20ft              (in-file-path geotiff-file)})
+                               {:wind-speed-20ft {:type   :geotiff
+                                                  :source (in-file-path geotiff-file)}})
         postgis-table   "weather.ws WHERE rid=1"
         postgis-config  (merge test-config-base
-                               {:fetch-wind-speed-20ft-method :postgis
-                                :wind-speed-20ft              postgis-table})
-        geotiff-results (fetch/weather geotiff-config :geotiff :wind-speed-20ft)
-        postgis-results (fetch/weather postgis-config :postgis :wind-speed-20ft)]
+                               {:wind-speed-20ft {:type   :postgis
+                                                  :source postgis-table}})
+        geotiff-results (fetch/weather geotiff-config (:wind-speed-20ft geotiff-config))
+        postgis-results (fetch/weather postgis-config (:wind-speed-20ft postgis-config))]
 
     (is (every? m/matrix? geotiff-results))
 
@@ -117,14 +117,14 @@
 (deftest fetch-wind-from-direction-test
   (let [geotiff-file    "wd_to_sample.tif"
         geotiff-config  (merge test-config-base
-                               {:fetch-wind-from-direction-method :geotiff
-                                :wind-from-direction              (in-file-path geotiff-file)})
+                               {:wind-from-direction {:type   :geotiff
+                                                      :source (in-file-path geotiff-file)}})
         postgis-table   "weather.wd WHERE rid=1"
         postgis-config  (merge test-config-base
-                               {:fetch-wind-from-direction-method :postgis
-                                :wind-from-direction              postgis-table})
-        geotiff-results (fetch/weather geotiff-config :geotiff :wind-from-direction)
-        postgis-results (fetch/weather postgis-config :postgis :wind-from-direction)]
+                               {:wind-from-direction {:type   :postgis
+                                                      :source postgis-table}})
+        geotiff-results (fetch/weather geotiff-config (:wind-from-direction geotiff-config))
+        postgis-results (fetch/weather postgis-config (:wind-from-direction postgis-config))]
 
     (is (every? m/matrix? geotiff-results))
 
@@ -144,8 +144,8 @@
 (deftest get-weather-from-geotiff-test
   (let [file           "ws_to_sample.tif"
         config         (merge test-config-base
-                              {:fetch-wind-from-direction-method :geotiff
-                               :wind-from-direction              (in-file-path file)})
+                              {:wind-from-direction {:type   :geotiff
+                                                     :source (in-file-path file)}})
         rand-generator (Random. (:random-seed config))
         results        (cli/get-weather config rand-generator :wind-from-direction)]
 
@@ -156,8 +156,8 @@
 (deftest get-weather-from-postgis-test
   (let [table          "weather.tmpf WHERE rid=1"
         config         (merge test-config-base
-                              {:fetch-temperature-method :postgis
-                               :temperature              table})
+                              {:temperature {:type   :postgis
+                                             :source table}})
         rand-generator (Random. (:random-seed config))
         results        (cli/get-weather config rand-generator :temperature)]
 

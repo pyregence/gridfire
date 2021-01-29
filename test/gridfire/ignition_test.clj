@@ -19,14 +19,22 @@
 (def test-config-base
   {:db-spec                   db-spec
    :fetch-layer-method        :geotiff
-   :landfire-layers           {:aspect             "test/gridfire/resources/asp.tif"
-                               :canopy-base-height "test/gridfire/resources/cbh.tif"
-                               :canopy-cover       "test/gridfire/resources/cc.tif"
-                               :canopy-height      "test/gridfire/resources/ch.tif"
-                               :crown-bulk-density "test/gridfire/resources/cbd.tif"
-                               :elevation          "test/gridfire/resources/dem.tif"
-                               :fuel-model         "test/gridfire/resources/fbfm40.tif"
-                               :slope              "test/gridfire/resources/slp.tif"}
+   :landfire-layers           {:aspect             {:type   :geotiff
+                                                    :source "test/gridfire/resources/asp.tif"}
+                               :canopy-base-height {:type   :geotiff
+                                                    :source "test/gridfire/resources/cbh.tif"}
+                               :canopy-cover       {:type   :geotiff
+                                                    :source "test/gridfire/resources/cc.tif"}
+                               :canopy-height      {:type   :geotiff
+                                                    :source "test/gridfire/resources/ch.tif"}
+                               :crown-bulk-density {:type   :geotiff
+                                                    :source "test/gridfire/resources/cbd.tif"}
+                               :elevation          {:type   :geotiff
+                                                    :source "test/gridfire/resources/dem.tif"}
+                               :fuel-model         {:type   :geotiff
+                                                    :source "test/gridfire/resources/fbfm40.tif"}
+                               :slope              {:type   :geotiff
+                                                    :source "test/gridfire/resources/slp.tif"}}
    :srid                      "CUSTOM:900914"
    :cell-size                 98.425     ; (feet)
    :max-runtime               60         ; (minutes)
@@ -82,39 +90,32 @@
 (deftest fetch-ignition-layer-test
   (testing "Fetching ignition layer from postgis and geotiff file"
     (let [geotiff-config         (merge test-config-base
-                                        {:fetch-ignition-method :geotiff
-                                         :ignition-layer        (in-file-path "ign.tif")})
+                                        {:ignition-layer {:type   :geotiff
+                                                          :source (in-file-path "ign.tif")}})
           postgis-config         (merge test-config-base
-                                        {:fetch-ignition-method :postgis
-                                         :ignition-layer        "ignition.ign WHERE rid=1"})
+                                        {:ignition-layer {:type   :postgis
+                                                          :source "ignition.ign WHERE rid=1"}})
           geotiff-ignition-layer (fetch/ignition-layer postgis-config)
           postgis-ignition-layer (fetch/ignition-layer geotiff-config)]
 
       (is (= (:matrix geotiff-ignition-layer)
              (:matrix postgis-ignition-layer))))))
 
-(deftest omit-ignition-method-test
-  (testing "Omitting fetch-ignition-method key in config"
-    (let [geotiff-config         (merge test-config-base
-                                        {:ignition-layer (in-file-path "ign.tif")})
-          geotiff-ignition-layer (fetch/ignition-layer geotiff-config)]
-
-      (is (nil? geotiff-ignition-layer)))))
-
 (deftest geotiff-ignition-test
   (testing "Running simulation with ignition layer read from geotiff file"
     (let [geotiff-config (merge test-config-base
-                                {:fetch-ignition-method :geotiff
-                                 :ignition-layer        (in-file-path "ign.tif")})
+                                {:ignition-layer {:type   :geotiff
+                                                  :source (in-file-path "ign.tif")}})
           results        (run-simulation geotiff-config)]
 
       (is (every? some? results)))))
 
 (deftest postgis-ignition-test
-  (testing "Running simulation with ignition layer read from geotiff file"
+  (testing "Running simulation with ignition layer read from postgis file"
     (let [postgis-config (merge test-config-base
-                                {:db-spec               db-spec
-                                 :fetch-ignition-method :postgis
-                                 :ignition-layer        "ignition.ign WHERE rid=1"})
-          results        (run-simulation postgis-config)]
+                                {:db-spec        db-spec
+                                 :ignition-layer {:type   :postgis
+                                                  :source "ignition.ign WHERE rid=1"}})
+
+          results (run-simulation postgis-config)]
       (is (every? some? results)))))
