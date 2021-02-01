@@ -109,10 +109,10 @@
    (fn [i]
      (let [initial-ignition-site (or ignition-layer
                                      [(ignition-row i) (ignition-col i)])
-           temperature           (if (config :fetch-temperature-method) temperature (temperature i))
-           wind-speed-20ft       (if (config :fetch-wind-speed-20ft-method) wind-speed-20ft (wind-speed-20ft i))
-           wind-from-direction   (if (config :fetch-wind-from-direction-method) wind-from-direction (wind-from-direction i))
-           relative-humidity     (if (config :fetch-relative-humidity-method) relative-humidity (relative-humidity i))]
+           temperature           (if (map? temperature) (:matrix temperature) (temperature i))
+           wind-speed-20ft       (if (map? wind-speed-20ft) (:matrix wind-speed-20ft) (wind-speed-20ft i))
+           wind-from-direction   (if (map? wind-from-direction) (:matrix wind-from-direction) (wind-from-direction i))
+           relative-humidity     (if (map? relative-humidity) (:matrix relative-humidity) (relative-humidity i))]
        (if-let [fire-spread-results (run-fire-spread
                                      {:max-runtime               (max-runtime i)
                                       :cell-size                 cell-size
