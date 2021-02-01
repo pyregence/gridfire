@@ -40,7 +40,7 @@
   (fn [_ {:keys [type]}] type))
 
 (defmethod landfire-layer :postgis
-  [{:keys [db-spec]} {:keys [source]}]
+  [db-spec {:keys [source]}]
   (postgis-raster-to-matrix db-spec source))
 
 (defmethod landfire-layer :geotiff
@@ -57,14 +57,16 @@
     :canopy-base-height feet
     :crown-bulk-density lb/ft^3
     :canopy-cover       % (0-100)}"
-  [config]
+  [{:keys [db-spec] :as config}]
   (convert-metrics
    (let [layers (:landfire-layers config)]
      (reduce (fn [amap layer-name]
-               (let [landfire-spec (get layers layer-name)]
+               (let [source (get layers layer-name)]
                  (assoc amap
                         layer-name
-                        (landfire-layer config landfire-spec))))
+                        (if (map? source)
+                          (landfire-layer db-spec source)
+                          (postgis-raster-to-matrix db-spec source)))))
              {}
              layer-names))))
 

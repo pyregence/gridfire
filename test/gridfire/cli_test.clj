@@ -44,6 +44,19 @@
 ;; Tests
 ;;-----------------------------------------------------------------------------
 
+(deftest fetch-landfire-layers-old-config-test
+  (let [config {:db-spec         db-spec
+                :srid            "CUSTOM:900914"
+                :landfire-layers {:aspect             "landfire.asp WHERE rid=1"
+                                  :canopy-base-height "landfire.cbh WHERE rid=1"
+                                  :canopy-cover       "landfire.cc WHERE rid=1"
+                                  :canopy-height      "landfire.ch WHERE rid=1"
+                                  :crown-bulk-density "landfire.cbd WHERE rid=1"
+                                  :elevation          "landfire.dem WHERE rid=1"
+                                  :fuel-model         "landfire.fbfm40 WHERE rid=1"
+                                  :slope              "landfire.slp WHERE rid=1"}}]
+    (is (some? (fetch/landfire-layers config)))))
+
 (deftest fetch-landfire-layers-test
   (testing "Fetching layers from postgis and geotiff files"
     (let [postgis-config {:db-spec         db-spec
