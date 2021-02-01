@@ -75,8 +75,7 @@
      (:output-geotiffs? config)
      (:output-pngs? config)
      (:output-csvs? config)
-     ignition-raster
-     config)))
+     ignition-raster)))
 
 ;;-----------------------------------------------------------------------------
 ;; Tests

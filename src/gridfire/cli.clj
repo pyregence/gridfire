@@ -104,7 +104,7 @@
   [simulations landfire-rasters envelope cell-size ignition-row
    ignition-col max-runtime temperature relative-humidity wind-speed-20ft
    wind-from-direction foliar-moisture ellipse-adjustment-factor
-   outfile-suffix output-geotiffs? output-pngs? output-csvs? ignition-layer config]
+   outfile-suffix output-geotiffs? output-pngs? output-csvs? ignition-layer]
   (mapv
    (fn [i]
      (let [initial-ignition-site (or ignition-layer
@@ -247,8 +247,7 @@
             (:output-geotiffs? config)
             (:output-pngs? config)
             (:output-csvs? config)
-            ignition-layer
-            config)
+            ignition-layer)
            (write-csv-outputs
             (:output-csvs? config)
             (str "summary_stats" (:outfile-suffix config) ".csv"))))))
