@@ -5,7 +5,6 @@
             [clojure.data.csv     :as csv]
             [clojure.edn          :as edn]
             [clojure.java.io      :as io]
-            [clojure.string       :as str]
             [clojure.spec.alpha   :as s]
             [gridfire.fetch       :as fetch]
             [gridfire.fire-spread :refer [run-fire-spread]]
@@ -107,15 +106,15 @@
   [simulations landfire-rasters envelope cell-size ignition-row
    ignition-col max-runtime temperature relative-humidity wind-speed-20ft
    wind-from-direction foliar-moisture ellipse-adjustment-factor
-   outfile-suffix output-geotiffs? output-pngs? output-csvs? ignition-layer config]
+   outfile-suffix output-geotiffs? output-pngs? output-csvs? ignition-layer]
   (mapv
    (fn [i]
      (let [initial-ignition-site (or ignition-layer
                                      [(ignition-row i) (ignition-col i)])
-           temperature           (if (config :fetch-temperature-method) temperature (temperature i))
-           wind-speed-20ft       (if (config :fetch-wind-speed-20ft-method) wind-speed-20ft (wind-speed-20ft i))
-           wind-from-direction   (if (config :fetch-wind-from-direction-method) wind-from-direction (wind-from-direction i))
-           relative-humidity     (if (config :fetch-relative-humidity-method) relative-humidity (relative-humidity i))]
+           temperature           (if (map? temperature) (:matrix temperature) (temperature i))
+           wind-speed-20ft       (if (map? wind-speed-20ft) (:matrix wind-speed-20ft) (wind-speed-20ft i))
+           wind-from-direction   (if (map? wind-from-direction) (:matrix wind-from-direction) (wind-from-direction i))
+           relative-humidity     (if (map? relative-humidity) (:matrix relative-humidity) (relative-humidity i))]
        (if-let [fire-spread-results (run-fire-spread
                                      {:max-runtime               (max-runtime i)
                                       :cell-size                 cell-size
@@ -209,9 +208,10 @@
                    (* -1.0 height scaley))))
 
 (defn get-weather [{:keys [simulations] :as config} rand-generator weather-type]
-  (if-let [method ((keyword (str/join "-" ["fetch" (name weather-type) "method"])) config)]
-    (fetch/weather config method weather-type)
-    (draw-samples rand-generator simulations (get config weather-type))))
+  (let [weather-spec (weather-type config)]
+    (if (map? weather-spec)
+      (fetch/weather config weather-spec)
+      (draw-samples rand-generator simulations weather-spec))))
 
 (defn -main
   [& config-files]
@@ -220,9 +220,9 @@
       (if (s/valid? ::validation/config config)
         (let [landfire-layers  (fetch/landfire-layers config)
               landfire-rasters (into {}
-                                     (map (fn [[layer info]] [layer (:matrix info)]))
+                                     (map (fn [[layer info]] [layer (first (:matrix info))]))
                                      landfire-layers)
-              ignition-layer  (fetch/ignition-layer config)
+              ignition-layer   (fetch/ignition-layer config)
               envelope         (get-envelope config landfire-layers)
               simulations      (:simulations config)
               rand-generator   (if-let [seed (:random-seed config)]
@@ -250,8 +250,7 @@
                 (:output-geotiffs? config)
                 (:output-pngs? config)
                 (:output-csvs? config)
-                ignition-layer
-                config)
+                ignition-layer)
                (write-csv-outputs
                 (:output-csvs? config)
                 (str "summary_stats" (:outfile-suffix config) ".csv"))))
