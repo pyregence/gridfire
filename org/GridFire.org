@@ -2866,7 +2866,7 @@ this functionality.
   (fn [_ {:keys [type]}] type))
 
 (defmethod landfire-layer :postgis
-  [{:keys [db-spec]} {:keys [source]}]
+  [db-spec {:keys [source]}]
   (postgis-raster-to-matrix db-spec source))
 
 (defmethod landfire-layer :geotiff
@@ -2891,7 +2891,7 @@ this functionality.
                  (assoc amap
                         layer-name
                         (if (map? source)
-                          (landfire-layer config source)
+                          (landfire-layer db-spec source)
                           (postgis-raster-to-matrix db-spec source)))))
              {}
              layer-names))))
