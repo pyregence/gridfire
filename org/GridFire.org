@@ -414,8 +414,8 @@ Then we can use the following script to import an ignition raster into
 our database given the schema and username as inputs.
 
 *Note:* This script needs to be run in the same folder as where this
-raster resides. The filename of this raster should match the
-elements in the for loop (i.e. ign.tif)
+raster resides. The filename of this raster should match the value
+assigned to the LAYER variable (i.e., ign) plus a .tif extension.
 
 #+name: raster2pgsql-import-ignition-raster
 #+begin_src sh :results silent :exports code :tangle ../resources/import_ignition_rasters.sh :padline no :no-expand :comments link
@@ -2324,8 +2324,7 @@ command line interface.
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/postgis_bridge.clj :padline no :no-expand :comments link
 (ns gridfire.postgis-bridge
   (:require [clojure.core.matrix :as m]
-            [clojure.java.jdbc   :as jdbc]
-            [clojure.string      :as s])
+            [clojure.java.jdbc   :as jdbc])
   (:import org.postgresql.jdbc.PgArray))
 
 (m/set-current-implementation :vectorz)
@@ -2333,14 +2332,25 @@ command line interface.
 (defn extract-matrix [result]
   (->> result
        :matrix
-       .getValue
-       read-string
-       second
-       (#(s/replace % #"\{" "["))
-       (#(s/replace % #"\}" "]"))
-       read-string
+       (#(.getArray ^PgArray %))
        (m/emap #(or % -1.0))
        m/matrix))
+
+(defn construct-data-query
+  ([numbands table-name]
+   (format (str "SELECT ST_DumpValues(rast,band) AS matrix "
+                "FROM generate_series(1,%s) AS band "
+                "CROSS JOIN %s")
+           numbands
+           table-name))
+
+  ([numbands table-name threshold-query]
+   (format (str "SELECT ST_DumpValues(%s,band) AS matrix "
+                "FROM generate_series(1,%s) AS band "
+                "CROSS JOIN %s")
+           threshold-query
+           numbands
+           table-name)))
 
 (defn postgis-raster-to-matrix
   "Send a SQL query to the PostGIS database given by db-spec for a
@@ -2361,32 +2371,32 @@ command line interface.
    :numbands 10,
    :matrix #vectorz/matrix Large matrix with shape: [10,534,486]}"
   ([db-spec table-name]
-   (let [meta-query (str "SELECT (ST_Metadata(rast)).* FROM " table-name)
-         data-query (str "SELECT ST_DumpValues(rast) AS matrix FROM " table-name)]
-     (jdbc/with-db-transaction [conn db-spec]
-       (let [metadata (first (jdbc/query conn [meta-query]))
-             matrix   (when-let [results (seq (jdbc/query conn [data-query]))]
+   (jdbc/with-db-transaction [conn db-spec]
+     (let [meta-query (str "SELECT (ST_Metadata(rast)).* FROM " table-name)
+           metadata   (first (jdbc/query conn [meta-query]))
+           data-query (construct-data-query (:numbands metadata) table-name)
+           matrix     (when-let [results (seq (jdbc/query conn [data-query]))]
                         (m/matrix (mapv extract-matrix results)))]
-         (assoc metadata :matrix matrix)))))
+       (assoc metadata :matrix matrix))))
+
   ([db-spec table-name resolution threshold]
    (let [rescale-query   (if resolution
                            (format "ST_Rescale(rast,%s,-%s,'NearestNeighbor')"
                                    resolution resolution)
                            "rast")
          threshold-query (if threshold
-                           (format (str "ST_MapAlgebra(%s,NULL,"
+                           (format (str "ST_MapAlgebra(%s, band, NULL,"
                                         "'CASE WHEN [rast.val] < %s"
                                         " THEN 0.0 ELSE [rast.val] END')")
                                    rescale-query threshold)
                            rescale-query)
          meta-query      (format "SELECT (ST_Metadata(%s)).* FROM %s"
-                                 threshold-query table-name)
-         data-query      (format "SELECT ST_DumpValues(%s) AS matrix FROM %s"
-                                 threshold-query table-name)]
+                                 rescale-query table-name)]
      (jdbc/with-db-transaction [conn db-spec]
-       (let [metadata (first (jdbc/query conn [meta-query]))
-             matrix   (when-let [results (seq (jdbc/query conn [data-query]))]
-                        (m/matrix (mapv extract-matrix results)))]
+       (let [metadata   (first (jdbc/query conn [meta-query]))
+             data-query (construct-data-query (:numbands metadata) table-name threshold-query)
+             matrix     (when-let [results (seq (jdbc/query conn [data-query]))]
+                          (m/matrix (mapv extract-matrix results)))]
          (assoc metadata :matrix matrix))))))
 #+end_src
 
@@ -2492,7 +2502,6 @@ or false:
             [clojure.data.csv     :as csv]
             [clojure.edn          :as edn]
             [clojure.java.io      :as io]
-            [clojure.string       :as str]
             [clojure.spec.alpha   :as s]
             [gridfire.fetch       :as fetch]
             [gridfire.fire-spread :refer [run-fire-spread]]
@@ -2606,10 +2615,10 @@ or false:
    (fn [i]
      (let [initial-ignition-site (or ignition-layer
                                      [(ignition-row i) (ignition-col i)])
-           temperature           (if fetch-temperature-method temperature (temperature i))
-           wind-speed-20ft       (if fetch-wind-speed-20ft-method wind-speed-20ft (wind-speed-20ft i))
-           wind-from-direction   (if fetch-wind-from-direction-method wind-from-direction (wind-from-direction i))
-           relative-humidity     (if fetch-relative-humidity-method relative-humidity (relative-humidity i))]
+           temperature           (if (map? temperature) (:matrix temperature) (temperature i))
+           wind-speed-20ft       (if (map? wind-speed-20ft) (:matrix wind-speed-20ft) (wind-speed-20ft i))
+           wind-from-direction   (if (map? wind-from-direction) (:matrix wind-from-direction) (wind-from-direction i))
+           relative-humidity     (if (map? relative-humidity) (:matrix relative-humidity) (relative-humidity i))]
        (if-let [fire-spread-results (run-fire-spread
                                      {:max-runtime               (max-runtime i)
                                       :cell-size                 cell-size
@@ -2704,9 +2713,10 @@ or false:
                    (* -1.0 height scaley))))
 
 (defn get-weather [{:keys [simulations] :as config} rand-generator weather-type]
-  (if-let [method ((keyword (str/join "-" ["fetch" (name weather-type) "method"])) config)]
-    (fetch/weather config method weather-type)
-    (draw-samples rand-generator simulations (get config weather-type))))
+  (let [weather-spec (weather-type config)]
+    (if (map? weather-spec)
+      (fetch/weather config weather-spec)
+      (draw-samples rand-generator simulations weather-spec))))
 
 (defn create-multiplier-lookup
   [{:keys [cell-size] :as config}]
@@ -2729,7 +2739,7 @@ or false:
         (let [multiplier-lookup (create-multiplier-lookup config)
               landfire-layers   (fetch/landfire-layers config)
               landfire-rasters  (into {}
-                                      (map (fn [[layer info]] [layer (:matrix info)]))
+                                      (map (fn [[layer info]] [layer (first (:matrix info))]))
                                       landfire-layers)
               ignition-layer    (fetch/ignition-layer config)
               envelope          (get-envelope config landfire-layers)
@@ -2786,47 +2796,63 @@ through the configuration file. We can choose to get LANDFIRE layers
 from our PostGIS database, or we can read raster files from disk. This
 behavior is controlled as follows:
 
-To fetch LANDFIRE layers from a Postgresql database, include the
-following mappings:
+Include the following mapping at the top level of the configuraiton
+file:
 
-- *fetch-layer-method*: a keyword to denote which method we want to use
+- *landfire-layers*: a map of fetch specifications
+
+For the fetch specifications include the following mappings:
+- *type*: the method for fetching the layer
+- *source*: the string input for the fetch method
+
+To fetch layers from a Postgresql database you must also include the
+follwing mapping:
+
 - *db-spec*: a map of database connection information for our Postgresql
   database
-- *landfire-layers*: a map of layer names to a partial sql statement
 
+Here's an example of fetching LANDFIRE layers from a Postgresql database.
 #+begin_src clojure
-{:fetch-layer-method :postgis
- :db-spec            {:classname   "org.postgresql.Driver"
+{:db-spec            {:classname   "org.postgresql.Driver"
                       :subprotocol "postgresql"
                       :subname     "//localhost:5432/gridfire"
                       :user        "gridfire"}
- :landfire-layers    {:aspect             "landfire.asp WHERE rid=100"
-                      :canopy-base-height "landfire.cbh WHERE rid=100"
-                      :canopy-cover       "landfire.cc WHERE rid=100"
-                      :canopy-height      "landfire.ch WHERE rid=100"
-                      :crown-bulk-density "landfire.cbd WHERE rid=100"
-                      :fuel-model         "landfire.fbfm40 WHERE rid=100"
-                      :slope              "landfire.slp WHERE rid=100"
-                      :elevation          "landfire.dem WHERE rid=100"}}
+ :landfire-layers    {:aspect             {:type   :postgis
+                                           :source "landfire.asp WHERE rid=100"}
+                      :canopy-base-height {:type   :postgis
+                                           :source "landfire.cbh WHERE rid=100"}
+                      :canopy-cover       {:type   :postgis
+                                           :source "landfire.cc WHERE rid=100"}
+                      :canopy-height      {:type   :postgis
+                                           :source "landfire.ch WHERE rid=100"}
+                      :crown-bulk-density {:type   :postgis
+                                           :source "landfire.cbd WHERE rid=100"}
+                      :elevation          {:type   :postgis
+                                           :source "landfire.fbfm40 WHERE rid=100"}
+                      :fuel-model         {:type   :postgis
+                                           :source "landfire.slp WHERE rid=100"}
+                      :slope              {:type   :postgis
+                                           :source "landfire.dem WHERE rid=100"}}}
 #+end_src
 
-To fetch LANDFIRE layers from GeoTIFF files, include the
-following mappings:
-
-- *fetch-layer-method*: a keyword to denote which method we want to use
-- *landfire-layers*: a map of layer names to file paths (paths are
-  relative to the GridFire project root)
-
+Here's an example of fetching LANDFIRE layers from files on disk.
 #+begin_src clojure
-{:fetch-layer-method :geotiff
- :landfire-layers    {:aspect             "test/gridfire/resources/asp.tif"
-                      :canopy-base-height "test/gridfire/resources/cbh.tif"
-                      :canopy-cover       "test/gridfire/resources/cc.tif"
-                      :canopy-height      "test/gridfire/resources/ch.tif"
-                      :crown-bulk-density "test/gridfire/resources/cbd.tif"
-                      :elevation          "test/gridfire/resources/dem.tif"
-                      :fuel-model         "test/gridfire/resources/fbfm40.tif"
-                      :slope              "test/gridfire/resources/slp.tif"}}
+{:landfire-layers {:aspect             {:type   :geotiff
+                                        :source "test/gridfire/resources/asp.tif"}
+                   :canopy-base-height {:type   :geotiff
+                                        :source "test/gridfire/resources/cbh.tif"}
+                   :canopy-cover       {:type   :geotiff
+                                        :source "test/gridfire/resources/cc.tif"}
+                   :canopy-height      {:type   :geotiff
+                                        :source "test/gridfire/resources/ch.tif"}
+                   :crown-bulk-density {:type   :geotiff
+                                        :source "test/gridfire/resources/cbd.tif"}
+                   :elevation          {:type   :geotiff
+                                        :source "test/gridfire/resources/dem.tif"}
+                   :fuel-model         {:type   :geotiff
+                                        :source "test/gridfire/resources/fbfm40.tif"}
+                   :slope              {:type   :geotiff
+                                        :source "test/gridfire/resources/slp.tif"}}}
 #+end_src
 
 Include the following required mapping on all configurations:
@@ -2863,36 +2889,38 @@ For this method of ignition, values may be entered in one of three ways:
 
 To initialize an existing burn perimeter from a raster, we have two
 options. We can read rasters from a Postgresql database or a raster
-file on disk.
+file on disk. This behavior is controlled as follows:
 
-To initialize a burn perimeter from a raster in our PostGIS database,
-include the following mappings:
+Include the following mapping at the top level of the configuraiton
+file:
 
-- *fetch-ignition-method*: a keyword to denote which method we want to
-  use
-- *ignition-layer*: a partial sql statement
+- *ignition-layer*: a map of fetch specifications
 
+For the fetch specifications include the following mappings:
+- *type*: the method for fetching the layer
+- *source*: the string input for the fetch method
+
+Here's an example of fetching an intial burn perimeter from a
+Postgresql database.
+
+*Note*: be sure to include the map of database connection (*:db-spec*) as
+described in section 1.
 #+begin_src clojure
-{:fetch-ignition-method :postgis
- :ignition-layer       "ignition.ign WHERE rid=1"}
+{:ignition-layer {:type   :postgis
+                  :source "ignition.ign WHERE rid=1"}}
 #+end_src
 
-To initialize a burn perimeter from a raster file on disk, include the
-following mappings:
-
-- *fetch-ignition-method*: a keyword to denote which method we want to use
-- *ignition-layer*: a filepath
-
+Here's an example of fetching an intial burn perimeter from a file on
+disk
 #+begin_src clojure
 {:fetch-ignition-method :geotiff
- :ignition-layer       "test/gridfire/resources/ign.tif"}
+ :ignition-layer        "test/gridfire/resources/ign.tif"}
 #+end_src
 
 GridFire makes use of clojure's multimethods to dispatch control to
 different handlers for fetching ignition layers. The dispatch depends
 on what is in the config file. Here's the namespace that implements
 this functionality.
-
 
 #+name: fetch.clj
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fetch.clj :padline no :no-expand :comments link
@@ -2933,7 +2961,18 @@ this functionality.
       (update-in [:crown-bulk-density :matrix]
                  (fn [matrix] (m/emap #(* % 0.0624) matrix))))) ; kg/m^3 -> lb/ft^3
 
-(defmulti landfire-layers
+(defmulti landfire-layer
+  (fn [_ {:keys [type]}] type))
+
+(defmethod landfire-layer :postgis
+  [db-spec {:keys [source]}]
+  (postgis-raster-to-matrix db-spec source))
+
+(defmethod landfire-layer :geotiff
+  [_ {:keys [source]}]
+  (geotiff-raster-to-matrix source))
+
+(defn landfire-layers
   "Returns a map of LANDFIRE rasters (represented as maps) with the following units:
    {:elevation          feet
     :slope              vertical feet/horizontal feet
@@ -2943,46 +2982,33 @@ this functionality.
     :canopy-base-height feet
     :crown-bulk-density lb/ft^3
     :canopy-cover       % (0-100)}"
-  (fn [config]
-    (:fetch-layer-method config)))
-
-(defmethod landfire-layers :postgis
   [{:keys [db-spec] :as config}]
   (convert-metrics
-   (let [tables (:landfire-layers config)]
+   (let [layers (:landfire-layers config)]
      (reduce (fn [amap layer-name]
-               (let [table (get tables layer-name)]
-                 (assoc amap layer-name
-                        (postgis-raster-to-matrix db-spec table))))
+               (let [source (get layers layer-name)]
+                 (assoc amap
+                        layer-name
+                        (if (map? source)
+                          (landfire-layer db-spec source)
+                          (postgis-raster-to-matrix db-spec source)))))
              {}
              layer-names))))
-
-(defmethod landfire-layers :geotiff
-  [config]
-  (convert-metrics
-   (let [file-names (:landfire-layers config)]
-    (reduce (fn [amap layer-name]
-              (let [file-name (get file-names layer-name)]
-                (assoc amap layer-name
-                       (geotiff-raster-to-matrix file-name))))
-            {}
-            layer-names))))
 
 ;;-----------------------------------------------------------------------------
 ;; Initial Ignition
 ;;-----------------------------------------------------------------------------
 
 (defmulti ignition-layer
-  (fn [config]
-    (:fetch-ignition-method config)))
+  (fn [{:keys [ignition-layer]}] (:type ignition-layer)))
 
 (defmethod ignition-layer :postgis
-  [{:keys [db-spec] :as config}]
-  (postgis-raster-to-matrix db-spec (:ignition-layer config)))
+  [{:keys [db-spec ignition-layer]}]
+  (postgis-raster-to-matrix db-spec (:source ignition-layer)))
 
 (defmethod ignition-layer :geotiff
-  [config]
-  (geotiff-raster-to-matrix (:ignition-layer config)))
+  [{:keys [ignition-layer]}]
+  (geotiff-raster-to-matrix (:source ignition-layer)))
 
 (defmethod ignition-layer :default
   [_]
@@ -2993,20 +3019,15 @@ this functionality.
 ;;-----------------------------------------------------------------------------
 
 (defmulti weather
-  (fn [_ fetch-method _]
-    fetch-method))
+  (fn [_ {:keys [type]}] type))
 
 (defmethod weather :postgis
-  [{:keys [db-spec] :as config} _ weather-type]
-  (let [weather (get config weather-type)
-        sql     (if (map? weather) (:sql weather) weather)]
-    (:matrix (postgis-raster-to-matrix db-spec sql))))
+  [{:keys [db-spec]} {:keys [source]}]
+  (postgis-raster-to-matrix db-spec source))
 
 (defmethod weather :geotiff
-  [config _ weather-type]
-  (let [weather (get config weather-type)
-        path    (if (map? weather) (:path weather) weather)]
-   (:matrix (geotiff-raster-to-matrix path))))
+  [_ {:keys [source]}]
+  (geotiff-raster-to-matrix source))
 #+end_src
 
 ** Section 3: Weather data from which to build simulation inputs
@@ -3028,43 +3049,45 @@ an additional type of input. GridFire allows us to use weather data
 from rasters. To use weather data from raster we have two options.
 This behavior is controlled as follows:
 
-To fetch weather raster in our PostGIS database include the following
-mappings:
+Include the following mapping at the top level of the configuraiton
+file:
 
-- *fetch-[weather-type]-method*: a keyword to denote which method we want to use
-- *[weather-type]*: a mapping of layer names to a partial sql statement
+- *[weather-type]*: a map of fetch specifications
 
+For the fetch specifications include the following mappings:
+- *type*: the method for fetching the layer
+- *source*: the string input for the fetch method
+
+Here's an example of fetching weather rasters from a Postgresql database.
+*Note*: be sure to include the map of database connection (*:db-spec*) as
+described in section 1.
 #+begin_src clojure
-{:fetch-temperature-method         :postgis
- :temperature                      {:sql "weather.temp WHERE rid=100"}
- :fetch-relative-humidity-method   :postgis
- :relative-humidity                {:sql "weather.rh WHERE rid=100"}
- :fetch-wind-speed-20ft-method     :postgis
- :wind-speed-20ft                  {:sql "weather.ws WHERE rid=100"}
- :fetch-wind-from-direction-method :postgis
- :wind-from-direction              {:sql "weather.wd WHERE rid=100"}}
+{:temperature         {:type   :postgis
+                       :source "weather.tmpf WHERE rid=100"}
+ :relative-humidity   {:type   :postgis
+                       :source "weather.rh WHERE rid=100"}
+ :wind-speed-20ft     {:type   :postgis
+                       :source "weather.ws WHERE rid=100"}
+ :wind-from-direction {:type   :postgis
+                       :source "weather.wd WHERE rid=100"}}
 #+end_src
 
-To fetch weather raster from a raster file on disk include the
-following mappings:
-
-- *fetch-[weather-type]-method*: a keyword to denote which method we want to use
-- *[weather-type]*: a mapping of layer names to file paths
-
+Here's an example of fetching weather rasters from files on disk.
 #+begin_src clojure
-{:fetch-temperature-method         :geotiff
- :temperature                      {:path "test/gridfire/resources/weather-test/tmpf_to_sample.tif"}
- :fetch-relative-humidity-method   :geotiff
- :relative-humidity                {:path "test/gridfire/resources/weather-test/rh_to_sample.tif"}
- :fetch-wind-speed-20ft-method     :geotiff
- :wind-speed-20ft                  {:path "test/gridfire/resources/weather-test/ws_to_sample.tif"}
- :fetch-wind-from-direction-method :geotiff
- :wind-from-direction              {:path "test/gridfire/resources/weather-test/d_to_sample.tif"}}
+{:temperature         {:type   :geotiff
+                       :source "test/gridfire/resources/weather-test/tmpf_to_sample.tif"}
+ :relative-humidity   {:type   :geotiff
+                       :source "test/gridfire/resources/weather-test/rh_to_sample.tif"}
+ :wind-speed-20ft     {:type   :geotiff
+                       :source "test/gridfire/resources/weather-test/ws_to_sample.tif"}
+ :wind-from-direction {:type   :geotiff
+                       :source "test/gridfire/resources/weather-test/d_to_sample.tif"}}
 #+end_src
 
-Gridfire expects weather rasters to have the same resolution as designated by the
-`:cell-size` configuration value. However to improve performance Gridfire
-optionally supports the use of weather rasters with a lower resolution.
+Gridfire expects weather rasters to have the same resolution as
+designated by the `:cell-size` configuration value. However to improve
+performance Gridfire optionally supports the use of weather rasters
+with a lower resolution.
 
 To use weather raster with lower resolution than the simulation `:cell-size` include
 the following key value pair in the location map:
@@ -3074,9 +3097,9 @@ the following key value pair in the location map:
 multiples of one another.
 
 #+begin_src clojure
-{:fetch-temperature-method :geotiff
- :temperature              {:path      "test/gridfire/resources/weather-test/tmpf_to_sample.tif"
-                            :cell-size 98.425}}
+{:temperature {:type      :geotiff
+               :source    "test/gridfire/resources/weather-test/tmpf_to_sample.tif"
+               :cell-size 98.425}}
 #+end_src
 
 ** Section 4: Number of simulations and (optional) random seed perimeter
@@ -3113,14 +3136,22 @@ from a range.
                              :subname     "//localhost:5432/gridfire"
                              :user        "gridfire"
                              :password    "gridfire"}
- :landfire-layers           {:aspect             "landfire.asp WHERE rid=100"
-                             :canopy-base-height "landfire.cbh WHERE rid=100"
-                             :canopy-cover       "landfire.cc WHERE rid=100"
-                             :canopy-height      "landfire.ch WHERE rid=100"
-                             :crown-bulk-density "landfire.cbd WHERE rid=100"
-                             :fuel-model         "landfire.fbfm40 WHERE rid=100"
-                             :slope              "landfire.slp WHERE rid=100"
-                             :elevation          "landfire.dem WHERE rid=100"}
+ :landfire-layers            {:aspect             {:type   :postgis
+                                                   :source "landfire.asp WHERE rid=100"}
+                              :canopy-base-height {:type   :postgis
+                                                   :source "landfire.cbh WHERE rid=100"}
+                              :canopy-cover       {:type   :postgis
+                                                   :source "landfire.cc WHERE rid=100"}
+                              :canopy-height      {:type   :postgis
+                                                   :source "landfire.ch WHERE rid=100"}
+                              :crown-bulk-density {:type   :postgis
+                                                   :source "landfire.cbd WHERE rid=100"}
+                              :elevation          {:type   :postgis
+                                                   :source "landfire.fbfm40 WHERE rid=100"}
+                              :fuel-model         {:type   :postgis
+                                                   :source "landfire.slp WHERE rid=100"}
+                              :slope              {:type   :postgis
+                                                   :source "landfire.dem WHERE rid=100"}}
  :srid                      "CUSTOM:900914"
  :cell-size                 98.425         ; (feet)
 
@@ -3133,8 +3164,8 @@ from a range.
  ;;   1. Single Value: 25
  ;;   2. List of Values: (2 17 9)
  ;;   3. Range of Values: [10 20]
- ;;   4. Raster from file on disk: "path/to/file/weather.tif"
- ;;   5. Raster from Postgres database: "weather.ws WHERE rid=1"
+ ;;   4. Raster from file on disk: {:type :geotiff :source "path/to/file/weather.tif"}
+ ;;   5. Raster from Postgresql database: {:type :postgis :source "weather.ws WHERE rid=1"}
  ;;
  ;; If a single value is provided, it will be kept the same for all simulations.
  ;; For a list of values, the list will be randomly sampled from in each simulation.
@@ -3166,43 +3197,50 @@ files on disk.
 #+name: sample_geotiff_config.edn
 #+begin_src clojure :results silent :exports code :tangle ../resources/sample_geotiff_config.edn :padline no :no-expand :comments link
 {;; Section 1: Landscape data to be shared by all simulations
- :fetch-layer-method        :geotiff
- :landfire-layers           {:aspect             "test/gridfire/resources/asp.tif"
-                             :canopy-base-height "test/gridfire/resources/cbh.tif"
-                             :canopy-cover       "test/gridfire/resources/cc.tif"
-                             :canopy-height      "test/gridfire/resources/ch.tif"
-                             :crown-bulk-density "test/gridfire/resources/cbd.tif"
-                             :elevation          "test/gridfire/resources/dem.tif"
-                             :fuel-model         "test/gridfire/resources/fbfm40.tif"
-                             :slope              "test/gridfire/resources/slp.tif"}
+ :landfire-layers           {:aspect             {:type   :geotiff
+                                                  :source "test/gridfire/resources/asp.tif"}
+                             :canopy-base-height {:type   :geotiff
+                                                  :source "test/gridfire/resources/cbh.tif"}
+                             :canopy-cover       {:type   :geotiff
+                                                  :source "test/gridfire/resources/cc.tif"}
+                             :canopy-height      {:type   :geotiff
+                                                  :source "test/gridfire/resources/ch.tif"}
+                             :crown-bulk-density {:type   :geotiff
+                                                  :source "test/gridfire/resources/cbd.tif"}
+                             :elevation          {:type   :geotiff
+                                                  :source "test/gridfire/resources/dem.tif"}
+                             :fuel-model         {:type   :geotiff
+                                                  :source "test/gridfire/resources/fbfm40.tif"}
+                             :slope              {:type   :geotiff
+                                                  :source "test/gridfire/resources/slp.tif"}}
  :srid                      "CUSTOM:900914"
  :cell-size                 98.425         ; (feet)
 
  ;; Section 2: Ignition data from which to build simulation inputs
- :fetch-ignition-method     :geotiff
- :ignition-layer            "test/gridfire/resources/ign.tif"
+ :ignition-layer            {:type   :geotiff
+                             :source "test/gridfire/resources/ign.tif"}
 
  ;; Section 3: Weather data from which to build simulation inputs
  ;; For all options in this section, you may enter values in one of five ways:
  ;;   1. Single Value: 25
  ;;   2. List of Values: (2 17 9)
  ;;   3. Range of Values: [10 20]
- ;;   4. Raster from file on disk: "path/to/file/weather.tif"
- ;;   5. Raster from Postgres database: "weather.ws WHERE rid=1"
+ ;;   4. Raster from file on disk: {:type :gotiff :source "path/to/file/weather.tif"}
+ ;;   5. Raster from Postgresql database: {:type :geotiff :source "weather.ws WHERE rid=1"}
  ;;
  ;; If a single value is provided, it will be kept the same for all simulations.
  ;; For a list of values, the list will be randomly sampled from in each simulation.
  ;; For a range of values, the range [inclusive exclusive] will be randomly sampled from in each simulation.
 
- :fetch-temperature-method         :geotiff
- :temperature                      "test/gridfire/resources/weather-test/tmpf_to_sample.tif" ; (degrees Fahrenheit)
- :fetch-relative-humidity-method   :geotiff
- :relative-humidity                "test/gridfire/resources/weather-test/rh_to_sample.tif"   ; (%)
- :fetch-wind-speed-20ft-method     :geotiff
- :wind-speed-20ft                  "test/gridfire/resources/weather-test/ws_to_sample.tif"   ; (miles/hour)
- :fetch-wind-from-direction-method :geotiff
- :wind-from-direction              "test/gridfire/resources/weather-test/d_to_sample.tif"    ; (degrees clockwise from north)
- :foliar-moisture                  90                                                        ; (%)
+ :temperature                      {:type   :geotiff
+                                    :source "test/gridfire/resources/weather-test/tmpf_to_sample.tif"} ; (degrees Fahrenheit)
+ :relative-humidity                {:type   :geotiff
+                                    :source "test/gridfire/resources/weather-test/rh_to_sample.tif"}   ; (%)
+ :wind-speed-20ft                  {:type   :geotiff
+                                    :source "test/gridfire/resources/weather-test/ws_to_sample.tif"}   ; (miles/hour)
+ :wind-from-direction              {:type   :geotiff
+                                    :source "test/gridfire/resources/weather-test/d_to_sample.tif"}    ; (degrees clockwise from north)
+ :foliar-moisture                  90                                                                  ; (%)
 
  ;; Section 4: Number of simulations and (optional) random seed parameter
  :max-runtime               60             ; (minutes)

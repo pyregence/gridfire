@@ -5,7 +5,6 @@
             [clojure.data.csv     :as csv]
             [clojure.edn          :as edn]
             [clojure.java.io      :as io]
-            [clojure.string       :as str]
             [clojure.spec.alpha   :as s]
             [gridfire.fetch       :as fetch]
             [gridfire.fire-spread :refer [run-fire-spread]]
@@ -119,10 +118,10 @@
    (fn [i]
      (let [initial-ignition-site (or ignition-layer
                                      [(ignition-row i) (ignition-col i)])
-           temperature           (if fetch-temperature-method temperature (temperature i))
-           wind-speed-20ft       (if fetch-wind-speed-20ft-method wind-speed-20ft (wind-speed-20ft i))
-           wind-from-direction   (if fetch-wind-from-direction-method wind-from-direction (wind-from-direction i))
-           relative-humidity     (if fetch-relative-humidity-method relative-humidity (relative-humidity i))]
+           temperature           (if (map? temperature) (:matrix temperature) (temperature i))
+           wind-speed-20ft       (if (map? wind-speed-20ft) (:matrix wind-speed-20ft) (wind-speed-20ft i))
+           wind-from-direction   (if (map? wind-from-direction) (:matrix wind-from-direction) (wind-from-direction i))
+           relative-humidity     (if (map? relative-humidity) (:matrix relative-humidity) (relative-humidity i))]
        (if-let [fire-spread-results (run-fire-spread
                                      {:max-runtime               (max-runtime i)
                                       :cell-size                 cell-size
@@ -217,9 +216,10 @@
                    (* -1.0 height scaley))))
 
 (defn get-weather [{:keys [simulations] :as config} rand-generator weather-type]
-  (if-let [method ((keyword (str/join "-" ["fetch" (name weather-type) "method"])) config)]
-    (fetch/weather config method weather-type)
-    (draw-samples rand-generator simulations (get config weather-type))))
+  (let [weather-spec (weather-type config)]
+    (if (map? weather-spec)
+      (fetch/weather config weather-spec)
+      (draw-samples rand-generator simulations weather-spec))))
 
 (defn create-multiplier-lookup
   [{:keys [cell-size] :as config}]
@@ -242,7 +242,7 @@
         (let [multiplier-lookup (create-multiplier-lookup config)
               landfire-layers   (fetch/landfire-layers config)
               landfire-rasters  (into {}
-                                      (map (fn [[layer info]] [layer (:matrix info)]))
+                                      (map (fn [[layer info]] [layer (first (:matrix info))]))
                                       landfire-layers)
               ignition-layer    (fetch/ignition-layer config)
               envelope          (get-envelope config landfire-layers)

@@ -1,42 +1,49 @@
 ;; [[file:../org/GridFire.org::sample_geotiff_config.edn][sample_geotiff_config.edn]]
 {;; Section 1: Landscape data to be shared by all simulations
- :fetch-layer-method        :geotiff
- :landfire-layers           {:aspect             "test/gridfire/resources/asp.tif"
-                             :canopy-base-height "test/gridfire/resources/cbh.tif"
-                             :canopy-cover       "test/gridfire/resources/cc.tif"
-                             :canopy-height      "test/gridfire/resources/ch.tif"
-                             :crown-bulk-density "test/gridfire/resources/cbd.tif"
-                             :elevation          "test/gridfire/resources/dem.tif"
-                             :fuel-model         "test/gridfire/resources/fbfm40.tif"
-                             :slope              "test/gridfire/resources/slp.tif"}
+ :landfire-layers           {:aspect             {:type   :geotiff
+                                                  :source "test/gridfire/resources/asp.tif"}
+                             :canopy-base-height {:type   :geotiff
+                                                  :source "test/gridfire/resources/cbh.tif"}
+                             :canopy-cover       {:type   :geotiff
+                                                  :source "test/gridfire/resources/cc.tif"}
+                             :canopy-height      {:type   :geotiff
+                                                  :source "test/gridfire/resources/ch.tif"}
+                             :crown-bulk-density {:type   :geotiff
+                                                  :source "test/gridfire/resources/cbd.tif"}
+                             :elevation          {:type   :geotiff
+                                                  :source "test/gridfire/resources/dem.tif"}
+                             :fuel-model         {:type   :geotiff
+                                                  :source "test/gridfire/resources/fbfm40.tif"}
+                             :slope              {:type   :geotiff
+                                                  :source "test/gridfire/resources/slp.tif"}}
  :srid                      "CUSTOM:900914"
  :cell-size                 98.425         ; (feet)
 
  ;; Section 2: Ignition data from which to build simulation inputs
- :fetch-ignition-method     :geotiff
- :ignition-layer           "test/gridfire/resources/ign.tif"
+ :ignition-layer            {:type   :geotiff
+                             :source "test/gridfire/resources/ign.tif"}
 
  ;; Section 3: Weather data from which to build simulation inputs
  ;; For all options in this section, you may enter values in one of five ways:
  ;;   1. Single Value: 25
  ;;   2. List of Values: (2 17 9)
  ;;   3. Range of Values: [10 20]
- ;;   4. Raster from file on disk: "path/to/file/weather.tif"
- ;;   5. Raster from Postgres database: "weather.ws WHERE rid=1"
+ ;;   4. Raster from file on disk: {:type :gotiff :source "path/to/file/weather.tif"}
+ ;;   5. Raster from Postgresql database: {:type :geotiff :source "weather.ws WHERE rid=1"}
  ;;
  ;; If a single value is provided, it will be kept the same for all simulations.
  ;; For a list of values, the list will be randomly sampled from in each simulation.
  ;; For a range of values, the range [inclusive exclusive] will be randomly sampled from in each simulation.
 
- :fetch-temperature-method         :geotiff
- :temperature                      "test/gridfire/resources/weather-test/tmpf_to_sample.tif" ; (degrees Fahrenheit)
- :fetch-relative-humidity-method   :geotiff
- :relative-humidity                "test/gridfire/resources/weather-test/rh_to_sample.tif"   ; (%)
- :fetch-wind-speed-20ft-method     :geotiff
- :wind-speed-20ft                  "test/gridfire/resources/weather-test/ws_to_sample.tif"   ; (miles/hour)
- :fetch-wind-from-direction-method :geotiff
- :wind-from-direction              "test/gridfire/resources/weather-test/d_to_sample.tif"    ; (degrees clockwise from north)
- :foliar-moisture                  90                                                        ; (%)
+ :temperature                      {:type   :geotiff
+                                    :source "test/gridfire/resources/weather-test/tmpf_to_sample.tif"} ; (degrees Fahrenheit)
+ :relative-humidity                {:type   :geotiff
+                                    :source "test/gridfire/resources/weather-test/rh_to_sample.tif"}   ; (%)
+ :wind-speed-20ft                  {:type   :geotiff
+                                    :source "test/gridfire/resources/weather-test/ws_to_sample.tif"}   ; (miles/hour)
+ :wind-from-direction              {:type   :geotiff
+                                    :source "test/gridfire/resources/weather-test/d_to_sample.tif"}    ; (degrees clockwise from north)
+ :foliar-moisture                  90                                                                  ; (%)
 
  ;; Section 4: Number of simulations and (optional) random seed parameter
  :max-runtime               60             ; (minutes)

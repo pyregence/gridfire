@@ -32,15 +32,22 @@
    config]
   (let [dir FUELS_AND_TOPOGRAPHY_DIRECTORY]
     (merge config
-           {:fetch-layer-method :geotiff
-            :landfire-layers    {:aspect             (file-path dir ASP_FILENAME)
-                                 :canopy-base-height (file-path dir CBH_FILENAME)
-                                 :canopy-cover       (file-path dir CC_FILENAME)
-                                 :canopy-height      (file-path dir CH_FILENAME)
-                                 :crown-bulk-density (file-path dir CBD_FILENAME)
-                                 :elevation          (file-path dir DEM_FILENAME)
-                                 :fuel-model         (file-path dir FBFM_FILENAME)
-                                 :slope              (file-path dir SLP_FILENAME)}})))
+           {:landfire-layers {:aspect             {:type   :geotiff
+                                                   :source (file-path dir ASP_FILENAME)}
+                              :canopy-base-height {:type   :geotiff
+                                                   :source (file-path dir CBH_FILENAME)}
+                              :canopy-cover       {:type   :geotiff
+                                                   :source (file-path dir CC_FILENAME)}
+                              :canopy-height      {:type   :geotiff
+                                                   :source (file-path dir CH_FILENAME)}
+                              :crown-bulk-density {:type   :geotiff
+                                                   :source (file-path dir CBD_FILENAME)}
+                              :elevation          {:type   :geotiff
+                                                   :source (file-path dir DEM_FILENAME)}
+                              :fuel-model         {:type   :geotiff
+                                                   :source (file-path dir FBFM_FILENAME)}
+                              :slope              {:type   :geotiff
+                                                   :source (file-path dir SLP_FILENAME)}}})))
 
 (defn process-ignition
   [{:strs [PHI_FILENAME FUELS_AND_TOPOGRAPHY_DIRECTORY]}
@@ -48,8 +55,8 @@
    config]
   (let [dir FUELS_AND_TOPOGRAPHY_DIRECTORY]
     (merge config
-           {:fetch-ignition-method :geotiff
-            :ignition-layer        (file-path dir PHI_FILENAME)})))
+           {:ignition-layer {:type   :geotiff
+                             :source (file-path dir PHI_FILENAME)}})))
 
 (defn process-weather
   [{:strs [STOCHASTIC_TMP_FILENAME STOCHASTIC_RH_FILENAME STOCHASTIC_WS_FILENAME
@@ -58,10 +65,14 @@
    config]
   (let [dir FUELS_AND_TOPOGRAPHY_DIRECTORY]
     (merge config
-           {:temperature         (file-path dir STOCHASTIC_TMP_FILENAME)
-            :relative-humidity   (file-path dir STOCHASTIC_RH_FILENAME)
-            :wind-speed-20ft     (file-path dir STOCHASTIC_WS_FILENAME)
-            :wind-from-direction (file-path dir STOCHASTIC_WD_FILENAME)
+           {:temperature         {:type   :geotiff
+                                  :source (file-path dir STOCHASTIC_TMP_FILENAME)}
+            :relative-humidity   {:type   :geotiff
+                                  :source (file-path dir STOCHASTIC_RH_FILENAME)}
+            :wind-speed-20ft     {:type   :geotiff
+                                  :source (file-path dir STOCHASTIC_WS_FILENAME)}
+            :wind-from-direction {:type   :geotiff
+                                  :source (file-path dir STOCHASTIC_WD_FILENAME)}
             :foliar-moisture     FOLIAR_MOISTURE_CONTENT})))
 
 (defn process-output
