@@ -225,7 +225,8 @@
   [{:keys [cell-size] :as config}]
   (let [weather-keys (->> validation/weather-names
                           (select-keys config)
-                          (filter (fn [[k v]] (map? v)))
+                          (filter (fn [[k v]] (and (map? v)
+                                                   (contains? v :cell-size))))
                           keys)]
     (reduce (fn [acc k]
               (assoc acc k (int (quot
