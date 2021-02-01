@@ -82,28 +82,55 @@
 ;; Tests
 ;;-----------------------------------------------------------------------------
 
+(deftest fetch-landfire-layers-old-config-test
+  (let [config {:db-spec         db-spec
+                :srid            "CUSTOM:900914"
+                :landfire-layers {:aspect             "landfire.asp WHERE rid=1"
+                                  :canopy-base-height "landfire.cbh WHERE rid=1"
+                                  :canopy-cover       "landfire.cc WHERE rid=1"
+                                  :canopy-height      "landfire.ch WHERE rid=1"
+                                  :crown-bulk-density "landfire.cbd WHERE rid=1"
+                                  :elevation          "landfire.dem WHERE rid=1"
+                                  :fuel-model         "landfire.fbfm40 WHERE rid=1"
+                                  :slope              "landfire.slp WHERE rid=1"}}]
+    (is (some? (fetch/landfire-layers config)))))
+
 (deftest fetch-landfire-layers-test
   (testing "Fetching layers from postgis and geotiff files"
-    (let [postgis-config {:db-spec            db-spec
-                          :srid               "CUSTOM:900914"
-                          :landfire-layers    {:aspect             "landfire.asp WHERE rid=1"
-                                               :canopy-base-height "landfire.cbh WHERE rid=1"
-                                               :canopy-cover       "landfire.cc WHERE rid=1"
-                                               :canopy-height      "landfire.ch WHERE rid=1"
-                                               :crown-bulk-density "landfire.cbd WHERE rid=1"
-                                               :elevation          "landfire.dem WHERE rid=1"
-                                               :fuel-model         "landfire.fbfm40 WHERE rid=1"
-                                               :slope              "landfire.slp WHERE rid=1"}
-                          :fetch-layer-method :postgis}
-          geotiff-config {:landfire-layers    {:aspect             (in-file-path "asp.tif")
-                                               :canopy-base-height (in-file-path "cbh.tif")
-                                               :canopy-cover       (in-file-path "cc.tif")
-                                               :canopy-height      (in-file-path "ch.tif")
-                                               :crown-bulk-density (in-file-path "cbd.tif")
-                                               :elevation          (in-file-path "dem.tif")
-                                               :fuel-model         (in-file-path "fbfm40.tif")
-                                               :slope              (in-file-path "slp.tif")}
-                          :fetch-layer-method :geotiff}
+    (let [postgis-config {:db-spec         db-spec
+                          :srid            "CUSTOM:900914"
+                          :landfire-layers {:aspect             {:type   :postgis
+                                                                 :source "landfire.asp WHERE rid=1"}
+                                            :canopy-base-height {:type   :postgis
+                                                                 :source "landfire.cbh WHERE rid=1"}
+                                            :canopy-cover       {:type   :postgis
+                                                                 :source "landfire.cc WHERE rid=1"}
+                                            :canopy-height      {:type   :postgis
+                                                                 :source "landfire.ch WHERE rid=1"}
+                                            :crown-bulk-density {:type   :postgis
+                                                                 :source "landfire.cbd WHERE rid=1"}
+                                            :elevation          {:type   :postgis
+                                                                 :source "landfire.dem WHERE rid=1"}
+                                            :fuel-model         {:type   :postgis
+                                                                 :source "landfire.fbfm40 WHERE rid=1"}
+                                            :slope              {:type   :postgis
+                                                                 :source "landfire.slp WHERE rid=1"}}}
+          geotiff-config {:landfire-layers {:aspect             {:type   :geotiff
+                                                                 :source (in-file-path "asp.tif")}
+                                            :canopy-base-height {:type   :geotiff
+                                                                 :source (in-file-path "cbh.tif")}
+                                            :canopy-cover       {:type   :geotiff
+                                                                 :source (in-file-path "cc.tif")}
+                                            :canopy-height      {:type   :geotiff
+                                                                 :source (in-file-path "ch.tif")}
+                                            :crown-bulk-density {:type   :geotiff
+                                                                 :source (in-file-path "cbd.tif")}
+                                            :elevation          {:type   :geotiff
+                                                                 :source (in-file-path "dem.tif")}
+                                            :fuel-model         {:type   :geotiff
+                                                                 :source (in-file-path "fbfm40.tif")}
+                                            :slope              {:type   :geotiff
+                                                                 :source (in-file-path "slp.tif")}}}
           postgis        (fetch/landfire-layers postgis-config)
           geotiff        (fetch/landfire-layers geotiff-config)]
 
@@ -138,24 +165,40 @@
 (deftest run-simulation-test
   (testing "Running simulation with different ways to fetch landfire layers"
     (let [postgis-config  (merge test-config-base
-                                 {:landfire-layers    {:aspect             "landfire.asp WHERE rid=1"
-                                                       :canopy-base-height "landfire.cbh WHERE rid=1"
-                                                       :canopy-cover       "landfire.cc WHERE rid=1"
-                                                       :canopy-height      "landfire.ch WHERE rid=1"
-                                                       :crown-bulk-density "landfire.cbd WHERE rid=1"
-                                                       :elevation          "landfire.dem WHERE rid=1"
-                                                       :fuel-model         "landfire.fbfm40 WHERE rid=1"
-                                                       :slope              "landfire.slp WHERE rid=1"}
+                                 {:landfire-layers    {:aspect             {:type   :postgis
+                                                                            :source "landfire.asp WHERE rid=1"}
+                                                       :canopy-base-height {:type   :postgis
+                                                                            :source "landfire.cbh WHERE rid=1"}
+                                                       :canopy-cover       {:type   :postgis
+                                                                            :source "landfire.cc WHERE rid=1"}
+                                                       :canopy-height      {:type   :postgis
+                                                                            :source "landfire.ch WHERE rid=1"}
+                                                       :crown-bulk-density {:type   :postgis
+                                                                            :source "landfire.cbd WHERE rid=1"}
+                                                       :elevation          {:type   :postgis
+                                                                            :source "landfire.dem WHERE rid=1"}
+                                                       :fuel-model         {:type   :postgis
+                                                                            :source "landfire.fbfm40 WHERE rid=1"}
+                                                       :slope              {:type   :postgis
+                                                                            :source "landfire.slp WHERE rid=1"}}
                                   :fetch-layer-method :postgis})
           geotiff-config  (merge test-config-base
-                                 {:landfire-layers    {:aspect             (in-file-path "asp.tif")
-                                                       :canopy-base-height (in-file-path "cbh.tif")
-                                                       :canopy-cover       (in-file-path "cc.tif")
-                                                       :canopy-height      (in-file-path "ch.tif")
-                                                       :crown-bulk-density (in-file-path "cbd.tif")
-                                                       :elevation          (in-file-path "dem.tif")
-                                                       :fuel-model         (in-file-path "fbfm40.tif")
-                                                       :slope              (in-file-path "slp.tif")}
+                                 {:landfire-layers    {:aspect             {:type   :geotiff
+                                                                            :source (in-file-path "asp.tif")}
+                                                       :canopy-base-height {:type   :geotiff
+                                                                            :source (in-file-path "cbh.tif")}
+                                                       :canopy-cover       {:type   :geotiff
+                                                                            :source (in-file-path "cc.tif")}
+                                                       :canopy-height      {:type   :geotiff
+                                                                            :source (in-file-path "ch.tif")}
+                                                       :crown-bulk-density {:type   :geotiff
+                                                                            :source (in-file-path "cbd.tif")}
+                                                       :elevation          {:type   :geotiff
+                                                                            :source (in-file-path "dem.tif")}
+                                                       :fuel-model         {:type   :geotiff
+                                                                            :source (in-file-path "fbfm40.tif")}
+                                                       :slope              {:type   :geotiff
+                                                                            :source (in-file-path "slp.tif")}}
                                   :fetch-layer-method :geotiff})
           simulations     (:simulations test-config-base)
           postgis-layers  (fetch/landfire-layers postgis-config)

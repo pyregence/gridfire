@@ -5,10 +5,10 @@
             [clojure.data.csv     :as csv]
             [clojure.edn          :as edn]
             [clojure.java.io      :as io]
-            [clojure.string       :as s]
             [gridfire.fetch       :as fetch]
             [gridfire.fire-spread :refer [run-fire-spread]]
-            [magellan.core        :refer [make-envelope matrix-to-raster
+            [magellan.core        :refer [make-envelope
+                                          matrix-to-raster
                                           register-new-crs-definitions-from-properties-file!
                                           write-raster]]
             [matrix-viz.core      :refer [save-matrix-as-png]])
@@ -206,9 +206,10 @@
                    (* -1.0 height scaley))))
 
 (defn get-weather [{:keys [simulations] :as config} rand-generator weather-type]
-  (if-let [method ((keyword (s/join "-" ["fetch" (name weather-type) "method"])) config)]
-    (fetch/weather config method weather-type)
-    (draw-samples rand-generator simulations (get config weather-type))))
+  (let [weather-spec (weather-type config)]
+    (if (map? weather-spec)
+      (fetch/weather config weather-spec)
+      (draw-samples rand-generator simulations weather-spec))))
 
 (defn -main
   [& config-files]

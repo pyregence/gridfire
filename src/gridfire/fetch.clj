@@ -36,7 +36,18 @@
       (update-in [:crown-bulk-density :matrix]
                  (fn [matrix] (m/emap #(* % 0.0624) matrix))))) ; kg/m^3 -> lb/ft^3
 
-(defmulti landfire-layers
+(defmulti landfire-layer
+  (fn [_ {:keys [type]}] type))
+
+(defmethod landfire-layer :postgis
+  [db-spec {:keys [source]}]
+  (postgis-raster-to-matrix db-spec source))
+
+(defmethod landfire-layer :geotiff
+  [_ {:keys [source]}]
+  (geotiff-raster-to-matrix source))
+
+(defn landfire-layers
   "Returns a map of LANDFIRE rasters (represented as maps) with the following units:
    {:elevation          feet
     :slope              vertical feet/horizontal feet
@@ -46,46 +57,33 @@
     :canopy-base-height feet
     :crown-bulk-density lb/ft^3
     :canopy-cover       % (0-100)}"
-  (fn [config]
-    (:fetch-layer-method config)))
-
-(defmethod landfire-layers :postgis
   [{:keys [db-spec] :as config}]
   (convert-metrics
-   (let [tables (:landfire-layers config)]
+   (let [layers (:landfire-layers config)]
      (reduce (fn [amap layer-name]
-               (let [table (get tables layer-name)]
-                 (assoc amap layer-name
-                        (postgis-raster-to-matrix db-spec table))))
+               (let [source (get layers layer-name)]
+                 (assoc amap
+                        layer-name
+                        (if (map? source)
+                          (landfire-layer db-spec source)
+                          (postgis-raster-to-matrix db-spec source)))))
              {}
              layer-names))))
-
-(defmethod landfire-layers :geotiff
-  [config]
-  (convert-metrics
-   (let [file-names (:landfire-layers config)]
-    (reduce (fn [amap layer-name]
-              (let [file-name (get file-names layer-name)]
-                (assoc amap layer-name
-                       (geotiff-raster-to-matrix file-name))))
-            {}
-            layer-names))))
 
 ;;-----------------------------------------------------------------------------
 ;; Initial Ignition
 ;;-----------------------------------------------------------------------------
 
 (defmulti ignition-layer
-  (fn [config]
-    (:fetch-ignition-method config)))
+  (fn [{:keys [ignition-layer]}] (:type ignition-layer)))
 
 (defmethod ignition-layer :postgis
-  [{:keys [db-spec] :as config}]
-  (postgis-raster-to-matrix db-spec (:ignition-layer config)))
+  [{:keys [db-spec ignition-layer]}]
+  (postgis-raster-to-matrix db-spec (:source ignition-layer)))
 
 (defmethod ignition-layer :geotiff
-  [config]
-  (geotiff-raster-to-matrix (:ignition-layer config)))
+  [{:keys [ignition-layer]}]
+  (geotiff-raster-to-matrix (:source ignition-layer)))
 
 (defmethod ignition-layer :default
   [_]
@@ -96,14 +94,13 @@
 ;;-----------------------------------------------------------------------------
 
 (defmulti weather
-  (fn [_ fetch-method _]
-    fetch-method))
+  (fn [_ {:keys [type]}] type))
 
 (defmethod weather :postgis
-  [{:keys [db-spec] :as config} _ weather-type]
-  (:matrix (postgis-raster-to-matrix db-spec (get config weather-type))))
+  [{:keys [db-spec]} {:keys [source]}]
+  (:matrix (postgis-raster-to-matrix db-spec source)))
 
 (defmethod weather :geotiff
-  [config _ weather-type]
-  (:matrix (geotiff-raster-to-matrix (get config weather-type))))
+  [_ {:keys [source]}]
+  (:matrix (geotiff-raster-to-matrix source)))
 ;; fetch.clj ends here

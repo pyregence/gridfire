@@ -6,14 +6,22 @@
                              :subname     "//localhost:5432/gridfire"
                              :user        "gridfire"
                              :password    "gridfire"}
- :landfire-layers           {:aspect             "landfire.asp WHERE rid=100"
-                             :canopy-base-height "landfire.cbh WHERE rid=100"
-                             :canopy-cover       "landfire.cc WHERE rid=100"
-                             :canopy-height      "landfire.ch WHERE rid=100"
-                             :crown-bulk-density "landfire.cbd WHERE rid=100"
-                             :fuel-model         "landfire.fbfm40 WHERE rid=100"
-                             :slope              "landfire.slp WHERE rid=100"
-                             :elevation          "landfire.dem WHERE rid=100"}
+ :landfire-layers            {:aspect             {:type   :postgis
+                                                   :source "landfire.asp WHERE rid=100"}
+                              :canopy-base-height {:type   :postgis
+                                                   :source "landfire.cbh WHERE rid=100"}
+                              :canopy-cover       {:type   :postgis
+                                                   :source "landfire.cc WHERE rid=100"}
+                              :canopy-height      {:type   :postgis
+                                                   :source "landfire.ch WHERE rid=100"}
+                              :crown-bulk-density {:type   :postgis
+                                                   :source "landfire.cbd WHERE rid=100"}
+                              :elevation          {:type   :postgis
+                                                   :source "landfire.fbfm40 WHERE rid=100"}
+                              :fuel-model         {:type   :postgis
+                                                   :source "landfire.slp WHERE rid=100"}
+                              :slope              {:type   :postgis
+                                                   :source "landfire.dem WHERE rid=100"}}
  :srid                      "CUSTOM:900914"
  :cell-size                 98.425         ; (feet)
 
@@ -26,8 +34,8 @@
  ;;   1. Single Value: 25
  ;;   2. List of Values: (2 17 9)
  ;;   3. Range of Values: [10 20]
- ;;   4. Raster from file on disk: "path/to/file/weather.tif"
- ;;   5. Raster from Postgres database: "weather.ws WHERE rid=1"
+ ;;   4. Raster from file on disk: {:type :geotiff :source "path/to/file/weather.tif"}
+ ;;   5. Raster from Postgresql database: {:type :postgis :source "weather.ws WHERE rid=1"}
  ;;
  ;; If a single value is provided, it will be kept the same for all simulations.
  ;; For a list of values, the list will be randomly sampled from in each simulation.
