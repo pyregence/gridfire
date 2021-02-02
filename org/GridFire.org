@@ -2638,9 +2638,7 @@ or false:
 (defn run-simulations
   [{:keys
     [cell-size outfile-suffix output-geotiffs? output-pngs? output-csvs?
-     fetch-temperature-method fetch-wind-speed-20ft-method
-     fetch-wind-from-direction-method fetch-relative-humidity-method
-     simulations] :as config}
+     simulations]}
    landfire-rasters envelope ignition-row
    ignition-col max-runtime temperature relative-humidity wind-speed-20ft
    wind-from-direction foliar-moisture ellipse-adjustment-factor ignition-layer
