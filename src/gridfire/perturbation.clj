@@ -23,10 +23,10 @@
     (mapv #(enrich-info perturbations rand-generator %) (range n))))
 
 (defn value-at
-  ([perturb-info matrix here]
-   (value-at perturb-info matrix here nil))
+  ([perturb-info raster here]
+   (value-at perturb-info raster here nil))
 
-  ([{:keys [range spatial-type global-value rand-generator]} matrix here frequency-band]
+  ([{:keys [range spatial-type global-value rand-generator]} raster here frequency-band]
    (let [[min-val max-val] range]
      (if (= spatial-type :global)
        global-value

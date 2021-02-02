@@ -1999,8 +1999,8 @@ pseudo-code lays out the steps taken in this procedure:
       value-here)))
 
 (defn sample-landfire-at
-  [[i j :as here] global-clock matrix perturb-info]
-  (let [value-here (m/mget matrix i j)]
+  [[i j :as here] global-clock raster perturb-info]
+  (let [value-here (m/mget raster i j)]
     (if perturb-info
       (if-let [freq (:frequency perturb-info)]
         (+ value-here (perturbation/value-at perturb-info raster here (quot global-clock freq)))
@@ -3215,10 +3215,10 @@ type to *:pixel*.
     (mapv #(enrich-info perturbations rand-generator %) (range n))))
 
 (defn value-at
-  ([perturb-info matrix here]
-   (value-at perturb-info matrix here nil))
+  ([perturb-info raster here]
+   (value-at perturb-info raster here nil))
 
-  ([{:keys [range spatial-type global-value rand-generator]} matrix here frequency-band]
+  ([{:keys [range spatial-type global-value rand-generator]} raster here frequency-band]
    (let [[min-val max-val] range]
      (if (= spatial-type :global)
        global-value

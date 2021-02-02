@@ -164,8 +164,8 @@
       value-here)))
 
 (defn sample-landfire-at
-  [[i j :as here] global-clock matrix perturb-info]
-  (let [value-here (m/mget matrix i j)]
+  [[i j :as here] global-clock raster perturb-info]
+  (let [value-here (m/mget raster i j)]
     (if perturb-info
       (if-let [freq (:frequency perturb-info)]
         (+ value-here (perturbation/value-at perturb-info raster here (quot global-clock freq)))
