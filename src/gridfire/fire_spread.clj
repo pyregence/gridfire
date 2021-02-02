@@ -159,9 +159,7 @@
     (m/mget raster band i j)))
 
 (defn perturb-landfire-at
-  [{:keys [range global-value rand-generator]}
-   matrix
-   [i j]]
+  [{:keys [range global-value rand-generator]}]
   (let [[min-val max-val] range]
     (or global-value
         (random-float min-val max-val rand-generator))))
@@ -170,10 +168,10 @@
   (memoize perturb-landfire-at))
 
 (defn sample-landfire-at
-  [perturbation-info matrix [i j :as here]]
+  [perturbation-info matrix [i j]]
   (let [value-here (m/mget matrix i j)]
    (if perturbation-info
-     (+ value-here (perturb-landfire-at perturbation-info matrix here))
+     (+ value-here (perturb-landfire-at perturbation-info))
      value-here)))
 
 (defn fuel-moisture [relative-humidity temperature]
