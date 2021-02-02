@@ -2020,12 +2020,12 @@ pseudo-code lays out the steps taken in this procedure:
             :woody      (* equilibrium-moisture 0.5)}}))
 
 (defn extract-constants
-  [{:keys [landfire-layers wind-speed-20ft wind-from-direction temperature relative-humidity
-           foliar-moisture ellipse-adjustment-factor multiplier-lookup perturbations]}
+  [{:keys [landfire-rasters wind-speed-20ft wind-from-direction temperature relative-humidity
+           multiplier-lookup perturbations]}
    global-clock
    [i j :as here]]
   (let [{:keys [slope aspect canopy-height canopy-base-height crown-bulk-density
-                canopy-cover fuel-model]} landfire-layers]
+                canopy-cover fuel-model]} landfire-rasters]
     {:wind-speed-20ft     (if (v/vectorz? wind-speed-20ft)
                             (sample-weather-at here
                                                global-clock

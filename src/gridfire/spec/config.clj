@@ -1,4 +1,4 @@
-(ns gridfire.validation
+(ns gridfire.spec.config
   (:require [clojure.spec.alpha :as s]
             [gridfire.spec.perturbations :as perturbations]))
 

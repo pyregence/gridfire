@@ -30,7 +30,7 @@
                 :elevation          (in-file-path "dem.tif")
                 :fuel-model         (in-file-path "fbfm40.tif")
                 :slope              (in-file-path "slp.tif")}]
-    (is (s/valid? ::validation/landfire-layers config))))
+    (is (s/valid? ::spec/landfire-layers config))))
 
 (deftest valid-landfire-geotiff-test
   (let [config {:aspect             {:type   :geotiff
@@ -49,19 +49,19 @@
                                      :source (in-file-path "fbfm40.tif")}
                 :slope              {:type   :geotiff
                                      :source (in-file-path "slp.tif")}}]
-    (is (s/valid? ::validation/landfire-layers config))))
+    (is (s/valid? ::spec/landfire-layers config))))
 
 (deftest valid-weather-geotiff-test
   (let [config {:type      :geotiff
                 :source    (in-file-path "weather-test/tmpf_to_sample.tif")
                 :cell-size 10.0}]
-    (is (s/valid? ::validation/weather config))))
+    (is (s/valid? ::spec/weather config))))
 
 (deftest valid-weather-postgis-test
   (let [config {:type      :postgis
                 :source    "weather.ws WHERE rid=1"
                 :cell-size 10.0}]
-    (is (s/valid? ::validation/weather config))))
+    (is (s/valid? ::spec/weather config))))
 
 (deftest weather-cell-size-test
   (let [high-res (m->ft 30)
