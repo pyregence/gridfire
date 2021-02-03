@@ -2,10 +2,9 @@
   (:require [clojure.spec.alpha :as s]
             [gridfire.spec.common :as common]))
 
-(defmacro one-or-more-keys [ks]
-  (let [keyset (set (map (comp keyword name) ks))]
-    `(s/and (s/keys :opt-un ~ks)
-            #(some ~keyset (keys %)))))
+(def file-path-regex #"^(((\.\.){1}/)*|(/){1})?(([\w-]*)/)*([\w-]+)$")
+
+(s/def ::file-path (s/and string? #(re-matches file-path-regex %)))
 
 (s/def ::type
   (s/or :key #{:final}
