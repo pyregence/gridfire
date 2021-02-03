@@ -41,60 +41,68 @@
                      config/parse)
         results (config/extract-perturbations config)]
 
-    (is (= {:crown-bulk-density {:spatial-type :global :range [-0.05 0.05]}
-            :canopy-base-height  {:spatial-type :global :range [-2.0 2.0]}
-            :canopy-cover        {:spatial-type :global :range [-0.05 0.05]}
-            :canopy-height       {:spatial-type :global :range [-5.0 5.0]}}
+    (is (= {:wind-speed-20ft    {:spatial-type :global :range [-1.0 1.0]}
+            :wind-direction     {:spatial-type :global :range [-7.5 7.5]}
+            :crown-bulk-density {:spatial-type :global :range [-0.05 0.05]}
+            :canopy-base-height {:spatial-type :global :range [-2.0 2.0]}
+            :canopy-cover       {:spatial-type :global :range [-0.05 0.05]}
+            :canopy-height      {:spatial-type :global :range [-5.0 5.0]}}
            results))))
 
+;; TODO break up into smaller tests
 (deftest read-data-test
   (let [config (config/build-edn (->> (in-file-path "sample-elmfire.data")
                                       slurp
                                       config/parse)
                                  nil)]
 
-    (is (= config {:landfire-layers           {:aspect             {:type   :geotiff
-                                                                    :source "./fuels_and_topography/asp.tif"}
+    (is (= config {:srid                      "EPSG:32610"
+                   :cell-size                 98.43
+                   :landfire-layers           {:aspect             {:type   :geotiff
+                                                                    :source "/fuels_and_topography/asp.tif"}
                                                :canopy-base-height {:type   :geotiff
-                                                                    :source "./fuels_and_topography/cbh.tif"}
+                                                                    :source "/fuels_and_topography/cbh.tif"}
                                                :canopy-cover       {:type   :geotiff
-                                                                    :source "./fuels_and_topography/cc.tif"}
+                                                                    :source "/fuels_and_topography/cc.tif"}
                                                :canopy-height      {:type   :geotiff
-                                                                    :source "./fuels_and_topography/ch.tif"}
+                                                                    :source "/fuels_and_topography/ch.tif"}
                                                :crown-bulk-density {:type   :geotiff
-                                                                    :source "./fuels_and_topography/cbd.tif"}
-                                               :fuel-model         {:type   :geotiff
-                                                                    :source "./fuels_and_topography/fbfm40.tif"}
-                                               :slope              {:type   :geotiff
-                                                                    :source "./fuels_and_topography/slp.tif"}
+                                                                    :source "/fuels_and_topography/cbd.tif"}
                                                :elevation          {:type   :geotiff
-                                                                    :source "./fuels_and_topography/dem.tif"}}
-                   :cell-size                 (m->ft 30.0)
+                                                                    :source "/fuels_and_topography/dem.tif"}
+                                               :fuel-model         {:type   :geotiff
+                                                                    :source "/fuels_and_topography/fbfm40.tif"}
+                                               :slope              {:type   :geotiff
+                                                                    :source "/fuels_and_topography/slp.tif"}}
                    :ignition-layer            {:type   :geotiff
-                                               :source "./fuels_and_topography/phi.tif"}
-                   :max-runtime               3
+                                               :source "/fuels_and_topography/phi.tif"}
                    :temperature               {:type   :geotiff
-                                               :source "./fuels_and_topography/tmpf_to_sample.tif"}
+                                               :source "/weather/tmpf_to_sample.tif"}
                    :relative-humidity         {:type   :geotiff
-                                               :source "./fuels_and_topography/rh_to_sample.tif"}
+                                               :source "/weather/rh_to_sample.tif"}
                    :wind-speed-20ft           {:type   :geotiff
-                                               :source "./fuels_and_topography/ws_to_sample.tif"}
+                                               :source "/weather/ws_to_sample.tif"}
                    :wind-from-direction       {:type   :geotiff
-                                               :source "./fuels_and_topography/wd_to_sample.tif"}
+                                               :source "/weather/wd_to_sample.tif"}
+                   :perturbations             {:wind-speed-20ft    {:spatial-type :global
+                                                                    :range        [-1.0 1.0]}
+                                               :wind-direction     {:spatial-type :global
+                                                                    :range        [-7.5 7.5]}
+                                               :crown-bulk-density {:spatial-type :global
+                                                                    :range        [-0.05 0.05]}
+                                               :canopy-base-height {:spatial-type :global
+                                                                    :range        [-2.0 2.0]}
+                                               :canopy-cover       {:spatial-type :global
+                                                                    :range        [-0.05 0.05]}
+                                               :canopy-height      {:spatial-type :global
+                                                                    :range        [-5.0 5.0]}}
                    :ellipse-adjustment-factor 1.0
-                   :foliar-moisture           90.0
-                   :simulations               1000
+                   :max-runtime               4320
                    :random-seed               2020
+                   :simulations               1000
+                   :foliar-moisture           90.0
                    :outfile-suffix            ""
-                   :output-geotiffs?          false
                    :output-csvs?              false
                    :output-pngs?              false
-                   :output-landfire-inputs?   false
-                   :perturbations             {:crown-bulk-density {:spatial-type :global
-                                                                     :range        [-0.05 0.05]}
-                                               :canopy-base-height  {:spatial-type :global
-                                                                     :range        [-2.0 2.0]}
-                                               :canopy-cover        {:spatial-type :global
-                                                                     :range        [-0.05 0.05]}
-                                               :canopy-height       {:spatial-type :global
-                                                                     :range        [-5.0 5.0]}}}))))
+                   :output-geotiffs?          true
+                   :output-landfire-inputs?   false}))))

@@ -55,7 +55,7 @@
         rand-generator    (if-let [seed (:random-seed config)]
                             (Random. seed)
                             (Random.))
-        landfire-layers   (fetch/fetch-landfire-layers config)
+        landfire-layers   (fetch/landfire-layers config)
         landfire-rasters  (into {} (map (fn [[layer-name info]] [layer-name (first (:matrix info))])) landfire-layers)
         weather-layers    (fetch/weather-layers config)
         multiplier-lookup (cli/create-multiplier-lookup config weather-layers)
@@ -313,33 +313,23 @@
     (let [config  (merge test-config-base
                          {:cell-size       (m->ft 30)
                           :landfire-layers landfire-layers-weather-test
-                          :temperature     {:type      :geotiff
-                                            :source    (in-file-path "weather-test/tmpf_to_sample_lower_res.tif")})
+                          :temperature     {:type   :geotiff
+                                            :source (in-file-path "weather-test/tmpf_to_sample_lower_res.tif")}
+                          }
+                         )
           results (run-simulation config)]
 
       (is (every? some? results)))))
 
 (deftest multiplier-lookup-test
-  (testing "constructing multiplier lookup for weather rasters"
-    (testing "with single weather raster"
-      (let [config {:cell-size   (m->ft 30)
-                    :temperature {:type      :geotiff
-                                  :source    (in-file-path "/weather-test/tmpf_to_sample_lower_res.tif")}}
-            lookup (cli/create-multiplier-lookup config)]
+  (testing "constructing multiplier lookup for weather raster"
+    (let [config         {:cell-size   (m->ft 30)
+                          :temperature {:type   :geotiff
+                                        :source (in-file-path "/weather-test/tmpf_to_sample_lower_res.tif")}}
+          weather-layers (fetch/weather-layers config)
+          lookup         (cli/create-multiplier-lookup config weather-layers)]
 
-        (is (= {:temperature 10} lookup))))
-
-    (testing "with multiple weather rasters"
-      (let [config {:cell-size         (m->ft 30)
-                    :temperature       {:type :geotiff
-                                        :source    (in-file-path "/weather-test/tmpf_to_sample_lower_res.tif")}
-                    :relative-humidity {:type :geotiff
-                                        :source    (in-file-path "/weather-test/rh_to_sample_lower_res.tif")}}
-            weather-layers (cli/create-multiplier-lookup config weather-layers)
-            lookup (cli/create-multiplier-lookup config)]
-
-        (is (= {:temperature       10
-                :relative-humidity 10} lookup))))))
+      (is (= {:temperature 10} lookup)))))
 
 ;;-----------------------------------------------------------------------------
 ;; Perturbation Tests

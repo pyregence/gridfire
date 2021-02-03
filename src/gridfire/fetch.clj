@@ -114,7 +114,7 @@
   [config]
   (reduce (fn [acc weather-name]
             (let [weather-spec (weather-name config)]
-              (if (map? (get config weather-name))
+              (if (map? weather-spec)
                 (assoc acc weather-name (weather config weather-spec))
                 acc)))
           {}

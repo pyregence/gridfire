@@ -206,11 +206,11 @@
 
 (defn get-weather [config rand-generator weather-type weather-layers]
   (if (contains? weather-layers weather-type)
-    (get-in weather-layers [weather-type :matrix])
+    (weather-type weather-layers)
     (draw-samples rand-generator (:simulations config) (config weather-type))))
 
 (defn create-multiplier-lookup
-  [{:keys [cell-size] :as config} weather-layers]
+  [{:keys [cell-size]} weather-layers]
   (reduce-kv (fn [acc k {:keys [scalex]}]
                (assoc acc k (int (quot (m->ft scalex) cell-size))))
              {}

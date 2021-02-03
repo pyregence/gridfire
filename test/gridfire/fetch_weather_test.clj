@@ -147,7 +147,7 @@
                               {:wind-from-direction {:type   :geotiff
                                                      :source (in-file-path file)}})
         rand-generator (Random. (:random-seed config))
-        results        (:matrix (cli/get-weather config rand-generator :wind-from-direction))]
+        results        (:matrix (cli/get-weather config rand-generator :wind-from-direction {}))]
 
     (is (vector results))
 
@@ -159,7 +159,7 @@
                               {:temperature {:type   :postgis
                                              :source table}})
         rand-generator (Random. (:random-seed config))
-        results        (:matrix (cli/get-weather config rand-generator :temperature))]
+        results        (:matrix (cli/get-weather config rand-generator :temperature {}))]
 
     (is (vector results))
 
@@ -170,7 +170,7 @@
                               {:temperature [0 100]
                                :simulations 10})
         rand-generator (Random. (:random-seed config))
-        results        (cli/get-weather config rand-generator :temperature)]
+        results        (cli/get-weather config rand-generator :temperature {})]
 
     (is (vector results))
 
@@ -182,7 +182,7 @@
                               {:temperature tmp-list
                                :simulations 10})
         rand-generator (Random. (:random-seed config))
-        results        (cli/get-weather config rand-generator :temperature)]
+        results        (cli/get-weather config rand-generator :temperature {})]
 
     (is (vector results))
 
@@ -195,7 +195,7 @@
                               {:temperature 42
                                :simulations 10})
         rand-generator (Random. (:random-seed config))
-        results        (cli/get-weather config rand-generator :temperature)]
+        results        (cli/get-weather config rand-generator :temperature {})]
 
     (is (vector results))
 

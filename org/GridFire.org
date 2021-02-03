@@ -2595,8 +2595,6 @@ or false:
     (/ (* eta (Math/sqrt (+ 1 (Math/pow (* x wsp) 2))))
        0.3002)))
 
-
-
 (defn run-simulations
   [{:keys
     [cell-size outfile-suffix output-geotiffs? output-pngs? output-csvs?
@@ -2714,7 +2712,7 @@ or false:
     (draw-samples rand-generator (:simulations config) (config weather-type))))
 
 (defn create-multiplier-lookup
-  [{:keys [cell-size] :as config} weather-layers]
+  [{:keys [cell-size]} weather-layers]
   (reduce-kv (fn [acc k {:keys [scalex]}]
                (assoc acc k (int (quot (m->ft scalex) cell-size))))
              {}
@@ -3053,7 +3051,7 @@ this functionality.
   [config]
   (reduce (fn [acc weather-name]
             (let [weather-spec (weather-name config)]
-              (if (map? (get config weather-name))
+              (if (map? weather-spec)
                 (assoc acc weather-name (weather config weather-spec))
                 acc)))
           {}
