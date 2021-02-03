@@ -14,6 +14,7 @@
 (s/def ::flame-length ::type)
 (s/def ::fire-line-intensity ::type)
 (s/def ::burn-history ::type)
+(s/def ::spread-rate ::type)
 (s/def ::output-burn-probability ::type)
 
 (s/def ::output-layers
@@ -21,4 +22,5 @@
    [::burn-history
     ::fire-line-intensity
     ::fire-spread
-    ::flame-length]))
+    ::flame-length
+    ::spread-rate]))
