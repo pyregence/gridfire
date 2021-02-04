@@ -325,9 +325,9 @@
             ignition-events)))
 
 (def fire-type-to-value
-  {:surface       1
-   :passive-crown 2
-   :active-crown  3})
+  {:surface       1.0
+   :passive-crown 2.0
+   :active-crown  3.0})
 
 (defn run-loop
   [{:keys [max-runtime cell-size] :as constants}
