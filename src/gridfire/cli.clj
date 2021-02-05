@@ -6,6 +6,7 @@
             [clojure.edn           :as edn]
             [clojure.java.io       :as io]
             [clojure.spec.alpha    :as s]
+            [clojure.string        :as str]
             [gridfire.crown-fire   :refer [m->ft]]
             [gridfire.fetch        :as fetch]
             [gridfire.fire-spread  :refer [run-fire-spread]]
@@ -102,7 +103,7 @@
    (get fire-spread-results kw)))
 
 (defn process-output-layers-timestep!
-  [{:keys [output-layers output-geotiffs? output-pngs? output-dir]}
+  [{:keys [output-layers output-geotiffs? output-pngs?]}
    {:keys [global-clock burn-time-matrix] :as fire-spread-results}
    envelope
    simulation-id]
@@ -116,35 +117,33 @@
                                   burn-time-matrix)
           layer-name      (-> (name layer)
                               kebab->snake)]
-      (do
-        (when output-geotiffs?
-          (-> (matrix-to-raster layer-name filtered-matrix envelope)
-              (write-raster (str/join "_" [layer-name
+      (when output-geotiffs?
+        (-> (matrix-to-raster layer-name filtered-matrix envelope)
+            (write-raster (str/join "_" [layer-name
+                                         simulation-id
+                                         (str "t" output-time ".tif")]))))
+      (when output-pngs?
+        (save-matrix-as-png :color 4 -1.0
+                            filtered-matrix
+                            (str/join "_" [layer-name
                                            simulation-id
-                                           (str "t" output-time ".tif")]))))
-        (when output-pngs?
-          (save-matrix-as-png :color 4 -1.0
-                              filtered-matrix
-                              (str/join "_" [layer-name
-                                             simulation-id
-                                             (str "t" output-time ".png")])))))))
+                                           (str "t" output-time ".png")]))))))
 
 (defn process-output-layers!
-  [{:keys [output-geotiffs? outfile-suffix output-pngs?] :as config}
+  [{:keys [output-geotiffs? outfile-suffix output-pngs?]}
    fire-spread-results
    envelope
    simulation-id]
   (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
                         ["flame_length"        :flame-length-matrix]
                         ["fire_line_intensity" :fire-line-intensity-matrix]]]
-    (do
-      (when output-geotiffs?
-        (-> (matrix-to-raster name (fire-spread-results layer) envelope)
-            (write-raster (str name outfile-suffix "_" simulation-id ".tif"))))
-      (when output-pngs?
-        (save-matrix-as-png :color 4 -1.0
-                            (fire-spread-results layer)
-                            (str name outfile-suffix "_" simulation-id ".png"))))))
+    (when output-geotiffs?
+      (-> (matrix-to-raster name (fire-spread-results layer) envelope)
+          (write-raster (str name outfile-suffix "_" simulation-id ".tif"))))
+    (when output-pngs?
+      (save-matrix-as-png :color 4 -1.0
+                          (fire-spread-results layer)
+                          (str name outfile-suffix "_" simulation-id ".png")))))
 
 (defn run-simulations
   [{:keys
