@@ -2,6 +2,7 @@
   (:require [clojure.spec.alpha          :as s]
             [gridfire.spec.common        :as common]
             [gridfire.spec.ignition      :as ignition]
+            [gridfire.spec.output        :as output]
             [gridfire.spec.perturbations :as perturbations]))
 
 ;;-----------------------------------------------------------------------------
