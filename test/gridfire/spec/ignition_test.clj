@@ -11,7 +11,7 @@
   (let [sql "landfire.ign WHERE rid=1"]
     (is (s/valid? ::ignition/ignition-layer sql))))
 
-(deftest sql-test
+(deftest burn-value-test
   (let [sql {:path        "/some/path/to.tif"
              :burn-values {:burned   1.0
                            :unburned -1.0}}]

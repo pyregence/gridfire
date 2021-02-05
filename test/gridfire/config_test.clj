@@ -74,8 +74,9 @@
                                                                     :source "/fuels_and_topography/fbfm40.tif"}
                                                :slope              {:type   :geotiff
                                                                     :source "/fuels_and_topography/slp.tif"}}
-                   :ignition-layer            {:type   :geotiff
-                                               :source "/fuels_and_topography/phi.tif"}
+                   :ignition-layer            {:type        :geotiff
+                                               :source      "/fuels_and_topography/phi.tif"
+                                               :burn-values {:burned -1.0, :unburned 1.0}}
                    :temperature               {:type   :geotiff
                                                :source "/weather/tmpf_to_sample.tif"}
                    :relative-humidity         {:type   :geotiff
