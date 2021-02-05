@@ -6,13 +6,6 @@
             [gridfire.spec.config     :as spec]
             [gridfire.surface-fire    :refer [degrees-to-radians]]))
 
-(defn convert-burn-values [matrix {:keys [burned unburned]}]
-  (m/emap #(condp = %
-             (double burned)   1.0
-             (double unburned) 0.0
-             -1.0)
-          matrix))
-
 ;;-----------------------------------------------------------------------------
 ;; LANDFIRE
 ;;-----------------------------------------------------------------------------
@@ -82,6 +75,13 @@
 ;; Initial Ignition
 ;;-----------------------------------------------------------------------------
 
+(defn convert-burn-values [matrix {:keys [burned unburned]}]
+  (m/emap #(condp = %
+             (double burned)   1.0
+             (double unburned) 0.0
+             -1.0)
+          matrix))
+
 (defmulti ignition-layer
   (fn [{:keys [ignition-layer]}] (:type ignition-layer)))
 
@@ -89,14 +89,14 @@
   [{:keys [db-spec ignition-layer]}]
   (let [layer (postgis-raster-to-matrix db-spec (:source ignition-layer))]
     (if-let [bv (:burn-values ignition-layer)]
-      (assoc raster :matrix (convert-burn-values (:matrix layer) bv))
+      (assoc layer :matrix (convert-burn-values (:matrix layer) bv))
       layer)))
 
 (defmethod ignition-layer :geotiff
   [{:keys [ignition-layer]}]
   (let [layer (geotiff-raster-to-matrix (:source ignition-layer))]
     (if-let [bv (:burn-values ignition-layer)]
-      (assoc raster :matrix (convert-burn-values (:matrix layer) bv))
+      (assoc layer :matrix (convert-burn-values (:matrix layer) bv))
       layer)))
 
 (defmethod ignition-layer :default
