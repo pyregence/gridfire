@@ -4,15 +4,15 @@
             [gridfire.spec.ignition :as ignition]))
 
 (deftest path-test
-  (let [path "/some/path/to.tif"]
-    (is (s/valid? ::ignition/ignition-layer path))))
+  (is (s/valid? ::ignition/ignition-layer {:type   :postgis
+                                           :source "/some/path/to.tif"})))
 
 (deftest sql-test
-  (let [sql "landfire.ign WHERE rid=1"]
-    (is (s/valid? ::ignition/ignition-layer sql))))
+  (is (s/valid? ::ignition/ignition-layer {:type   :postgis
+                                           :source "landfire.ign WHERE rid=1"})))
 
 (deftest burn-value-test
-  (let [sql {:path        "/some/path/to.tif"
-             :burn-values {:burned   1.0
-                           :unburned -1.0}}]
-    (is (s/valid? ::ignition/ignition-layer sql))))
+  (is (s/valid? ::ignition/ignition-layer {:type        :geotiff
+                                           :source      "/some/path/to.tif"
+                                           :burn-values {:burned   1.0
+                                                         :unburned -1.0}})))

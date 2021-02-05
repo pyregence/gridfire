@@ -5,26 +5,14 @@
             [clojure.spec.alpha :as s]))
 
 ;;-----------------------------------------------------------------------------
-;; Regex
-;;-----------------------------------------------------------------------------
-
-(s/def ::source (s/or :file-path ::common/path
-                      :sql       ::common/sql))
-(s/def ::type #(contains? #{:geotiff :postgis} %))
-
-;;-----------------------------------------------------------------------------
 ;; Weather Layers ;;TODO move into own namespace
 ;;-----------------------------------------------------------------------------
-
-(s/def ::postgis-or-geotiff
-  (s/keys :req-un [::type ::source]
-          :opt-un [::cell-size]))
 
 (s/def ::weather
   (s/or :vector (s/coll-of int? :kind vector? :count 2)
         :list (s/coll-of int? :kind list?)
         :string string?
-        :map ::postgis-or-geotiff))
+        :map ::common/postgis-or-geotiff))
 
 (s/def ::temperature ::weather)
 (s/def ::relative-humidity ::weather)
@@ -56,7 +44,7 @@
 ;;-----------------------------------------------------------------------------
 
 (s/def ::path-or-map (s/or :path ::common/path
-                           :map  ::postgis-or-geotiff))
+                           :map  ::common/postgis-or-geotiff))
 (s/def ::aspect ::path-or-map)
 (s/def ::canopy-base-height ::path-or-map)
 (s/def ::canopy-cover ::path-or-map)
