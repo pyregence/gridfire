@@ -19,8 +19,8 @@
   (let [config {:fire-line-intensity 10}]
     (is (s/valid? ::output/output-layers config))))
 
-(deftest test
-  (let [config {:burn-time 10}]
+(deftest burn-history-test
+  (let [config {:burn-history 10}]
     (is (s/valid? ::output/output-layers config))))
 
 (deftest multiple-output-layer-test
