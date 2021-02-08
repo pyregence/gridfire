@@ -123,6 +123,7 @@
            {:outfile-suffix          ""
             :output-landfire-inputs? false
             :output-geotiffs?        true
+            :output-binary?          true
             :output-pngs?            (if verbose true false)
             :output-csvs?            (if verbose true false)})))
 
