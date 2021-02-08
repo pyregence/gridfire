@@ -27,5 +27,5 @@
   (let [config {:fire-spread         10
                 :flame-lenth         10
                 :fire-line-intensity 10
-                :burn-time           10}]
+                :burn-history        10}]
     (is (s/valid? ::output/output-layers config))))

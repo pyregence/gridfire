@@ -217,7 +217,7 @@
 
 (defn run-simulations
   [{:keys
-    [cell-size output-csvs? simulations output-layers] :as config}
+    [cell-size output-csvs? simulations output-layers output-burn-probability] :as config}
    landfire-rasters envelope ignition-row ignition-col max-runtime temperature
    relative-humidity wind-speed-20ft wind-from-direction foliar-moisture
    ellipse-adjustment-factor ignition-layer multiplier-lookup perturbations
