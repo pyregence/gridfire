@@ -3293,7 +3293,9 @@ or false:
 (defn write-csv-outputs
   [output-csvs? output-filename results-table]
   (when output-csvs?
-    (with-open [out-file (io/writer output-filename)]
+    (with-open [out-file (io/writer (if output-directory
+                                      (str/join "/" [output-directory output-filename])
+                                      output-filename))]
       (->> results-table
            (sort-by #(vector (:ignition-row %) (:ignition-col %)))
            (mapv (fn [{:keys [ignition-row ignition-col max-runtime temperature relative-humidity wind-speed-20ft
