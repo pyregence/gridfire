@@ -99,6 +99,7 @@
                                                                     :range        [-0.05 0.05]}
                                                :canopy-height      {:spatial-type :global
                                                                     :range        [-5.0 5.0]}}
+                   :burn-probability          60
                    :ellipse-adjustment-factor 1.0
                    :max-runtime               4320
                    :random-seed               2020

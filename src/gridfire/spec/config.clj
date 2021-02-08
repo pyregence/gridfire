@@ -27,19 +27,6 @@
 (def weather-names
   [:temperature :relative-humidity :wind-speed-20ft :wind-from-direction])
 
-(defn multiple?
-  [target cell-size]
-  (<= 0.0 (mod cell-size target) 0.002))
-
-(defn valid-weather-cell-sizes?
-  [{:keys [cell-size] :as config}]
-  (let [weather    (map config weather-names)
-        cell-sizes (->> weather
-                        (remove nil?)
-                        (filter #(= :map (first %)))
-                        (map (comp :cell-size second)))]
-    (every? #(multiple? cell-size %) cell-sizes)))
-
 ;;-----------------------------------------------------------------------------
 ;; Landfire Layers ;;TODO move into own namespace
 ;;-----------------------------------------------------------------------------
@@ -81,5 +68,4 @@
              ::ignition/ignition-layer
              ::output/output-layers
              ::output/output-burn-probability])
-   ::weather-layers
-   #(valid-weather-cell-sizes? %)))
+   ::weather-layers))
