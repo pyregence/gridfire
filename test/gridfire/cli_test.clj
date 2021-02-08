@@ -379,18 +379,10 @@
 
 (deftest binary-output-files-test
   (let [config         (merge test-config-base
-                              {:landfire-layers    {:aspect             "landfire.asp WHERE rid=1"
-                                                    :canopy-base-height "landfire.cbh WHERE rid=1"
-                                                    :canopy-cover       "landfire.cc WHERE rid=1"
-                                                    :canopy-height      "landfire.ch WHERE rid=1"
-                                                    :crown-bulk-density "landfire.cbd WHERE rid=1"
-                                                    :elevation          "landfire.dem WHERE rid=1"
-                                                    :fuel-model         "landfire.fbfm40 WHERE rid=1"
-                                                    :slope              "landfire.slp WHERE rid=1"}
-                               :output-binary?     true
+                              {:output-binary?      true
                                :output-directory   "test/output"
                                :fetch-layer-method :postgis})
         _              (run-simulation config)
-        binary-results (binary/read-matrices-as-binary (utils/out-file-path "simulation_0.bin")
+        binary-results (binary/read-matrices-as-binary (utils/out-file-path "toa_0001_0001.bin")
                                                        [:float :float :float :int])]
     (is (some? binary-results))))
