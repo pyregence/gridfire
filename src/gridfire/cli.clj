@@ -321,7 +321,8 @@
            (process-binary-output! config fire-spread-results i)
            (if output-csvs?
              (merge
-              {:ignition-row              (ignition-row i)
+              {:simulation                (inc i)
+               :ignition-row              (ignition-row i)
                :ignition-col              (ignition-col i)
                :max-runtime               (max-runtime i)
                :temperature               temperature
@@ -333,7 +334,8 @@
                :exit-condition            (:exit-condition fire-spread-results)}
               (summarize-fire-spread-results fire-spread-results cell-size))))
          (when output-csvs?
-           {:ignition-row               (ignition-row i)
+           {:simulation                 (inc i)
+            :ignition-row               (ignition-row i)
             :ignition-col               (ignition-col i)
             :max-runtime                (max-runtime i)
             :temperature                temperature
@@ -360,8 +362,10 @@
            (sort-by #(vector (:ignition-row %) (:ignition-col %)))
            (mapv (fn [{:keys [ignition-row ignition-col max-runtime temperature relative-humidity wind-speed-20ft
                               wind-from-direction foliar-moisture ellipse-adjustment-factor fire-size flame-length-mean
-                              flame-length-stddev fire-line-intensity-mean fire-line-intensity-stddev]}]
-                   [ignition-row
+                              flame-length-stddev fire-line-intensity-mean fire-line-intensity-stddev
+                              simulation]}]
+                   [simulation
+                    ignition-row
                     ignition-col
                     max-runtime
                     temperature
@@ -375,7 +379,7 @@
                     flame-length-stddev
                     fire-line-intensity-mean
                     fire-line-intensity-stddev]))
-           (cons ["ignition-row" "ignition-col" "max-runtime" "temperature" "relative-humidity" "wind-speed-20ft"
+           (cons ["simulation" "ignition-row" "ignition-col" "max-runtime" "temperature" "relative-humidity" "wind-speed-20ft"
                   "wind-from-direction" "foliar-moisture" "ellipse-adjustment-factor" "fire-size" "flame-length-mean"
                   "flame-length-stddev" "fire-line-intensity-mean" "fire-line-intensity-stddev"])
            (csv/write-csv out-file)))))

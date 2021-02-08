@@ -125,7 +125,7 @@
             :output-geotiffs?        true
             :output-binary?          true
             :output-pngs?            (if verbose true false)
-            :output-csvs?            (if verbose true false)})))
+            :output-csvs?            true})))
 
 ;;-----------------------------------------------------------------------------
 ;; Perturbations
