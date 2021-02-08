@@ -379,7 +379,7 @@
 
 (deftest binary-output-files-test
   (let [config         (merge test-config-base
-                              {:output-binary?      true
+                              {:output-binary?     true
                                :output-directory   "test/output"
                                :fetch-layer-method :postgis})
         _              (run-simulation config)
