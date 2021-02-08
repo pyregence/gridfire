@@ -91,7 +91,7 @@
 (defn hypotenuse [x y]
   (Math/sqrt (+ (Math/pow x 2) (Math/pow y 2))))
 
-(defn deltas-wind->coord
+(defn deltas-wind-dir->coord
   "Converts deltas from the torched tree in the wind direction to deltas
   in the coordinate plane"
   [deltas wind-direction]
