@@ -177,6 +177,7 @@
                                           crown-bulk-density canopy-cover canopy-height
                                           canopy-base-height foliar-moisture crown-spread-max
                                           crown-eccentricity landfire-rasters cell-size
+                                          overflow-trajectory overflow-heat crown-type)))
           (get-neighbors here))))
 
 (defn burnable-neighbors?
