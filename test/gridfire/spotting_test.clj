@@ -12,30 +12,30 @@
 
         (let [[dx dy] (first (spotting/deltas-wind-dir->coord [[10 10]] 45.0))]
 
-          (is (= H dx))
+          (is (= H dy))
 
-          (is (close-to-zero dy)))
+          (is (close-to-zero dx)))
 
         (let [[dx dy] (first (spotting/deltas-wind-dir->coord [[10 -10]] 135.0))]
 
-          (is (= H dx))
+          (is (= H dy))
 
-          (is (close-to-zero dy)))))
+          (is (close-to-zero dx)))))
 
     (testing "west"
       (let [H (spotting/hypotenuse 10 10)]
 
         (let [[dx dy] (first (spotting/deltas-wind-dir->coord [[10 10]] 225.0))]
 
-          (is (= (- H) dx))
+          (is (= (- H) dy))
 
-          (is (close-to-zero dy)))
+          (is (close-to-zero dx)))
 
         (let [[dx dy] (first (spotting/deltas-wind-dir->coord [[10 -10]] 315.0))]
 
-          (is (= (- H) dx))
+          (is (= (- H) dy))
 
-          (is (close-to-zero dy))))))
+          (is (close-to-zero dx))))))
 
   (testing "y-axis"
     (testing "north"
@@ -43,27 +43,27 @@
 
         (let [[dx dy] (first (spotting/deltas-wind-dir->coord [[10 -10]] 45.0))]
 
-          (is (close-to-zero dx))
+          (is (close-to-zero dy))
 
-          (is (= H dy)))
+          (is (= (- H) dx)))
 
         (let [[dx dy] (first (spotting/deltas-wind-dir->coord [[10 10]] 315.0))]
 
-          (is (close-to-zero dx))
+          (is (close-to-zero dy))
 
-          (is (= H dy)))))
+          (is (= (- H) dx)))))
 
     (testing "south"
       (let [H (spotting/hypotenuse 10 10)]
 
         (let [[dx dy] (first (spotting/deltas-wind-dir->coord [[10 10]] 135.0))]
 
-          (is (close-to-zero dx))
+          (is (close-to-zero dy))
 
-          (is (= (- H) dy)))
+          (is (= H dx)))
 
         (let [[dx dy] (first (spotting/deltas-wind-dir->coord [[10 -10]] 225.0))]
 
-          (is (close-to-zero dx))
+          (is (close-to-zero dy))
 
-          (is (= (- H) dy)))))))
+          (is (= H dx)))))))
