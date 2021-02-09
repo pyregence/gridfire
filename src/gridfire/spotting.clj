@@ -282,7 +282,7 @@
            fire-line-intensity-matrix
            flame-length-matrix]}
    {:keys [cell crown-fire?]}]
-  (when (spot-fire? config crown-fire?)
+  (when (spot-fire? config constants crown-fire? cell)
     (let [{:keys
            [wind-speed-20ft
             temperature
