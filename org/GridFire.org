@@ -2432,10 +2432,10 @@ algorithm.
   x: parallel to the wind
   y: perpendicular to the wind (positive values are to the right of wind direction)
   "
-  [{:keys [fire-line-intensity]}
+  [fire-line-intensity-matrix
    {:keys [num-firebrands ambient-gas-density specific-heat-gas]}
    wind-speed-20ft temperature [i j]]
-  (let [intensity     (m/mget fire-line-intensity i j)
+  (let [intensity     (m/mget fire-line-intensity-matrix i j)
         froude        (froude-number intensity wind-speed-20ft temperature ambient-gas-density specific-heat-gas)
         mean          (mean-fb froude intensity wind-speed-20ft)
         deviation     (deviation-fb froude intensity wind-speed-20ft)
