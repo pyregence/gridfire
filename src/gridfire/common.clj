@@ -26,12 +26,12 @@
 
 (defn extract-constants
 
-  [{:keys [landfire-layers wind-speed-20ft wind-from-direction temperature
+  [{:keys [landfire-rasters wind-speed-20ft wind-from-direction temperature
            relative-humidity foliar-moisture ellipse-adjustment-factor
            multiplier-lookup perturbations]}
    global-clock
    [i j :as here]]
-  (let [layers (merge landfire-layers
+  (let [layers (merge landfire-rasters
                       {:wind-speed-20ft     wind-speed-20ft
                        :wind-from-direction wind-from-direction
                        :temperature         temperature

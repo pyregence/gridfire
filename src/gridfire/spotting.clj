@@ -102,7 +102,7 @@
     (/ (* 0.000048 (Math/pow X 4.3)) 50)))
 
 (defn spot-ignition-probability
-  [{:keys [cell-size landfire-layers]}
+  [{:keys [cell-size landfire-rasters]}
    {:keys [decay-constant] :as spot-config}
    temperature
    relative-humidity
@@ -111,7 +111,7 @@
    [i j :as here]]
   (let [ignition-probability (schroeder-ign-prob relative-humidity
                                                  temperature)
-        distance             (ft->m (distance-3d (:elevation landfire-layers)
+        distance             (ft->m (distance-3d (:elevation landfire-rasters)
                                                  cell-size
                                                  here
                                                  torched-origin))
@@ -204,14 +204,14 @@
          coord-deltas)))
 
 (defn update-firebrand-counts!
-  [{:keys [num-rows num-cols landfire-layers]}
+  [{:keys [num-rows num-cols landfire-rasters]}
    firebrand-count-matrix
    fire-spread-matrix
    firebrands]
   (doseq [[x y :as here] firebrands
           :when          (and (in-bounds? num-rows num-cols [x y])
                               (burnable? fire-spread-matrix
-                                         (:fuel-model landfire-layers)
+                                         (:fuel-model landfire-rasters)
                                          here))
           :let           [new-count (inc (m/mget firebrand-count-matrix x y))]]
     (m/mset! firebrand-count-matrix x y new-count)))
@@ -223,15 +223,13 @@
   t: time of ignition
   p: ignition-probability"
   [{:keys
-    [num-rows num-cols cell-size landfire-layers wind-speed-20ft
-     wind-from-direction temperature relative-humidity
-     global-clock multiplier-lookup perturbations] :as constants}
-   {:keys [spotting rand-gen random-seed] :as config}
+    [num-rows num-cols cell-size landfire-rasters global-clock] :as constants}
+   {:keys [spotting rand-gen] :as config}
    {:keys [firebrand-count-matrix
            fire-spread-matrix
            fire-line-intensity-matrix
            flame-length-matrix]}
-   {:keys [cell fire-line-intensity crown-fire?] :as ignition-event}]
+   {:keys [cell crown-fire?]}]
   (when crown-fire?
     (let [{:keys
            [wind-speed-20ft
@@ -248,7 +246,7 @@
       (update-firebrand-counts! constants firebrand-count-matrix fire-spread-matrix firebrands)
       (->> (for [[x y] firebrands
                  :when (and (in-bounds? num-rows num-cols [x y])
-                            (burnable? fire-spread-matrix (:fuel-model landfire-layers) [x y]))
+                            (burnable? fire-spread-matrix (:fuel-model landfire-rasters) [x y]))
                  :let  [firebrand-count (m/mget firebrand-count-matrix x y)
                         spot-ignition-p (spot-ignition-probability constants
                                                                    spotting

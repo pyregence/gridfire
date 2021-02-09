@@ -20,7 +20,7 @@
                                                    rothermel-surface-fire-spread-no-wind-no-slope
                                                    wind-adjustment-factor]]
             [gridfire.perturbation         :as perturbation]
-            [gridfire.spotting             :as spotting]))
+            [gridfire.spotting             :as spot]))
 
 (m/set-current-implementation :vectorz)
 
@@ -302,7 +302,7 @@
 
 
 (defn run-loop
-  [{:keys [max-runtime cell-size initial-ignition-site multiplier-lookup] :as constants}
+  [{:keys [max-runtime cell-size] :as constants}
    {:keys [spotting] :as config}
    {:keys [fire-spread-matrix
            flame-length-matrix
@@ -355,7 +355,8 @@
                                        fire-spread-matrix
                                        global-clock)
                  spot-ignite-later)))
-      {:exit-condition             (if (seq ignited-cells) :max-runtime-reached :no-burnable-fuels)
+      {:global-clock               global-clock
+       :exit-condition             (if (seq ignited-cells) :max-runtime-reached :no-burnable-fuels)
        :fire-spread-matrix         fire-spread-matrix
        :flame-length-matrix        flame-length-matrix
        :fire-line-intensity-matrix fire-line-intensity-matrix
