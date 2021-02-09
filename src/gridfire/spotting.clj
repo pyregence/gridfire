@@ -213,6 +213,7 @@
           :when          (and (in-bounds? num-rows num-cols [x y])
                               (burnable? fire-spread-matrix
                                          (:fuel-model landfire-rasters)
+                                         source
                                          here))
           :let           [new-count (inc (m/mget firebrand-count-matrix x y))]]
     (m/mset! firebrand-count-matrix x y new-count)))

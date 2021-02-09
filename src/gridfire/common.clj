@@ -80,7 +80,7 @@
            (> number 99.0))))
 
 (defn burnable?
-  "Returns true if cell [i j] has not yet been ignited (but could be)."
+  "Returns true if cell [x y] has not yet been ignited (but could be)."
   [fire-spread-matrix fuel-model-matrix [i j :as source] [x y :as here]]
   (let [source-ignition-probability (m/mget fire-spread-matrix i j)]
     (and (< (m/mget fire-spread-matrix x y) (if (= source-ignition-probability 0.0)
