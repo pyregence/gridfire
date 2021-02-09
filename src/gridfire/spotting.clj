@@ -83,9 +83,9 @@
   x: parallel to the wind
   y: perpendicular to the wind (positive values are to the right of wind direction)
   "
-  [{:keys [fire-line-intensity] :as constants}
+  [{:keys [fire-line-intensity]}
    {:keys [num-firebrands ambient-gas-density specific-heat-gas]}
-   wind-speed-20ft temperature i j]
+   wind-speed-20ft temperature [i j]]
   (let [intensity     (m/mget fire-line-intensity i j)
         froude        (froude-number intensity wind-speed-20ft temperature ambient-gas-density specific-heat-gas)
         mean          (mean-fb froude intensity wind-speed-20ft)
@@ -126,10 +126,9 @@
 
 (defn spread-firebrands
   [{:keys [num-rows num-cols cell-size wind-speed-20ft wind-from-direction temperature] :as constants}
-   {:keys [num-firebrands] :as spot-config}
-   {:keys [cell fire-line-intensity crown-fire?] :as ignition-event}
-   firebrand-count-matrix
-   fire-spread-matrix]
+   spot-config
+   {:keys [cell crown-fire?]}
+   firebrand-count-matrix]
   (when crown-fire?
     (let [deltas (sample-wind-dir-deltas constants spot-config wind-speed-20ft temperature cell)]
       (doseq [[x y] (firebrands deltas wind-from-direction cell cell-size)
