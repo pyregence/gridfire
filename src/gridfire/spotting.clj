@@ -259,7 +259,7 @@
 
 (defn crown-spot-fire? [{:keys [spotting rand-gen]}]
   (when-let [spot-percent (:crown-fire-spotting-percent spotting)]
-    (let [p (if (seq spot-percent)
+    (let [p (if (vector? spot-percent)
               (let [[lo hi] spot-percent]
                 (random-float lo hi rand-gen))
               spot-percent)]
