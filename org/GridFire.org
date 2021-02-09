@@ -2274,40 +2274,41 @@ pseudo-code lays out the steps taken in this procedure:
                    config))
 
 (defmethod run-fire-spread :ignition-point
-[{:keys [landfire-rasters num-rows num-cols initial-ignition-site] :as constants}
- {:keys [spotting] :as config}]
-(let [[i j]                      initial-ignition-site
-      fuel-model-matrix          (:fuel-model landfire-rasters)
-      fire-spread-matrix         (m/zero-matrix num-rows num-cols)
-      flame-length-matrix        (m/zero-matrix num-rows num-cols)
-      fire-line-intensity-matrix (m/zero-matrix num-rows num-cols)
-      burn-time-matrix           (m/zero-matrix num-rows num-cols)
-      firebrand-count-matrix     (when spotting (m/zero-matrix num-rows num-cols))
-      spread-rate-matrix         (m/zero-matrix num-rows num-cols)]]
-  (when (and (in-bounds? num-rows num-cols initial-ignition-site)
-             (burnable-fuel-model? (m/mget fuel-model-matrix i j))
-             (burnable-neighbors? fire-spread-matrix fuel-model-matrix
-                                  num-rows num-cols initial-ignition-site))
-    ;; initialize the ignition site
-    (m/mset! fire-spread-matrix i j 1.0)
-    (m/mset! flame-length-matrix i j 1.0)
-    (m/mset! fire-line-intensity-matrix i j 1.0)
-    (let [ignited-cells {initial-ignition-site
-                         (compute-neighborhood-fire-spread-rates!
-                          constants
-                          fire-spread-matrix
-                          initial-ignition-site
-                          nil
-                          0.0
-                          0.0)}]
-      (run-loop constants
-                config
-                {:fire-spread-matrix         fire-spread-matrix
-                 :flame-length-matrix        flame-length-matrix
-                 :fire-line-intensity-matrix fire-line-intensity-matrix
-                 :firebrand-count-matrix     firebrand-count-matrix
-                 :burn-time-matrix           burn-time-matrix}
-                ignited-cells)))))
+  [{:keys [landfire-rasters num-rows num-cols initial-ignition-site] :as constants}
+   {:keys [spotting] :as config}]
+  (let [[i j]                      initial-ignition-site
+        fuel-model-matrix          (:fuel-model landfire-rasters)
+        fire-spread-matrix         (m/zero-matrix num-rows num-cols)
+        flame-length-matrix        (m/zero-matrix num-rows num-cols)
+        fire-line-intensity-matrix (m/zero-matrix num-rows num-cols)
+        burn-time-matrix           (m/zero-matrix num-rows num-cols)
+        firebrand-count-matrix     (when spotting (m/zero-matrix num-rows num-cols))
+        spread-rate-matrix         (m/zero-matrix num-rows num-cols)]
+    (when (and (in-bounds? num-rows num-cols initial-ignition-site)
+               (burnable-fuel-model? (m/mget fuel-model-matrix i j))
+               (burnable-neighbors? fire-spread-matrix fuel-model-matrix
+                                    num-rows num-cols initial-ignition-site))
+      ;; initialize the ignition site
+      (m/mset! fire-spread-matrix i j 1.0)
+      (m/mset! flame-length-matrix i j 1.0)
+      (m/mset! fire-line-intensity-matrix i j 1.0)
+      (let [ignited-cells {initial-ignition-site
+                           (compute-neighborhood-fire-spread-rates!
+                            constants
+                            fire-spread-matrix
+                            initial-ignition-site
+                            nil
+                            0.0
+                            0.0)}]
+        (run-loop constants
+                  config
+                  {:fire-spread-matrix         fire-spread-matrix
+                   :spread-rate-matrix         spread-rate-matrix
+                   :flame-length-matrix        flame-length-matrix
+                   :fire-line-intensity-matrix fire-line-intensity-matrix
+                   :firebrand-count-matrix     firebrand-count-matrix
+                   :burn-time-matrix           burn-time-matrix}
+                  ignited-cells)))))
 
 (defmethod run-fire-spread :ignition-perimeter
   [{:keys [num-rows num-cols initial-ignition-site landfire-rasters] :as constants}
