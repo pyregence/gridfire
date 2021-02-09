@@ -2257,17 +2257,18 @@ pseudo-code lays out the steps taken in this procedure:
      - nil (this causes GridFire to select a random ignition-point)
   - num-rows: integer
   - num-cols: integer"
-  (fn [{:keys [initial-ignition-site]}]
+  (fn [{:keys [initial-ignition-site]} _]
     (condp = (type initial-ignition-site)
       clojure.lang.PersistentHashMap :ignition-perimeter
       clojure.lang.PersistentVector  :ignition-point
       :random-ignition-point)))
 
 (defmethod run-fire-spread :random-ignition-point
-  [{:keys [landfire-rasters] :as constants}]
+  [{:keys [landfire-rasters] :as constants} config]
   (run-fire-spread (assoc constants
                           :initial-ignition-site
-                          (select-random-ignition-site (:fuel-model landfire-rasters)))))
+                          (select-random-ignition-site (:fuel-model landfire-rasters)))
+                   config))
 
 (defmethod run-fire-spread :ignition-point
   [{:keys [landfire-rasters num-rows num-cols initial-ignition-site] :as constants}
@@ -2296,6 +2297,7 @@ pseudo-code lays out the steps taken in this procedure:
                             0.0
                             0.0)}]
         (run-loop constants
+                  config
                   ignited-cells
                   fire-spread-matrix
                   flame-length-matrix
@@ -2305,7 +2307,7 @@ pseudo-code lays out the steps taken in this procedure:
 
 (defmethod run-fire-spread :ignition-perimeter
   [{:keys [num-rows num-cols initial-ignition-site landfire-rasters] :as constants}
-   {:keys [spotting]}]
+   {:keys [spotting] :as config}]
   (let [fire-spread-matrix         (first (m/mutable (:matrix initial-ignition-site)))
         non-zero-indices           (get-non-zero-indices fire-spread-matrix)
         flame-length-matrix        (initialize-matrix num-rows num-cols non-zero-indices)
@@ -2330,6 +2332,7 @@ pseudo-code lays out the steps taken in this procedure:
                                                        0.0)]]
                                            [index ignition-trajectories]))]
     (run-loop constants
+              config
               ignited-cells
               fire-spread-matrix
               flame-length-matrix
@@ -2463,7 +2466,7 @@ algorithm.
   [[x y :as deltas] wind-direction cell cell-size]
   (let [step         (/ cell-size 2)
         cell-center  (mapv #(+ step (* % step)) cell)
-        coord-deltas (deltas-wind->coord deltas wind-direction)]
+        coord-deltas (deltas-wind-dir->coord deltas wind-direction)]
     (map (comp
           (partial map int)
           (partial map #(quot step %))

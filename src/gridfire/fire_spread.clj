@@ -422,17 +422,18 @@
      - nil (this causes GridFire to select a random ignition-point)
   - num-rows: integer
   - num-cols: integer"
-  (fn [{:keys [initial-ignition-site]}]
+  (fn [{:keys [initial-ignition-site]} _]
     (condp = (type initial-ignition-site)
       clojure.lang.PersistentHashMap :ignition-perimeter
       clojure.lang.PersistentVector  :ignition-point
       :random-ignition-point)))
 
 (defmethod run-fire-spread :random-ignition-point
-  [{:keys [landfire-rasters] :as constants}]
+  [{:keys [landfire-rasters] :as constants} config]
   (run-fire-spread (assoc constants
                           :initial-ignition-site
-                          (select-random-ignition-site (:fuel-model landfire-rasters)))))
+                          (select-random-ignition-site (:fuel-model landfire-rasters)))
+                   config))
 
 (defmethod run-fire-spread :ignition-point
   [{:keys [landfire-rasters num-rows num-cols initial-ignition-site] :as constants}
@@ -461,6 +462,7 @@
                             0.0
                             0.0)}]
         (run-loop constants
+                  config
                   ignited-cells
                   fire-spread-matrix
                   flame-length-matrix
@@ -470,7 +472,7 @@
 
 (defmethod run-fire-spread :ignition-perimeter
   [{:keys [num-rows num-cols initial-ignition-site landfire-rasters] :as constants}
-   {:keys [spotting]}]
+   {:keys [spotting] :as config}]
   (let [fire-spread-matrix         (first (m/mutable (:matrix initial-ignition-site)))
         non-zero-indices           (get-non-zero-indices fire-spread-matrix)
         flame-length-matrix        (initialize-matrix num-rows num-cols non-zero-indices)
@@ -495,6 +497,7 @@
                                                        0.0)]]
                                            [index ignition-trajectories]))]
     (run-loop constants
+              config
               ignited-cells
               fire-spread-matrix
               flame-length-matrix
