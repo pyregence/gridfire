@@ -242,7 +242,7 @@
            fire-spread-matrix
            fire-line-intensity-matrix
            flame-length-matrix]}
-   {:keys [cell fire-line-intensity crown-fire?] :as ignition-event}]
+   {:keys [cell crown-fire?]}]
   (when (spot-fire? config crown-fire?)
     (let [{:keys
            [wind-speed-20ft
