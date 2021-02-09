@@ -1,24 +1,25 @@
 ;; [[file:../../org/GridFire.org::command-line-interface][command-line-interface]]
 (ns gridfire.cli
   (:gen-class)
-  (:require [clojure.core.matrix   :as m]
-            [clojure.data.csv      :as csv]
-            [clojure.edn           :as edn]
-            [clojure.java.io       :as io]
-            [clojure.spec.alpha    :as s]
-            [clojure.string        :as str]
-            [gridfire.common       :refer [in-bounds?]]
-            [gridfire.crown-fire   :refer [m->ft]]
-            [gridfire.fetch        :as fetch]
-            [gridfire.fire-spread  :refer [get-neighbors run-fire-spread]]
-            [gridfire.perturbation :as perturbation]
-            [gridfire.spec.config  :as spec]
-            [gridfire.utils.random :refer [my-rand-int my-rand-nth]]
-            [magellan.core         :refer [make-envelope
+  (:require [clojure.core.matrix    :as m]
+            [clojure.data.csv       :as csv]
+            [clojure.edn            :as edn]
+            [clojure.java.io        :as io]
+            [clojure.spec.alpha     :as s]
+            [clojure.string         :as str]
+            [gridfire.binary-output :as binary]
+            [gridfire.common        :refer [in-bounds?]]
+            [gridfire.crown-fire    :refer [m->ft]]
+            [gridfire.fetch         :as fetch]
+            [gridfire.fire-spread   :refer [get-neighbors run-fire-spread]]
+            [gridfire.perturbation  :as perturbation]
+            [gridfire.spec.config   :as spec]
+            [gridfire.utils.random  :refer [my-rand-int my-rand-nth]]
+            [magellan.core          :refer [make-envelope
                                            matrix-to-raster
                                            register-new-crs-definitions-from-properties-file!
                                            write-raster]]
-            [matrix-viz.core       :refer [save-matrix-as-png]])
+            [matrix-viz.core        :refer [save-matrix-as-png]])
   (:import java.util.Random))
 
 (m/set-current-implementation :vectorz)
