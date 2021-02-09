@@ -186,6 +186,6 @@
                                          cell)]
       (doseq [[x y] (firebrands deltas wind-from-direction cell cell-size)
               :when (in-bounds? num-rows num-cols [x y])]
-        (let [count (m/mget firebrand-ckunt-matrix x y)]
+        (let [count (m/mget firebrand-count-matrix x y)]
           (m/mset! firebrand-count-matrix x y (inc count)))))))
 ;; Spotting Model Forumulas:1 ends here
