@@ -3314,7 +3314,7 @@ or false:
    (range simulations)))
 
 (defn write-csv-outputs
-  [output-csvs? output-filename results-table]
+  [output-directory output-csvs? output-filename results-table]
   (when output-csvs?
     (with-open [out-file (io/writer (if output-directory
                                       (str/join "/" [output-directory output-filename])
@@ -3407,6 +3407,7 @@ or false:
                 (perturbation/draw-samples rand-generator simulations (:perturbations config))
                 burn-count-matrix)
                (write-csv-outputs
+                (:output-directory config)
                 (:output-csvs? config)
                 (str "summary_stats" (:outfile-suffix config) ".csv")))
           (output-burn-probability-layer! config envelope burn-count-matrix))
