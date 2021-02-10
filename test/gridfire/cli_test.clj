@@ -179,8 +179,7 @@
                                                        :fuel-model         {:type   :postgis
                                                                             :source "landfire.fbfm40 WHERE rid=1"}
                                                        :slope              {:type   :postgis
-                                                                            :source "landfire.slp WHERE rid=1"}}
-                                  :fetch-layer-method :postgis})
+                                                                            :source "landfire.slp WHERE rid=1"}}})
           geotiff-config  (merge test-config-base
                                  {:landfire-layers    {:aspect             {:type   :geotiff
                                                                             :source (in-file-path "asp.tif")}
@@ -197,8 +196,7 @@
                                                        :fuel-model         {:type   :geotiff
                                                                             :source (in-file-path "fbfm40.tif")}
                                                        :slope              {:type   :geotiff
-                                                                            :source (in-file-path "slp.tif")}}
-                                  :fetch-layer-method :geotiff})
+                                                                            :source (in-file-path "slp.tif")}}})
           simulations     (:simulations test-config-base)
           postgis-layers  (fetch/landfire-layers postgis-config)
           postgis-results (run-simulation postgis-config)
