@@ -18,7 +18,6 @@
 
 (def test-config-base
   {:db-spec                   db-spec
-   :fetch-layer-method        :geotiff
    :landfire-layers           {:aspect             {:type   :geotiff
                                                     :source "test/gridfire/resources/asp.tif"}
                                :canopy-base-height {:type   :geotiff
