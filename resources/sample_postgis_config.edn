@@ -1,6 +1,5 @@
 ;; [[file:../org/GridFire.org::sample_postgis_config.edn][sample_postgis_config.edn]]
 {;; Section 1: Landscape data to be shared by all simulations
- :fetch-layer-method        :postgis
  :db-spec                   {:classname   "org.postgresql.Driver"
                              :subprotocol "postgresql"
                              :subname     "//localhost:5432/gridfire"
