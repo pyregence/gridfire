@@ -55,11 +55,11 @@
                           (Random. seed)
                           (Random.))
         landfire-layers (fetch/landfire-layers config)
-        landfire-matrix (into {} (map (fn [[layer-name info]] [layer-name (first (:matrix info))])) landfire-layers)
+        landfire-rasters (into {} (map (fn [[layer-name info]] [layer-name (first (:matrix info))])) landfire-layers)
         ignition-raster (fetch/ignition-layer config)]
     (cli/run-simulations
      simulations
-     landfire-matrix
+     landfire-rasters
      (cli/get-envelope config landfire-layers)
      (:cell-size config)
      (cli/draw-samples rand-generator simulations (:ignition-row config))
@@ -162,7 +162,7 @@
 ;;-----------------------------------------------------------------------------
 
 (deftest run-simulation-test
-  (testing "Running simulation with different ways to fetch landfire layers"
+  (testing "Running simulation with different ways to fetch LANDFIRE layers"
     (let [postgis-config  (merge test-config-base
                                  {:landfire-layers    {:aspect             {:type   :postgis
                                                                             :source "landfire.asp WHERE rid=1"}
@@ -179,8 +179,7 @@
                                                        :fuel-model         {:type   :postgis
                                                                             :source "landfire.fbfm40 WHERE rid=1"}
                                                        :slope              {:type   :postgis
-                                                                            :source "landfire.slp WHERE rid=1"}}
-                                  :fetch-layer-method :postgis})
+                                                                            :source "landfire.slp WHERE rid=1"}}})
           geotiff-config  (merge test-config-base
                                  {:landfire-layers    {:aspect             {:type   :geotiff
                                                                             :source (in-file-path "asp.tif")}
@@ -197,13 +196,9 @@
                                                        :fuel-model         {:type   :geotiff
                                                                             :source (in-file-path "fbfm40.tif")}
                                                        :slope              {:type   :geotiff
-                                                                            :source (in-file-path "slp.tif")}}
-                                  :fetch-layer-method :geotiff})
-          simulations     (:simulations test-config-base)
-          postgis-layers  (fetch/landfire-layers postgis-config)
+                                                                            :source (in-file-path "slp.tif")}}})
           postgis-results (run-simulation postgis-config)
 
-          geotiff-layers  (fetch/landfire-layers geotiff-config)
           geotiff-results (run-simulation geotiff-config)]
 
       (is (every? some? postgis-results))
