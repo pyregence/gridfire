@@ -491,8 +491,6 @@
    {:keys [spotting] :as config}]
   (let [fire-spread-matrix         (first (m/mutable (:matrix initial-ignition-site)))
         non-zero-indices           (get-non-zero-indices fire-spread-matrix)
-        flame-length-matrix        (initialize-matrix num-rows num-cols non-zero-indices)
-        fire-line-intensity-matrix (initialize-matrix num-rows num-cols non-zero-indices)
         perimeter-indices          (filter #(burnable-neighbors? fire-spread-matrix
                                                                  (:fuel-model landfire-rasters)
                                                                  num-rows
@@ -500,7 +498,9 @@
                                                                  %)
                                            non-zero-indices)]
     (when (seq perimeter-indices)
-      (let [burn-time-matrix           (initialize-matrix num-rows num-cols non-zero-indices)
+      (let [flame-length-matrix        (initialize-matrix num-rows num-cols non-zero-indices)
+            fire-line-intensity-matrix (initialize-matrix num-rows num-cols non-zero-indices)
+            burn-time-matrix           (initialize-matrix num-rows num-cols non-zero-indices)
             firebrand-count-matrix     (when spotting (m/zero-matrix num-rows num-cols))
             spread-rate-matrix         (initialize-matrix num-rows num-cols non-zero-indices)
             fire-type-matrix           (initialize-matrix num-rows num-cols non-zero-indices)
