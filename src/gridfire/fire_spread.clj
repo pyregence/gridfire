@@ -483,7 +483,7 @@
                                            non-zero-indices)
         burn-time-matrix           (initialize-matrix num-rows num-cols non-zero-indices)
         firebrand-count-matrix     (when spotting (m/zero-matrix num-rows num-cols))
-        ignited-cells              (generate-ignited-cells constants fire-spread-matrix non-zero-indices)]
+        ignited-cells              (generate-ignited-cells constants fire-spread-matrix perimeter-indices)]
     (run-loop constants
               config
               {:fire-spread-matrix         fire-spread-matrix
