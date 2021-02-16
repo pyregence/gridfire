@@ -123,11 +123,11 @@
            burn-probability
            {:outfile-suffix          ""
             :output-landfire-inputs? false
-            :output-geotiffs?        true
+            :output-geotiffs?        false
             :output-binary?          true
             :output-directory        (str elmfire-file-path (subs OUTPUTS_DIRECTORY 1))
-            :output-pngs?            (if verbose true false)
-            :output-csvs?            (if verbose true false)})))
+            :output-pngs?            false
+            :output-csvs?            true})))
 
 ;;-----------------------------------------------------------------------------
 ;; Perturbations
