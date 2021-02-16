@@ -498,20 +498,21 @@
                                                                  num-rows
                                                                  num-cols
                                                                  %)
-                                           non-zero-indices)
-        burn-time-matrix           (initialize-matrix num-rows num-cols non-zero-indices)
-        firebrand-count-matrix     (when spotting (m/zero-matrix num-rows num-cols))
-        spread-rate-matrix         (initialize-matrix num-rows num-cols non-zero-indices)
-        fire-type-matrix           (initialize-matrix num-rows num-cols non-zero-indices)
-        ignited-cells              (generate-ignited-cells constants fire-spread-matrix perimeter-indices)]
-    (run-loop constants
-              config
-              {:fire-spread-matrix         fire-spread-matrix
-               :spread-rate-matrix         spread-rate-matrix
-               :flame-length-matrix        flame-length-matrix
-               :fire-line-intensity-matrix fire-line-intensity-matrix
-               :firebrand-count-matrix     firebrand-count-matrix
-               :burn-time-matrix           burn-time-matrix
-               :fire-type-matrix           fire-type-matrix}
-              ignited-cells)))
+                                           non-zero-indices)]
+    (when (seq perimeter-indices)
+      (let [burn-time-matrix           (initialize-matrix num-rows num-cols non-zero-indices)
+            firebrand-count-matrix     (when spotting (m/zero-matrix num-rows num-cols))
+            spread-rate-matrix         (initialize-matrix num-rows num-cols non-zero-indices)
+            fire-type-matrix           (initialize-matrix num-rows num-cols non-zero-indices)
+            ignited-cells              (generate-ignited-cells constants fire-spread-matrix perimeter-indices)]
+       (run-loop constants
+                 config
+                 {:fire-spread-matrix         fire-spread-matrix
+                  :spread-rate-matrix         spread-rate-matrix
+                  :flame-length-matrix        flame-length-matrix
+                  :fire-line-intensity-matrix fire-line-intensity-matrix
+                  :firebrand-count-matrix     firebrand-count-matrix
+                  :burn-time-matrix           burn-time-matrix
+                  :fire-type-matrix           fire-type-matrix}
+                 ignited-cells)))))
 ;; fire-spread-algorithm ends here
