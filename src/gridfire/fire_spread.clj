@@ -15,6 +15,7 @@
                                                   van-wagner-crown-fire-initiation?]]
             [gridfire.fuel-models         :refer [build-fuel-model moisturize]]
             [gridfire.perturbation        :as perturbation]
+            [gridfire.random-ignition     :as random-ignition]
             [gridfire.spotting            :as spot]
             [gridfire.surface-fire        :refer [anderson-flame-depth
                                                   byram-fire-line-intensity
@@ -22,7 +23,8 @@
                                                   rothermel-surface-fire-spread-any
                                                   rothermel-surface-fire-spread-max
                                                   rothermel-surface-fire-spread-no-wind-no-slope
-                                                  wind-adjustment-factor]]))
+                                                  wind-adjustment-factor]]
+            [gridfire.random-ignition :as random-ignition]))
 
 (m/set-current-implementation :vectorz)
 
@@ -429,7 +431,7 @@
   [{:keys [landfire-rasters] :as constants} config]
   (run-fire-spread (assoc constants
                           :initial-ignition-site
-                          (select-random-ignition-site (:fuel-model landfire-rasters)))
+                          (random-ignition/ignition-site config (:fuel-model landfire-rasters)))
                    config))
 
 (defmethod run-fire-spread :ignition-point

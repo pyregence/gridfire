@@ -280,7 +280,8 @@
   (mapv
    (fn [i]
      (let [initial-ignition-site (or ignition-layer
-                                     [(ignition-row i) (ignition-col i)])
+                                     (when (and (ignition-row i) (ignition-col i))
+                                      [(ignition-row i) (ignition-col i)]))
            temperature           (if (map? temperature) (:matrix temperature) (temperature i))
            wind-speed-20ft       (if (map? wind-speed-20ft) (:matrix wind-speed-20ft) (wind-speed-20ft i))
            wind-from-direction   (if (map? wind-from-direction) (:matrix wind-from-direction) (wind-from-direction i))

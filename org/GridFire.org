@@ -1852,6 +1852,7 @@ pseudo-code lays out the steps taken in this procedure:
                                                   van-wagner-crown-fire-initiation?]]
             [gridfire.fuel-models         :refer [build-fuel-model moisturize]]
             [gridfire.perturbation        :as perturbation]
+            [gridfire.random-ignition     :as random-ignition]
             [gridfire.spotting            :as spot]
             [gridfire.surface-fire        :refer [anderson-flame-depth
                                                   byram-fire-line-intensity
@@ -1859,7 +1860,8 @@ pseudo-code lays out the steps taken in this procedure:
                                                   rothermel-surface-fire-spread-any
                                                   rothermel-surface-fire-spread-max
                                                   rothermel-surface-fire-spread-no-wind-no-slope
-                                                  wind-adjustment-factor]]))
+                                                  wind-adjustment-factor]]
+            [gridfire.random-ignition :as random-ignition]))
 
 (m/set-current-implementation :vectorz)
 
@@ -2266,7 +2268,7 @@ pseudo-code lays out the steps taken in this procedure:
   [{:keys [landfire-rasters] :as constants} config]
   (run-fire-spread (assoc constants
                           :initial-ignition-site
-                          (select-random-ignition-site (:fuel-model landfire-rasters)))
+                          (random-ignition/ignition-site config (:fuel-model landfire-rasters)))
                    config))
 
 (defmethod run-fire-spread :ignition-point
@@ -3250,7 +3252,8 @@ or false:
   (mapv
    (fn [i]
      (let [initial-ignition-site (or ignition-layer
-                                     [(ignition-row i) (ignition-col i)])
+                                     (when (and (ignition-row i) (ignition-col i))
+                                      [(ignition-row i) (ignition-col i)]))
            temperature           (if (map? temperature) (:matrix temperature) (temperature i))
            wind-speed-20ft       (if (map? wind-speed-20ft) (:matrix wind-speed-20ft) (wind-speed-20ft i))
            wind-from-direction   (if (map? wind-from-direction) (:matrix wind-from-direction) (wind-from-direction i))

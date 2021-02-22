@@ -6,7 +6,8 @@
             [gridfire.fetch :as fetch]
             [gridfire.utils.test :as utils]
             [gridfire.perturbation :as perturbation]
-            [gridfire.binary-output :as binary])
+            [gridfire.binary-output :as binary]
+            [gridfire.utils.random :as random])
   (:import java.util.Random))
 
 ;;-----------------------------------------------------------------------------
@@ -62,23 +63,23 @@
         envelope          (cli/get-envelope config landfire-layers)
         simulations       (:simulations config)
         rand-generator    (if-let [seed (:random-seed config)] (Random. seed) (Random.))
-        max-runtimes      (cli/draw-samples rand-generator simulations (:max-runtime config))
+        max-runtimes      (random/draw-samples rand-generator simulations (:max-runtime config))
         num-rows          (m/row-count (:fuel-model landfire-rasters))
         num-cols          (m/column-count (:fuel-model landfire-rasters))
         burn-count-matrix (cli/initialize-burn-count-matrix config max-runtimes num-rows num-cols)]
     (cli/run-simulations
-     config
+     (assoc config :rand-gen rand-generator)
      landfire-rasters
      envelope
-     (cli/draw-samples rand-generator simulations (:ignition-row config))
-     (cli/draw-samples rand-generator simulations (:ignition-col config))
+     (random/draw-samples rand-generator simulations (:ignition-row config))
+     (random/draw-samples rand-generator simulations (:ignition-col config))
      max-runtimes
      (cli/get-weather config rand-generator :temperature weather-layers)
      (cli/get-weather config rand-generator :relative-humidity weather-layers)
      (cli/get-weather config rand-generator :wind-speed-20ft weather-layers)
      (cli/get-weather config rand-generator :wind-from-direction weather-layers)
-     (cli/draw-samples rand-generator simulations (:foliar-moisture config))
-     (cli/draw-samples rand-generator simulations (:ellipse-adjustment-factor config))
+     (random/draw-samples rand-generator simulations (:foliar-moisture config))
+     (random/draw-samples rand-generator simulations (:ellipse-adjustment-factor config))
      ignition-layer
      multiplier-lookup
      (perturbation/draw-samples rand-generator simulations (:perturbations config))
@@ -348,7 +349,7 @@
   (testing "constructing multiplier lookup for weather raster"
     (let [config         {:cell-size   (m->ft 30)
                           :temperature {:type   :geotiff
-                                        :source (in-file-path "/weather-test/tmpf_to_sample_lower_res.tif")}}
+                                        :source (in-file-path "weather-test/tmpf_to_sample_lower_res.tif")}}
           weather-layers (fetch/weather-layers config)
           lookup         (cli/create-multiplier-lookup config weather-layers)]
 
@@ -386,3 +387,16 @@
         binary-results (binary/read-matrices-as-binary (utils/out-file-path "toa_0001_00001.bin")
                                                        [:float :float :float :int])]
     (is (some? binary-results))))
+
+;;-----------------------------------------------------------------------------
+;; Ignition Mask
+;;-----------------------------------------------------------------------------
+
+(deftest igniton-mask-test
+  (let [config  (merge test-config-base
+                       {:landfire-layers  landfire-layers-weather-test
+                        :random-ignition  {:ignition-mask {:type   :geotiff
+                                                           :source (in-file-path "weather-test/ignition_mask.tif")}
+                                           :edge-buffer   9843.0}})
+        results (run-simulation (dissoc config :ignition-row :ignition-col))]
+    (is (every? some? results))))
