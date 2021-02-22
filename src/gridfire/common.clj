@@ -88,6 +88,23 @@
                                               source-ignition-probability))
          (burnable-fuel-model? (m/mget fuel-model-matrix x y)))))
 
+(defn get-neighbors
+  "Returns the eight points adjacent to the passed-in point."
+  [[i j]]
+  (let [i- (- i 1)
+        i+ (+ i 1)
+        j- (- j 1)
+        j+ (+ j 1)]
+    (vector [i- j-] [i- j] [i- j+]
+            [i  j-]        [i  j+]
+            [i+ j-] [i+ j] [i+ j+])))
+
+(defn burnable-neighbors?
+  [fire-spread-matrix fuel-model-matrix num-rows num-cols cell]
+  (some #(and (in-bounds? num-rows num-cols %)
+              (burnable? fire-spread-matrix fuel-model-matrix cell %))
+        (get-neighbors cell)))
+
 (defn distance-3d
   "Returns the terrain distance between two points in feet."
   [elevation-matrix cell-size [i1 j1] [i2 j2]]

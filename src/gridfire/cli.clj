@@ -14,7 +14,7 @@
             [gridfire.fire-spread   :refer [get-neighbors run-fire-spread]]
             [gridfire.perturbation  :as perturbation]
             [gridfire.spec.config   :as spec]
-            [gridfire.utils.random  :refer [my-rand-int my-rand-nth]]
+            [gridfire.utils.random  :refer [draw-samples]]
             [magellan.core          :refer [make-envelope
                                            matrix-to-raster
                                            register-new-crs-definitions-from-properties-file!
@@ -26,22 +26,6 @@
 
 (register-new-crs-definitions-from-properties-file! "CUSTOM"
                                                     (io/resource "custom_projections.properties"))
-
-(defn sample-from-list
-  [rand-generator n xs]
-  (repeatedly n #(my-rand-nth rand-generator xs)))
-
-(defn sample-from-range
-  [rand-generator n [min max]]
-  (let [range (- max min)]
-    (repeatedly n #(+ min (my-rand-int rand-generator range)))))
-
-(defn draw-samples
-  [rand-generator n x]
-  (into []
-        (cond (list? x)   (sample-from-list rand-generator n x)
-              (vector? x) (sample-from-range rand-generator n x)
-              :else       (repeat n x))))
 
 (defn cells-to-acres
   [cell-size num-cells]

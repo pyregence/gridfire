@@ -1,5 +1,6 @@
 (ns gridfire.utils.test
-  (:require [clojure.java.io :as io]))
+  (:require [clojure.java.io :as io]
+            [clojure.string :as str]))
 
 ;;-----------------------------------------------------------------------------
 ;; Config
@@ -12,8 +13,8 @@
 ;; Utils
 ;;-----------------------------------------------------------------------------
 
-(defn in-file-path [filename]
-  (str input-dirname filename))
+(defn in-file-path [dir filename]
+  (str/join "/" [dir filename]))
 
 (defn out-file-path [filename]
   (str output-dirname filename))

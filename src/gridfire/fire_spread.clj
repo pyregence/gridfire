@@ -6,7 +6,9 @@
                                                    burnable?
                                                    extract-constants
                                                    fuel-moisture
-                                                   in-bounds?]]
+                                                   in-bounds?
+                                                   burnable-neighbors?
+                                                   get-neighbors]]
             [gridfire.crown-fire          :refer [crown-fire-eccentricity
                                                   crown-fire-line-intensity
                                                   cruz-crown-fire-spread
@@ -40,17 +42,6 @@
   [num-rows num-cols]
   [(rand-int num-rows)
    (rand-int num-cols)])
-
-(defn get-neighbors
-  "Returns the eight points adjacent to the passed-in point."
-  [[i j]]
-  (let [i- (- i 1)
-        i+ (+ i 1)
-        j- (- j 1)
-        j+ (+ j 1)]
-    (vector [i- j-] [i- j] [i- j+]
-            [i  j-]        [i  j+]
-            [i+ j-] [i+ j] [i+ j+])))
 
 (defn distance-3d
   "Returns the terrain distance between two points in feet."
@@ -179,12 +170,6 @@
                                           crown-eccentricity landfire-rasters cell-size
                                           overflow-trajectory overflow-heat crown-type)))
           (get-neighbors here))))
-
-(defn burnable-neighbors?
-  [fire-spread-matrix fuel-model-matrix num-rows num-cols cell]
-  (some #(and (in-bounds? num-rows num-cols %)
-              (burnable? fire-spread-matrix fuel-model-matrix cell %))
-        (get-neighbors cell)))
 
 (defn select-random-ignition-site
   [fuel-model-matrix]

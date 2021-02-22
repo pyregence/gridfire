@@ -132,4 +132,19 @@
                 acc)))
           {}
           spec/weather-names))
+
+;;-----------------------------------------------------------------------------
+;; Ignition Mask
+;;-----------------------------------------------------------------------------
+
+(defmulti ignition-mask-layer
+  (fn [_ {:keys [type]}] type))
+
+(defmethod ignition-mask-layer :geotiff
+  [_ {:keys [source]}]
+  (geotiff-raster-to-matrix source))
+
+(defmethod ignition-mask-layer :postgis
+  [db-spec {:keys [source]}]
+  (postgis-raster-to-matrix db-spec source))
 ;; fetch.clj ends here
