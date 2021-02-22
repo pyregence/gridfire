@@ -394,9 +394,11 @@
 
 (deftest igniton-mask-test
   (let [config  (merge test-config-base
-                       {:landfire-layers  landfire-layers-weather-test
-                        :random-ignition  {:ignition-mask {:type   :geotiff
-                                                           :source (in-file-path "weather-test/ignition_mask.tif")}
-                                           :edge-buffer   9843.0}})
-        results (run-simulation (dissoc config :ignition-row :ignition-col))]
+                       {:landfire-layers landfire-layers-weather-test
+                        :ignition-row    nil
+                        :ignition-col    nil
+                        :random-ignition {:ignition-mask {:type   :geotiff
+                                                          :source (in-file-path "weather-test/ignition_mask.tif")}
+                                          :edge-buffer   9843.0}})
+        results (run-simulation config)]
     (is (every? some? results))))
