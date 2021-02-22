@@ -23,8 +23,7 @@
                                                   rothermel-surface-fire-spread-any
                                                   rothermel-surface-fire-spread-max
                                                   rothermel-surface-fire-spread-no-wind-no-slope
-                                                  wind-adjustment-factor]]
-            [gridfire.random-ignition :as random-ignition]))
+                                                  wind-adjustment-factor]]))
 
 (m/set-current-implementation :vectorz)
 
@@ -172,18 +171,6 @@
                                           crown-eccentricity landfire-rasters cell-size
                                           overflow-trajectory overflow-heat crown-type)))
           (get-neighbors here))))
-
-(defn select-random-ignition-site
-  [fuel-model-matrix]
-  (let [num-rows           (m/row-count    fuel-model-matrix)
-        num-cols           (m/column-count fuel-model-matrix)
-        fire-spread-matrix (m/zero-matrix num-rows num-cols)]
-    (loop [[i j :as ignition-site] (random-cell num-rows num-cols)]
-      (if (and (burnable-fuel-model? (m/mget fuel-model-matrix i j))
-               (burnable-neighbors? fire-spread-matrix fuel-model-matrix
-                                    num-rows num-cols ignition-site))
-        ignition-site
-        (recur (random-cell num-rows num-cols))))))
 
 (defn identify-ignition-events
   [ignited-cells timestep fire-spread-matrix]
