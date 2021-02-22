@@ -2,7 +2,7 @@
   (:require [clojure.pprint :as pprint]
             [clojure.string :as str]
             [clojure.tools.cli :refer [parse-opts]]
-            [gridfire.crown-fire :refer [m->ft]]))
+            [gridfire.conversion :as convert]))
 
 ;;-----------------------------------------------------------------------------
 ;; Util
@@ -76,15 +76,22 @@
 ;;-----------------------------------------------------------------------------
 
 (defn process-ignition
-  [{:strs [PHI_FILENAME FUELS_AND_TOPOGRAPHY_DIRECTORY]}
+  [{:strs [PHI_FILENAME FUELS_AND_TOPOGRAPHY_DIRECTORY RANDOM_IGNITIONS
+           USE_IGNITION_MASK EDGEBUFFER IGNITION_MASK_FILENAME]}
    _
    config]
   (let [dir FUELS_AND_TOPOGRAPHY_DIRECTORY]
     (merge config
-           {:ignition-layer {:type        :geotiff
-                             :source      (file-path dir PHI_FILENAME)
-                             :burn-values {:burned   -1.0
-                                           :unburned 1.0}}})))
+           (if RANDOM_IGNITIONS
+             {:random-ignition {:ignition-mask (when USE_IGNITION_MASK
+                                                 {:type   :geotiff
+                                                  :source (file-path dir IGNITION_MASK_FILENAME)})
+                                :edge-buffer   (when EDGEBUFFER
+                                                 (convert/m->ft EDGEBUFFER))}}
+             {:ignition-layer {:type        :geotiff
+                               :source      (file-path dir PHI_FILENAME)
+                               :burn-values {:burned   -1.0
+                                             :unburned 1.0}}}))))
 
 
 ;;-----------------------------------------------------------------------------
@@ -245,7 +252,7 @@
      A_SRS FOLIAR_MOISTURE_CONTENT SEED] :as d}
    options]
   (let [data (into (sorted-map ) d)]
-    (->> {:cell-size                 (m->ft COMPUTATIONAL_DOMAIN_CELLSIZE)
+    (->> {:cell-size                 (convert/m->ft COMPUTATIONAL_DOMAIN_CELLSIZE)
           :srid                      A_SRS
           :max-runtime               (sec->min SIMULATION_TSTOP)
           :simulations               NUM_ENSEMBLE_MEMBERS
@@ -286,4 +293,4 @@
           (newline))
         (println (str "Usage:\n" summary)))
       (binding [elmfire-file-path (str/replace (:config-file options) #"/elmfire.data" "")]
-       (write-config (process-options options))))))
+        (write-config (process-options options))))))
