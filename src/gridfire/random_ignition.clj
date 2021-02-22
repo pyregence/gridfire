@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::random_ignition.clj][random_ignition.clj]]
 (ns gridfire.random-ignition
   (:require [clojure.core.matrix    :as m]
             [gridfire.utils.random :as random]
@@ -43,3 +44,4 @@
   (when random-ignition
     (let [ignitable-cells (get-ignitable-cells config fuel-model-matrix)]
       (first (random/sample-from-list rand-gen 1 ignitable-cells)))))
+;; random_ignition.clj ends here

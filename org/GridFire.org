@@ -3577,6 +3577,82 @@ For this method of ignition, values may be entered in one of three ways:
  :ignition-col [20 80]}
 #+end_src
 
+Another way we can ignite a single point is to omit the keys
+*ignition-row* and *ignition-col*. With this method, we can optionally
+constrain the ignition location by an ignition-mask raster and/or an
+edge-buffer. For specifiying these constraints include these optional
+mappings:
+
+- *ignition-mask*: a map of fetch specifications (see section 1)
+- *edge-buffer*: the thickness (feet) along the edge of the
+  computational domain where ignitions cannot occur
+
+*Note*: Nonzero values in the ignition mask are considered ignitable
+
+Here's an example of specifiying ignition points using an ignition
+mask from a geotiff file.
+
+#+begin_src clojure
+{:ignition-mask {:raster {:type :geotiff
+                          :source "test/gridfire/resources/weather-test/ignition-mask.tif"}
+                 :edge-buffer 98.4}}
+#+end_src
+
+*Note*: ignition-row and ignition-col must be omitted for this feature.
+
+Here's the namespace that implments this functionality.
+
+#+name: random_ignition.clj
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/random_ignition.clj :padline no :no-expand :comments link
+(ns gridfire.random-ignition
+  (:require [clojure.core.matrix    :as m]
+            [gridfire.utils.random :as random]
+            [gridfire.common :refer [burnable-fuel-model?
+                                     burnable-neighbors?]]
+            [gridfire.fetch :as fetch]))
+
+(defn- in-edge-buffer?
+  "Returns true if give [row col] is within the buffer region defined
+  by buffer-size. The buffer size is the thickness (pixel) of the edge
+  buffer region."
+  [num-rows num-cols buffer-size [row col]]
+  (or  (<= row buffer-size)
+       (> row (- num-rows buffer-size))
+       (<= col buffer-size)
+       (> col (- num-cols buffer-size))))
+
+(defn- in-ignition-mask? [raster [i j]]
+  (pos? (m/mget raster i j)))
+
+(defn- get-ignitable-cells [{:keys [random-ignition cell-size db-spec]} fuel-model-matrix]
+  (let [num-rows                            (m/row-count fuel-model-matrix)
+        num-cols                            (m/column-count fuel-model-matrix)
+        {:keys [ignition-mask edge-buffer]} random-ignition
+        ignition-mask-raster                (when ignition-mask
+                                              (first (:matrix (fetch/ignition-mask-layer db-spec ignition-mask))))
+        fire-spread-matrix                  (m/zero-matrix num-rows num-cols)
+        indices                             (for [row (range num-rows)
+                                                  col (range num-cols)]
+                                              [row col])]
+    (cond->> indices
+      ignition-mask (filter #(in-ignition-mask? ignition-mask-raster %))
+      edge-buffer   (remove #(in-edge-buffer? num-rows num-cols (int (Math/ceil (/ edge-buffer cell-size))) %))
+      true          (filter (fn [[i j]] (burnable-fuel-model? (m/mget fuel-model-matrix i j))))
+      true          (filter #(burnable-neighbors? fire-spread-matrix fuel-model-matrix
+                                                  num-rows num-cols %)))))
+
+(defn ignition-site
+  "Returns [x y] coordinate that have been randomly sampled
+  from cells in in the computational domain. Ignitable cells can also
+  be constrained by ignition mask raster and/or edge-buffer."
+  [{:keys [random-ignition rand-gen] :as config} fuel-model-matrix]
+  (when random-ignition
+    (let [ignitable-cells (get-ignitable-cells config fuel-model-matrix)]
+      (first (random/sample-from-list rand-gen 1 ignitable-cells)))))
+
+#+end_src
+
+
 To initialize an existing burn perimeter from a raster, we have two
 options. We can read rasters from a Postgresql database or a raster
 file on disk. This behavior is controlled as follows:
@@ -3593,9 +3669,9 @@ For the fetch specifications include the following mappings:
 Here's an example of fetching an intial burn perimeter from a
 Postgresql database.
 
-*Note*: be sure to include the map of database connection (*:db-spec*) as
+,*Note*: be sure to include the map of database connection (*:db-spec*) as
 described in section 1.
-#+begin_src clojure
+,#+begin_src clojure
 {:ignition-layer {:type   :postgis
                   :source "ignition.ign WHERE rid=1"}}
 #+end_src
@@ -3853,11 +3929,11 @@ To control the layers to output include the following mappings:
 The configuration above specify that we'd like to output one
 firespread geotiff every 10 minutes in the simulation. For the burn
 history we'd like to output the geotiff file at the final timestep of
-the simulation. 
+the simulation.
 
 *Note:* if entry for `:output-layers` is omitted but `:output-geotiff`
 is set to true then Gridfire will output all layers above at the final
-timestep. 
+timestep.
 
 Gridfire also supports an output for the burn probability layer which
 is a matrix of the probability of a cell being burned across all
@@ -3885,7 +3961,7 @@ Other output mappings:
 Gridfire supports puturbations of input rasters during simulations in
 order to account for inherent uncertainty in the data. A uniform
 random sampling of values within a given range is used to address
-these uncertanties. 
+these uncertanties.
 
 To specify this in the config file include the following mappings:
 
