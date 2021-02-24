@@ -40,8 +40,7 @@
   "Returns [x y] coordinate that have been randomly sampled
   from cells in in the computational domain. Ignitable cells can also
   be constrained by ignition mask raster and/or edge-buffer."
-  [{:keys [random-ignition rand-gen] :as config} fuel-model-matrix]
-  (when random-ignition
-    (let [ignitable-cells (get-ignitable-cells config fuel-model-matrix)]
-      (first (random/sample-from-list rand-gen 1 ignitable-cells)))))
+  [{:keys [rand-gen] :as config} fuel-model-matrix]
+  (let [ignitable-cells (get-ignitable-cells config fuel-model-matrix)]
+    (first (random/sample-from-list rand-gen 1 ignitable-cells))))
 ;; random_ignition.clj ends here
