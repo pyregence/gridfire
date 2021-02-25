@@ -10,13 +10,13 @@
     (testing "east"
       (let [H (spotting/hypotenuse 10 10)]
 
-        (let [[dx dy] (first (spotting/deltas-wind-dir->coord [[10 10]] 45.0))]
+        (let [[dx dy] (first (spotting/deltas-wind->coord [[10 10]] 45.0))]
 
           (is (= H dy))
 
           (is (close-to-zero dx)))
 
-        (let [[dx dy] (first (spotting/deltas-wind-dir->coord [[10 -10]] 135.0))]
+        (let [[dx dy] (first (spotting/deltas-wind->coord [[10 -10]] 135.0))]
 
           (is (= H dy))
 
@@ -25,13 +25,13 @@
     (testing "west"
       (let [H (spotting/hypotenuse 10 10)]
 
-        (let [[dx dy] (first (spotting/deltas-wind-dir->coord [[10 10]] 225.0))]
+        (let [[dx dy] (first (spotting/deltas-wind->coord [[10 10]] 225.0))]
 
           (is (= (- H) dy))
 
           (is (close-to-zero dx)))
 
-        (let [[dx dy] (first (spotting/deltas-wind-dir->coord [[10 -10]] 315.0))]
+        (let [[dx dy] (first (spotting/deltas-wind->coord [[10 -10]] 315.0))]
 
           (is (= (- H) dy))
 
@@ -41,13 +41,13 @@
     (testing "north"
       (let [H (spotting/hypotenuse 10 10)]
 
-        (let [[dx dy] (first (spotting/deltas-wind-dir->coord [[10 -10]] 45.0))]
+        (let [[dx dy] (first (spotting/deltas-wind->coord [[10 -10]] 45.0))]
 
           (is (close-to-zero dy))
 
           (is (= (- H) dx)))
 
-        (let [[dx dy] (first (spotting/deltas-wind-dir->coord [[10 10]] 315.0))]
+        (let [[dx dy] (first (spotting/deltas-wind->coord [[10 10]] 315.0))]
 
           (is (close-to-zero dy))
 
@@ -56,13 +56,13 @@
     (testing "south"
       (let [H (spotting/hypotenuse 10 10)]
 
-        (let [[dx dy] (first (spotting/deltas-wind-dir->coord [[10 10]] 135.0))]
+        (let [[dx dy] (first (spotting/deltas-wind->coord [[10 10]] 135.0))]
 
           (is (close-to-zero dy))
 
           (is (= H dx)))
 
-        (let [[dx dy] (first (spotting/deltas-wind-dir->coord [[10 -10]] 225.0))]
+        (let [[dx dy] (first (spotting/deltas-wind->coord [[10 -10]] 225.0))]
 
           (is (close-to-zero dy))
 
