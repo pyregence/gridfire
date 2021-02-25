@@ -28,22 +28,22 @@
  ;;   1. Single Value: 25
  ;;   2. List of Values: (2 17 9)
  ;;   3. Range of Values: [10 20]
- ;;   4. Raster from file on disk: {:type :gotiff :source "path/to/file/weather.tif"}
- ;;   5. Raster from Postgresql database: {:type :geotiff :source "weather.ws WHERE rid=1"}
+ ;;   4. Raster from file on disk: {:type :geotiff :source "path/to/file/weather.tif"}
+ ;;   5. Raster from Postgresql database: {:type :postgis :source "weather.ws WHERE rid=1"}
  ;;
  ;; If a single value is provided, it will be kept the same for all simulations.
  ;; For a list of values, the list will be randomly sampled from in each simulation.
  ;; For a range of values, the range [inclusive exclusive] will be randomly sampled from in each simulation.
 
  :temperature                      {:type   :geotiff
-                                    :source "test/gridfire/resources/weather-test/tmpf_to_sample.tif"} ; (degrees Fahrenheit)
+                                    :source "test/gridfire/resources/weather-test/tmpf_to_sample.tif"}  ; (degrees Fahrenheit)
  :relative-humidity                {:type   :geotiff
-                                    :source "test/gridfire/resources/weather-test/rh_to_sample.tif"}   ; (%)
+                                    :source "test/gridfire/resources/weather-test/rh_to_sample.tif"}    ; (%)
  :wind-speed-20ft                  {:type   :geotiff
-                                    :source "test/gridfire/resources/weather-test/ws_to_sample.tif"}   ; (miles/hour)
+                                    :source "test/gridfire/resources/weather-test/ws_to_sample.tif"}    ; (miles/hour)
  :wind-from-direction              {:type   :geotiff
-                                    :source "test/gridfire/resources/weather-test/d_to_sample.tif"}    ; (degrees clockwise from north)
- :foliar-moisture                  90                                                                  ; (%)
+                                    :source "test/gridfire/resources/weather-test/wd_to_sample.tif"}    ; (degrees clockwise from north)
+ :foliar-moisture                  90                                                                   ; (%)
 
  ;; Section 4: Number of simulations and (optional) random seed parameter
  :max-runtime               60             ; (minutes)
