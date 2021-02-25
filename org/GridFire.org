@@ -2812,7 +2812,8 @@ command line interface.
 (ns gridfire.postgis-bridge
   (:require [clojure.core.matrix :as m]
             [clojure.java.jdbc   :as jdbc])
-  (:import org.postgresql.jdbc.PgArray))
+  (:import org.postgresql.jdbc.PgArray
+           java.util.UUID))
 
 (m/set-current-implementation :vectorz)
 
@@ -2823,21 +2824,33 @@ command line interface.
        (m/emap #(or % -1.0))
        m/matrix))
 
-(defn construct-data-query
-  ([numbands table-name]
-   (format (str "SELECT ST_DumpValues(rast,band) AS matrix "
-                "FROM generate_series(1,%s) AS band "
-                "CROSS JOIN %s")
-           numbands
-           table-name))
+(defn build-rescale-query [rescaled-table-name resolution table-name]
+  (format (str "CREATE TEMPORARY TABLE %s "
+               "ON COMMIT DROP AS "
+               "SELECT ST_Rescale(rast,%s,-%s,'NearestNeighbor') AS rast "
+               "FROM %s")
+          rescaled-table-name
+          resolution
+          resolution
+          table-name))
 
-  ([numbands table-name threshold-query]
-   (format (str "SELECT ST_DumpValues(%s,band) AS matrix "
-                "FROM generate_series(1,%s) AS band "
-                "CROSS JOIN %s")
-           threshold-query
-           numbands
-           table-name)))
+(defn build-threshold-query [threshold]
+  (format (str "ST_MapAlgebra(rast,band,NULL,"
+               "'CASE WHEN [rast.val] < %s"
+               " THEN 0.0 ELSE [rast.val] END')")
+          threshold))
+
+(defn build-data-query [threshold threshold-query metadata table-name]
+  (format (str "SELECT ST_DumpValues(%s,%s) AS matrix "
+               "FROM generate_series(1,%s) AS band "
+               "CROSS JOIN %s")
+          (if threshold threshold-query "rast")
+          (if threshold 1 "band")
+          (:numbands metadata)
+          table-name))
+
+(defn build-meta-query [table-name]
+  (format "SELECT (ST_Metadata(rast)).* FROM %s" table-name))
 
 (defn postgis-raster-to-matrix
   "Send a SQL query to the PostGIS database given by db-spec for a
@@ -2857,34 +2870,23 @@ command line interface.
    :skewy 0.0,
    :numbands 10,
    :matrix #vectorz/matrix Large matrix with shape: [10,534,486]}"
-  ([db-spec table-name]
-   (jdbc/with-db-transaction [conn db-spec]
-     (let [meta-query (str "SELECT (ST_Metadata(rast)).* FROM " table-name)
-           metadata   (first (jdbc/query conn [meta-query]))
-           data-query (construct-data-query (:numbands metadata) table-name)
-           matrix     (when-let [results (seq (jdbc/query conn [data-query]))]
-                        (m/matrix (mapv extract-matrix results)))]
-       (assoc metadata :matrix matrix))))
-
-  ([db-spec table-name resolution threshold]
-   (let [rescale-query   (if resolution
-                           (format "ST_Rescale(rast,%s,-%s,'NearestNeighbor')"
-                                   resolution resolution)
-                           "rast")
-         threshold-query (if threshold
-                           (format (str "ST_MapAlgebra(%s, band, NULL,"
-                                        "'CASE WHEN [rast.val] < %s"
-                                        " THEN 0.0 ELSE [rast.val] END')")
-                                   rescale-query threshold)
-                           rescale-query)
-         meta-query      (format "SELECT (ST_Metadata(%s)).* FROM %s"
-                                 rescale-query table-name)]
-     (jdbc/with-db-transaction [conn db-spec]
-       (let [metadata   (first (jdbc/query conn [meta-query]))
-             data-query (construct-data-query (:numbands metadata) table-name threshold-query)
-             matrix     (when-let [results (seq (jdbc/query conn [data-query]))]
-                          (m/matrix (mapv extract-matrix results)))]
-         (assoc metadata :matrix matrix))))))
+  [db-spec table-name & [resolution threshold]]
+  (jdbc/with-db-transaction [conn db-spec]
+    (let [table-name      (if-not resolution
+                            table-name
+                            (let [rescaled-table-name (str "gridfire_" (subs (str (UUID/randomUUID)) 0 8))
+                                  rescale-query       (build-rescale-query rescaled-table-name resolution table-name)]
+                              ;; Create a temporary table to hold the rescaled raster.
+                              ;; It will be dropped when the transaction completes.
+                              (jdbc/db-do-commands conn [rescale-query])
+                              rescaled-table-name))
+          meta-query      (build-meta-query table-name)
+          metadata        (first (jdbc/query conn [meta-query]))
+          threshold-query (build-threshold-query threshold)
+          data-query      (build-data-query threshold threshold-query metadata table-name)
+          matrix          (when-let [results (seq (jdbc/query conn [data-query]))]
+                            (m/matrix (mapv extract-matrix results)))]
+      (assoc metadata :matrix matrix))))
 #+end_src
 
 ** Magellan
@@ -4027,11 +4029,11 @@ from a range.
                               :crown-bulk-density {:type   :postgis
                                                    :source "landfire.cbd WHERE rid=100"}
                               :elevation          {:type   :postgis
-                                                   :source "landfire.fbfm40 WHERE rid=100"}
+                                                   :source "landfire.dem WHERE rid=100"}
                               :fuel-model         {:type   :postgis
-                                                   :source "landfire.slp WHERE rid=100"}
+                                                   :source "landfire.fbfm40 WHERE rid=100"}
                               :slope              {:type   :postgis
-                                                   :source "landfire.dem WHERE rid=100"}}
+                                                   :source "landfire.slp WHERE rid=100"}}
  :srid                      "CUSTOM:900914"
  :cell-size                 98.425         ; (feet)
 
@@ -4040,7 +4042,7 @@ from a range.
  :ignition-col              [20 80]
 
  ;; Section 3: Weather data from which to build simulation inputs
- ;; For all options in this section, you may enter values in one of three ways:
+ ;; For all options in this section, you may enter values in one of five ways:
  ;;   1. Single Value: 25
  ;;   2. List of Values: (2 17 9)
  ;;   3. Range of Values: [10 20]
@@ -4105,22 +4107,22 @@ files on disk.
  ;;   1. Single Value: 25
  ;;   2. List of Values: (2 17 9)
  ;;   3. Range of Values: [10 20]
- ;;   4. Raster from file on disk: {:type :gotiff :source "path/to/file/weather.tif"}
- ;;   5. Raster from Postgresql database: {:type :geotiff :source "weather.ws WHERE rid=1"}
+ ;;   4. Raster from file on disk: {:type :geotiff :source "path/to/file/weather.tif"}
+ ;;   5. Raster from Postgresql database: {:type :postgis :source "weather.ws WHERE rid=1"}
  ;;
  ;; If a single value is provided, it will be kept the same for all simulations.
  ;; For a list of values, the list will be randomly sampled from in each simulation.
  ;; For a range of values, the range [inclusive exclusive] will be randomly sampled from in each simulation.
 
  :temperature                      {:type   :geotiff
-                                    :source "test/gridfire/resources/weather-test/tmpf_to_sample.tif"} ; (degrees Fahrenheit)
+                                    :source "test/gridfire/resources/weather-test/tmpf_to_sample.tif"}  ; (degrees Fahrenheit)
  :relative-humidity                {:type   :geotiff
-                                    :source "test/gridfire/resources/weather-test/rh_to_sample.tif"}   ; (%)
+                                    :source "test/gridfire/resources/weather-test/rh_to_sample.tif"}    ; (%)
  :wind-speed-20ft                  {:type   :geotiff
-                                    :source "test/gridfire/resources/weather-test/ws_to_sample.tif"}   ; (miles/hour)
+                                    :source "test/gridfire/resources/weather-test/ws_to_sample.tif"}    ; (miles/hour)
  :wind-from-direction              {:type   :geotiff
-                                    :source "test/gridfire/resources/weather-test/d_to_sample.tif"}    ; (degrees clockwise from north)
- :foliar-moisture                  90                                                                  ; (%)
+                                    :source "test/gridfire/resources/weather-test/wd_to_sample.tif"}    ; (degrees clockwise from north)
+ :foliar-moisture                  90                                                                   ; (%)
 
  ;; Section 4: Number of simulations and (optional) random seed parameter
  :max-runtime               60             ; (minutes)
