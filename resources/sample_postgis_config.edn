@@ -17,11 +17,11 @@
                               :crown-bulk-density {:type   :postgis
                                                    :source "landfire.cbd WHERE rid=100"}
                               :elevation          {:type   :postgis
-                                                   :source "landfire.fbfm40 WHERE rid=100"}
+                                                   :source "landfire.dem WHERE rid=100"}
                               :fuel-model         {:type   :postgis
-                                                   :source "landfire.slp WHERE rid=100"}
+                                                   :source "landfire.fbfm40 WHERE rid=100"}
                               :slope              {:type   :postgis
-                                                   :source "landfire.dem WHERE rid=100"}}
+                                                   :source "landfire.slp WHERE rid=100"}}
  :srid                      "CUSTOM:900914"
  :cell-size                 98.425         ; (feet)
 
@@ -30,7 +30,7 @@
  :ignition-col              [20 80]
 
  ;; Section 3: Weather data from which to build simulation inputs
- ;; For all options in this section, you may enter values in one of three ways:
+ ;; For all options in this section, you may enter values in one of five ways:
  ;;   1. Single Value: 25
  ;;   2. List of Values: (2 17 9)
  ;;   3. Range of Values: [10 20]
