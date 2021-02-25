@@ -2,7 +2,8 @@
 (ns gridfire.postgis-bridge
   (:require [clojure.core.matrix :as m]
             [clojure.java.jdbc   :as jdbc])
-  (:import org.postgresql.jdbc.PgArray))
+  (:import org.postgresql.jdbc.PgArray
+           java.util.UUID))
 
 (m/set-current-implementation :vectorz)
 
@@ -13,21 +14,33 @@
        (m/emap #(or % -1.0))
        m/matrix))
 
-(defn construct-data-query
-  ([numbands table-name]
-   (format (str "SELECT ST_DumpValues(rast,band) AS matrix "
-                "FROM generate_series(1,%s) AS band "
-                "CROSS JOIN %s")
-           numbands
-           table-name))
+(defn build-rescale-query [rescaled-table-name resolution table-name]
+  (format (str "CREATE TEMPORARY TABLE %s "
+               "ON COMMIT DROP AS "
+               "SELECT ST_Rescale(rast,%s,-%s,'NearestNeighbor') AS rast "
+               "FROM %s")
+          rescaled-table-name
+          resolution
+          resolution
+          table-name))
 
-  ([numbands table-name threshold-query]
-   (format (str "SELECT ST_DumpValues(%s,band) AS matrix "
-                "FROM generate_series(1,%s) AS band "
-                "CROSS JOIN %s")
-           threshold-query
-           numbands
-           table-name)))
+(defn build-threshold-query [threshold]
+  (format (str "ST_MapAlgebra(rast,band,NULL,"
+               "'CASE WHEN [rast.val] < %s"
+               " THEN 0.0 ELSE [rast.val] END')")
+          threshold))
+
+(defn build-data-query [threshold threshold-query metadata table-name]
+  (format (str "SELECT ST_DumpValues(%s,%s) AS matrix "
+               "FROM generate_series(1,%s) AS band "
+               "CROSS JOIN %s")
+          (if threshold threshold-query "rast")
+          (if threshold 1 "band")
+          (:numbands metadata)
+          table-name))
+
+(defn build-meta-query [table-name]
+  (format "SELECT (ST_Metadata(rast)).* FROM %s" table-name))
 
 (defn postgis-raster-to-matrix
   "Send a SQL query to the PostGIS database given by db-spec for a
@@ -47,32 +60,21 @@
    :skewy 0.0,
    :numbands 10,
    :matrix #vectorz/matrix Large matrix with shape: [10,534,486]}"
-  ([db-spec table-name]
-   (jdbc/with-db-transaction [conn db-spec]
-     (let [meta-query (str "SELECT (ST_Metadata(rast)).* FROM " table-name)
-           metadata   (first (jdbc/query conn [meta-query]))
-           data-query (construct-data-query (:numbands metadata) table-name)
-           matrix     (when-let [results (seq (jdbc/query conn [data-query]))]
-                        (m/matrix (mapv extract-matrix results)))]
-       (assoc metadata :matrix matrix))))
-
-  ([db-spec table-name resolution threshold]
-   (let [rescale-query   (if resolution
-                           (format "ST_Rescale(rast,%s,-%s,'NearestNeighbor')"
-                                   resolution resolution)
-                           "rast")
-         threshold-query (if threshold
-                           (format (str "ST_MapAlgebra(%s, band, NULL,"
-                                        "'CASE WHEN [rast.val] < %s"
-                                        " THEN 0.0 ELSE [rast.val] END')")
-                                   rescale-query threshold)
-                           rescale-query)
-         meta-query      (format "SELECT (ST_Metadata(%s)).* FROM %s"
-                                 rescale-query table-name)]
-     (jdbc/with-db-transaction [conn db-spec]
-       (let [metadata   (first (jdbc/query conn [meta-query]))
-             data-query (construct-data-query (:numbands metadata) table-name threshold-query)
-             matrix     (when-let [results (seq (jdbc/query conn [data-query]))]
-                          (m/matrix (mapv extract-matrix results)))]
-         (assoc metadata :matrix matrix))))))
+  [db-spec table-name & [resolution threshold]]
+  (jdbc/with-db-transaction [conn db-spec]
+    (let [table-name      (if-not resolution
+                            table-name
+                            (let [rescaled-table-name (str "gridfire_" (subs (str (UUID/randomUUID)) 0 8))
+                                  rescale-query       (build-rescale-query rescaled-table-name resolution table-name)]
+                              ;; Create a temporary table to hold the rescaled raster.
+                              ;; It will be dropped when the transaction completes.
+                              (jdbc/db-do-commands conn [rescale-query])
+                              rescaled-table-name))
+          meta-query      (build-meta-query table-name)
+          metadata        (first (jdbc/query conn [meta-query]))
+          threshold-query (build-threshold-query threshold)
+          data-query      (build-data-query threshold threshold-query metadata table-name)
+          matrix          (when-let [results (seq (jdbc/query conn [data-query]))]
+                            (m/matrix (mapv extract-matrix results)))]
+      (assoc metadata :matrix matrix))))
 ;; postgis-bridge ends here
