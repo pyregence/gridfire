@@ -3544,7 +3544,7 @@ the following mapping in the fetch specifications:
 
 #+begin_src clojure
 {:canopy-height {:type   :geotiff
-                 :source "test/gridfire/resources/ch.tif"
+                 :source "test/gridfire/resources/weather-test/ch.tif"
                  :units  :metric}}
 #+end_src
 
@@ -3552,12 +3552,17 @@ To specify a scaling factor, include the following mapping in the
 fetch specifications:
 
 - *multiplier*: int or float
-  
+
 #+begin_src clojure
 {:canopy-height {:type       :geotiff
-                 :source     "test/gridfire/resources/ch.tif"
-                 :multiplier 10.0}}
+                 :source     "test/gridfire/resources/weather-test/ch.tif"
+                 :multiplier 0.1}}
 #+end_src
+
+In the example above the input raster's units, according to
+"https://landfire.gov/faqprint.php" is in meters * 10. Thus a value of
+5 on the canopy height grid layer is actually 0.5 meters. The
+mutipler factor needed to convert to meters is 0.1.
 
 Include the following required mapping on all configurations:
 
@@ -3904,7 +3909,7 @@ To specify the need for conversion from metric to imperial, include
 the following mapping in the fetch specifications:
 
 - *units*: keyword :metric
-  
+
 To specify the need for conversion from absolute to imperial, include
 
 - *units*: keyword :absolute
