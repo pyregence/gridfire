@@ -168,39 +168,39 @@
 (deftest run-simulation-test
   (testing "Running simulation with different ways to fetch LANDFIRE layers"
     (let [postgis-config  (merge test-config-base
-                                 {:landfire-layers    {:aspect             {:type   :postgis
-                                                                            :source "landfire.asp WHERE rid=1"}
-                                                       :canopy-base-height {:type   :postgis
-                                                                            :source "landfire.cbh WHERE rid=1"}
-                                                       :canopy-cover       {:type   :postgis
-                                                                            :source "landfire.cc WHERE rid=1"}
-                                                       :canopy-height      {:type   :postgis
-                                                                            :source "landfire.ch WHERE rid=1"}
-                                                       :crown-bulk-density {:type   :postgis
-                                                                            :source "landfire.cbd WHERE rid=1"}
-                                                       :elevation          {:type   :postgis
-                                                                            :source "landfire.dem WHERE rid=1"}
-                                                       :fuel-model         {:type   :postgis
-                                                                            :source "landfire.fbfm40 WHERE rid=1"}
-                                                       :slope              {:type   :postgis
-                                                                            :source "landfire.slp WHERE rid=1"}}})
+                                 {:landfire-layers {:aspect             {:type   :postgis
+                                                                         :source "landfire.asp WHERE rid=1"}
+                                                    :canopy-base-height {:type   :postgis
+                                                                         :source "landfire.cbh WHERE rid=1"}
+                                                    :canopy-cover       {:type   :postgis
+                                                                         :source "landfire.cc WHERE rid=1"}
+                                                    :canopy-height      {:type   :postgis
+                                                                         :source "landfire.ch WHERE rid=1"}
+                                                    :crown-bulk-density {:type   :postgis
+                                                                         :source "landfire.cbd WHERE rid=1"}
+                                                    :elevation          {:type   :postgis
+                                                                         :source "landfire.dem WHERE rid=1"}
+                                                    :fuel-model         {:type   :postgis
+                                                                         :source "landfire.fbfm40 WHERE rid=1"}
+                                                    :slope              {:type   :postgis
+                                                                         :source "landfire.slp WHERE rid=1"}}})
           geotiff-config  (merge test-config-base
-                                 {:landfire-layers    {:aspect             {:type   :geotiff
-                                                                            :source (in-file-path "asp.tif")}
-                                                       :canopy-base-height {:type   :geotiff
-                                                                            :source (in-file-path "cbh.tif")}
-                                                       :canopy-cover       {:type   :geotiff
-                                                                            :source (in-file-path "cc.tif")}
-                                                       :canopy-height      {:type   :geotiff
-                                                                            :source (in-file-path "ch.tif")}
-                                                       :crown-bulk-density {:type   :geotiff
-                                                                            :source (in-file-path "cbd.tif")}
-                                                       :elevation          {:type   :geotiff
-                                                                            :source (in-file-path "dem.tif")}
-                                                       :fuel-model         {:type   :geotiff
-                                                                            :source (in-file-path "fbfm40.tif")}
-                                                       :slope              {:type   :geotiff
-                                                                            :source (in-file-path "slp.tif")}}})
+                                 {:landfire-layers {:aspect             {:type   :geotiff
+                                                                         :source (in-file-path "asp.tif")}
+                                                    :canopy-base-height {:type   :geotiff
+                                                                         :source (in-file-path "cbh.tif")}
+                                                    :canopy-cover       {:type   :geotiff
+                                                                         :source (in-file-path "cc.tif")}
+                                                    :canopy-height      {:type   :geotiff
+                                                                         :source (in-file-path "ch.tif")}
+                                                    :crown-bulk-density {:type   :geotiff
+                                                                         :source (in-file-path "cbd.tif")}
+                                                    :elevation          {:type   :geotiff
+                                                                         :source (in-file-path "dem.tif")}
+                                                    :fuel-model         {:type   :geotiff
+                                                                         :source (in-file-path "fbfm40.tif")}
+                                                    :slope              {:type   :geotiff
+                                                                         :source (in-file-path "slp.tif")}}})
           postgis-results (run-simulation postgis-config)
 
           geotiff-results (run-simulation geotiff-config)]
@@ -250,13 +250,16 @@
   {:aspect             {:type   :geotiff
                         :source (in-file-path "weather-test/asp.tif")}
    :canopy-base-height {:type   :geotiff
-                        :source (in-file-path "weather-test/cbh.tif")}
+                        :source (in-file-path "weather-test/cbh.tif")
+                        :unit   :metric}
    :canopy-cover       {:type   :geotiff
                         :source (in-file-path "weather-test/cc.tif")}
    :canopy-height      {:type   :geotiff
-                        :source (in-file-path "weather-test/ch.tif")}
+                        :source (in-file-path "weather-test/ch.tif")
+                        :unit   :metric}
    :crown-bulk-density {:type   :geotiff
-                        :source (in-file-path "weather-test/cbd.tif")}
+                        :source (in-file-path "weather-test/cbd.tif")
+                        :unit :metric}
    :elevation          {:type   :geotiff
                         :source (in-file-path "weather-test/dem.tif")}
    :fuel-model         {:type   :geotiff

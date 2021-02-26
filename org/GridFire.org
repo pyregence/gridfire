@@ -2675,13 +2675,13 @@ ignition probability.
   [[[1 140] 0.0]
   [[141 149] 1.0]
   [[150 256] 1.0]]"
-  [{:keys [spotting rand-gen]} {:keys [landfire-layers]} [i j] fire-line-intensity]
+  [{:keys [spotting rand-gen]} {:keys [landfire-rasters]} [i j] fire-line-intensity]
   (let [{:keys [surface-fire-spotting]} spotting]
     (when (and
            surface-fire-spotting
            (> fire-line-intensity (:critical-fire-line-intensity surface-fire-spotting)))
       (let [fuel-range-percents (:spotting-percent surface-fire-spotting)
-            fuel-model-raster   (:fuel-model landfire-layers)
+            fuel-model-raster   (:fuel-model landfire-rasters)
             fuel-model-number   (int (m/mget fuel-model-raster i j))
             spot-percent        (surface-spot-percent fuel-range-percents fuel-model-number)]
         (>= spot-percent (random-float 0.0 1.0 rand-gen))))))
@@ -3679,10 +3679,10 @@ this functionality.
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fetch.clj :padline no :no-expand :comments link
 (ns gridfire.fetch
   (:require [clojure.core.matrix      :as m]
+            [gridfire.conversion      :as convert]
             [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
             [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]
-            [gridfire.spec.config     :as spec]
-            [gridfire.surface-fire    :refer [degrees-to-radians]]))
+            [gridfire.spec.config     :as spec]))
 
 ;;-----------------------------------------------------------------------------
 ;; LANDFIRE
@@ -3697,23 +3697,6 @@ this functionality.
    :elevation
    :fuel-model
    :slope])
-
-(defn convert-metrics
-  "Converting metrics in layers:
-  meters to feet
-  degrees to percent"
-  [landfire-layers]
-  (-> landfire-layers
-      (update-in [:elevation :matrix]
-                 (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
-      (update-in [:slope :matrix]
-                 (fn [matrix] (m/emap #(Math/tan (degrees-to-radians %)) matrix))) ; degrees -> %
-      (update-in [:canopy-height :matrix]
-                 (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
-      (update-in [:canopy-base-height :matrix]
-                 (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
-      (update-in [:crown-bulk-density :matrix]
-                 (fn [matrix] (m/emap #(* % 0.0624) matrix))))) ; kg/m^3 -> lb/ft^3
 
 (defmulti landfire-layer
   (fn [_ {:keys [type]}] type))
@@ -3737,17 +3720,18 @@ this functionality.
     :crown-bulk-density lb/ft^3
     :canopy-cover       % (0-100)}"
   [{:keys [db-spec] :as config}]
-  (convert-metrics
-   (let [layers (:landfire-layers config)]
-     (reduce (fn [amap layer-name]
-               (let [source (get layers layer-name)]
-                 (assoc amap
-                        layer-name
-                        (if (map? source)
-                          (landfire-layer db-spec source)
-                          (postgis-raster-to-matrix db-spec source)))))
-             {}
-             layer-names))))
+  (let [layers (:landfire-layers config)]
+    (reduce (fn [amap layer-name]
+              (let [source (get layers layer-name)]
+                (assoc amap
+                       layer-name
+                       (if (map? source)
+                         (-> (landfire-layer db-spec source)
+                             (convert/to-imperial source layer-name))
+                         (-> (postgis-raster-to-matrix db-spec source)
+                             (convert/to-imperial {:units :metric} layer-name))))))
+            {}
+            layer-names)))
 
 ;;-----------------------------------------------------------------------------
 ;; Initial Ignition
@@ -3806,7 +3790,9 @@ this functionality.
   (reduce (fn [acc weather-name]
             (let [weather-spec (weather-name config)]
               (if (map? weather-spec)
-                (assoc acc weather-name (weather config weather-spec))
+                (assoc acc weather-name (convert/to-imperial (weather config weather-spec)
+                                                             weather-spec
+                                                             weather-name))
                 acc)))
           {}
           spec/weather-names))

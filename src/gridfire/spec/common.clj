@@ -31,6 +31,10 @@
 
 (s/def ::type #(contains? #{:geotiff :postgis} %))
 
+(s/def ::unit #(contains? #{:imperial :metric} %))
+
+(s/def ::multiplier (s/or :int int? :float float?))
+
 (s/def ::postgis-or-geotiff
   (s/keys :req-un [::type ::source]
-          :opt-un [::cell-size]))
+          :opt-un [::cell-size ::unit ::multiplier]))
