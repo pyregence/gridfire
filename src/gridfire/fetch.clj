@@ -153,7 +153,7 @@
   [db-spec {:keys [source]}]
   (postgis-raster-to-matrix db-spec source))
 
-(defn fuel-moisture-rasters
+(defn fuel-moisture-layers
   "Returns a map of moisture rasters (represented as maps) with the following form:
   {:dead {:1hr  #vectorz/matrix Large matrix with shape: [100 100]
           :10hr #vectorz/matrix Large matrix with shape: [100 100]
@@ -163,11 +163,11 @@
   [{:keys [db-spec fuel-moisture-layers]}]
   (let [{:keys [dead live]} fuel-moisture-layers]
     {:dead (reduce-kv (fn [m k v]
-                        (assoc m k (:matrix (fuel-moisture-layer db-spec v))))
+                        (assoc m k (fuel-moisture-layer db-spec v)))
                       {}
                       dead)
      :live (reduce-kv (fn [m k v]
-                        (assoc m k (:matrix (fuel-moisture-layer db-spec v))))
+                        (assoc m k (fuel-moisture-layer db-spec v)))
                       {}
                       live)}))
 ;; fetch.clj ends here
