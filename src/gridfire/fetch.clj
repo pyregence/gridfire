@@ -161,11 +161,13 @@
    :live {:herbaceous  #vectorz/matrix Large matrix with shape: [100 100]
           :woody #vectorz/matrix Large matrix with shape: [100 100]}}"
   [{:keys [db-spec fuel-moisture-layers]}]
-  (letfn [(f [spec] (fuel-moisture-layer db-spec spec))]
-    (-> fuel-moisture-layers
-        (update-in [:dead :1hr] f)
-        (update-in [:dead :10hr] f)
-        (update-in [:dead :100hr] f)
-        (update-in [:live :herbaceous] f)
-        (update-in [:live :woody] f))))
+  (when fuel-moisture-layers
+    (letfn [(f [spec] (-> (fuel-moisture-layer db-spec spec)
+                          (update :matrix (fn [m] (m/emap #(* % 0.01) m)))))]
+      (-> fuel-moisture-layers
+          (update-in [:dead :1hr] f)
+          (update-in [:dead :10hr] f)
+          (update-in [:dead :100hr] f)
+          (update-in [:live :herbaceous] (comp #(update % :matrix first) f))
+          (update-in [:live :woody] (comp #(update % :matrix first) f))))))
 ;; fetch.clj ends here
