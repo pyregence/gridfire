@@ -155,9 +155,9 @@
 
 (defn fuel-moisture-layers
   "Returns a map of moisture rasters (represented as maps) with the following form:
-  {:dead {:1hr  #vectorz/matrix Large matrix with shape: [100 100]
-          :10hr #vectorz/matrix Large matrix with shape: [100 100]
-          :100hr #vectorz/matrix Large matrix with shape: [100 100]}
+  {:dead {:1hr  #vectorz/matrix Large matrix with shape: [73 100 100]
+          :10hr #vectorz/matrix Large matrix with shape: [73 100 100]
+          :100hr #vectorz/matrix Large matrix with shape: [73 100 100]}
    :live {:herbaceous  #vectorz/matrix Large matrix with shape: [100 100]
           :woody #vectorz/matrix Large matrix with shape: [100 100]}}"
   [{:keys [db-spec fuel-moisture-layers]}]
