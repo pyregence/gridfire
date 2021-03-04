@@ -19,10 +19,12 @@
   (let [range (- max-val min-val)]
     (+ min-val (my-rand rand-generator range))))
 
-(defn my-rand-int-range
+(defn my-rand-range
   [rand-generator [min-val max-val]]
   (let [range (- max-val min-val)]
-    (+ min-val (int (my-rand rand-generator range)))))
+    (+ min-val (if (and (int? min-val) (int? max-val))
+                 (int (my-rand rand-generator range))
+                 (my-rand rand-generator range)))))
 
 (defn sample-from-list
   [rand-generator n xs]

@@ -7,7 +7,7 @@
                                      in-bounds?
                                      burnable?]]
             [gridfire.crown-fire :refer [ft->m]]
-            [gridfire.utils.random :refer [random-float my-rand-int-range]]
+            [gridfire.utils.random :refer [random-float my-rand-range]]
             [gridfire.conversion :as convert]
             [kixi.stats.distribution :as distribution]))
 
@@ -15,86 +15,60 @@
 ;; Formulas
 ;;-----------------------------------------------------------------------------
 
-(defn froude-number
-  "Returns froude number given:
-  wind-speed-20ft: (ms^-1)
-  fire-line-intensity: (kWm^-1)
-  temperature: (Kelvin)
-  ambient-gas-density: (kgm^-3)
-  specific-heat-gas: (KJkg^-1 K^-1)"
-  [wind-speed-20ft fire-line-intensity temperature ambient-gas-density specific-heat-gas]
-  (let [g   9.81 ;(ms^-1) gravity
-        L_c (-> (/ fire-line-intensity ;characteristic length of plume
-                   (* ambient-gas-density
-                      specific-heat-gas
-                      temperature
-                      (Math/sqrt g)))
-                (Math/pow (/ 2 3)))]
-    (/ wind-speed-20ft
-       (Math/sqrt (* g L_c)))))
+(defn- sample-spotting-params
+  [param rand-gen]
+  (if (map? param)
+    (let [{:keys [lo hi]} param
+          l               (if (vector? lo) (my-rand-range rand-gen lo) lo)
+          h               (if (vector? hi) (my-rand-range rand-gen hi) hi)]
+      (my-rand-range rand-gen [l h]))
+    param))
 
-(defn buoyancy-driven? [froude]
-  (<= froude 1))
-
-(defn deviation-fb
-  "Returns standard deviation as described in Perryman 2013 EQ5 and EQ6 given:
-  froude number: (Int)
+(defn- mean-variance
+  "Returns mean spottind distance and it's variance given:
   fire-line-intensity: (kWm^-1)
   wind-speed-20ft: (ms^-1)"
-  [froude fire-line-intensity wind-speed-20ft]
-  (if (buoyancy-driven? froude)
-    (+ (* 0.86 (Math/pow fire-line-intensity -0.21) (Math/pow wind-speed-20ft 0.44)) 0.19)
-    (- (* 4.95 (Math/pow fire-line-intensity -0.01) (Math/pow wind-speed-20ft -0.02)) 3.48)))
+  [{:keys [mean-distance flin-exp ws-exp normalized-distance-variance]}
+   rand-gen fire-line-intensity wind-speed-20ft]
+  (let [a (sample-spotting-params mean-distance rand-gen)
+        b (sample-spotting-params flin-exp rand-gen)
+        c (sample-spotting-params ws-exp rand-gen)
+        m (* a (Math/pow fire-line-intensity b) (Math/pow wind-speed-20ft c))]
+    {:mean m :variance (* m normalized-distance-variance)}))
 
-(defn mean-fb
-  "Returns mean as described in Perryman 2013 EQ5 and EQ6 given:
-  froude number: (Int)
-  fire-line-intensity: (kWm^-1)
-  wind-speed-20ft: (ms^-1)"
-  [froude fire-line-intensity wind-speed-20ft]
-  (if (buoyancy-driven? froude)
-    (+ (* 1.47 (Math/pow fire-line-intensity 0.54) (Math/pow wind-speed-20ft -0.55)) 1.14)
-    (- (* 1.32 (Math/pow fire-line-intensity 0.26) (Math/pow wind-speed-20ft 0.11)) 0.02)))
+(defn- standard-deviation
+  "Returns standard deviation for the lognormal distribution given:
+  mean spotting distance and it's variance"
+  [m v]
+  (Math/sqrt (Math/log (+ 1 (/ v (Math/pow m 2))))))
 
-(defn- sample-num-firebrands
-  [{:keys [num-firebrands]} rand-gen]
-  (if (map? num-firebrands)
-    (let [{:keys [lo hi]} num-firebrands
-          l               (if (vector? lo) (my-rand-int-range rand-gen lo) lo)
-          h               (if (vector? hi) (my-rand-int-range rand-gen hi) hi)]
-      (my-rand-int-range rand-gen [l h]))
-    num-firebrands))
+(defn- normalized-mean
+  "Returns normalized mean for the lognormal distribution given:
+  mean spotting distance and it's variance"
+  [m v]
+  (Math/log (/ (Math/pow m 2)
+               (Math/sqrt (+ v (Math/pow m 2))))))
 
-(defn sample-wind-dir-deltas
+(defn- sample-wind-dir-deltas
   "Returns a sequence of [x y] distances (meters) that firebrands land away
   from a torched cell at i j where:
   x: parallel to the wind
-  y: perpendicular to the wind (positive values are to the right of wind direction)
-  "
-  [{:keys [spotting rand-gen random-seed] :as config}
+  y: perpendicular to the wind (positive values are to the right of wind direction)"
+  [{:keys [spotting rand-gen random-seed]}
    fire-line-intensity-matrix
-   wind-speed-20ft
-   temperature
-   [i j]]
-  (let [{:keys
-         [ambient-gas-density
-          specific-heat-gas]} spotting
-        num-firebrands        (sample-num-firebrands spotting rand-gen)
-        intensity             (convert/Btu-ft-s->kW-m (m/mget fire-line-intensity-matrix i j))
-        froude                (froude-number intensity
-                                             wind-speed-20ft
-                                             temperature
-                                             ambient-gas-density
-                                             specific-heat-gas)
-        parallel              (distribution/log-normal {:mu (mean-fb froude intensity wind-speed-20ft)
-                                                        :sd (deviation-fb froude intensity wind-speed-20ft)})
-        perpendicular         (distribution/normal {:mu 0
-                                                    :sd 0.92})]
-    (map (comp
-          (partial mapv convert/m->ft)
-          vector)
-         (distribution/sample num-firebrands parallel {:seed random-seed})
-         (distribution/sample num-firebrands perpendicular {:seed random-seed}))))
+   wind-speed-20ft [i j]]
+  (let [num-firebrands          (sample-spotting-params (:num-firebrands spotting) rand-gen)
+        intensity               (convert/Btu-ft-s->kW-m (m/mget fire-line-intensity-matrix i j))
+        {:keys [mean variance]} (mean-variance spotting rand-gen intensity wind-speed-20ft)
+        mu                      (normalized-mean mean variance)
+        sd                      (standard-deviation mean variance)
+        parallel                (distribution/log-normal {:mu mu :sd sd})
+        perpendicular           (distribution/normal {:mu 0 :sd 0.92})
+        parallel-values         (distribution/sample num-firebrands parallel {:seed random-seed})
+        perpendicular-values    (distribution/sample num-firebrands perpendicular {:seed random-seed})]
+    (map (comp (partial mapv convert/m->ft) vector)
+         parallel-values
+         perpendicular-values)))
 ;; sardoy-firebrand-dispersal ends here
 ;; [[file:../../org/GridFire.org::convert-deltas][convert-deltas]]
 (defn hypotenuse [x y]
@@ -129,8 +103,7 @@
 (defn specific-heat-dry-fuel
   "Returns specific heat of dry fuel given:
   initiial-temp: (Celcius)
-  ignition-temp: (Celcius)
-  "
+  ignition-temp: (Celcius)"
   [initial-temp ignition-temp]
   (+ 0.266 (* 0.0016 (/ (+ ignition-temp initial-temp) 2))))
 
@@ -173,12 +146,12 @@
 
 (defn spot-ignition-probability
   [{:keys [cell-size landfire-rasters]}
-   {:keys [decay-constant] :as spot-config}
+   {:keys [decay-constant]}
    temperature
    relative-humidity
    firebrand-count
    torched-origin
-   [i j :as here]]
+   here]
   (let [ignition-probability (schroeder-ign-prob relative-humidity
                                                  temperature)
         distance             (ft->m (distance-3d (:elevation landfire-rasters)
@@ -206,11 +179,11 @@
         z-max          (* 0.39 D (Math/pow 10 5))
         t-steady-state 20    ;min
         t-max-height   (convert/sec->min ;min
-                            (+ (/ (* 2 flame-length) wind-speed-20ft)
-                               1.2
-                               (* (/ a 3.0)
-                                  (- (Math/pow (/ (+ b (/ z-max flame-length)) a) (/ 3.0 2.0)) 1))))]
-    (+ global-clock (* 2 t-max-height) 20)))
+                        (+ (/ (* 2 flame-length) wind-speed-20ft)
+                           1.2
+                           (* (/ a 3.0)
+                              (- (Math/pow (/ (+ b (/ z-max flame-length)) a) (/ 3.0 2.0)) 1))))]
+    (+ global-clock (* 2 t-max-height) t-steady-state)))
 ;; firebrands-time-of-ignition ends here
 ;; [[file:../../org/GridFire.org::spread-firebrands][spread-firebrands]]
 (defn update-firebrand-counts!
@@ -295,7 +268,6 @@
           deltas                (sample-wind-dir-deltas config
                                                         fire-line-intensity-matrix
                                                         (convert/mph->mps wind-speed-20ft)
-                                                        (convert/F->K temperature)
                                                         cell)
           wind-to-direction     (mod (+ 180 wind-from-direction) 360)
           firebrands            (firebrands deltas wind-to-direction cell cell-size)]
