@@ -276,12 +276,12 @@
    landfire-rasters envelope ignition-row ignition-col max-runtime temperature
    relative-humidity wind-speed-20ft wind-from-direction foliar-moisture
    ellipse-adjustment-factor ignition-layer multiplier-lookup perturbations
-   burn-count-matrix]
+   burn-count-matrix fuel-moisture-layers]
   (mapv
    (fn [i]
      (let [initial-ignition-site (or ignition-layer
                                      (when (and (ignition-row i) (ignition-col i))
-                                      [(ignition-row i) (ignition-col i)]))
+                                       [(ignition-row i) (ignition-col i)]))
            temperature           (if (map? temperature) (:matrix temperature) (temperature i))
            wind-speed-20ft       (if (map? wind-speed-20ft) (:matrix wind-speed-20ft) (wind-speed-20ft i))
            wind-from-direction   (if (map? wind-from-direction) (:matrix wind-from-direction) (wind-from-direction i))
@@ -290,6 +290,7 @@
                                      {:max-runtime               (max-runtime i)
                                       :cell-size                 cell-size
                                       :landfire-rasters          landfire-rasters
+                                      :fuel-moisture-layers      fuel-moisture-layers
                                       :wind-speed-20ft           wind-speed-20ft
                                       :wind-from-direction       wind-from-direction
                                       :temperature               temperature
@@ -389,34 +390,48 @@
     (weather-type weather-layers)
     (draw-samples rand-generator (:simulations config) (config weather-type))))
 
+(defn fuel-moisture-multiplier-lookup
+  [cell-size fuel-moisture-layers]
+  (when fuel-moisture-layers
+   (letfn [(f [{:keys [scalex]}] (int (quot (m->ft scalex) cell-size)))]
+     (-> fuel-moisture-layers
+         (update-in [:dead :1hr] f)
+         (update-in [:dead :10hr] f)
+         (update-in [:dead :100hr] f)
+         (update-in [:live :herbaceous] f)
+         (update-in [:live :woody] f)))))
+
 (defn create-multiplier-lookup
-  [{:keys [cell-size]} weather-layers]
-  (reduce-kv (fn [acc k {:keys [scalex]}]
-               (assoc acc k (int (quot (m->ft scalex) cell-size))))
-             {}
-             weather-layers))
+  [{:keys [cell-size]} weather-layers fuel-moisture-layers]
+  (merge
+   (reduce-kv (fn [acc k {:keys [scalex]}]
+                (assoc acc k (int (quot (m->ft scalex) cell-size))))
+              {}
+              weather-layers)
+   (fuel-moisture-multiplier-lookup cell-size fuel-moisture-layers)))
 
 (defn -main
   [& config-files]
   (doseq [config-file config-files]
     (let [config (edn/read-string (slurp config-file))]
       (if (s/valid? ::spec/config config)
-        (let [landfire-layers   (fetch/landfire-layers config)
-              landfire-rasters  (into {}
+        (let [landfire-layers      (fetch/landfire-layers config)
+              landfire-rasters     (into {}
                                       (map (fn [[layer info]] [layer (first (:matrix info))]))
                                       landfire-layers)
-              ignition-layer    (fetch/ignition-layer config)
-              weather-layers    (fetch/weather-layers config)
-              multiplier-lookup (create-multiplier-lookup config weather-layers)
-              envelope          (get-envelope config landfire-layers)
-              simulations       (:simulations config)
-              rand-generator    (if-let [seed (:random-seed config)]
-                                  (Random. seed)
-                                  (Random.))
-              max-runtimes      (draw-samples rand-generator simulations (:max-runtime config))
-              num-rows          (m/row-count (:fuel-model landfire-rasters))
-              num-cols          (m/column-count (:fuel-model landfire-rasters))
-              burn-count-matrix (initialize-burn-count-matrix config max-runtimes num-rows num-cols)]
+              ignition-layer       (fetch/ignition-layer config)
+              weather-layers       (fetch/weather-layers config)
+              fuel-moisture-layers (fetch/fuel-moisture-layers config)
+              multiplier-lookup    (create-multiplier-lookup config weather-layers fuel-moisture-layers)
+              envelope             (get-envelope config landfire-layers)
+              simulations          (:simulations config)
+              rand-generator       (if-let [seed (:random-seed config)]
+                                     (Random. seed)
+                                     (Random.))
+              max-runtimes         (draw-samples rand-generator simulations (:max-runtime config))
+              num-rows             (m/row-count (:fuel-model landfire-rasters))
+              num-cols             (m/column-count (:fuel-model landfire-rasters))
+              burn-count-matrix    (initialize-burn-count-matrix config max-runtimes num-rows num-cols)]
           (when (:output-landfire-inputs? config)
             (doseq [[layer matrix] landfire-rasters]
               (-> (matrix-to-raster (name layer) matrix envelope)
@@ -437,7 +452,8 @@
                 ignition-layer
                 multiplier-lookup
                 (perturbation/draw-samples rand-generator simulations (:perturbations config))
-                burn-count-matrix)
+                burn-count-matrix
+                fuel-moisture-layers)
                (write-csv-outputs
                 (:output-directory config)
                 (:output-csvs? config)

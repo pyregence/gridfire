@@ -10,16 +10,19 @@
     (m/mget matrix i j)))
 
 (defn sample-at
-  [here global-clock matrix multiplier perturb-info]
-  (let [cell       (if multiplier
-                     (map #(quot % multiplier) here)
-                     here)
-        value-here (matrix-value-at cell global-clock matrix)]
-    (if perturb-info
-      (if-let [freq (:frequency perturb-info)]
-        (+ value-here (perturbation/value-at perturb-info matrix cell (quot global-clock freq)))
-        (+ value-here (perturbation/value-at perturb-info matrix cell)))
-      value-here)))
+  ([here global-clock matrix multiplier]
+   (sample-at here global-clock matrix multiplier nil))
+
+  ([here global-clock matrix multiplier perturb-info]
+   (let [cell       (if multiplier
+                      (map #(quot % multiplier) here)
+                      here)
+         value-here (matrix-value-at cell global-clock matrix)]
+     (if perturb-info
+       (if-let [freq (:frequency perturb-info)]
+         (+ value-here (perturbation/value-at perturb-info matrix cell (quot global-clock freq)))
+         (+ value-here (perturbation/value-at perturb-info matrix cell)))
+       value-here))))
 
 (def sample-at
   (memoize sample-at))
@@ -64,6 +67,34 @@
             :100hr (+ equilibrium-moisture 0.025)}
      :live {:herbaceous (* equilibrium-moisture 2.0)
             :woody      (* equilibrium-moisture 0.5)}}))
+
+(defn extract-fuel-moisture
+  [fuel-moisture-layers multiplier-lookup here global-clock]
+  (let [f (fn [path]
+            (fn [raster] (sample-at here
+                                    global-clock
+                                    (:matrix raster)
+                                    (get-in multiplier-lookup path))))]
+   (-> fuel-moisture-layers
+       (update-in [:dead :1hr] (f [:dead :1hr]))
+       (update-in [:dead :10hr] (f [:dead :10hr]))
+       (update-in [:dead :100hr] (f [:dead :100hr]))
+       (update-in [:live :herbaceous] (f [:live :herbaceous]))
+       (update-in [:live :woody] (f [:live :woody])))))
+
+(defn fuel-moisture-from-raster
+  "Returns a map of moisture
+  {:dead {:1hr          (percent)
+            :10hr       (percent)
+            :100hr      (percent)}
+     :live {:herbaceous (percent)
+            :woody      (percent)}}"
+  ([constants here]
+   (fuel-moisture-from-raster constants here 0))
+
+  ([{:keys [fuel-moisture-layers multiplier-lookup]} here global-clock]
+   (when fuel-moisture-layers
+    (extract-fuel-moisture fuel-moisture-layers multiplier-lookup here global-clock))))
 
 (defn in-bounds?
   "Returns true if the point lies within the bounds [0,rows) by [0,cols)."

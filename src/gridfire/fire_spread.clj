@@ -6,6 +6,7 @@
                                                    burnable?
                                                    extract-constants
                                                    fuel-moisture
+                                                   fuel-moisture-from-raster
                                                    in-bounds?
                                                    burnable-neighbors?
                                                    get-neighbors]]
@@ -130,7 +131,8 @@
    :fire-line-intensity Btu/ft/s,
    :flame-length ft,
    :fractional-distance [0-1]}, one for each cell adjacent to here."
-  [{:keys [landfire-rasters foliar-moisture ellipse-adjustment-factor cell-size num-rows num-cols] :as constants}
+  [{:keys [landfire-rasters
+           foliar-moisture ellipse-adjustment-factor cell-size num-rows num-cols] :as constants}
    fire-spread-matrix
    [i j :as here]
    overflow-trajectory
@@ -148,7 +150,8 @@
           temperature
           wind-from-direction
           wind-speed-20ft]}           (extract-constants constants global-clock here)
-        fuel-moisture                 (fuel-moisture relative-humidity temperature)
+        fuel-moisture                 (or (fuel-moisture-from-raster constants here global-clock)
+                                          (fuel-moisture relative-humidity temperature))
         [fuel-model spread-info-min]  (rothermel-fast-wrapper fuel-model fuel-moisture)
         midflame-wind-speed           (* wind-speed-20ft 88.0 (wind-adjustment-factor (:delta fuel-model) canopy-height canopy-cover)) ; mi/hr -> ft/min
         spread-info-max               (rothermel-surface-fire-spread-max spread-info-min
