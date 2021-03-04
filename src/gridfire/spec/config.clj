@@ -1,6 +1,7 @@
 (ns gridfire.spec.config
   (:require [clojure.spec.alpha            :as s]
             [gridfire.spec.common          :as common]
+            [gridfire.spec.fuel-moisture   :as fuel-moisture]
             [gridfire.spec.ignition        :as ignition]
             [gridfire.spec.output          :as output]
             [gridfire.spec.perturbations   :as perturbations]
@@ -74,5 +75,6 @@
              ::output/output-layers
              ::output/output-burn-probability
              ::spotting/spotting
-             ::random-ignition/random-ignition])
+             ::random-ignition/random-ignition
+             ::fuel-moisture/fuel-moisture-layers])
    ::weather-layers))
