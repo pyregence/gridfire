@@ -241,6 +241,24 @@
       (merge config spotting-config))
     config))
 
+;;-----------------------------------------------------------------------------
+;; Fuel moisture layers
+;;-----------------------------------------------------------------------------
+
+(defn process-fuel-moisture-layers
+  [{:strs [M1_FILENAME M10_FILENAME M100_FILENAME WEATHER_DIRECTORY]} _ config]
+  (let [dir                  WEATHER_DIRECTORY
+        fuel-moisture-layers {:dead {:1hr   {:type   :geotiff
+                                             :source (file-path dir M1_FILENAME)}
+                                     :10hr  {:type   :geotiff
+                                             :source (file-path dir M10_FILENAME)}
+                                     :100hr {:type   :geotiff
+                                             :source (file-path dir M100_FILENAME)}}
+                              :live {:woody      {:type   :geotiff
+                                                  :source (file-path dir "mlw")}
+                                     :herbaceous {:type   :geotiff
+                                                  :source (file-path dir "mlh")}}}]
+    (merge config fuel-moisture-layers)))
 
 ;;-----------------------------------------------------------------------------
 ;; Main
