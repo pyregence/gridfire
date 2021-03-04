@@ -282,7 +282,8 @@
          (process-weather data options)
          (process-output data options)
          (process-perturbations data options)
-         (process-spotting data options))))
+         (process-spotting data options)
+         (process-fuel-moisture-layers data options))))
 
 (defn write-config [config-params]
   (let [file-name "gridfire.edn"]
