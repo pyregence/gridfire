@@ -4155,6 +4155,31 @@ configuration:
                                           :critical-fire-line-intensity 2000}}} ;(kW/m)
 #+end_src
 
+** Section 8: Fuel moisture data from which to build simulation inputs
+
+GridFire allows us to optinally use fuel moisture from rasters instead
+of calculating it (by default) from temperature and relative humidity.
+To specifiy this feature include the following mappings at the top
+level of the config file:
+
+- *fuel-moisture-layers*: a map of fuel moisture specicfiations
+
+#+begin_src clojure
+{:fuel-moisture-layers {:dead {:1hr   {:type   :geotiff
+                                       :source "test/gridfire/resources/weather-test/m1_to_sample.tif"}
+                               :10hr  {:type   :geotiff
+                                       :source "test/gridfire/resources/weather-test/m10_to_sample.tif"}
+                               :100hr {:type   :geotiff
+                                       :source "test/gridfire/resources/weather-test/m100_to_sample.tif"}}
+                        :live {:woody      {:type   :geotiff
+                                            :source "test/gridfire/resources/weather-test/mlw_to_sample.tif"}
+                               :herbaceous {:type   :geotiff
+                                            :source "test/gridfire/resources/weather-test/mlh_to_sample.tif"}}}}
+#+end_src
+
+*Note*: Dead fuel moistures are expected to be multiband rasters and
+live fuel moistures are singleband.
+
 * Example Configuration files
 
 Here is a complete sample configuration for using landfire layers from our postigs enabled
