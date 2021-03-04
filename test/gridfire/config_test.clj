@@ -43,7 +43,7 @@
                      config/parse)
         results (config/extract-perturbations config)]
 
-    (is (= {:wind-speed-20ft    {:spatial-type :global :range [-1.0 1.0]}
+    (is (= {:wind-speed-20ft    {:spatial-type :global :range [-2.0 2.0]}
             :wind-direction     {:spatial-type :global :range [-7.5 7.5]}
             :crown-bulk-density {:spatial-type :global :range [-0.05 0.05]}
             :canopy-base-height {:spatial-type :global :range [-2.0 2.0]}
@@ -76,9 +76,9 @@
                                                                     :source "/fuels_and_topography/fbfm40.tif"}
                                                :slope              {:type   :geotiff
                                                                     :source "/fuels_and_topography/slp.tif"}}
-                   :ignition-layer            {:type        :geotiff
-                                               :source      "/fuels_and_topography/phi.tif"
-                                               :burn-values {:burned -1.0, :unburned 1.0}}
+                   :random-ignition           {:ignition-mask {:type   :geotiff
+                                                               :source "/fuels_and_topography/ignition_mask.tif"}
+                                               :edge-buffer   98.43}
                    :temperature               {:type   :geotiff
                                                :source "/weather/tmpf.tif"}
                    :relative-humidity         {:type   :geotiff
@@ -106,18 +106,25 @@
                                                :surface-fire-spotting
                                                {:spotting-percent             [[[1 204] [0.1 0.3]]],
                                                 :critical-fire-line-intensity 1000.0}}
+                   :fuel-moisture-layers      {:dead {:1hr   {:type :geotiff :source "/weather/m1.tif"}
+                                                      :10hr  {:type :geotiff :source "/weather/m10.tif"}
+                                                      :100hr {:type :geotiff :source "/weather/m100.tif"}}
+                                               :live {:woody      {:type :geotiff :source "/weather/mlw.tif"}
+                                                      :herbaceous {:type :geotiff :source "/weather/mlh.tif"}}}
                    :ellipse-adjustment-factor 1.0
                    :max-runtime               4320
                    :random-seed               2021
                    :simulations               1000
                    :foliar-moisture           90.0
                    :outfile-suffix            ""
-                   :output-csvs?              false
+                   :output-csvs?              true
                    :output-pngs?              false
-                   :output-geotiffs?          true
-                   :output-landfire-inputs?   false}))
+                   :output-geotiffs?          false
+                   :output-binary?            true
+                   :output-landfire-inputs?   false
+                   :output-directory          "/outputs"})
 
-    (is (s/valid? ::spec/config config))))
+        (is (s/valid? ::spec/config config)))))
 
 (deftest extract-num-firbrands-test
   (let [config  (->> (in-file-path "sample-elmfire.data")
@@ -126,7 +133,7 @@
         results (config/extract-num-firebrands config)]
 
     (is (= {:lo 1
-            :hi [1 1]}
+            :hi [1 2]}
            results))))
 
 (deftest extract-crown-fire-spotting-percent-test
@@ -135,5 +142,5 @@
                      config/parse)
         results (config/extract-crown-fire-spotting-percent config)]
 
-    (is (= [0.1 0.2]
+    (is (= [0.5 2.0]
            results))))
