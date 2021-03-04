@@ -58,7 +58,7 @@
                                       config/parse)
                                  nil)]
 
-    (is (= config {:srid                      "EPSG:32610"
+    (is (= config {:srid                      "EPSG:32611"
                    :cell-size                 98.43
                    :landfire-layers           {:aspect             {:type   :geotiff
                                                                     :source "/fuels_and_topography/asp.tif"}
@@ -80,15 +80,15 @@
                                                :source      "/fuels_and_topography/phi.tif"
                                                :burn-values {:burned -1.0, :unburned 1.0}}
                    :temperature               {:type   :geotiff
-                                               :source "/weather/tmpf_to_sample.tif"}
+                                               :source "/weather/tmpf.tif"}
                    :relative-humidity         {:type   :geotiff
-                                               :source "/weather/rh_to_sample.tif"}
+                                               :source "/weather/rh.tif"}
                    :wind-speed-20ft           {:type   :geotiff
-                                               :source "/weather/ws_to_sample.tif"}
+                                               :source "/weather/ws.tif"}
                    :wind-from-direction       {:type   :geotiff
-                                               :source "/weather/wd_to_sample.tif"}
+                                               :source "/weather/wd.tif"}
                    :perturbations             {:wind-speed-20ft    {:spatial-type :global
-                                                                    :range        [-1.0 1.0]}
+                                                                    :range        [-2.0 2.0]}
                                                :wind-direction     {:spatial-type :global
                                                                     :range        [-7.5 7.5]}
                                                :crown-bulk-density {:spatial-type :global
@@ -99,10 +99,16 @@
                                                                     :range        [-0.05 0.05]}
                                                :canopy-height      {:spatial-type :global
                                                                     :range        [-5.0 5.0]}}
-                   :burn-probability          60
+                   :spotting                  {:ambient-gas-density         1.1,
+                                               :crown-fire-spotting-percent [0.5 2.0],
+                                               :num-firebrands              {:lo 1, :hi [1 2]},
+                                               :specific-heat-gas           1121.0,
+                                               :surface-fire-spotting
+                                               {:spotting-percent             [[[1 204] [0.1 0.3]]],
+                                                :critical-fire-line-intensity 1000.0}}
                    :ellipse-adjustment-factor 1.0
                    :max-runtime               4320
-                   :random-seed               2020
+                   :random-seed               2021
                    :simulations               1000
                    :foliar-moisture           90.0
                    :outfile-suffix            ""
