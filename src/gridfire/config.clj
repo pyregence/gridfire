@@ -226,12 +226,43 @@
      :hi (if NEMBERS_MAX_LO [NEMBERS_MAX_LO NEMBERS_MAX_HI] NEMBERS_MAX)}
     NEMBERS))
 
+(defn extract-mean-distance
+  [{:strs [MEAN_SPOTTING_DIST_MIN MEAN_SPOTTING_DIST_MAX MEAN_SPOTTING_DIST]}]
+  (if MEAN_SPOTTING_DIST
+    MEAN_SPOTTING_DIST
+    {:lo MEAN_SPOTTING_DIST_MIN
+     :hi MEAN_SPOTTING_DIST_MAX}))
+
+(defn extract-flin-exp
+  [{:strs [SPOT_FLIN_EXP_LO SPOT_FLIN_EXP_HI SPOT_FLIN_EXP]}]
+  (if SPOT_FLIN_EXP
+    SPOT_FLIN_EXP
+    {:lo SPOT_FLIN_EXP_LO
+     :hi SPOT_FLIN_EXP_HI}))
+
+(defn extract-ws-exp
+  [{:strs [SPOT_WS_EXP_LO SPOT_WS_EXP_HI SPOT_WS_EXP]}]
+  (if SPOT_WS_EXP
+    SPOT_WS_EXP
+    {:lo SPOT_WS_EXP_LO
+     :hi SPOT_WS_EXP_HI}))
+
+(defn extract-normalized-distance-variance
+  [{:strs [NORMALIZED_SPOTTING_DIST_VARIANCE_MIN NORMALIZED_SPOTTING_DIST_VARIANCE_MAX NORMALIZED_SPOTTING_DIST_VARIANCE]}]
+  (if NORMALIZED_SPOTTING_DIST_VARIANCE
+    NORMALIZED_SPOTTING_DIST_VARIANCE
+    {:lo NORMALIZED_SPOTTING_DIST_VARIANCE_MIN
+     :hi NORMALIZED_SPOTTING_DIST_VARIANCE_MAX}))
+
 (defn process-spotting
   [{:strs [ENABLE_SPOTTING ENABLE_SURFACE_FIRE_SPOTTING CRITICAL_SPOTTING_FIRELINE_INTENSITY] :as data} _ config]
   (if ENABLE_SPOTTING
-    (let [spotting-config (cond-> {:spotting {:crown-fire-spotting-percent (extract-crown-fire-spotting-percent data)
-                                              :num-firebrands              (extract-num-firebrands data)}}
-
+    (let [spotting-config (cond-> {:spotting {:mean-distance                (extract-mean-distance data)
+                                              :ws-exp                       (extract-ws-exp data)
+                                              :flin-exp                     (extract-flin-exp data)
+                                              :normalized-distance-variance (extract-normalized-distance-variance data)
+                                              :crown-fire-spotting-percent  (extract-crown-fire-spotting-percent data)
+                                              :num-firebrands               (extract-num-firebrands data)}}
                             ENABLE_SURFACE_FIRE_SPOTTING
                             (assoc-in [:spotting :surface-fire-spotting]
                                       {:spotting-percent             (extract-global-surface-spotting-percents data)

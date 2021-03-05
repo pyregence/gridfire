@@ -99,11 +99,14 @@
                                                                     :range        [-0.05 0.05]}
                                                :canopy-height      {:spatial-type :global
                                                                     :range        [-5.0 5.0]}}
-                   :spotting                  {:crown-fire-spotting-percent [0.5 2.0],
-                                               :num-firebrands              {:lo 1, :hi [1 2]},
-                                               :surface-fire-spotting
-                                               {:spotting-percent             [[[1 204] [0.1 0.3]]],
-                                                :critical-fire-line-intensity 1000.0}}
+                   :spotting                  {:crown-fire-spotting-percent [0.5 2.0]
+                                               :num-firebrands              {:lo 1 :hi [1 2]}
+                                               :mean-distance                {:lo 5.0 :hi 15.0}
+                                               :ws-exp                       {:lo 0.4 :hi 0.7}
+                                               :flin-exp                     {:lo 0.2 :hi 0.4}
+                                               :normalized-distance-variance {:lo 250.0 :hi 600.0}
+                                               :surface-fire-spotting       {:spotting-percent             [[[1 204] [0.1 0.3]]],
+                                                                             :critical-fire-line-intensity 1000.0}}
                    :fuel-moisture-layers      {:dead {:1hr   {:type :geotiff :source "/weather/m1.tif"}
                                                       :10hr  {:type :geotiff :source "/weather/m10.tif"}
                                                       :100hr {:type :geotiff :source "/weather/m100.tif"}}
