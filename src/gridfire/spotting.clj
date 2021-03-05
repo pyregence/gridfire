@@ -5,7 +5,8 @@
                                      distance-3d
                                      fuel-moisture
                                      in-bounds?
-                                     burnable?]]
+                                     burnable?
+                                     fuel-moisture-from-raster]]
             [gridfire.crown-fire :refer [ft->m]]
             [gridfire.utils.random :refer [random-float my-rand-int-range]]
             [gridfire.conversion :as convert]
@@ -162,25 +163,22 @@
   "Returns the probability of ignition as described in Shroeder (1969) given:
   relative-humidity: (%)
   temperature: (Farenheit)"
-  [relative-humidity temperature]
+  [fuel-moisture temperature]
   (let [ignition-temperature 320 ;;FIXME should this be a constant?
-        moisture             (-> (fuel-moisture relative-humidity temperature)
-                                 :dead
-                                 :1hr)
+        moisture             (-> fuel-moisture :dead :1hr)
         Q_ig                 (heat-of-preignition (convert/F->C temperature) ignition-temperature moisture)
         X                    (/ (- 400 Q_ig) 10)]
     (/ (* 0.000048 (Math/pow X 4.3)) 50)))
 
 (defn spot-ignition-probability
   [{:keys [cell-size landfire-rasters]}
-   {:keys [decay-constant] :as spot-config}
+   {:keys [decay-constant]}
+   fuel-moisture
    temperature
-   relative-humidity
    firebrand-count
    torched-origin
-   [i j :as here]]
-  (let [ignition-probability (schroeder-ign-prob relative-humidity
-                                                 temperature)
+   here]
+  (let [ignition-probability (schroeder-ign-prob fuel-moisture temperature)
         distance             (ft->m (distance-3d (:elevation landfire-rasters)
                                                  cell-size
                                                  here
@@ -292,6 +290,8 @@
             temperature
             wind-from-direction
             relative-humidity]} (extract-constants constants global-clock cell)
+          fuel-moisture         (or (fuel-moisture-from-raster constants cell global-clock)
+                                    (fuel-moisture relative-humidity temperature))
           deltas                (sample-wind-dir-deltas config
                                                         fire-line-intensity-matrix
                                                         (convert/mph->mps wind-speed-20ft)
@@ -306,8 +306,8 @@
                  :let  [firebrand-count (m/mget firebrand-count-matrix x y)
                         spot-ignition-p (spot-ignition-probability constants
                                                                    spotting
+                                                                   fuel-moisture
                                                                    temperature
-                                                                   relative-humidity
                                                                    firebrand-count
                                                                    cell
                                                                    [x y])]]
