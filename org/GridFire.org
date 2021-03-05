@@ -2352,25 +2352,50 @@ For determining the distance a firebrands should land parallel to the wind a
 lognormal probability density function is used from Sardoy (2008). Instead
 of calculating the probability GridFire will sample using a log-normal
 distribution using the mean and standard deviations derived from the fireline
-intensity and wind speed (Perryman 2013 Equation 5 or 6). To determine which
-pair of equations to use we must first determine if the plume is buoyancy driven
-or wind driven by calculating the Froude number.
+intensity and wind speed (Sardoy 2008).
+
+Mean and spotting distance (/m/) and it's variance (/v/):
 
 \begin{align*}
-Fr = \frac{U_H}{\sqrt{g(\frac{I_F}{\rho_{\infty}C_{cg}T_{\infty}g^{1/2}})^{2/3}}}
+m = aQ^{b} * U^{c}
 \end{align*}
 
-For buyoancy-driven plumes the mean and standard deviation are calculated by:
 \begin{align*}
-\sigma_{FB} = 0.86 (I_F^{-0.21}U_H^{0.44}) + 0.19 \\
-\mu_{FB} = 1.47 (I_F^{0.54}U_H^{-0.55}) + 1.14
+v = m * d
 \end{align*}
 
-and the mean and standard deviation for wind-driven plumes are calculated by:
+The emperical parameters a,b,c, and d is specified directly (see
+section 8 in Confguration File)
+
+a = mean-distance
+
+b = flin-exp
+
+c = ws-exp
+
+d = normalized-distance-variance
+
+The normalized mean (\mu) and standard deviation (\sigma) of the
+lognormal distribution are then calculated from /m/ and /v/ as:
+
 \begin{align*}
-\sigma_{FB} = 4.95 (I_F^{-0.01}U_H^{-0.02}) - 3.48 \\
-\mu_{FB} = 1.32 (I_F^{0.26}U_H^{0.11}) - 0.02
+\mu = ln(\frac{m^2}{\sqrt{v + m^{2}}})
 \end{align*}
+
+\begin{align*}
+\sigma = \sqrt{ln(1 + \frac{v}{m^{2}})}
+\end{align*}
+
+The above values are used to plugged into the lognormal distribution
+function:
+
+\begin{align*}
+f(d) = \frac{1}{\sqrt{2 \pi \sigma x}} exp (-\frac{1}{2} \frac{ln(d) - \mu}{\sigma}^2)
+\end{align*}
+
+Instead of implementing this function Gridfire uses the log-normal
+function from kixi.stats (a Clojure/Clojurescript library of
+statistical sampling and transducing functions).
 
 For determining the distance a firebrands should land perpendicular to the wind
 a normal distribution with the mean of 0 and standard deviation of 0.92 is used,
