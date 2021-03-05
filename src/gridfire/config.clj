@@ -229,10 +229,8 @@
 (defn process-spotting
   [{:strs [ENABLE_SPOTTING ENABLE_SURFACE_FIRE_SPOTTING CRITICAL_SPOTTING_FIRELINE_INTENSITY] :as data} _ config]
   (if ENABLE_SPOTTING
-    (let [spotting-config (cond-> {:spotting {:ambient-gas-density         1.1
-                                              :crown-fire-spotting-percent (extract-crown-fire-spotting-percent data)
-                                              :num-firebrands              (extract-num-firebrands data)
-                                              :specific-heat-gas           1121.0}}
+    (let [spotting-config (cond-> {:spotting {:crown-fire-spotting-percent (extract-crown-fire-spotting-percent data)
+                                              :num-firebrands              (extract-num-firebrands data)}}
 
                             ENABLE_SURFACE_FIRE_SPOTTING
                             (assoc-in [:spotting :surface-fire-spotting]

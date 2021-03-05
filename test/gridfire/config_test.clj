@@ -99,10 +99,8 @@
                                                                     :range        [-0.05 0.05]}
                                                :canopy-height      {:spatial-type :global
                                                                     :range        [-5.0 5.0]}}
-                   :spotting                  {:ambient-gas-density         1.1,
-                                               :crown-fire-spotting-percent [0.5 2.0],
+                   :spotting                  {:crown-fire-spotting-percent [0.5 2.0],
                                                :num-firebrands              {:lo 1, :hi [1 2]},
-                                               :specific-heat-gas           1121.0,
                                                :surface-fire-spotting
                                                {:spotting-percent             [[[1 204] [0.1 0.3]]],
                                                 :critical-fire-line-intensity 1000.0}}
