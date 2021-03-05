@@ -25,7 +25,7 @@
     param))
 
 (defn- mean-variance
-  "Returns mean spottind distance and it's variance given:
+  "Returns mean spotting distance and it's variance given:
   fire-line-intensity: (kWm^-1)
   wind-speed-20ft: (ms^-1)"
   [{:keys [mean-distance flin-exp ws-exp normalized-distance-variance]}
@@ -34,7 +34,7 @@
         b (sample-spotting-params flin-exp rand-gen)
         c (sample-spotting-params ws-exp rand-gen)
         m (* a (Math/pow fire-line-intensity b) (Math/pow wind-speed-20ft c))]
-    {:mean m :variance (* m normalized-distance-variance)}))
+    {:mean m :variance (* m (sample-spotting-params normalized-distance-variance rand-gen))}))
 
 (defn- standard-deviation
   "Returns standard deviation for the lognormal distribution given:
@@ -71,10 +71,10 @@
          perpendicular-values)))
 ;; sardoy-firebrand-dispersal ends here
 ;; [[file:../../org/GridFire.org::convert-deltas][convert-deltas]]
-(defn hypotenuse [x y]
+(defn- hypotenuse [x y]
   (Math/sqrt (+ (Math/pow x 2) (Math/pow y 2))))
 
-(defn deltas-wind->coord
+(defn- deltas-wind->coord
   "Converts deltas from the torched tree in the wind direction to deltas
   in the coordinate plane"
   [deltas wind-direction]
@@ -87,7 +87,7 @@
             (* H (Math/sin (convert/deg->rad t3)))]))
        deltas))
 
-(defn firebrands
+(defn- firebrands
   "Returns a sequence of cells that firebrands land in"
   [deltas wind-towards-direction cell cell-size]
   (let [step         (/ cell-size 2)
@@ -100,14 +100,14 @@
          coord-deltas)))
 ;; convert-deltas ends here
 ;; [[file:../../org/GridFire.org::firebrand-ignition-probability][firebrand-ignition-probability]]
-(defn specific-heat-dry-fuel
+(defn- specific-heat-dry-fuel
   "Returns specific heat of dry fuel given:
   initiial-temp: (Celcius)
   ignition-temp: (Celcius)"
   [initial-temp ignition-temp]
   (+ 0.266 (* 0.0016 (/ (+ ignition-temp initial-temp) 2))))
 
-(defn heat-of-preignition
+(defn- heat-of-preignition
   "Returns heat of preignition given:
   init-temperature: (Celcius)
   ignition-temperature: (Celcius)
@@ -131,7 +131,7 @@
         Q_d (* 540 M)]
     (+ Q_a Q_b Q_c Q_d)))
 
-(defn schroeder-ign-prob
+(defn- schroeder-ign-prob
   "Returns the probability of ignition as described in Shroeder (1969) given:
   relative-humidity: (%)
   temperature: (Farenheit)"
@@ -144,7 +144,7 @@
         X                    (/ (- 400 Q_ig) 10)]
     (/ (* 0.000048 (Math/pow X 4.3)) 50)))
 
-(defn spot-ignition-probability
+(defn- spot-ignition-probability
   [{:keys [cell-size landfire-rasters]}
    {:keys [decay-constant]}
    temperature
@@ -162,12 +162,12 @@
     (- 1 (Math/pow (- 1 (* ignition-probability decay-factor)) firebrand-count))))
 ;; firebrand-ignition-probability ends here
 ;; [[file:../../org/GridFire.org::firebrands-time-of-ignition][firebrands-time-of-ignition]]
-(defn spot-ignition?
+(defn- spot-ignition?
   [rand-gen spot-ignition-probability]
   (let [random-number (random-float 0 1 rand-gen)]
     (> spot-ignition-probability random-number)))
 
-(defn spot-ignition-time
+(defn- spot-ignition-time
   "Returns the time of spot ignition in minutes given:
   global-clock: (min)
   flame-length: (m)
@@ -186,7 +186,7 @@
     (+ global-clock (* 2 t-max-height) t-steady-state)))
 ;; firebrands-time-of-ignition ends here
 ;; [[file:../../org/GridFire.org::spread-firebrands][spread-firebrands]]
-(defn update-firebrand-counts!
+(defn- update-firebrand-counts!
   [{:keys [num-rows num-cols landfire-rasters]}
    firebrand-count-matrix
    fire-spread-matrix
@@ -205,7 +205,7 @@
   [[min max] fuel-model-number]
   (<= min fuel-model-number max))
 
-(defn surface-spot-percent
+(defn- surface-spot-percent
   [fuel-range-percents fuel-model-number]
   (reduce (fn [acc [fuel-range percent]]
             (if (in-range? fuel-range fuel-model-number)
@@ -214,7 +214,7 @@
           0.0
           fuel-range-percents))
 
-(defn surface-fire-spot-fire?
+(defn- surface-fire-spot-fire?
   "Expects surface-fire-spotting config to be a sequence of tuples of
   ranges [lo hi] and spottting percent. The range represents the range (inclusive)
   of fuel model numbers that the spotting percent is set to.
@@ -232,7 +232,7 @@
             spot-percent        (surface-spot-percent fuel-range-percents fuel-model-number)]
         (>= spot-percent (random-float 0.0 1.0 rand-gen))))))
 
-(defn crown-spot-fire? [{:keys [spotting rand-gen]}]
+(defn- crown-spot-fire? [{:keys [spotting rand-gen]}]
   (when-let [spot-percent (:crown-fire-spotting-percent spotting)]
     (let [p (if (vector? spot-percent)
               (let [[lo hi] spot-percent]
@@ -240,7 +240,7 @@
               spot-percent)]
       (>= p (random-float 0.0 1.0 rand-gen)))))
 
-(defn spot-fire? [config constants crown-fire? here fire-line-intensity]
+(defn- spot-fire? [config constants crown-fire? here fire-line-intensity]
   (if crown-fire?
     (crown-spot-fire? config)
     (surface-fire-spot-fire? config constants here fire-line-intensity)))
