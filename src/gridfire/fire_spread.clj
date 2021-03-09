@@ -415,9 +415,10 @@
                                                        0.0
                                                        0.0)]]
                                            [index ignition-trajectories]))]
-    (run-loop constants
-              ignited-cells
-              fire-spread-matrix
-              flame-length-matrix
-              fire-line-intensity-matrix)))
+    (when (seq ignited-cells)
+      (run-loop constants
+                ignited-cells
+                fire-spread-matrix
+                flame-length-matrix
+                fire-line-intensity-matrix))))
 ;; fire-spread-algorithm ends here

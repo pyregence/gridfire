@@ -2245,11 +2245,12 @@ pseudo-code lays out the steps taken in this procedure:
                                                        0.0
                                                        0.0)]]
                                            [index ignition-trajectories]))]
-    (run-loop constants
-              ignited-cells
-              fire-spread-matrix
-              flame-length-matrix
-              fire-line-intensity-matrix)))
+    (when (seq ignited-cells)
+      (run-loop constants
+                ignited-cells
+                fire-spread-matrix
+                flame-length-matrix
+                fire-line-intensity-matrix))))
 #+end_src
 
 This concludes our description of GridFire's raster-based fire spread
