@@ -50,13 +50,13 @@
   (str resources-path filename))
 
 (defn run-simulation [config]
-  (let [simulations     (:simulations config)
-        rand-generator  (if-let [seed (:random-seed config)]
+  (let [simulations      (:simulations config)
+        rand-generator   (if-let [seed (:random-seed config)]
                           (Random. seed)
                           (Random.))
-        landfire-layers (fetch/landfire-layers config)
+        landfire-layers  (fetch/landfire-layers config)
         landfire-rasters (into {} (map (fn [[layer-name info]] [layer-name (first (:matrix info))])) landfire-layers)
-        ignition-raster (fetch/ignition-layer config)]
+        ignition-raster  (fetch/ignition-layer config)]
     (cli/run-simulations
      simulations
      landfire-rasters
@@ -76,6 +76,10 @@
      (:output-pngs? config)
      (:output-csvs? config)
      ignition-raster)))
+
+(defn valid-exits? [results]
+  (when (seq results)
+    (every? #(#{:max-runtime-reached :no-burnable-fuels} (:exit-condition %)) results)))
 
 ;;-----------------------------------------------------------------------------
 ;; Tests
@@ -201,9 +205,9 @@
 
           geotiff-results (run-simulation geotiff-config)]
 
-      (is (every? some? postgis-results))
+      (is (valid-exits? postgis-results))
 
-      (is (every? some? geotiff-results))
+      (is (valid-exits? geotiff-results))
 
       (is (= (set postgis-results) (set geotiff-results))))))
 
@@ -218,7 +222,7 @@
                                                   :source (in-file-path "ign.tif")}})
           results        (run-simulation geotiff-config)]
 
-      (is (every? some? results)))))
+      (is (valid-exits? results)))))
 
 (deftest postgis-ignition-test
   (testing "Running simulation with ignition layers read from geotiff files"
@@ -226,7 +230,7 @@
                                 {:ignition-layer {:type   :postgis
                                                   :source "ignition.ign WHERE rid=1"}})
           results        (run-simulation postgis-config)]
-      (is (every? some? results)))))
+      (is (valid-exits? results)))))
 
 ;;-----------------------------------------------------------------------------
 ;; Weather Layer Tests
@@ -250,65 +254,33 @@
    :slope              {:type   :geotiff
                         :source (in-file-path "weather-test/slp.tif")}})
 
-(deftest run-simulation-using-temperature-raster-test
-  (testing "Running simulation using temperature data from geotiff file"
-    (let [config  (merge test-config-base
-                         {:landfire-layers landfire-layers-weather-test
-                          :max-runtime     120
-                          :temperature     {:type   :geotiff
-                                            :source (in-file-path "weather-test/tmpf_to_sample.tif")}})
-          results (run-simulation config)]
+(def weather-layers
+  {:temperature         {:type   :geotiff
+                         :source (in-file-path "weather-test/tmpf_to_sample.tif")}
+   :relative-humidity   {:type   :geotiff
+                         :source (in-file-path "weather-test/rh_to_sample.tif")}
+   :wind-speed-20ft     {:type   :geotiff
+                         :source (in-file-path "weather-test/ws_to_sample.tif")}
+   :wind-from-direction {:type   :geotiff
+                         :source (in-file-path "weather-test/wd_to_sample.tif")}})
 
-      (is (every? some? results)))))
+(deftest run-simulation-weather-test
+  (doseq [weather weather-layers]
+    (let [config (merge test-config-base
+                        weather
+                        {:landfire-layers landfire-layers-weather-test
+                         :max-runtime     120})]
 
-(deftest run-simulation-using-relative-humidity-raster-test
-  (testing "Running simulation using relative humidity data from geotiff file"
-    (let [config  (merge test-config-base
-                         {:landfire-layers landfire-layers-weather-test
-                          :max-runtime     120
-                          :temperature     {:type   :geotiff
-                                            :source (in-file-path "weather-test/rh_to_sample.tif")}})
-          results (run-simulation config)]
+      (is (valid-exits? (run-simulation config))))))
 
-      (is (every? some? results)))))
-
-(deftest run-simulation-using-wind-speed-raster-test
-  (testing "Running simulation using wind speed data from geotiff file"
-    (let [config  (merge test-config-base
-                         {:landfire-layers landfire-layers-weather-test
-                          :max-runtime     120
-                          :temperature     {:type   :geotiff
-                                            :source (in-file-path "weather-test/ws_to_sample.tif")}})
-          results (run-simulation config)]
-
-      (is (every? some? results)))))
-
-(deftest run-simulation-using-wind-direction-raster-test
-  (testing "Running simulation using wind direction data from geotiff file"
-    (let [config  (merge test-config-base
-                         {:landfire-layers landfire-layers-weather-test
-                          :max-runtime     120
-                          :temperature     {:type   :geotiff
-                                            :source (in-file-path "weather-test/wd_to_sample.tif")}})
-          results (run-simulation config)]
-
-      (is (every? some? results)))))
 
 (deftest geotiff-landfire-weather-ignition
   (testing "Running simulation using landfire, weather, and ignition data from geotiff files"
     (let [config  (merge test-config-base
+                         weather-layers
                          {:landfire-layers     landfire-layers-weather-test
                           :ignition-layer      {:type   :geotiff
                                                 :source (in-file-path "weather-test/phi.tif")}
-                          :temperature         {:type   :geotiff
-                                                :source (in-file-path "weather-test/tmpf_to_sample.tif")}
-                          :relative-humidity   {:type   :geotiff
-                                                :source (in-file-path "weather-test/rh_to_sample.tif")}
-                          :wind-speed-20ft     {:type   :geotiff
-                                                :source (in-file-path "weather-test/ws_to_sample.tif")}
-                          :wind-from-direction {:type  :geotiff
-                                                :source (in-file-path "weather-test/wd_to_sample.tif")}
-                          :max-runtime         120})
-          results (run-simulation config)]
+                          :max-runtime         120})]
 
-      (is (every? some? results)))))
+      (is (valid-exits? (run-simulation config))))))
