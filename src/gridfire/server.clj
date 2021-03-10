@@ -1,7 +1,7 @@
 (ns gridfire.server
   (:require [gridfire.simple-sockets :as sockets]
             [clojure.tools.cli :refer [parse-opts]]
-            [clojure.core.async :refer [timeout <!!]]
+            [clojure.core.async :refer [timeout <!! chan >! <! go]]
             [clojure.data.json :as json]))
 
 (def cli-options
@@ -9,6 +9,13 @@
     :default 31337
     :parse-fn #(Integer/parseInt %)
     :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]])
+
+(defonce job-queue (chan 10))
+
+(defn process-request! []
+  (go (loop [message (<! job-queue)]
+        (println "Message:" message)
+        (recur (<! job-queue)))))
 
 ;; TODO This handler, after receiving response from provisioning server needs to:
 ;; unzip tar file in incoming and put into data folder
@@ -18,6 +25,7 @@
   (let [{:keys [response-host response-port] :as request} (json/read-str msg :key-fn keyword)]
     (<!! (timeout 500))
     (println "Message:" request)
+    (go (>! job-queue request))
     ;;TODO uncoment when ready to send response.
     #_(sockets/send-to-server! response-host
                              (if (int? response-port) response-port (Integer/parseInt response-port))
