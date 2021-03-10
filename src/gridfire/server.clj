@@ -14,7 +14,12 @@
 
 (defn process-requests! []
   (go (loop [message (<! job-queue)]
+        (<!! (timeout 5000))
         (println "Message:" message)
+        ;;TODO uncoment when ready to send response.
+        #_(sockets/send-to-server! response-host
+                                 (if (int? response-port) response-port (Integer/parseInt response-port))
+                                 (json/write-str {:message "success"}))
         (recur (<! job-queue)))))
 
 ;; TODO This handler, after receiving response from provisioning server needs to:
@@ -22,14 +27,8 @@
 ;; run gridfire.config/write-config to convert elmfire.data -> gridfire.edn
 ;; run gridfire simulation with gridfire.edn
 (defn handler [msg]
-  (let [{:keys [response-host response-port] :as request} (json/read-str msg :key-fn keyword)]
-    (<!! (timeout 500))
-    (println "Message:" request)
-    (go (>! job-queue request))
-    ;;TODO uncoment when ready to send response.
-    #_(sockets/send-to-server! response-host
-                             (if (int? response-port) response-port (Integer/parseInt response-port))
-                             (json/write-str {:message "success"}))))
+  (let [request (json/read-str msg :key-fn keyword)]
+    (go (>! job-queue request))))
 
 (defn start-server! [& args]
   (let [{:keys [options summary errors]} (parse-opts args cli-options)]
