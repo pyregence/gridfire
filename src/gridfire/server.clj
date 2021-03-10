@@ -1,8 +1,32 @@
 (ns gridfire.server
   (:require [gridfire.simple-sockets :as sockets]
             [clojure.tools.cli :refer [parse-opts]]
-            [clojure.core.async :refer [timeout <!! chan >! <! go]]
-            [clojure.data.json :as json]))
+            [clojure.core.async :refer [timeout chan >! <! go]]
+            [clojure.data.json :as json]
+            [clojure.string :as str]))
+
+;;-----------------------------------------------------------------------------
+;; Utils
+;;-----------------------------------------------------------------------------
+
+(defn camel->kebab
+  "Converts camelString to kebab-string"
+  [camel-string]
+  (as-> camel-string s
+    (str/split s #"(?<=[a-z])(?=[A-Z])")
+    (map str/lower-case s)
+    (str/join "-" s)))
+
+(defn kebab->camel
+  "Converts kebab-string to camelString."
+  [kebab-string]
+  (let [words (-> kebab-string
+                  (str/lower-case)
+                  (str/replace #"^[^a-z_$]|[^\w-]" "")
+                  (str/split #"-"))]
+    (->> (map str/capitalize (rest words))
+         (cons (first words))
+         (str/join ""))))
 
 (def cli-options
   [["-p" "--port PORT" "Port number"
@@ -17,17 +41,20 @@
 ;; run gridfire.config/write-config to convert elmfire.data -> gridfire.edn
 ;; run gridfire simulation with gridfire.edn
 (defn process-requests! []
-  (go (loop [{:keys [response-host response-port] :as message} (<! job-queue)]
+  (go (loop [{:keys [fire-name response-host response-port] :as message} (<! job-queue)]
         (<! (timeout 500))
         (println "Message:" message)
         ;;TODO uncoment when ready to send response.
-        #_(sockets/send-to-server! response-host
+        (sockets/send-to-server! response-host
                                  (if (int? response-port) response-port (Integer/parseInt response-port))
-                                 (json/write-str {:message "success"}))
+                                 (json/write-str {:fire-name fire-name
+                                                  :from      "gridfire"
+                                                  :status    0}
+                                                 :key-fn (comp kebab->camel name)))
         (recur (<! job-queue)))))
 
 (defn handler [msg]
-  (let [request (json/read-str msg :key-fn keyword)]
+  (let [request (json/read-str msg :key-fn (comp keyword camel->kebab))]
     (go (>! job-queue request))))
 
 (defn start-server! [& args]
