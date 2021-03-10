@@ -7,7 +7,7 @@
                                      in-bounds?
                                      burnable?]]
             [gridfire.crown-fire :refer [ft->m]]
-            [gridfire.utils.random :refer [random-float my-rand-int-range]]
+            [gridfire.utils.random :refer [random-float my-rand-range]]
             [gridfire.conversion :as convert]
             [kixi.stats.distribution :as distribution]))
 
@@ -60,9 +60,9 @@
   [{:keys [num-firebrands]} rand-gen]
   (if (map? num-firebrands)
     (let [{:keys [lo hi]} num-firebrands
-          l               (if (vector? lo) (my-rand-int-range rand-gen lo) lo)
-          h               (if (vector? hi) (my-rand-int-range rand-gen hi) hi)]
-      (my-rand-int-range rand-gen [l h]))
+          l               (if (vector? lo) (my-rand-range rand-gen lo) lo)
+          h               (if (vector? hi) (my-rand-range rand-gen hi) hi)]
+      (my-rand-range rand-gen [l h]))
     num-firebrands))
 
 (defn sample-wind-dir-deltas
