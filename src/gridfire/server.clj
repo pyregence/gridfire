@@ -7,14 +7,18 @@
 (def cli-options
   [["-p" "--port PORT" "Port number"
     :default 31337
-    :parse-fn #(Integer/parseInt %)
+    :parse-fn #(if (int? %) % (Integer/parseInt %))
     :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]])
 
 (defonce job-queue (chan 10))
 
+;; TODO This process sho8uld, after receiving response from provisioning server needs to:
+;; unzip tar file in incoming and put into data folder
+;; run gridfire.config/write-config to convert elmfire.data -> gridfire.edn
+;; run gridfire simulation with gridfire.edn
 (defn process-requests! []
-  (go (loop [message (<! job-queue)]
-        (<!! (timeout 5000))
+  (go (loop [{:keys [response-host response-port] :as message} (<! job-queue)]
+        (<! (timeout 500))
         (println "Message:" message)
         ;;TODO uncoment when ready to send response.
         #_(sockets/send-to-server! response-host
@@ -22,10 +26,6 @@
                                  (json/write-str {:message "success"}))
         (recur (<! job-queue)))))
 
-;; TODO This handler, after receiving response from provisioning server needs to:
-;; unzip tar file in incoming and put into data folder
-;; run gridfire.config/write-config to convert elmfire.data -> gridfire.edn
-;; run gridfire simulation with gridfire.edn
 (defn handler [msg]
   (let [request (json/read-str msg :key-fn keyword)]
     (go (>! job-queue request))))
