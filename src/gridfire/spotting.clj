@@ -7,7 +7,7 @@
                                      in-bounds?
                                      burnable?]]
             [gridfire.crown-fire :refer [ft->m]]
-            [gridfire.utils.random :refer [random-float my-rand-int-range]]
+            [gridfire.utils.random :refer [random-float my-rand-range]]
             [gridfire.conversion :as convert]
             [kixi.stats.distribution :as distribution]))
 
@@ -60,9 +60,9 @@
   [{:keys [num-firebrands]} rand-gen]
   (if (map? num-firebrands)
     (let [{:keys [lo hi]} num-firebrands
-          l               (if (vector? lo) (my-rand-int-range rand-gen lo) lo)
-          h               (if (vector? hi) (my-rand-int-range rand-gen hi) hi)]
-      (my-rand-int-range rand-gen [l h]))
+          l               (if (vector? lo) (my-rand-range rand-gen lo) lo)
+          h               (if (vector? hi) (my-rand-range rand-gen hi) hi)]
+      (my-rand-range rand-gen [l h]))
     num-firebrands))
 
 (defn sample-wind-dir-deltas
@@ -232,11 +232,13 @@
   [[min max] fuel-model-number]
   (<= min fuel-model-number max))
 
-(defn surface-spot-percent
-  [fuel-range-percents fuel-model-number]
+(defn- surface-spot-percent
+  [fuel-range-percents fuel-model-number rand-gen]
   (reduce (fn [acc [fuel-range percent]]
             (if (in-range? fuel-range fuel-model-number)
-              percent
+              (if (vector? fuel-range)
+                (my-rand-range rand-gen fuel-range)
+                percent)
               acc))
           0.0
           fuel-range-percents))
@@ -256,7 +258,7 @@
       (let [fuel-range-percents (:spotting-percent surface-fire-spotting)
             fuel-model-raster   (:fuel-model landfire-layers)
             fuel-model-number   (int (m/mget fuel-model-raster i j))
-            spot-percent        (surface-spot-percent fuel-range-percents fuel-model-number)]
+            spot-percent        (surface-spot-percent fuel-range-percents fuel-model-number rand-gen)]
         (>= spot-percent (random-float 0.0 1.0 rand-gen))))))
 
 (defn crown-spot-fire? [{:keys [spotting rand-gen]}]
