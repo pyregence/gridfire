@@ -18,7 +18,9 @@
   (let [{:keys [response-host response-port] :as request} (json/read-str msg :key-fn keyword)]
     (<!! (timeout 500))
     (println "Message:" request)
-    (sockets/send-to-server! response-host (Integer/parseInt response-port) (json/write-str {:message "success"}))))
+    (sockets/send-to-server! response-host
+                             (if (int? response-port) response-port (Integer/parseInt response-port))
+                             (json/write-str {:message "success"}))))
 
 (defn start-server! [& args]
   (let [{:keys [options summary errors]} (parse-opts args cli-options)]
