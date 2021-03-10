@@ -12,7 +12,7 @@
 
 (defonce job-queue (chan 10))
 
-(defn process-request! []
+(defn process-requests! []
   (go (loop [message (<! job-queue)]
         (println "Message:" message)
         (recur (<! job-queue)))))
@@ -41,6 +41,7 @@
         (println (str "Usage:\n" summary)))
       (let [port (:port options)]
         (println (format "Running server on port %s" port))
-        (sockets/start-server! port handler)))))
+        (sockets/start-server! port handler)
+        (process-requests!)))))
 
 (def -main start-server!)
