@@ -1,7 +1,7 @@
 (ns gridfire.server
   (:require [gridfire.simple-sockets :as sockets]
             [clojure.tools.cli :refer [parse-opts]]
-            [clojure.core.async :refer [timeout <!]]
+            [clojure.core.async :refer [timeout <!!]]
             [clojure.data.json :as json]))
 
 (def cli-options
@@ -16,7 +16,7 @@
 ;; run gridfire simulation with gridfire.edn
 (defn handler [msg]
   (let [{:keys [response-host response-port] :as request} (json/read-str msg :key-fn keyword)]
-    (<! (timeout 500))
+    (<!! (timeout 500))
     (println "Message:" request)
     (sockets/send-to-server! response-host (Integer/parseInt response-port) (json/write-str {:message "success"}))))
 
