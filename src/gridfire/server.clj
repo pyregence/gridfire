@@ -28,6 +28,10 @@
          (cons (first words))
          (str/join ""))))
 
+;;-----------------------------------------------------------------------------
+;; Main
+;;-----------------------------------------------------------------------------
+
 (def cli-options
   [["-p" "--port PORT" "Port number"
     :default 31337
@@ -44,9 +48,8 @@
   (go (loop [{:keys [fire-name response-host response-port] :as message} (<! job-queue)]
         (<! (timeout 500))
         (println "Message:" message)
-        ;;TODO uncoment when ready to send response.
         (sockets/send-to-server! response-host
-                                 (if (int? response-port) response-port (Integer/parseInt response-port))
+                                 (-> response-port #(if (int? %) % (Integer/parseInt %)))
                                  (json/write-str {:fire-name fire-name
                                                   :from      "gridfire"
                                                   :status    0}
