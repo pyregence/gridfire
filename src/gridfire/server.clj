@@ -43,7 +43,7 @@
 
 (defonce job-queue (chan 10))
 
-;; TODO This process should, after receiving response from provisioning server needs to:
+;; TODO This process should, after receiving response from pyergence server needs to:
 ;; unzip tar file in incoming and put into data folder
 ;; run gridfire.config/write-config to convert elmfire.data -> gridfire.edn
 ;; run gridfire simulation with gridfire.edn
