@@ -13,6 +13,7 @@
   "Converts camelString to kebab-string"
   [camel-string]
   (as-> camel-string s
+    (str/replace s #"[^\w$]" "")
     (str/split s #"(?<=[a-z])(?=[A-Z])")
     (map str/lower-case s)
     (str/join "-" s)))
