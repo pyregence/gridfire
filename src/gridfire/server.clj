@@ -9,6 +9,7 @@
 ;; Utils
 ;;-----------------------------------------------------------------------------
 
+;; TODO remove when code is in triangulum
 (defn camel->kebab
   "Converts camelString to kebab-string"
   [camel-string]
@@ -17,6 +18,7 @@
     (map str/lower-case s)
     (str/join "-" s)))
 
+;; TODO remove when code is in triangulum
 (defn kebab->camel
   "Converts kebab-string to camelString."
   [kebab-string]
@@ -27,6 +29,18 @@
     (->> (map str/capitalize (rest words))
          (cons (first words))
          (str/join ""))))
+
+;; TODO remove when code is in triangulum
+(defn val->int
+  ([val]
+   (val->int val (int -1)))
+  ([val default]
+   (cond
+     (instance? Integer val) val
+     (number? val)           (int val)
+     :else                   (try
+                               (Integer/parseInt val)
+                               (catch Exception _ (int default))))))
 
 ;;-----------------------------------------------------------------------------
 ;; Main
@@ -53,7 +67,7 @@
         (<! (timeout 500))
         (println "Message:" message)
         (sockets/send-to-server! response-host
-                                 (-> response-port (#(if (int? %) % (Integer/parseInt %))))
+                                 (val->int response-port)
                                  (json/write-str {:fire-name     fire-name
                                                   :response-host host
                                                   :response-port port
