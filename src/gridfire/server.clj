@@ -40,10 +40,11 @@
 
 (defonce job-queue (chan 10))
 
-;; TODO This process sho8uld, after receiving response from provisioning server needs to:
+;; TODO This process should, after receiving response from provisioning server needs to:
 ;; unzip tar file in incoming and put into data folder
 ;; run gridfire.config/write-config to convert elmfire.data -> gridfire.edn
 ;; run gridfire simulation with gridfire.edn
+;; run postprocess.sh to convert binary files to geotiffs and sends it to geoserver?
 (defn process-requests! []
   (go (loop [{:keys [fire-name response-host response-port] :as message} (<! job-queue)]
         (<! (timeout 500))
@@ -51,7 +52,7 @@
         (sockets/send-to-server! response-host
                                  (-> response-port #(if (int? %) % (Integer/parseInt %)))
                                  (json/write-str {:fire-name fire-name
-                                                  :from      "gridfire"
+                                                  :from      "gridfire.pyregence.org"
                                                   :status    0}
                                                  :key-fn (comp kebab->camel name)))
         (recur (<! job-queue)))))
