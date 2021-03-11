@@ -53,7 +53,7 @@
         (<! (timeout 500))
         (println "Message:" message)
         (sockets/send-to-server! response-host
-                                 (-> response-port #(if (int? %) % (Integer/parseInt %)))
+                                 (-> response-port (#(if (int? %) % (Integer/parseInt %))))
                                  (json/write-str {:fire-name     fire-name
                                                   :response-host host
                                                   :response-port port
