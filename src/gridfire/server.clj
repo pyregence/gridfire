@@ -38,7 +38,8 @@
     :parse-fn #(if (int? %) % (Integer/parseInt %))
     :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
 
-   ["-h" "--host HOST" "Host domain name"]])
+   ["-h" "--host HOST" "Host domain name"
+    :default "gridfire.pyregence.org"]])
 
 (defonce job-queue (chan 10))
 
@@ -47,7 +48,7 @@
 ;; run gridfire.config/write-config to convert elmfire.data -> gridfire.edn
 ;; run gridfire simulation with gridfire.edn
 ;; run postprocess.sh to convert binary files to geotiffs and sends it to geoserver?
-(defn process-requests! [{:keys [host]}]
+(defn process-requests! [{:keys [host port]}]
   (go (loop [{:keys [fire-name response-host response-port] :as message} (<! job-queue)]
         (<! (timeout 500))
         (println "Message:" message)
@@ -55,6 +56,7 @@
                                  (-> response-port #(if (int? %) % (Integer/parseInt %)))
                                  (json/write-str {:fire-name     fire-name
                                                   :response-host host
+                                                  :response-port port
                                                   :status        0}
                                                  :key-fn (comp kebab->camel name)))
         (recur (<! job-queue)))))
