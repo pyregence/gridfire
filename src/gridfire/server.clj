@@ -89,7 +89,7 @@
         (let [request   (json/read-str msg :key-fn (comp keyword camel->kebab))
               data-path (unzip-tar config request)]
           (println "Message:" request)
-          (config/convert-config! "-c" (str/join "/" [data-path "elmfire.data"]))
+          (config/convert-config! "-c" (str data-path "/elmfire.data"))
           (sockets/send-to-server! (:response-host request)
                                    (val->int (:response-port request))
                                    (json/write-str {:fire-name     (:fire-name request)
