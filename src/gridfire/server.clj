@@ -79,6 +79,9 @@
   (let [request (json/read-str msg :key-fn (comp keyword camel->kebab))]
     (go (>! job-queue request))))
 
+(defn stop-server! []
+  (sockets/stop-server!))
+
 (defn start-server! [& args]
   (let [{:keys [options summary errors]} (parse-opts args cli-options)]
     (if (or (seq errors) (empty? options))
