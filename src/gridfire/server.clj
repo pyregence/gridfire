@@ -1,9 +1,13 @@
 (ns gridfire.server
-  (:require [gridfire.simple-sockets :as sockets]
-            [clojure.tools.cli :refer [parse-opts]]
-            [clojure.core.async :refer [timeout chan >! <! go]]
+  (:require [clojure.core.async :refer [<! >! chan go timeout]]
             [clojure.data.json :as json]
-            [clojure.string :as str]))
+            [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [clojure.java.shell :as sh]
+            [clojure.string :as str]
+            [clojure.tools.cli :refer [parse-opts]]
+            [gridfire.simple-sockets :as sockets]
+            [triangulum.utils :refer [parse-as-sh-cmd]]))
 
 ;;-----------------------------------------------------------------------------
 ;; Utils
@@ -42,9 +46,58 @@
                                (Integer/parseInt val)
                                (catch Exception _ (int default))))))
 
+(defn convert-date-string [date-str]
+  (->> date-str
+       (.parse (java.text.SimpleDateFormat. "yyyy-MM-dd HH:mm zzz"))
+       (.format (java.text.SimpleDateFormat. "yyyyMMdd_HHmmss"))))
+
+;; TODO remove when code is in triangulum
+(defn sh-wrapper [dir env & commands]
+  (let [path-env (System/getenv "PATH")]
+    (io/make-parents (str dir "/dummy"))
+    (sh/with-sh-dir dir
+      (sh/with-sh-env (merge {:PATH path-env} env)
+        (doseq [cmd commands]
+          (let [{:keys [exit err]} (apply sh/sh (parse-as-sh-cmd cmd))]
+            (when-not (= 0 exit)
+              (throw (ex-info err {})))))))))
+
 ;;-----------------------------------------------------------------------------
 ;; Main
 ;;-----------------------------------------------------------------------------
+
+(defonce job-queue (chan 10))
+
+(defn- build-file-name [fire-name ignition-time]
+  (str/join "_" [fire-name (convert-date-string ignition-time) "001"]))
+
+(defn- unzip-tar
+  "Unzips tar file "
+  [{:keys [data-dir incoming-dir]} {:keys [fire-name ignition-time]}]
+  (let [file-name     (build-file-name fire-name ignition-time)
+        output-folder (str/join "/" [data-dir file-name])]
+    (->> (sh-wrapper incoming-dir
+                     {}
+                     (format "mkdir -p %s" output-folder)
+                     (format "tar -xvf %s -C %s" (str file-name ".tar") output-folder)))))
+
+(defn process-requests! [config {:keys [host port]}]
+  (go (loop [msg (<! job-queue)]
+        (<! (timeout 500))
+        (let [request (json/read-str msg :key-fn (comp keyword camel->kebab))]
+          (println "Message:" request)
+          (unzip-tar config request)
+          (sockets/send-to-server! (:response-host request)
+                                   (val->int (:response-port request))
+                                   (json/write-str {:fire-name     (:fire-name request)
+                                                    :response-host host
+                                                    :response-port port
+                                                    :status        0}
+                                                   :key-fn (comp kebab->camel name))))
+        (recur (<! job-queue)))))
+
+(defn handler [msg]
+  (go (>! job-queue msg)))
 
 (def cli-options
   [["-p" "--port PORT" "Port number"
@@ -53,31 +106,10 @@
     :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
 
    ["-h" "--host HOST" "Host domain name"
-    :default "gridfire.pyregence.org"]])
+    :default "gridfire.pyregence.org"]
 
-(defonce job-queue (chan 10))
-
-;; TODO This process should, after receiving response from pyergence server needs to:
-;; unzip tar file in incoming and put into data folder
-;; run gridfire.config/write-config to convert elmfire.data -> gridfire.edn
-;; run gridfire simulation with gridfire.edn
-;; run postprocess.sh to convert binary files to geotiffs and sends it to geoserver?
-(defn process-requests! [{:keys [host port]}]
-  (go (loop [{:keys [fire-name response-host response-port] :as message} (<! job-queue)]
-        (<! (timeout 500))
-        (println "Message:" message)
-        (sockets/send-to-server! response-host
-                                 (val->int response-port)
-                                 (json/write-str {:fire-name     fire-name
-                                                  :response-host host
-                                                  :response-port port
-                                                  :status        0}
-                                                 :key-fn (comp kebab->camel name)))
-        (recur (<! job-queue)))))
-
-(defn handler [msg]
-  (let [request (json/read-str msg :key-fn (comp keyword camel->kebab))]
-    (go (>! job-queue request))))
+   ["-c" "--config CONFIG" "Server config file"
+    :missing "You must provide a server config edn"]])
 
 (defn start-server! [& args]
   (let [{:keys [options summary errors]} (parse-opts args cli-options)]
@@ -87,9 +119,10 @@
           (run! println errors)
           (newline))
         (println (str "Usage:\n" summary)))
-      (let [port (:port options)]
+      (let [port   (:port options)
+            config (edn/read-string (slurp (:config options)))]
         (println (format "Running server on port %s" port))
         (sockets/start-server! port handler)
-        (process-requests! options)))))
+        (process-requests! config options)))))
 
 (def -main start-server!)
