@@ -7,6 +7,7 @@
             [clojure.string          :as str]
             [clojure.tools.cli       :refer [parse-opts]]
             [gridfire.simple-sockets :as sockets]
+            [gridfire.cli            :as cli]
             [gridfire.config         :as config]
             [triangulum.utils        :refer [parse-as-sh-cmd]]))
 
@@ -90,6 +91,7 @@
               data-path (unzip-tar config request)]
           (println "Message:" request)
           (config/convert-config! "-c" (str/join "/" [data-path "elmfire.data"]))
+          (cli/-main (str/join "/" [data-path "gridfire.edn"]))
           (sockets/send-to-server! (:response-host request)
                                    (val->int (:response-port request))
                                    (json/write-str {:fire-name     (:fire-name request)
