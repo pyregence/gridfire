@@ -7,6 +7,7 @@
             [clojure.string          :as str]
             [clojure.tools.cli       :refer [parse-opts]]
             [gridfire.simple-sockets :as sockets]
+            [gridfire.config         :as config]
             [triangulum.utils        :refer [parse-as-sh-cmd]]))
 
 ;;-----------------------------------------------------------------------------
@@ -72,21 +73,23 @@
   (str/join "_" [fire-name (convert-date-string ignition-time) "001"]))
 
 (defn- unzip-tar
-  "Unzips tar file "
+  "Unzips tar file and returns file path to the extracted fodler"
   [{:keys [data-dir incoming-dir]} {:keys [fire-name ignition-time]}]
   (let [file-name     (build-file-name fire-name ignition-time)
         output-folder (str/join "/" [data-dir file-name])]
     (->> (sh-wrapper incoming-dir
                      {}
                      (format "mkdir -p %s" output-folder)
-                     (format "tar -xvf %s -C %s" (str file-name ".tar") output-folder)))))
+                     (format "tar -xvf %s -C %s" (str file-name ".tar") output-folder)))
+    output-folder))
 
 (defn process-requests! [config {:keys [host port]}]
   (go (loop [msg (<! job-queue)]
-        (<! (timeout 500))
-        (let [request (json/read-str msg :key-fn (comp keyword camel->kebab))]
+        (<! (timeout 500)) ;TODO remove
+        (let [request   (json/read-str msg :key-fn (comp keyword camel->kebab))
+              data-path (unzip-tar config request)]
           (println "Message:" request)
-          (unzip-tar config request)
+          (config/convert-config! "-c" (str/join "/" [data-path "elmfire.data"]))
           (sockets/send-to-server! (:response-host request)
                                    (val->int (:response-port request))
                                    (json/write-str {:fire-name     (:fire-name request)

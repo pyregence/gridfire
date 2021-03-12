@@ -331,7 +331,7 @@
   [["-c" "--config-file FILE" "Path to an data file containing a map of simulation configs"]
    ["-v" "--verbose" "Flag for controlling outputs"]])
 
-(defn -main
+(defn convert-config!
   [& args]
   (println (str "Converting configuration file to one that Gridfire accepts."))
   (let [{:keys [options summary errors]} (parse-opts args cli-options)]
@@ -343,3 +343,5 @@
         (println (str "Usage:\n" summary)))
       (binding [elmfire-file-path (str/replace (:config-file options) #"/elmfire.data" "")]
         (write-config (process-options options))))))
+
+(def -main convert-config!)
