@@ -1,9 +1,9 @@
 (ns gridfire.server
-  (:require [gridfire.simple-sockets :as sockets]
-            [clojure.tools.cli :refer [parse-opts]]
-            [clojure.core.async :refer [timeout chan >! <! go]]
-            [clojure.data.json :as json]
-            [clojure.string :as str]))
+  (:require [clojure.core.async      :refer [<! >! chan go timeout]]
+            [clojure.data.json       :as json]
+            [clojure.string          :as str]
+            [clojure.tools.cli       :refer [parse-opts]]
+            [gridfire.simple-sockets :as sockets]))
 
 ;;-----------------------------------------------------------------------------
 ;; Utils
