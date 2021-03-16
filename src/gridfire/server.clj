@@ -8,7 +8,8 @@
             [clojure.tools.cli       :refer [parse-opts]]
             [gridfire.simple-sockets :as sockets]
             [gridfire.config         :as config]
-            [triangulum.utils        :refer [parse-as-sh-cmd]]))
+            [triangulum.utils        :refer [parse-as-sh-cmd]])
+  (:import java.util.TimeZone))
 
 ;;-----------------------------------------------------------------------------
 ;; Utils
@@ -48,9 +49,12 @@
                                (catch Exception _ (int default))))))
 
 (defn convert-date-string [date-str]
-  (->> date-str
-       (.parse (java.text.SimpleDateFormat. "yyyy-MM-dd HH:mm zzz"))
-       (.format (java.text.SimpleDateFormat. "yyyyMMdd_HHmmss"))))
+  (let [in-format  (java.text.SimpleDateFormat. "yyyy-MM-dd HH:mm zzz")
+        out-format (doto (java.text.SimpleDateFormat. "yyyyMMdd_HHmmss")
+                     (.setTimeZone (TimeZone/getTimeZone "UTC")))]
+    (->> date-str
+         (.parse in-format)
+         (.format out-format))))
 
 ;; TODO remove when code is in triangulum
 (defn sh-wrapper [dir env & commands]
