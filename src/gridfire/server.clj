@@ -84,8 +84,7 @@
         output-folder (str/join "/" [data-dir file-name])]
     (->> (sh-wrapper incoming-dir
                      {}
-                     (format "mkdir -p %s" output-folder)
-                     (format "tar -xvf %s -C %s" (str file-name ".tar") output-folder)))
+                     (format "tar -xf %s -C %s" (str file-name ".tar") output-folder)))
     output-folder))
 
 (defn process-requests! [config {:keys [host port]}]
