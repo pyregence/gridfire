@@ -78,12 +78,10 @@
 (defn- unzip-tar
   "Unzips tar file "
   [{:keys [data-dir incoming-dir]} {:keys [fire-name ignition-time]}]
-  (let [file-name     (build-file-name fire-name ignition-time)
-        output-folder (str/join "/" [data-dir file-name])]
+  (let [file-name (build-file-name fire-name ignition-time)]
     (->> (sh-wrapper incoming-dir
                      {}
-                     (format "mkdir -p %s" output-folder)
-                     (format "tar -xvf %s -C %s" (str file-name ".tar") output-folder)))))
+                     (format "tar -xvf %s -C %s" (str file-name ".tar") data-dir)))))
 
 (defn process-requests! [config {:keys [host port]}]
   (go (loop [msg (<! job-queue)]
