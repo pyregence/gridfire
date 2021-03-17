@@ -78,23 +78,22 @@
   (str/join "_" [fire-name (convert-date-string ignition-time) "001"]))
 
 (defn- unzip-tar
-  "Unzips tar file and returns file path to the extracted fodler"
+  "Unzips tar file and returns file path to the extracted folder"
   [{:keys [data-dir incoming-dir]} {:keys [fire-name ignition-time]}]
-  (let [file-name     (build-file-name fire-name ignition-time)
-        output-folder (str/join "/" [data-dir file-name])]
+  (let [file-name (build-file-name fire-name ignition-time)]
     (->> (sh-wrapper incoming-dir
                      {}
-                     (format "tar -xf %s -C %s" (str file-name ".tar") output-folder)))
-    output-folder))
+                     (format "tar -xvf %s -C %s" (str file-name ".tar") data-dir)))
+    (str/join "/" [data-dir file-name])))
 
 (defn process-requests! [config {:keys [host port]}]
   (go (loop [msg (<! job-queue)]
         (<! (timeout 500)) ;TODO remove
-        (let [request   (json/read-str msg :key-fn (comp keyword camel->kebab))
-              data-path (unzip-tar config request)]
+        (let [request         (json/read-str msg :key-fn (comp keyword camel->kebab))
+              input-deck-path (unzip-tar config request)]
           (println "Message:" request)
-          (config/convert-config! "-c" (str data-path "/elmfire.data"))
-          (cli/-main (str data-path "/gridfire.edn"))
+          (config/convert-config! "-c" (str input-deck-path "/elmfire.data"))
+          (cli/-main (str input-deck-path "/gridfire.edn"))
           (sockets/send-to-server! (:response-host request)
                                    (val->int (:response-port request))
                                    (json/write-str {:fire-name     (:fire-name request)
