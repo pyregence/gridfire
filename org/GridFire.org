@@ -2026,6 +2026,7 @@ pseudo-code lays out the steps taken in this procedure:
                      fire-type]} destinations]
          (let [[i j]               source
                new-spread-fraction (/ (* spread-rate timestep) terrain-distance)
+               old-total           @fractional-distance
                new-total           (vreset! fractional-distance
                                             (+ @fractional-distance new-spread-fraction))]
            (if (>= new-total 1.0)
@@ -2037,6 +2038,8 @@ pseudo-code lays out the steps taken in this procedure:
               :spread-rate          spread-rate
               :crown-fire?          crown-fire?
               :fire-type            fire-type
+              :dt-adjusted          (* (/ (- 1.0 old-total) (- new-total old-total))
+                                       timestep)
               :ignition-probability (m/mget fire-spread-matrix i j)})))
        (remove nil?)
        (group-by :cell)
@@ -2103,7 +2106,8 @@ pseudo-code lays out the steps taken in this procedure:
   Returns a map of ignited cells"
   [constants
    global-clock
-   {:keys [fire-spread-matrix burn-time-matrix]}
+   {:keys [fire-spread-matrix burn-time-matrix spread-rate-matrix fire-type-matrix
+           flame-length-matrix]}
    spot-ignite-now]
   (let [ignited?        (fn [[k v]]
                           (let [[i j] k
@@ -2117,7 +2121,10 @@ pseudo-code lays out the steps taken in this procedure:
             :let [[i j]                    (key cell)
                   [_ ignition-probability] (val cell)]]
       (m/mset! fire-spread-matrix i j ignition-probability)
-      (m/mset! burn-time-matrix i j global-clock))
+      (m/mset! burn-time-matrix i j global-clock)
+      (m/mset! flame-length-matrix i j -1.0)
+      (m/mset! spread-rate-matrix i j -1.0)
+      (m/mset! fire-type-matrix i j -1.0))
     ignited-cells))
 
 (defn new-spot-ignitions
@@ -2174,12 +2181,13 @@ pseudo-code lays out the steps taken in this procedure:
         ;; [{:cell :trajectory :fractional-distance
         ;;   :flame-length :fire-line-intensity} ...]
         (doseq [{:keys [cell flame-length fire-line-intensity
-                        ignition-probability spread-rate fire-type] :as ignition-event} ignition-events]
+                        ignition-probability spread-rate fire-type
+                        dt-adjusted] :as ignition-event} ignition-events]
           (let [[i j] cell]
             (m/mset! fire-spread-matrix         i j ignition-probability)
             (m/mset! flame-length-matrix        i j flame-length)
             (m/mset! fire-line-intensity-matrix i j fire-line-intensity)
-            (m/mset! burn-time-matrix           i j global-clock)
+            (m/mset! burn-time-matrix           i j (+ global-clock dt-adjusted))
             (m/mset! spread-rate-matrix         i j spread-rate)
             (m/mset! fire-type-matrix           i j (fire-type fire-type-to-value))))
         (let [new-spot-ignitions (new-spot-ignitions config
@@ -2281,6 +2289,9 @@ pseudo-code lays out the steps taken in this procedure:
       (m/mset! fire-spread-matrix i j 1.0)
       (m/mset! flame-length-matrix i j 1.0)
       (m/mset! fire-line-intensity-matrix i j 1.0)
+      (m/mset! burn-time-matrix i j -1.0)
+      (m/mset! spread-rate-matrix i j -1.0)
+      (m/mset! fire-type-matrix i j -1.0)
       (let [ignited-cells {initial-ignition-site
                            (compute-neighborhood-fire-spread-rates!
                             constants
@@ -3222,7 +3233,7 @@ or false:
   (when output-binary?
     (let [output-name (format "toa_0001_%05d.bin" (inc simulation))]
       (binary/write-matrices-as-binary [{:ttype  :float
-                                         :matrix (m/emap #(if (pos? %) (* 60 %) -1.0) burn-time-matrix)}
+                                         :matrix (m/emap #(if (pos? %) (* 60 %) %) burn-time-matrix)}
                                         {:ttype  :float
                                          :matrix flame-length-matrix}
                                         {:ttype  :float
@@ -4128,8 +4139,6 @@ Gridfire supports spot fires.
 To turn on spot ignitions include the key *spotting* at the top level of the
 config file. The value is a map containg these required entries:
 
-- *ambient-gas-density*: float
-- *specific-heat-gas*: float
 - *num-firebrands*: number of firebrands each torched tree will produce
 - *decay-constant*: positive number
 - *crown-fire-spotting-percent*: probability a crown fire ignition will spot fires

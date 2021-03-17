@@ -262,7 +262,8 @@
                                               :flin-exp                     (extract-flin-exp data)
                                               :normalized-distance-variance (extract-normalized-distance-variance data)
                                               :crown-fire-spotting-percent  (extract-crown-fire-spotting-percent data)
-                                              :num-firebrands               (extract-num-firebrands data)}}
+                                              :num-firebrands               (extract-num-firebrands data)
+                                              :decay-constant               0.005}}
                             ENABLE_SURFACE_FIRE_SPOTTING
                             (assoc-in [:spotting :surface-fire-spotting]
                                       {:spotting-percent             (extract-global-surface-spotting-percents data)

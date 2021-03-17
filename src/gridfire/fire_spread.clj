@@ -189,6 +189,7 @@
                      fire-type]} destinations]
          (let [[i j]               source
                new-spread-fraction (/ (* spread-rate timestep) terrain-distance)
+               old-total           @fractional-distance
                new-total           (vreset! fractional-distance
                                             (+ @fractional-distance new-spread-fraction))]
            (if (>= new-total 1.0)
@@ -200,6 +201,8 @@
               :spread-rate          spread-rate
               :crown-fire?          crown-fire?
               :fire-type            fire-type
+              :dt-adjusted          (* (/ (- 1.0 old-total) (- new-total old-total))
+                                       timestep)
               :ignition-probability (m/mget fire-spread-matrix i j)})))
        (remove nil?)
        (group-by :cell)
@@ -266,7 +269,8 @@
   Returns a map of ignited cells"
   [constants
    global-clock
-   {:keys [fire-spread-matrix burn-time-matrix]}
+   {:keys [fire-spread-matrix burn-time-matrix spread-rate-matrix fire-type-matrix
+           flame-length-matrix fire-line-intensity-matrix]}
    spot-ignite-now]
   (let [ignited?        (fn [[k v]]
                           (let [[i j] k
@@ -280,7 +284,11 @@
             :let [[i j]                    (key cell)
                   [_ ignition-probability] (val cell)]]
       (m/mset! fire-spread-matrix i j ignition-probability)
-      (m/mset! burn-time-matrix i j global-clock))
+      (m/mset! burn-time-matrix i j global-clock)
+      (m/mset! flame-length-matrix i j 1.0)
+      (m/mset! fire-line-intensity-matrix i j 1.0)
+      (m/mset! spread-rate-matrix i j -1.0)
+      (m/mset! fire-type-matrix i j -1.0))
     ignited-cells))
 
 (defn new-spot-ignitions
@@ -337,12 +345,13 @@
         ;; [{:cell :trajectory :fractional-distance
         ;;   :flame-length :fire-line-intensity} ...]
         (doseq [{:keys [cell flame-length fire-line-intensity
-                        ignition-probability spread-rate fire-type] :as ignition-event} ignition-events]
+                        ignition-probability spread-rate fire-type
+                        dt-adjusted] :as ignition-event} ignition-events]
           (let [[i j] cell]
             (m/mset! fire-spread-matrix         i j ignition-probability)
             (m/mset! flame-length-matrix        i j flame-length)
             (m/mset! fire-line-intensity-matrix i j fire-line-intensity)
-            (m/mset! burn-time-matrix           i j global-clock)
+            (m/mset! burn-time-matrix           i j (+ global-clock dt-adjusted))
             (m/mset! spread-rate-matrix         i j spread-rate)
             (m/mset! fire-type-matrix           i j (fire-type fire-type-to-value))))
         (let [new-spot-ignitions (new-spot-ignitions config
@@ -444,6 +453,9 @@
       (m/mset! fire-spread-matrix i j 1.0)
       (m/mset! flame-length-matrix i j 1.0)
       (m/mset! fire-line-intensity-matrix i j 1.0)
+      (m/mset! burn-time-matrix i j -1.0)
+      (m/mset! spread-rate-matrix i j -1.0)
+      (m/mset! fire-type-matrix i j -1.0)
       (let [ignited-cells {initial-ignition-site
                            (compute-neighborhood-fire-spread-rates!
                             constants

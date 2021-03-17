@@ -86,6 +86,16 @@
                      (format "tar -xvf %s -C %s" (str file-name ".tar") data-dir)))
     (str/join "/" [data-dir file-name])))
 
+(defn- copy-post-process-script [from-dir to-dir]
+  (->> (sh-wrapper from-dir
+                   {}
+                   (format "cp resources/postprocess.sh %s"
+                           (str to-dir "/outputs")))))
+
+(defn- post-process-script [dir]
+  (println "running post process script")
+  (->> (sh-wrapper dir {} "./postprocess.sh")))
+
 (defn process-requests! [config {:keys [host port]}]
   (go (loop [msg (<! job-queue)]
         (<! (timeout 500)) ;TODO remove
@@ -94,6 +104,8 @@
           (println "Message:" request)
           (config/convert-config! "-c" (str input-deck-path "/elmfire.data"))
           (cli/-main (str input-deck-path "/gridfire.edn"))
+          (copy-post-process-script (:software-dir config) input-deck-path)
+          (post-process-script (str input-deck-path "/outputs"))
           (sockets/send-to-server! (:response-host request)
                                    (val->int (:response-port request))
                                    (json/write-str {:fire-name     (:fire-name request)
