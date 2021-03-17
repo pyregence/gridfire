@@ -2,6 +2,7 @@
 (ns gridfire.fire-spread
   (:require [clojure.core.matrix           :as m]
             [clojure.core.matrix.operators :as mop]
+            [gridfire.common               :refer [calc-emc]]
             [gridfire.fuel-models          :refer [build-fuel-model moisturize]]
             [gridfire.surface-fire         :refer [rothermel-surface-fire-spread-no-wind-no-slope
                                                    rothermel-surface-fire-spread-max
@@ -138,15 +139,6 @@
                                        overflow-heat
                                        0.0))}))
 
-(defn calc-emc
-  "Computes the Equilibrium Moisture Content (EMC) from rh (relative
-   humidity in %) and temp (temperature in F)."
-  [rh temp]
-  (/ (cond (< rh 10)  (+ 0.03229 (* 0.281073 rh) (* -0.000578 rh temp))
-           (< rh 50)  (+ 2.22749 (* 0.160107 rh) (* -0.01478 temp))
-           :else (+ 21.0606 (* 0.005565 rh rh) (* -0.00035 rh temp) (* -0.483199 rh)))
-     30))
-
 (defn sample-at
   [here global-clock raster multiplier]
   (let [[i j] (if multiplier
@@ -155,7 +147,7 @@
         band  (int (quot global-clock 60.0))] ;; Assuming each band is 1 hour
     (m/mget raster band i j)))
 
-(defn fuel-moisture [here temperature relative-humidity global-clock multiplier-lookup]
+(defn get-fuel-moisture [here temperature relative-humidity global-clock multiplier-lookup]
   (let [tmp                  (if (v/vectorz? temperature)
                                (sample-at here
                                           global-clock
@@ -212,7 +204,7 @@
                                          wind-from-direction
                                          (:wind-from-direction multiplier-lookup))
                               wind-from-direction)
-        fuel-moisture       (fuel-moisture here temperature relative-humidity global-clock multiplier-lookup)
+        fuel-moisture       (get-fuel-moisture here temperature relative-humidity global-clock multiplier-lookup)
         fuel-model-number   (m/mget (:fuel-model         landfire-rasters) i j)
         slope               (m/mget (:slope              landfire-rasters) i j)
         aspect              (m/mget (:aspect             landfire-rasters) i j)
@@ -439,9 +431,10 @@
                                                        0.0
                                                        0.0)]]
                                            [index ignition-trajectories]))]
-    (run-loop constants
-              ignited-cells
-              fire-spread-matrix
-              flame-length-matrix
-              fire-line-intensity-matrix)))
+    (when (seq ignited-cells)
+      (run-loop constants
+                ignited-cells
+                fire-spread-matrix
+                flame-length-matrix
+                fire-line-intensity-matrix))))
 ;; fire-spread-algorithm ends here
