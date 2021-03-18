@@ -3,7 +3,7 @@
   (:require [clojure.core.matrix           :as m]
             [clojure.core.matrix.operators :as mop]
             [gridfire.common               :refer [extract-constants
-                                                   fuel-moisture
+                                                   get-fuel-moisture
                                                    in-bounds?
                                                    burnable-fuel-model?
                                                    burnable?]]
@@ -154,7 +154,7 @@
           temperature
           wind-from-direction
           wind-speed-20ft]}          (extract-constants constants global-clock here)
-        fuel-moisture                (fuel-moisture relative-humidity temperature)
+        fuel-moisture                (get-fuel-moisture relative-humidity temperature)
         [fuel-model spread-info-min] (rothermel-fast-wrapper fuel-model fuel-moisture)
         midflame-wind-speed          (* wind-speed-20ft 88.0
                                         (wind-adjustment-factor (:delta fuel-model) canopy-height canopy-cover)) ; mi/hr -> ft/min
@@ -484,12 +484,13 @@
         burn-time-matrix           (initialize-matrix num-rows num-cols non-zero-indices)
         firebrand-count-matrix     (when spotting (m/zero-matrix num-rows num-cols))
         ignited-cells              (generate-ignited-cells constants fire-spread-matrix perimeter-indices)]
-    (run-loop constants
-              config
-              {:fire-spread-matrix         fire-spread-matrix
-               :flame-length-matrix        flame-length-matrix
-               :fire-line-intensity-matrix fire-line-intensity-matrix
-               :firebrand-count-matrix     firebrand-count-matrix
-               :burn-time-matrix           burn-time-matrix}
-              ignited-cells)))
+    (when (seq ignited-cells)
+     (run-loop constants
+               config
+               {:fire-spread-matrix         fire-spread-matrix
+                :flame-length-matrix        flame-length-matrix
+                :fire-line-intensity-matrix fire-line-intensity-matrix
+                :firebrand-count-matrix     firebrand-count-matrix
+                :burn-time-matrix           burn-time-matrix}
+               ignited-cells))))
 ;; fire-spread-algorithm ends here
