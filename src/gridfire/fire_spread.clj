@@ -2,6 +2,7 @@
 (ns gridfire.fire-spread
   (:require [clojure.core.matrix           :as m]
             [clojure.core.matrix.operators :as mop]
+            [gridfire.common               :refer [calc-emc]]
             [gridfire.crown-fire           :refer [crown-fire-eccentricity
                                                    crown-fire-line-intensity
                                                    cruz-crown-fire-spread
@@ -142,15 +143,6 @@
                                        0.0))
      :crown-fire?         crown-fire?}))
 
-(defn calc-emc
-  "Computes the Equilibrium Moisture Content (EMC) from rh (relative
-   humidity in %) and temp (temperature in F)."
-  [rh temp]
-  (/ (cond (< rh 10)  (+ 0.03229 (* 0.281073 rh) (* -0.000578 rh temp))
-           (< rh 50)  (+ 2.22749 (* 0.160107 rh) (* -0.01478 temp))
-           :else (+ 21.0606 (* 0.005565 rh rh) (* -0.00035 rh temp) (* -0.483199 rh)))
-     30))
-
 (defn matrix-value-at [[i j] global-clock raster]
   (if (> (m/dimensionality raster) 2)
     (let [band (int (quot global-clock 60.0))] ;Assuming each band is 1 hour
@@ -169,7 +161,7 @@
         (+ value-here (perturbation/value-at perturb-info raster cell)))
       value-here)))
 
-(defn fuel-moisture [relative-humidity temperature]
+(defn get-fuel-moisture [relative-humidity temperature]
   (let [equilibrium-moisture (calc-emc relative-humidity temperature)]
     {:dead {:1hr   (+ equilibrium-moisture 0.002)
             :10hr  (+ equilibrium-moisture 0.015)
@@ -226,7 +218,7 @@
           temperature
           wind-from-direction
           wind-speed-20ft]}          (extract-constants constants global-clock here)
-        fuel-moisture                (fuel-moisture relative-humidity temperature)
+        fuel-moisture                (get-fuel-moisture relative-humidity temperature)
         [fuel-model spread-info-min] (rothermel-fast-wrapper fuel-model fuel-moisture)
         midflame-wind-speed          (* wind-speed-20ft 88.0
                                         (wind-adjustment-factor (:delta fuel-model) canopy-height canopy-cover)) ; mi/hr -> ft/min
@@ -496,12 +488,13 @@
                                                        0.0
                                                        0.0)]]
                                            [index ignition-trajectories]))]
-    (run-loop constants
-              config
-              ignited-cells
-              fire-spread-matrix
-              flame-length-matrix
-              fire-line-intensity-matrix
-              firebrand-count-matrix
-              burn-time-matrix)))
+    (when (seq ignited-cells)
+      (run-loop constants
+                config
+                ignited-cells
+                fire-spread-matrix
+                flame-length-matrix
+                fire-line-intensity-matrix
+                firebrand-count-matrix
+                burn-time-matrix))))
 ;; fire-spread-algorithm ends here
