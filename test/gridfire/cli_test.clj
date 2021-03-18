@@ -312,4 +312,5 @@
                          {:perturbations {:canopy-height {:spatial-type :global
                                                           :range [-1.0 1.0]}}})
           results (run-simulation config)]
-      (is (every? some? results)))))
+
+      (is (valid-exits? results)))))
