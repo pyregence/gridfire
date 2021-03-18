@@ -9,6 +9,7 @@
             [clojure.string        :as str]
             [gridfire.common       :refer [in-bounds?]]
             [gridfire.crown-fire   :refer [m->ft]]
+            [gridfire.common       :refer [calc-emc]]
             [gridfire.fetch        :as fetch]
             [gridfire.fire-spread  :refer [get-neighbors run-fire-spread]]
             [gridfire.perturbation :as perturbation]
@@ -70,15 +71,6 @@
      :flame-length-stddev        flame-length-stddev
      :fire-line-intensity-mean   fire-line-intensity-mean
      :fire-line-intensity-stddev fire-line-intensity-stddev}))
-
-(defn calc-emc
-  "Computes the Equilibrium Moisture Content (EMC) from rh (relative
-   humidity in %) and temp (temperature in F)."
-  [rh temp]
-  (/ (cond (< rh 10)  (+ 0.03229 (* 0.281073 rh) (* -0.000578 rh temp))
-           (< rh 50)  (+ 2.22749 (* 0.160107 rh) (* -0.01478 temp))
-           :otherwise (+ 21.0606 (* 0.005565 rh rh) (* -0.00035 rh temp) (* -0.483199 rh)))
-     30))
 
 (defn calc-ffwi
   "Computes the Fosberg Fire Weather Index value from rh (relative
@@ -269,64 +261,46 @@
    burn-count-matrix]
   (mapv
    (fn [i]
-     (let [initial-ignition-site (or ignition-layer
+     (let [matrix-or-i           (fn [obj i] (:matrix obj (obj i)))
+           initial-ignition-site (or ignition-layer
                                      [(ignition-row i) (ignition-col i)])
-           temperature           (if (map? temperature) (:matrix temperature) (temperature i))
-           wind-speed-20ft       (if (map? wind-speed-20ft) (:matrix wind-speed-20ft) (wind-speed-20ft i))
-           wind-from-direction   (if (map? wind-from-direction) (:matrix wind-from-direction) (wind-from-direction i))
-           relative-humidity     (if (map? relative-humidity) (:matrix relative-humidity) (relative-humidity i))]
-       (if-let [fire-spread-results (run-fire-spread
-                                     {:max-runtime               (max-runtime i)
-                                      :cell-size                 cell-size
-                                      :landfire-rasters          landfire-rasters
-                                      :wind-speed-20ft           wind-speed-20ft
-                                      :wind-from-direction       wind-from-direction
-                                      :temperature               temperature
-                                      :relative-humidity         relative-humidity
-                                      :foliar-moisture           (* 0.01 (foliar-moisture i))
-                                      :ellipse-adjustment-factor (ellipse-adjustment-factor i)
-                                      :num-rows                  (m/row-count (:fuel-model landfire-rasters))
-                                      :num-cols                  (m/column-count (:fuel-model landfire-rasters))
-                                      :multiplier-lookup         multiplier-lookup
-                                      :initial-ignition-site     initial-ignition-site
-                                      :firebrand-count           (:firebrand-count config)
-                                      :perturbations             (when perturbations
+           input-variations      {:max-runtime               (max-runtime i)
+                                  :temperature               (matrix-or-i temperature i)
+                                  :relative-humidity         (matrix-or-i relative-humidity i)
+                                  :wind-speed-20ft           (matrix-or-i wind-speed-20ft i)
+                                  :wind-from-direction       (matrix-or-i wind-from-direction i)
+                                  :foliar-moisture           (* 0.01 (foliar-moisture i))
+                                  :ellipse-adjustment-factor (ellipse-adjustment-factor i)}
+           fire-spread-results   (run-fire-spread
+                                  (merge input-variations
+                                         {:cell-size             cell-size
+                                          :landfire-rasters      landfire-rasters
+                                          :num-rows              (m/row-count (:fuel-model landfire-rasters))
+                                          :num-cols              (m/column-count (:fuel-model landfire-rasters))
+                                          :multiplier-lookup     multiplier-lookup
+                                          :initial-ignition-site initial-ignition-site
+                                          :perturbations         (when perturbations
                                                                    (perturbations i))
-                                      :spotting                  (:spotting config)}
-                                     config)]
-         (do
-           (process-output-layers! config fire-spread-results envelope i)
-           (when-let [timestep output-burn-probability]
-             (process-burn-count! fire-spread-results burn-count-matrix timestep))
-           (if output-csvs?
-             (merge
-              {:ignition-row              (ignition-row i)
-               :ignition-col              (ignition-col i)
-               :max-runtime               (max-runtime i)
-               :temperature               temperature
-               :relative-humidity         relative-humidity
-               :wind-speed-20ft           wind-speed-20ft
-               :wind-from-direction       wind-from-direction
-               :foliar-moisture           (foliar-moisture i)
-               :ellipse-adjustment-factor (ellipse-adjustment-factor i)
-               :exit-condition            (:exit-condition fire-spread-results)}
-              (summarize-fire-spread-results fire-spread-results cell-size))))
-         (when output-csvs?
-           {:ignition-row               (ignition-row i)
-            :ignition-col               (ignition-col i)
-            :max-runtime                (max-runtime i)
-            :temperature                temperature
-            :relative-humidity          relative-humidity
-            :wind-speed-20ft            wind-speed-20ft
-            :wind-from-direction        wind-from-direction
-            :foliar-moisture            (foliar-moisture i)
-            :ellipse-adjustment-factor  (ellipse-adjustment-factor i)
-            :fire-size                  0.0
-            :flame-length-mean          0.0
-            :flame-length-stddev        0.0
-            :fire-line-intensity-mean   0.0
-            :fire-line-intensity-stddev 0.0
-            :exit-condition             :no-fire-spread}))))
+                                          :spotting              (:spotting config)})
+                                  config)]
+       (when fire-spread-results
+         (process-output-layers! config fire-spread-results envelope i)
+         (when-let [timestep output-burn-probability]
+           (process-burn-count! fire-spread-results burn-count-matrix timestep)))
+       (when output-csvs?
+         (merge
+          input-variations
+          {:ignition-row    (ignition-row i)
+           :ignition-col    (ignition-col i)
+           :foliar-moisture (foliar-moisture i)
+           :exit-condition  (:exit-condition fire-spread-results :no-fire-spread)}
+          (if fire-spread-results
+            (summarize-fire-spread-results fire-spread-results cell-size)
+            {:fire-size                  0.0
+             :flame-length-mean          0.0
+             :flame-length-stddev        0.0
+             :fire-line-intensity-mean   0.0
+             :fire-line-intensity-stddev 0.0})))))
    (range simulations)))
 
 (defn write-csv-outputs
