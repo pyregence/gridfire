@@ -271,17 +271,17 @@
                                   :foliar-moisture           (* 0.01 (foliar-moisture i))
                                   :ellipse-adjustment-factor (ellipse-adjustment-factor i)}
            fire-spread-results   (run-fire-spread
-                                  (merge
-                                   input-variations
-                                   {:cell-size             cell-size
-                                    :landfire-rasters      landfire-rasters
-                                    :num-rows              (m/row-count (:fuel-model landfire-rasters))
-                                    :num-cols              (m/column-count (:fuel-model landfire-rasters))
-                                    :multiplier-lookup     multiplier-lookup
-                                    :initial-ignition-site initial-ignition-site
-                                    :perturbations         (when perturbations
-                                                             (perturbations i))
-                                    :spotting              (:spotting config)}))]
+                                  (merge input-variations
+                                         {:cell-size             cell-size
+                                          :landfire-rasters      landfire-rasters
+                                          :num-rows              (m/row-count (:fuel-model landfire-rasters))
+                                          :num-cols              (m/column-count (:fuel-model landfire-rasters))
+                                          :multiplier-lookup     multiplier-lookup
+                                          :initial-ignition-site initial-ignition-site
+                                          :perturbations         (when perturbations
+                                                                   (perturbations i))
+                                          :spotting              (:spotting config)})
+                                  config)]
        (when fire-spread-results
          (process-output-layers! config fire-spread-results envelope i)
          (when-let [timestep output-burn-probability]
