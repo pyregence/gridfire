@@ -2,6 +2,7 @@
 (ns gridfire.fire-spread
   (:require [clojure.core.matrix           :as m]
             [clojure.core.matrix.operators :as mop]
+            [gridfire.common               :refer [calc-emc]]
             [gridfire.crown-fire           :refer [crown-fire-eccentricity
                                                    crown-fire-line-intensity
                                                    cruz-crown-fire-spread
@@ -141,15 +142,6 @@
                                        overflow-heat
                                        0.0))}))
 
-(defn calc-emc
-  "Computes the Equilibrium Moisture Content (EMC) from rh (relative
-   humidity in %) and temp (temperature in F)."
-  [rh temp]
-  (/ (cond (< rh 10)  (+ 0.03229 (* 0.281073 rh) (* -0.000578 rh temp))
-           (< rh 50)  (+ 2.22749 (* 0.160107 rh) (* -0.01478 temp))
-           :else (+ 21.0606 (* 0.005565 rh rh) (* -0.00035 rh temp) (* -0.483199 rh)))
-     30))
-
 (defn sample-weather-at
   [here global-clock raster multiplier perturb-info]
   (let [[i j]      (if multiplier
@@ -172,7 +164,7 @@
         (+ value-here (perturbation/value-at perturb-info raster here)))
       value-here)))
 
-(defn fuel-moisture [relative-humidity temperature]
+(defn get-fuel-moisture [relative-humidity temperature]
   (let [equilibrium-moisture (calc-emc relative-humidity temperature)]
     {:dead {:1hr   (+ equilibrium-moisture 0.002)
             :10hr  (+ equilibrium-moisture 0.015)
@@ -215,7 +207,7 @@
                                                (:relative-humidity multiplier-lookup)
                                                (:relative-humidity perturbations))
                             relative-humidity)
-     :fuel-model-number   (sample-landfire-at (:fuel-model perturbations) fuel-model here)
+     :fuel-model-number   (m/mget fuel-model i j)
      :slope               (m/mget slope i j)
      :aspect              (m/mget aspect i j)
      :canopy-height       (sample-landfire-at here global-clock canopy-height (:canopy-height perturbations))
@@ -250,7 +242,7 @@
           temperature
           wind-from-direction
           wind-speed-20ft]}          (extract-constants constants global-clock here)
-        fuel-moisture                (fuel-moisture relative-humidity temperature)
+        fuel-moisture                (get-fuel-moisture relative-humidity temperature)
         [fuel-model spread-info-min] (rothermel-fast-wrapper fuel-model-number fuel-moisture)
         midflame-wind-speed          (* wind-speed-20ft 88.0
                                         (wind-adjustment-factor (:delta fuel-model) canopy-height canopy-cover)) ; mi/hr -> ft/min
@@ -470,9 +462,10 @@
                                                        0.0
                                                        0.0)]]
                                            [index ignition-trajectories]))]
-    (run-loop constants
-              ignited-cells
-              fire-spread-matrix
-              flame-length-matrix
-              fire-line-intensity-matrix)))
+    (when (seq ignited-cells)
+      (run-loop constants
+                ignited-cells
+                fire-spread-matrix
+                flame-length-matrix
+                fire-line-intensity-matrix))))
 ;; fire-spread-algorithm ends here
