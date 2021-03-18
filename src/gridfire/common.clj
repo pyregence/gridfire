@@ -9,10 +9,10 @@
   [rh temp]
   (/ (cond (< rh 10)  (+ 0.03229 (* 0.281073 rh) (* -0.000578 rh temp))
            (< rh 50)  (+ 2.22749 (* 0.160107 rh) (* -0.01478 temp))
-           :otherwise (+ 21.0606 (* 0.005565 rh rh) (* -0.00035 rh temp) (* -0.483199 rh)))
+           :else (+ 21.0606 (* 0.005565 rh rh) (* -0.00035 rh temp) (* -0.483199 rh)))
      30))
 
-(defn fuel-moisture [relative-humidity temperature]
+(defn get-fuel-moisture [relative-humidity temperature]
   (let [equilibrium-moisture (calc-emc relative-humidity temperature)]
     {:dead {:1hr   (+ equilibrium-moisture 0.002)
             :10hr  (+ equilibrium-moisture 0.015)

@@ -2,7 +2,7 @@
 (ns gridfire.fire-spread
   (:require [clojure.core.matrix           :as m]
             [clojure.core.matrix.operators :as mop]
-            [gridfire.common :refer [fuel-moisture]]
+            [gridfire.common               :refer [get-fuel-moisture]]
             [gridfire.crown-fire           :refer [crown-fire-eccentricity
                                                    crown-fire-line-intensity
                                                    cruz-crown-fire-spread
@@ -213,7 +213,7 @@
           temperature
           wind-from-direction
           wind-speed-20ft]}          (extract-constants constants global-clock here)
-        fuel-moisture                (fuel-moisture relative-humidity temperature)
+        fuel-moisture                (get-fuel-moisture relative-humidity temperature)
         [fuel-model spread-info-min] (rothermel-fast-wrapper fuel-model fuel-moisture)
         midflame-wind-speed          (* wind-speed-20ft 88.0
                                         (wind-adjustment-factor (:delta fuel-model) canopy-height canopy-cover)) ; mi/hr -> ft/min
@@ -483,12 +483,13 @@
                                                        0.0
                                                        0.0)]]
                                            [index ignition-trajectories]))]
-    (run-loop constants
-              config
-              ignited-cells
-              fire-spread-matrix
-              flame-length-matrix
-              fire-line-intensity-matrix
-              firebrand-count-matrix
-              burn-time-matrix)))
+    (when (seq ignited-cells)
+      (run-loop constants
+                config
+                ignited-cells
+                fire-spread-matrix
+                flame-length-matrix
+                fire-line-intensity-matrix
+                firebrand-count-matrix
+                burn-time-matrix))))
 ;; fire-spread-algorithm ends here
