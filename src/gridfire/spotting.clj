@@ -3,7 +3,7 @@
   (:require [clojure.core.matrix :as m]
             [gridfire.common :refer [extract-constants
                                      distance-3d
-                                     fuel-moisture
+                                     get-fuel-moisture
                                      in-bounds?
                                      burnable?
                                      fuel-moisture-from-raster]]
@@ -266,7 +266,7 @@
             wind-from-direction
             relative-humidity]} (extract-constants constants global-clock cell)
           fuel-moisture         (or (fuel-moisture-from-raster constants cell global-clock)
-                                    (fuel-moisture relative-humidity temperature))
+                                    (get-fuel-moisture relative-humidity temperature))
           deltas                (sample-wind-dir-deltas config
                                                         fire-line-intensity-matrix
                                                         (convert/mph->mps wind-speed-20ft)
