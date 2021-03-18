@@ -3,7 +3,7 @@
   (:require [clojure.core.matrix :as m]
             [gridfire.common :refer [extract-constants
                                      distance-3d
-                                     fuel-moisture
+                                     get-fuel-moisture
                                      in-bounds?
                                      burnable?]]
             [gridfire.crown-fire :refer [ft->m]]
@@ -164,7 +164,7 @@
   temperature: (Farenheit)"
   [relative-humidity temperature]
   (let [ignition-temperature 320 ;;FIXME should this be a constant?
-        moisture             (-> (fuel-moisture relative-humidity temperature)
+        moisture             (-> (get-fuel-moisture relative-humidity temperature)
                                  :dead
                                  :1hr)
         Q_ig                 (heat-of-preignition (convert/F->C temperature) ignition-temperature moisture)
