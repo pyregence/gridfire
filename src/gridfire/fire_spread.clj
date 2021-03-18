@@ -5,7 +5,7 @@
             [gridfire.common               :refer [burnable-fuel-model?
                                                    burnable?
                                                    extract-constants
-                                                   fuel-moisture
+                                                   get-fuel-moisture
                                                    in-bounds?]]
             [gridfire.crown-fire          :refer [crown-fire-eccentricity
                                                   crown-fire-line-intensity
@@ -156,7 +156,7 @@
           temperature
           wind-from-direction
           wind-speed-20ft]}           (extract-constants constants global-clock here)
-        fuel-moisture                 (fuel-moisture relative-humidity temperature)
+        fuel-moisture                 (get-fuel-moisture relative-humidity temperature)
         [fuel-model spread-info-min]  (rothermel-fast-wrapper fuel-model fuel-moisture)
         midflame-wind-speed           (* wind-speed-20ft 88.0 (wind-adjustment-factor (:delta fuel-model) canopy-height canopy-cover)) ; mi/hr -> ft/min
         spread-info-max               (rothermel-surface-fire-spread-max spread-info-min
@@ -504,14 +504,15 @@
         spread-rate-matrix         (initialize-matrix num-rows num-cols non-zero-indices)
         fire-type-matrix           (initialize-matrix num-rows num-cols non-zero-indices)
         ignited-cells              (generate-ignited-cells constants fire-spread-matrix perimeter-indices)]
-    (run-loop constants
-              config
-              {:fire-spread-matrix         fire-spread-matrix
-               :spread-rate-matrix         spread-rate-matrix
-               :flame-length-matrix        flame-length-matrix
-               :fire-line-intensity-matrix fire-line-intensity-matrix
-               :firebrand-count-matrix     firebrand-count-matrix
-               :burn-time-matrix           burn-time-matrix
-               :fire-type-matrix           fire-type-matrix}
-              ignited-cells)))
+    (when (seq ignited-cells)
+      (run-loop constants
+                config
+                {:fire-spread-matrix         fire-spread-matrix
+                 :spread-rate-matrix         spread-rate-matrix
+                 :flame-length-matrix        flame-length-matrix
+                 :fire-line-intensity-matrix fire-line-intensity-matrix
+                 :firebrand-count-matrix     firebrand-count-matrix
+                 :burn-time-matrix           burn-time-matrix
+                 :fire-type-matrix           fire-type-matrix}
+                ignited-cells))))
 ;; fire-spread-algorithm ends here
