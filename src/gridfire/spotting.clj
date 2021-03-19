@@ -236,8 +236,8 @@
   [fuel-range-percents fuel-model-number rand-gen]
   (reduce (fn [acc [fuel-range percent]]
             (if (in-range? fuel-range fuel-model-number)
-              (if (vector? fuel-range)
-                (my-rand-range rand-gen fuel-range)
+              (if (vector? percent)
+                (my-rand-range rand-gen percent)
                 percent)
               acc))
           0.0
