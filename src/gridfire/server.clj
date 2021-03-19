@@ -94,7 +94,7 @@
 
 (defn- post-process-script [dir]
   (println "running post process script")
-  (->> (sh-wrapper dir {} "./postprocess.sh")))
+  (sh-wrapper dir {} "./postprocess.sh"))
 
 (defn process-requests! [config {:keys [host port]}]
   (go (loop [msg (<! job-queue)]
