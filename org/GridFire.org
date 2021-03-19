@@ -2678,8 +2678,8 @@ ignition probability.
   [fuel-range-percents fuel-model-number rand-gen]
   (reduce (fn [acc [fuel-range percent]]
             (if (in-range? fuel-range fuel-model-number)
-              (if (vector? fuel-range)
-                (my-rand-range rand-gen fuel-range)
+              (if (vector? percent)
+                (my-rand-range rand-gen percent)
                 percent)
               acc))
           0.0
@@ -2759,8 +2759,8 @@ ignition probability.
                (let [[i j] cell
                      t     (spot-ignition-time global-clock
                                                (ft->m (m/mget flame-length-matrix i j))
-                                               (convert/mph->mps wind-speed-20ft))
-                     [[x y] [t spot-ignition-p]]])))
+                                               (convert/mph->mps wind-speed-20ft))]
+                 [[x y] [t spot-ignition-p]])))
            (remove nil?)))))
 #+end_src
 * User Interface
