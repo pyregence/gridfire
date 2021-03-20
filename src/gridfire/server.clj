@@ -79,9 +79,9 @@
   "Unzips tar file "
   [{:keys [data-dir incoming-dir]} {:keys [fire-name ignition-time]}]
   (let [file-name (build-file-name fire-name ignition-time)]
-    (->> (sh-wrapper incoming-dir
-                     {}
-                     (format "tar -xvf %s -C %s" (str file-name ".tar") data-dir)))))
+    (sh-wrapper incoming-dir
+                {}
+                (format "tar -xvf %s -C %s" (str file-name ".tar") data-dir))))
 
 (defn process-requests! [config {:keys [host port]}]
   (go (loop [msg (<! job-queue)]
