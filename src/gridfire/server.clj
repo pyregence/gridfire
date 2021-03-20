@@ -81,9 +81,9 @@
   "Unzips tar file and returns file path to the extracted folder"
   [{:keys [data-dir incoming-dir]} {:keys [fire-name ignition-time]}]
   (let [file-name (build-file-name fire-name ignition-time)]
-    (->> (sh-wrapper incoming-dir
-                     {}
-                     (format "tar -xvf %s -C %s" (str file-name ".tar") data-dir)))
+    (sh-wrapper incoming-dir
+                {}
+                (format "tar -xvf %s -C %s" (str file-name ".tar") data-dir))
     (str/join "/" [data-dir file-name])))
 
 (defn process-requests! [config {:keys [host port]}]
