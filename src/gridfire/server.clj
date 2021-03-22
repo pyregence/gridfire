@@ -3,7 +3,8 @@
             [clojure.data.json       :as json]
             [clojure.string          :as str]
             [clojure.tools.cli       :refer [parse-opts]]
-            [gridfire.simple-sockets :as sockets]))
+            [gridfire.simple-sockets :as sockets]
+            [triangulum.logging     :refer [log-str]]))
 
 ;;-----------------------------------------------------------------------------
 ;; Utils
@@ -76,8 +77,11 @@
         (recur (<! job-queue)))))
 
 (defn handler [msg]
-  (let [request (json/read-str msg :key-fn (comp keyword camel->kebab))]
-    (go (>! job-queue request))))
+  (go
+    (log-str "Request: " msg)
+    (if-let [request (json/read-str msg :key-fn (comp keyword camel->kebab))]
+      (>! job-queue request)
+      (log-str "  -> Invalid JSON"))))
 
 (defn stop-server! []
   (sockets/stop-server!))
