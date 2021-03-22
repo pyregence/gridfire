@@ -7,6 +7,7 @@
             [clojure.string          :as str]
             [clojure.tools.cli       :refer [parse-opts]]
             [gridfire.simple-sockets :as sockets]
+            [gridfire.utils.server   :refer [nil-on-error]]
             [triangulum.logging      :refer [log-str]]
             [triangulum.utils        :refer [parse-as-sh-cmd]])
   (:import java.util.TimeZone))
@@ -100,7 +101,7 @@
 (defn handler [msg]
   (go
     (log-str "Request: " msg)
-    (if-let [request (json/read-str msg :key-fn (comp keyword camel->kebab))]
+    (if-let [request (nil-on-error (json/read-str msg :key-fn (comp keyword camel->kebab)))]
       (>! job-queue request)
       (log-str "  -> Invalid JSON"))))
 
