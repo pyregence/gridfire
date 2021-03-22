@@ -102,9 +102,9 @@
         (<! (timeout 500))
         (let [input-deck-path (unzip-tar config request)]
           (config/convert-config! "-c" (str input-deck-path "/elmfire.data"))
+          (cli/-main (str input-deck-path "/gridfire.edn"))
           (copy-post-process-script (:software-dir config) input-deck-path)
-          (post-process-script (str input-deck-path "/outputs"))
-          (cli/-main (str input-deck-path "/gridfire.edn")))
+          (post-process-script (str input-deck-path "/outputs")))
         (sockets/send-to-server! response-host
                                  (val->int response-port)
                                  (json/write-str {:fire-name     fire-name
