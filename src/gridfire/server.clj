@@ -8,6 +8,7 @@
             [clojure.tools.cli       :refer [parse-opts]]
             [gridfire.simple-sockets :as sockets]
             [gridfire.config         :as config]
+            [triangulum.logging      :refer [log-str]]
             [triangulum.utils        :refer [parse-as-sh-cmd]])
   (:import java.util.TimeZone))
 
@@ -86,23 +87,25 @@
     (str/join "/" [data-dir file-name])))
 
 (defn process-requests! [config {:keys [host port]}]
-  (go (loop [msg (<! job-queue)]
-        (<! (timeout 500)) ;TODO remove
-        (let [request         (json/read-str msg :key-fn (comp keyword camel->kebab))
-              input-deck-path (unzip-tar config request)]
-          (println "Message:" request)
-          (config/convert-config! "-c" (str input-deck-path "/elmfire.data"))
-          (sockets/send-to-server! (:response-host request)
-                                   (val->int (:response-port request))
-                                   (json/write-str {:fire-name     (:fire-name request)
-                                                    :response-host host
-                                                    :response-port port
-                                                    :status        0}
-                                                   :key-fn (comp kebab->camel name))))
+  (go (loop [{:keys [response-host response-port fire-name] :as request} (<! job-queue)]
+        (<! (timeout 500))
+        (let [input-deck-path (unzip-tar config request)]
+          (config/convert-config! "-c" (str input-deck-path "/elmfire.data")))
+        (sockets/send-to-server! response-host
+                                 (val->int response-port)
+                                 (json/write-str {:fire-name     fire-name
+                                                  :response-host host
+                                                  :response-port port
+                                                  :status        0}
+                                                 :key-fn (comp kebab->camel name)))
         (recur (<! job-queue)))))
 
 (defn handler [msg]
-  (go (>! job-queue msg)))
+  (go
+    (log-str "Request: " msg)
+    (if-let [request (json/read-str msg :key-fn (comp keyword camel->kebab))]
+      (>! job-queue request)
+      (log-str "  -> Invalid JSON"))))
 
 (def cli-options
   [["-p" "--port PORT" "Port number"
