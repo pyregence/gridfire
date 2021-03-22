@@ -77,8 +77,6 @@ cd geoserver
 echo "Creating tarball for GeoServer"
 tar -cvf $FIRENAME-${START_DATE}_${START_TIME}.tar * >& /dev/null
 
-exit 0
-
 echo "Uploading tarball to GeoServer"
 scp  $FIRENAME-${START_DATE}_${START_TIME}.tar gridfire@data.pyregence.org:/incoming/
 mv *.tar ..
