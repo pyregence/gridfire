@@ -7,6 +7,7 @@
             [clojure.string          :as str]
             [clojure.tools.cli       :refer [parse-opts]]
             [gridfire.simple-sockets :as sockets]
+            [triangulum.logging      :refer [log-str]]
             [triangulum.utils        :refer [parse-as-sh-cmd]])
   (:import java.util.TimeZone))
 
@@ -84,22 +85,24 @@
                 (format "tar -xvf %s -C %s" (str file-name ".tar") data-dir))))
 
 (defn process-requests! [config {:keys [host port]}]
-  (go (loop [msg (<! job-queue)]
+  (go (loop [{:keys [response-host response-port fire-name] :as request} (<! job-queue)]
         (<! (timeout 500))
-        (let [request (json/read-str msg :key-fn (comp keyword camel->kebab))]
-          (println "Message:" request)
-          (unzip-tar config request)
-          (sockets/send-to-server! (:response-host request)
-                                   (val->int (:response-port request))
-                                   (json/write-str {:fire-name     (:fire-name request)
-                                                    :response-host host
-                                                    :response-port port
-                                                    :status        0}
-                                                   :key-fn (comp kebab->camel name))))
+        (unzip-tar config request)
+        (sockets/send-to-server! response-host
+                                 (val->int response-port)
+                                 (json/write-str {:fire-name     fire-name
+                                                  :response-host host
+                                                  :response-port port
+                                                  :status        0}
+                                                 :key-fn (comp kebab->camel name)))
         (recur (<! job-queue)))))
 
 (defn handler [msg]
-  (go (>! job-queue msg)))
+  (go
+    (log-str "Request: " msg)
+    (if-let [request (json/read-str msg :key-fn (comp keyword camel->kebab))]
+      (>! job-queue request)
+      (log-str "  -> Invalid JSON"))))
 
 (def cli-options
   [["-p" "--port PORT" "Port number"
