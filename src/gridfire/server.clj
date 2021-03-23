@@ -1,5 +1,5 @@
 (ns gridfire.server
-  (:require [clojure.core.async      :refer [<! >! chan go timeout]]
+  (:require [clojure.core.async      :refer [<! >! chan go]]
             [clojure.data.json       :as json]
             [clojure.edn             :as edn]
             [clojure.java.io         :as io]
@@ -10,8 +10,10 @@
             [gridfire.cli            :as cli]
             [gridfire.config         :as config]
             [gridfire.utils.server   :refer [nil-on-error]]
+            [gridfire.spec.server    :as spec-server]
             [triangulum.logging      :refer [log-str]]
-            [triangulum.utils        :refer [parse-as-sh-cmd]])
+            [triangulum.utils        :refer [parse-as-sh-cmd]]
+            [clojure.spec.alpha      :as spec])
   (:import java.util.TimeZone))
 
 ;;-----------------------------------------------------------------------------
@@ -39,18 +41,6 @@
          (cons (first words))
          (str/join ""))))
 
-;; TODO remove when code is in triangulum
-(defn val->int
-  ([val]
-   (val->int val (int -1)))
-  ([val default]
-   (cond
-     (instance? Integer val) val
-     (number? val)           (int val)
-     :else                   (try
-                               (Integer/parseInt val)
-                               (catch Exception _ (int default))))))
-
 (defn convert-date-string [date-str]
   (let [in-format  (java.text.SimpleDateFormat. "yyyy-MM-dd HH:mm zzz")
         out-format (doto (java.text.SimpleDateFormat. "yyyyMMdd_HHmmss")
@@ -71,7 +61,7 @@
               (throw (ex-info err {})))))))))
 
 ;;-----------------------------------------------------------------------------
-;; Main
+;; Server and Handler Functions
 ;;-----------------------------------------------------------------------------
 
 (defonce job-queue (chan 10))
@@ -99,28 +89,52 @@
   (sh-wrapper dir {} "./postprocess.sh"))
 
 (defn process-requests! [config {:keys [host port]}]
-  (go (loop [{:keys [response-host response-port fire-name] :as request} (<! job-queue)]
-        (<! (timeout 500))
-        (let [input-deck-path (unzip-tar config request)]
-          (config/convert-config! "-c" (str input-deck-path "/elmfire.data"))
-          (cli/-main (str input-deck-path "/gridfire.edn"))
-          (copy-post-process-script (:software-dir config) input-deck-path)
-          (post-process-script (str input-deck-path "/outputs")))
-        (sockets/send-to-server! response-host
-                                 (val->int response-port)
-                                 (json/write-str {:fire-name     fire-name
-                                                  :response-host host
-                                                  :response-port port
-                                                  :status        0}
-                                                 :key-fn (comp kebab->camel name)))
+  (go (loop [{:keys [response-host response-port] :as request} (<! job-queue)]
+        (log-str "Processing Request: " request)
+        (let [[status status-msg] (try
+                                    (let [input-deck-path (unzip-tar config request)]
+                                      (config/convert-config! "-c" (str input-deck-path "/elmfire.data"))
+                                      (cli/-main (str input-deck-path "/gridfire.edn"))
+                                      (copy-post-process-script (:software-dir config) input-deck-path)
+                                      (post-process-script (str input-deck-path "/outputs"))
+                                      [0 "Successful Run. Results uploaded to Geoserver."])
+                                    (catch Exception e
+                                      [1 (str "Processing Error " (ex-message e))]))]
+          (log-str "-> " status-msg)
+          (sockets/send-to-server! response-host
+                                   response-port
+                                   (json/write-str (merge request
+                                                          {:status        status
+                                                           :message       status-msg
+                                                           :response-host host
+                                                           :response-port port})
+                                                   :key-fn (comp kebab->camel name))))
         (recur (<! job-queue)))))
 
-(defn handler [msg]
+(defn handler [host port request-msg]
   (go
-    (log-str "Request: " msg)
-    (if-let [request (nil-on-error (json/read-str msg :key-fn (comp keyword camel->kebab)))]
-      (>! job-queue request)
-      (log-str "  -> Invalid JSON"))))
+    (log-str "Request: " request-msg)
+    (if-let [request (nil-on-error (json/read-str request-msg :key-fn (comp keyword camel->kebab)))]
+      (when-let [[status status-msg] (try
+                                       (if (spec/valid? ::spec-server/gridfire-server-request request)
+                                         (do (>! job-queue request)
+                                             [2 "Added to Job Queue"])
+                                         [1 (str "Invalid Request: " (spec/explain-str ::spec-server/gridfire-server-request request))])
+                                       (catch AssertionError _
+                                         [1 "Job Queue Limit Exceeded! Dropping Request!"])
+                                       (catch Exception e
+                                         [1 (str "Validation Error: " (ex-message e))]))]
+        (log-str "-> " status-msg)
+        (when (spec/valid? ::spec-server/gridfire-server-request-minimal request)
+          (sockets/send-to-server! (:response-host request)
+                                   (:response-port request)
+                                   (json/write-str (merge request
+                                                          {:status        status
+                                                           :message       status-msg
+                                                           :response-host host
+                                                           :response-port port})
+                                                   :key-fn (comp kebab->camel name)))))
+      (log-str "-> Invalid JSON"))))
 
 (def cli-options
   [["-p" "--port PORT" "Port number"
@@ -145,10 +159,10 @@
           (run! println errors)
           (newline))
         (println (str "Usage:\n" summary)))
-      (let [port   (:port options)
-            config (edn/read-string (slurp (:config options)))]
+      (let [{:keys [host port]} options
+            config              (edn/read-string (slurp (:config options)))]
         (println (format "Running server on port %s" port))
-        (sockets/start-server! port handler)
+        (sockets/start-server! port (partial handler host port))
         (process-requests! config options)))))
 
 (def -main start-server!)
