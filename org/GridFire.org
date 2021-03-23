@@ -2977,6 +2977,7 @@ or false:
 (ns gridfire.cli
   (:gen-class)
   (:require [clojure.core.matrix    :as m]
+            [clojure.core.reducers  :as r]
             [clojure.data.csv       :as csv]
             [clojure.edn            :as edn]
             [clojure.java.io        :as io]
@@ -3243,53 +3244,56 @@ or false:
    relative-humidity wind-speed-20ft wind-from-direction foliar-moisture
    ellipse-adjustment-factor ignition-layer multiplier-lookup perturbations
    burn-count-matrix fuel-moisture-layers]
-  (mapv
-   (fn [i]
-     (let [matrix-or-i           (fn [obj i] (:matrix obj (obj i)))
-           initial-ignition-site (or ignition-layer
-                                     (when (and (ignition-row i) (ignition-col i))
-                                      [(ignition-row i) (ignition-col i)]))
-           input-variations      {:max-runtime               (max-runtime i)
-                                  :temperature               (matrix-or-i temperature i)
-                                  :relative-humidity         (matrix-or-i relative-humidity i)
-                                  :wind-speed-20ft           (matrix-or-i wind-speed-20ft i)
-                                  :wind-from-direction       (matrix-or-i wind-from-direction i)
-                                  :foliar-moisture           (* 0.01 (foliar-moisture i))
-                                  :ellipse-adjustment-factor (ellipse-adjustment-factor i)}
-           fire-spread-results   (run-fire-spread
-                                  (merge input-variations
-                                         {:cell-size             cell-size
-                                          :landfire-rasters      landfire-rasters
-                                          :fuel-moisture-layers  fuel-moisture-layers
-                                          :num-rows              (m/row-count (:fuel-model landfire-rasters))
-                                          :num-cols              (m/column-count (:fuel-model landfire-rasters))
-                                          :multiplier-lookup     multiplier-lookup
-                                          :initial-ignition-site initial-ignition-site
-                                          :perturbations         (when perturbations
-                                                                   (perturbations i))
-                                          :spotting              (:spotting config)})
-                                  config)]
-       (when fire-spread-results
-         (process-output-layers! config fire-spread-results envelope i)
-         (when-let [timestep output-burn-probability]
-           (process-burn-count! fire-spread-results burn-count-matrix timestep))
-         (process-binary-output! config fire-spread-results i))
-       (when output-csvs?
-         (merge
-          input-variations
-          {:simulation      (inc i)
-           :ignition-row    (ignition-row i)
-           :ignition-col    (ignition-col i)
-           :foliar-moisture (foliar-moisture i)
-           :exit-condition  (:exit-condition fire-spread-results :no-fire-spread)}
-          (if fire-spread-results
-            (summarize-fire-spread-results fire-spread-results cell-size)
-            {:fire-size                  0.0
-             :flame-length-mean          0.0
-             :flame-length-stddev        0.0
-             :fire-line-intensity-mean   0.0
-             :fire-line-intensity-stddev 0.0})))))
-   (range simulations)))
+  (r/fold
+   (max 1 (quot simulations (.availableProcessors (Runtime/getRuntime))))
+   r/cat
+   r/append!
+   (r/map (fn [i]
+            (let [matrix-or-i           (fn [obj i] (:matrix obj (obj i)))
+                  initial-ignition-site (or ignition-layer
+                                            (when (and (ignition-row i) (ignition-col i))
+                                              [(ignition-row i) (ignition-col i)]))
+                  input-variations      {:max-runtime               (max-runtime i)
+                                         :temperature               (matrix-or-i temperature i)
+                                         :relative-humidity         (matrix-or-i relative-humidity i)
+                                         :wind-speed-20ft           (matrix-or-i wind-speed-20ft i)
+                                         :wind-from-direction       (matrix-or-i wind-from-direction i)
+                                         :foliar-moisture           (* 0.01 (foliar-moisture i))
+                                         :ellipse-adjustment-factor (ellipse-adjustment-factor i)}
+                  fire-spread-results   (run-fire-spread
+                                         (merge input-variations
+                                                {:cell-size             cell-size
+                                                 :landfire-rasters      landfire-rasters
+                                                 :fuel-moisture-layers  fuel-moisture-layers
+                                                 :num-rows              (m/row-count (:fuel-model landfire-rasters))
+                                                 :num-cols              (m/column-count (:fuel-model landfire-rasters))
+                                                 :multiplier-lookup     multiplier-lookup
+                                                 :initial-ignition-site initial-ignition-site
+                                                 :perturbations         (when perturbations
+                                                                          (perturbations i))
+                                                 :spotting              (:spotting config)})
+                                         config)]
+             (when fire-spread-results
+               (process-output-layers! config fire-spread-results envelope i)
+               (when-let [timestep output-burn-probability]
+                 (process-burn-count! fire-spread-results burn-count-matrix timestep))
+               (process-binary-output! config fire-spread-results i))
+             (when output-csvs?
+               (merge
+                input-variations
+                {:simulation      (inc i)
+                 :ignition-row    (ignition-row i)
+                 :ignition-col    (ignition-col i)
+                 :foliar-moisture (foliar-moisture i)
+                 :exit-condition  (:exit-condition fire-spread-results :no-fire-spread)}
+                (if fire-spread-results
+                  (summarize-fire-spread-results fire-spread-results cell-size)
+                  {:fire-size                  0.0
+                   :flame-length-mean          0.0
+                   :flame-length-stddev        0.0
+                   :fire-line-intensity-mean   0.0
+                   :fire-line-intensity-stddev 0.0})))))
+          (vec (range simulations)))))
 
 (defn write-csv-outputs
   [output-directory output-csvs? output-filename results-table]
