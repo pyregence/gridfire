@@ -17,9 +17,9 @@
             [gridfire.spec.config   :as spec]
             [gridfire.utils.random  :refer [draw-samples]]
             [magellan.core          :refer [make-envelope
-                                           matrix-to-raster
-                                           register-new-crs-definitions-from-properties-file!
-                                           write-raster]]
+                                            matrix-to-raster
+                                            register-new-crs-definitions-from-properties-file!
+                                            write-raster]]
             [matrix-viz.core        :refer [save-matrix-as-png]])
   (:import java.util.Random))
 
@@ -85,12 +85,12 @@
   [[i j :as here] matrix]
   (let [num-rows (m/row-count matrix)
         num-cols (m/column-count matrix)]
-   (and
-    (= (m/mget matrix i j) -1.0)
-    (->> (get-neighbors here)
-         (filter #(in-bounds? num-rows num-cols %))
-         (map #(apply m/mget matrix %))
-         (some pos?)))))
+    (and
+     (= (m/mget matrix i j) -1.0)
+     (->> (get-neighbors here)
+          (filter #(in-bounds? num-rows num-cols %))
+          (map #(apply m/mget matrix %))
+          (some pos?)))))
 
 (defn to-color-map-values [burn-time-matrix current-clock]
   (m/emap-indexed (fn [here burn-time]
@@ -114,9 +114,9 @@
 
 (defn output-filename [name outfile-suffix simulation-id output-time ext]
   (as-> [name outfile-suffix simulation-id (when output-time (str "t" output-time))] $
-       (remove str/blank? $)
-       (str/join "_" $)
-       (str $ ext)))
+    (remove str/blank? $)
+    (str/join "_" $)
+    (str $ ext)))
 
 (defn output-geotiff
   ([config matrix name envelope]
@@ -133,10 +133,10 @@
                                       (str simulation-id)
                                       output-time
                                       ".tif")]
-      (-> (matrix-to-raster name matrix envelope)
-          (write-raster (if output-directory
-                          (str/join "/" [output-directory file-name])
-                          file-name)))))))
+       (-> (matrix-to-raster name matrix envelope)
+           (write-raster (if output-directory
+                           (str/join "/" [output-directory file-name])
+                           file-name)))))))
 
 (defn output-png
   ([config matrix name envelope]
@@ -153,11 +153,11 @@
                                       (str simulation-id)
                                       output-time
                                       ".png")]
-      (save-matrix-as-png :color 4 -1.0
-                          matrix
-                          (if output-directory
-                            (str/join "/" [output-directory file-name])
-                            (file-name)))))))
+       (save-matrix-as-png :color 4 -1.0
+                           matrix
+                           (if output-directory
+                             (str/join "/" [output-directory file-name])
+                             (file-name)))))))
 
 (def layer-name->matrix
   [["fire_spread"         :fire-spread-matrix]
@@ -212,16 +212,16 @@
    burn-count-matrix
    timestep]
   (if (int? timestep)
-   (doseq [clock (range 0 (inc global-clock) timestep)]
-     (let [filtered-fire-spread (m/emap (fn [layer-value burn-time]
-                                          (if (<= burn-time clock)
-                                            layer-value
-                                            0))
-                                        fire-spread-matrix
-                                        burn-time-matrix)
-           band                 (int (quot clock timestep))]
-       (m/add! (nth (seq burn-count-matrix) band) filtered-fire-spread)))
-   (m/add! burn-count-matrix fire-spread-matrix)))
+    (doseq [clock (range 0 (inc global-clock) timestep)]
+      (let [filtered-fire-spread (m/emap (fn [layer-value burn-time]
+                                           (if (<= burn-time clock)
+                                             layer-value
+                                             0))
+                                         fire-spread-matrix
+                                         burn-time-matrix)
+            band                 (int (quot clock timestep))]
+        (m/add! (nth (seq burn-count-matrix) band) filtered-fire-spread)))
+    (m/add! burn-count-matrix fire-spread-matrix)))
 
 (defn output-burn-probability-layer!
   [{:keys [output-burn-probability simulations] :as config} envelope burn-count-matrix]
@@ -241,9 +241,9 @@
   [{:keys [output-burn-probability]} max-runtime num-rows num-cols]
   (when output-burn-probability
     (if (int? output-burn-probability)
-     (let [num-bands (inc (quot (apply max max-runtime) output-burn-probability))]
-       (m/zero-array [num-bands num-rows num-cols]))
-     (m/zero-array [num-rows num-cols]))))
+      (let [num-bands (inc (quot (apply max max-runtime) output-burn-probability))]
+        (m/zero-array [num-bands num-rows num-cols]))
+      (m/zero-array [num-rows num-cols]))))
 
 (defn process-binary-output!
   [{:keys [output-binary? output-directory]}
@@ -369,13 +369,13 @@
 (defn fuel-moisture-multiplier-lookup
   [cell-size fuel-moisture-layers]
   (when fuel-moisture-layers
-   (letfn [(f [{:keys [scalex]}] (int (quot (m->ft scalex) cell-size)))]
-     (-> fuel-moisture-layers
-         (update-in [:dead :1hr] f)
-         (update-in [:dead :10hr] f)
-         (update-in [:dead :100hr] f)
-         (update-in [:live :herbaceous] f)
-         (update-in [:live :woody] f)))))
+    (letfn [(f [{:keys [scalex]}] (int (quot (m->ft scalex) cell-size)))]
+      (-> fuel-moisture-layers
+          (update-in [:dead :1hr] f)
+          (update-in [:dead :10hr] f)
+          (update-in [:dead :100hr] f)
+          (update-in [:live :herbaceous] f)
+          (update-in [:live :woody] f)))))
 
 (defn create-multiplier-lookup
   [{:keys [cell-size]} weather-layers fuel-moisture-layers]
