@@ -295,14 +295,13 @@
   "Returns a map of [x y] locations to [t p] where:
   t: time of ignition
   p: ignition-probability"
-  [{:keys [spotting] :as config} constants matrices ignition-events]
+  [{:keys [spotting] :as inputs} matrices ignition-events]
   (when spotting
     (reduce (fn [acc ignition-event]
               (merge-with (partial min-key first)
                           acc
                           (->> (spot/spread-firebrands
-                                constants
-                                config
+                                inputs
                                 matrices
                                 ignition-event)
                                (into {}))))
@@ -315,8 +314,7 @@
    :active-crown  3.0})
 
 (defn run-loop
-  [{:keys [max-runtime cell-size] :as constants}
-   {:keys [spotting] :as config}
+  [{:keys [max-runtime cell-size spotting] :as inputs}
    {:keys [fire-spread-matrix
            flame-length-matrix
            fire-line-intensity-matrix
@@ -341,7 +339,7 @@
                                 dt)
             next-global-clock (+ global-clock timestep)
             ignition-events   (identify-ignition-events ignited-cells timestep fire-spread-matrix)
-            constants         (perturbation/update-global-vals constants global-clock next-global-clock)]
+            inputs            (perturbation/update-global-vals inputs global-clock next-global-clock)]
         ;; [{:cell :trajectory :fractional-distance
         ;;   :flame-length :fire-line-intensity} ...]
         (doseq [{:keys [cell flame-length fire-line-intensity
@@ -354,8 +352,7 @@
             (m/mset! burn-time-matrix           i j (+ global-clock dt-adjusted))
             (m/mset! spread-rate-matrix         i j spread-rate)
             (m/mset! fire-type-matrix           i j (fire-type fire-type-to-value))))
-        (let [new-spot-ignitions (new-spot-ignitions config
-                                                     (assoc constants :global-clock global-clock)
+        (let [new-spot-ignitions (new-spot-ignitions (assoc inputs :global-clock global-clock)
                                                      matrices
                                                      ignition-events)
               [spot-ignite-later
@@ -363,12 +360,12 @@
                                                                 (merge-with (partial min-key first)
                                                                             spot-ignitions
                                                                             new-spot-ignitions))
-              spot-ignited-cells (spot-ignited-cells constants
+              spot-ignited-cells (spot-ignited-cells inputs
                                                      global-clock
                                                      matrices
                                                      spot-ignite-now)]
           (recur next-global-clock
-                 (update-ignited-cells constants
+                 (update-ignited-cells inputs
                                        (merge spot-ignited-cells ignited-cells)
                                        ignition-events
                                        fire-spread-matrix
@@ -420,22 +417,20 @@
      - nil (this causes GridFire to select a random ignition-point)
   - num-rows: integer
   - num-cols: integer"
-  (fn [{:keys [initial-ignition-site]} _]
+  (fn [{:keys [initial-ignition-site]}]
     (condp = (type initial-ignition-site)
       clojure.lang.PersistentHashMap :ignition-perimeter
       clojure.lang.PersistentVector  :ignition-point
       :random-ignition-point)))
 
 (defmethod run-fire-spread :random-ignition-point
-  [{:keys [landfire-rasters] :as constants} config]
-  (run-fire-spread (assoc constants
+  [{:keys [landfire-rasters] :as inputs}]
+  (run-fire-spread (assoc inputs
                           :initial-ignition-site
-                          (random-ignition/ignition-site config (:fuel-model landfire-rasters)))
-                   config))
+                          (random-ignition/ignition-site inputs (:fuel-model landfire-rasters)))))
 
 (defmethod run-fire-spread :ignition-point
-  [{:keys [landfire-rasters num-rows num-cols initial-ignition-site] :as constants}
-   {:keys [spotting] :as config}]
+  [{:keys [landfire-rasters num-rows num-cols initial-ignition-site spotting] :as inputs}]
   (let [[i j]                      initial-ignition-site
         fuel-model-matrix          (:fuel-model landfire-rasters)
         fire-spread-matrix         (m/zero-matrix num-rows num-cols)
@@ -458,14 +453,13 @@
       (m/mset! fire-type-matrix i j -1.0)
       (let [ignited-cells {initial-ignition-site
                            (compute-neighborhood-fire-spread-rates!
-                            constants
+                            inputs
                             fire-spread-matrix
                             initial-ignition-site
                             nil
                             0.0
                             0.0)}]
-        (run-loop constants
-                  config
+        (run-loop inputs
                   {:fire-spread-matrix         fire-spread-matrix
                    :spread-rate-matrix         spread-rate-matrix
                    :flame-length-matrix        flame-length-matrix
@@ -476,8 +470,7 @@
                   ignited-cells)))))
 
 (defmethod run-fire-spread :ignition-perimeter
-  [{:keys [num-rows num-cols initial-ignition-site landfire-rasters] :as constants}
-   {:keys [spotting] :as config}]
+  [{:keys [num-rows num-cols initial-ignition-site landfire-rasters spotting] :as inputs}]
   (let [fire-spread-matrix         (first (m/mutable (:matrix initial-ignition-site)))
         non-zero-indices           (get-non-zero-indices fire-spread-matrix)
         perimeter-indices          (filter #(burnable-neighbors? fire-spread-matrix
@@ -493,10 +486,9 @@
             firebrand-count-matrix     (when spotting (m/zero-matrix num-rows num-cols))
             spread-rate-matrix         (initialize-matrix num-rows num-cols non-zero-indices)
             fire-type-matrix           (initialize-matrix num-rows num-cols non-zero-indices)
-            ignited-cells              (generate-ignited-cells constants fire-spread-matrix perimeter-indices)]
+            ignited-cells              (generate-ignited-cells inputs fire-spread-matrix perimeter-indices)]
         (when (seq ignited-cells)
-         (run-loop constants
-                   config
+         (run-loop inputs
                    {:fire-spread-matrix         fire-spread-matrix
                     :spread-rate-matrix         spread-rate-matrix
                     :flame-length-matrix        flame-length-matrix

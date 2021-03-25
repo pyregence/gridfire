@@ -331,38 +331,34 @@
       (add-sampled-params)
       (add-weather-params)))
 
-;; FIXME: Update argument names
+;; FIXME: Replace input-variations expression with add-sampled-params
+;;        and add-weather-params (and remove them from load-inputs).
+;;        This will require making these function return single
+;;        samples instead of sequences of samples. Also combine the
+;;        initial-ignition-site calculation into input-variations or
+;;        move it to run-fire-spread.
 (defn run-simulation!
-  [{:keys [cell-size output-csvs? output-burn-probability
-           landfire-rasters envelope ignition-row ignition-col max-runtime temperature
-           relative-humidity wind-speed-20ft wind-from-direction foliar-moisture
-           ellipse-adjustment-factor ignition-layer multiplier-lookup perturbations fuel-moisture-layers] :as inputs}
+  [{:keys [output-csvs? output-burn-probability envelope ignition-layer cell-size
+           max-runtimes ignition-rows ignition-cols foliar-moistures ellipse-adjustment-factors perturbations
+           temperatures relative-humidities wind-speeds-20ft wind-from-directions] :as inputs}
    burn-count-matrix
    i]
   (let [matrix-or-i           (fn [obj i] (:matrix obj (obj i)))
         initial-ignition-site (or ignition-layer
-                                  (when (and (ignition-row i) (ignition-col i))
-                                    [(ignition-row i) (ignition-col i)]))
-        input-variations      {:max-runtime               (max-runtime i)
-                               :temperature               (matrix-or-i temperature i)
-                               :relative-humidity         (matrix-or-i relative-humidity i)
-                               :wind-speed-20ft           (matrix-or-i wind-speed-20ft i)
-                               :wind-from-direction       (matrix-or-i wind-from-direction i)
-                               :foliar-moisture           (* 0.01 (foliar-moisture i))
-                               :ellipse-adjustment-factor (ellipse-adjustment-factor i)}
+                                  (when (and (ignition-rows i) (ignition-cols i))
+                                    [(ignition-rows i) (ignition-cols i)]))
+        input-variations      {:max-runtime               (max-runtimes i)
+                               :foliar-moisture           (* 0.01 (foliar-moistures i))
+                               :ellipse-adjustment-factor (ellipse-adjustment-factors i)
+                               :perturbations             (when perturbations (perturbations i))
+                               :temperature               (matrix-or-i temperatures i)
+                               :relative-humidity         (matrix-or-i relative-humidities i)
+                               :wind-speed-20ft           (matrix-or-i wind-speeds-20ft i)
+                               :wind-from-direction       (matrix-or-i wind-from-directions i)}
         fire-spread-results   (run-fire-spread
-                               (merge input-variations
-                                      {:cell-size             cell-size
-                                       :landfire-rasters      landfire-rasters
-                                       :fuel-moisture-layers  fuel-moisture-layers
-                                       :num-rows              (m/row-count (:fuel-model landfire-rasters))
-                                       :num-cols              (m/column-count (:fuel-model landfire-rasters))
-                                       :multiplier-lookup     multiplier-lookup
-                                       :initial-ignition-site initial-ignition-site
-                                       :perturbations         (when perturbations
-                                                                (perturbations i))
-                                       :spotting              (:spotting inputs)})
-                               inputs)]
+                               (merge inputs
+                                      input-variations
+                                      {:initial-ignition-site initial-ignition-site}))]
     (when fire-spread-results
       (process-output-layers! inputs fire-spread-results envelope i)
       (when-let [timestep output-burn-probability]
@@ -372,9 +368,9 @@
       (merge
        input-variations
        {:simulation      (inc i)
-        :ignition-row    (ignition-row i)
-        :ignition-col    (ignition-col i)
-        :foliar-moisture (foliar-moisture i)
+        :ignition-row    (ignition-rows i)
+        :ignition-col    (ignition-cols i)
+        :foliar-moisture (foliar-moistures i)
         :exit-condition  (:exit-condition fire-spread-results :no-fire-spread)}
        (if fire-spread-results
          (summarize-fire-spread-results fire-spread-results cell-size)
@@ -397,7 +393,9 @@
                               #(into [] %))]
     {:burn-count-matrix burn-count-matrix
      :summary-stats     (->> (vec (range simulations))
-                             (r/map (partial run-simulation! inputs burn-count-matrix))
+                             (r/map (partial run-simulation!
+                                             (assoc inputs :num-rows num-rows :num-cols num-cols)
+                                             burn-count-matrix))
                              (r/remove nil?)
                              (reducer-fn))}))
 

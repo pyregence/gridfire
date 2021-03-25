@@ -221,7 +221,7 @@
   [[[1 140] 0.0]
   [[141 149] 1.0]
   [[150 256] 1.0]]"
-  [{:keys [spotting rand-gen]} {:keys [landfire-rasters]} [i j] fire-line-intensity]
+  [{:keys [spotting rand-gen landfire-rasters]} [i j] fire-line-intensity]
   (let [{:keys [surface-fire-spotting]} spotting]
     (when (and
            surface-fire-spotting
@@ -240,10 +240,10 @@
               spot-percent)]
       (>= p (random-float 0.0 1.0 rand-gen)))))
 
-(defn- spot-fire? [config constants crown-fire? here fire-line-intensity]
+(defn- spot-fire? [inputs crown-fire? here fire-line-intensity]
   (if crown-fire?
-    (crown-spot-fire? config)
-    (surface-fire-spot-fire? config constants here fire-line-intensity)))
+    (crown-spot-fire? inputs)
+    (surface-fire-spot-fire? inputs here fire-line-intensity)))
 
 (defn spread-firebrands
   "Returns a sequence of key value pairs where
@@ -251,34 +251,29 @@
   val: [t p] where:
   t: time of ignition
   p: ignition-probability"
-  [{:keys
-    [num-rows num-cols cell-size landfire-rasters global-clock] :as constants}
-   {:keys [spotting rand-gen] :as config}
-   {:keys [firebrand-count-matrix
-           fire-spread-matrix
-           fire-line-intensity-matrix
-           flame-length-matrix]}
+  [{:keys [num-rows num-cols cell-size landfire-rasters global-clock spotting rand-gen] :as inputs}
+   {:keys [firebrand-count-matrix fire-spread-matrix fire-line-intensity-matrix flame-length-matrix]}
    {:keys [cell fire-line-intensity crown-fire?]}]
-  (when (spot-fire? config constants crown-fire? cell fire-line-intensity)
+  (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
     (let [{:keys
            [wind-speed-20ft
             temperature
             wind-from-direction
-            relative-humidity]} (extract-constants constants global-clock cell)
-          fuel-moisture         (or (fuel-moisture-from-raster constants cell global-clock)
+            relative-humidity]} (extract-constants inputs global-clock cell)
+          fuel-moisture         (or (fuel-moisture-from-raster inputs cell global-clock)
                                     (get-fuel-moisture relative-humidity temperature))
-          deltas                (sample-wind-dir-deltas config
+          deltas                (sample-wind-dir-deltas inputs
                                                         fire-line-intensity-matrix
                                                         (convert/mph->mps wind-speed-20ft)
                                                         cell)
           wind-to-direction     (mod (+ 180 wind-from-direction) 360)
           firebrands            (firebrands deltas wind-to-direction cell cell-size)]
-      (update-firebrand-counts! constants firebrand-count-matrix fire-spread-matrix cell firebrands)
+      (update-firebrand-counts! inputs firebrand-count-matrix fire-spread-matrix cell firebrands)
       (->> (for [[x y] firebrands
                  :when (and (in-bounds? num-rows num-cols [x y])
                             (burnable? fire-spread-matrix (:fuel-model landfire-rasters) cell [x y]))
                  :let  [firebrand-count (m/mget firebrand-count-matrix x y)
-                        spot-ignition-p (spot-ignition-probability constants
+                        spot-ignition-p (spot-ignition-probability inputs
                                                                    spotting
                                                                    fuel-moisture
                                                                    temperature
