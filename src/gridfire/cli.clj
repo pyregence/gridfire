@@ -374,13 +374,64 @@
          :wind-speeds-20ft     (get-weather inputs rand-gen :wind-speed-20ft weather-layers)
          :wind-from-directions (get-weather inputs rand-gen :wind-from-direction weather-layers)))
 
-(defn initialize-output-layers
-  [{:keys [landfire-rasters output-burn-probability max-runtimes]}]
-  (let [[num-rows num-cols] ((juxt m/row-count m/column-count) (:fuel-model landfire-rasters))]
-    {:burn-count-matrix (initialize-burn-count-matrix output-burn-probability
-                                                      max-runtimes
-                                                      num-rows
-                                                      num-cols)}))
+(defn load-inputs
+  [config]
+  (-> config
+      (add-input-layers)
+      (add-misc-params)
+      (add-sampled-params)
+      (add-weather-params)))
+
+;; FIXME: Make a run-simulations multimethod that calls the correct version of this function based on a config.edn parameter
+;; FIXME: Don't destructure unused params
+(defn run-simulations-sequential
+  [{:keys [simulations landfire-rasters envelope ignition-rows ignition-cols max-runtimes
+           temperatures relative-humidities wind-speeds-20ft wind-from-directions
+           foliar-moistures ellipse-adjustment-factors ignition-layer multiplier-lookup
+           perturbations fuel-moisture-layers output-burn-probability]
+    :as inputs}]
+  (let [[num-rows num-cols] ((juxt m/row-count m/column-count) (:fuel-model landfire-rasters))
+        burn-count-matrix   (initialize-burn-count-matrix output-burn-probability
+                                                          max-runtimes
+                                                          num-rows
+                                                          num-cols)]
+    {:burn-count-matrix burn-count-matrix
+     :summary-stats     (->> (vec (range simulations))
+                             (r/map (partial run-simulation
+                                             inputs landfire-rasters envelope ignition-rows ignition-cols
+                                             max-runtimes temperatures relative-humidities wind-speeds-20ft
+                                             wind-from-directions foliar-moistures ellipse-adjustment-factors
+                                             ignition-layer multiplier-lookup perturbations burn-count-matrix
+                                             fuel-moisture-layers))
+                             (r/remove nil?)
+                             (into []))}))
+
+;; FIXME: Make a run-simulations multimethod that calls the correct version of this function based on a config.edn parameter
+;; FIXME: Don't destructure unused params
+(defn run-simulations-parallel
+  [{:keys [simulations landfire-rasters envelope ignition-rows ignition-cols max-runtimes
+           temperatures relative-humidities wind-speeds-20ft wind-from-directions
+           foliar-moistures ellipse-adjustment-factors ignition-layer multiplier-lookup
+           perturbations fuel-moisture-layers output-burn-probability]
+    :as inputs}]
+  (let [[num-rows num-cols] ((juxt m/row-count m/column-count) (:fuel-model landfire-rasters))
+        burn-count-matrix   (initialize-burn-count-matrix output-burn-probability
+                                                          max-runtimes
+                                                          num-rows
+                                                          num-cols)]
+    {:burn-count-matrix burn-count-matrix
+     :summary-stats     (->> (vec (range simulations))
+                             (r/map (partial run-simulation
+                                             inputs landfire-rasters envelope ignition-rows ignition-cols
+                                             max-runtimes temperatures relative-humidities wind-speeds-20ft
+                                             wind-from-directions foliar-moistures ellipse-adjustment-factors
+                                             ignition-layer multiplier-lookup perturbations burn-count-matrix
+                                             fuel-moisture-layers))
+                             (r/remove nil?)
+                             (r/fold (max 1 (quot simulations (.availableProcessors (Runtime/getRuntime))))
+                                     r/cat
+                                     r/append!)
+                             seq)}))
 
 (defn output-landfire-layers!
   [{:keys [output-landfire-inputs? outfile-suffix landfire-rasters envelope]}]
@@ -389,53 +440,28 @@
       (-> (matrix-to-raster (name layer) matrix envelope)
           (write-raster (str (name layer) outfile-suffix ".tif"))))))
 
-;; FIXME: Make a run-simulations multimethod that calls the correct version of this function based on a config.edn parameter
-;; FIXME: Don't destructure unused params
-(defn run-simulations-sequential!
-  [{:keys [simulations landfire-rasters envelope ignition-rows ignition-cols max-runtimes
-           temperatures relative-humidities wind-speeds-20ft wind-from-directions
-           foliar-moistures ellipse-adjustment-factors ignition-layer multiplier-lookup
-           perturbations fuel-moisture-layers]
-    :as inputs}
-   {:keys [burn-count-matrix] :as outputs}]
-  (->> (vec (range simulations))
-       (r/map (partial run-simulation inputs
-                       landfire-rasters envelope ignition-rows ignition-cols max-runtimes temperatures
-                       relative-humidities wind-speeds-20ft wind-from-directions foliar-moistures
-                       ellipse-adjustment-factors ignition-layer multiplier-lookup perturbations
-                       burn-count-matrix fuel-moisture-layers))
-       (r/remove nil?)
-       (into [])))
-
-;; FIXME: Make a run-simulations multimethod that calls the correct version of this function based on a config.edn parameter
-;; FIXME: Don't destructure unused params
-(defn run-simulations-parallel!
-  [{:keys [simulations landfire-rasters envelope ignition-rows ignition-cols max-runtimes
-           temperatures relative-humidities wind-speeds-20ft wind-from-directions
-           foliar-moistures ellipse-adjustment-factors ignition-layer multiplier-lookup
-           perturbations fuel-moisture-layers]
-    :as inputs}
-   {:keys [burn-count-matrix] :as outputs}]
-  (->> (vec (range simulations))
-       (r/map (partial run-simulation inputs
-                       landfire-rasters envelope ignition-rows ignition-cols max-runtimes temperatures
-                       relative-humidities wind-speeds-20ft wind-from-directions foliar-moistures
-                       ellipse-adjustment-factors ignition-layer multiplier-lookup perturbations
-                       burn-count-matrix fuel-moisture-layers))
-       (r/remove nil?)
-       (r/fold (max 1 (quot simulations (.availableProcessors (Runtime/getRuntime))))
-               r/cat
-               r/append!)
-       seq))
+(defn output-burn-probability-layer!
+  [{:keys [output-burn-probability simulations envelope] :as inputs} {:keys [burn-count-matrix]}]
+  (when-let [timestep output-burn-probability]
+    (let [output-name "burn_probability"]
+      (if (int? timestep)
+        (doseq [[band matrix] (map-indexed vector burn-count-matrix)]
+          (let [output-time        (* band timestep)
+                probability-matrix (m/emap #(/ % simulations) matrix)]
+            (output-geotiff inputs probability-matrix output-name envelope nil output-time)
+            (output-png inputs probability-matrix output-name envelope nil output-time)))
+        (let [probability-matrix (m/emap #(/ % simulations) burn-count-matrix)]
+          (output-geotiff inputs probability-matrix output-name envelope)
+          (output-png inputs probability-matrix output-name envelope))))))
 
 (defn write-csv-outputs!
-  [{:keys [output-csvs? output-directory outfile-suffix]} results-table]
+  [{:keys [output-csvs? output-directory outfile-suffix]} {:keys [summary-stats]}]
   (when output-csvs?
     (let [output-filename (str "summary_stats" outfile-suffix ".csv")]
       (with-open [out-file (io/writer (if output-directory
                                         (str/join "/" [output-directory output-filename])
                                         output-filename))]
-        (->> results-table
+        (->> summary-stats
              (sort-by #(vector (:ignition-row %) (:ignition-col %)))
              (mapv (fn [{:keys [ignition-row ignition-col max-runtime temperature relative-humidity
                                 wind-speed-20ft wind-from-direction foliar-moisture ellipse-adjustment-factor
@@ -461,20 +487,6 @@
                     "flame-length-stddev" "fire-line-intensity-mean" "fire-line-intensity-stddev"])
              (csv/write-csv out-file))))))
 
-(defn output-burn-probability-layer!
-  [{:keys [output-burn-probability simulations envelope] :as inputs} {:keys [burn-count-matrix]}]
-  (when-let [timestep output-burn-probability]
-    (let [output-name "burn_probability"]
-      (if (int? timestep)
-        (doseq [[band matrix] (map-indexed vector burn-count-matrix)]
-          (let [output-time        (* band timestep)
-                probability-matrix (m/emap #(/ % simulations) matrix)]
-            (output-geotiff inputs probability-matrix output-name envelope nil output-time)
-            (output-png inputs probability-matrix output-name envelope nil output-time)))
-        (let [probability-matrix (m/emap #(/ % simulations) burn-count-matrix)]
-          (output-geotiff inputs probability-matrix output-name envelope)
-          (output-png inputs probability-matrix output-name envelope))))))
-
 ;; FIXME: Add a program banner and better usage/error messages
 (defn -main
   [& config-files]
@@ -482,14 +494,9 @@
     (let [config (edn/read-string (slurp config-file))]
       (if-not (s/valid? ::spec/config config)
         (s/explain ::spec/config config)
-        (let [inputs  (-> config
-                          (add-input-layers)
-                          (add-misc-params)
-                          (add-sampled-params)
-                          (add-weather-params))
-              outputs (initialize-output-layers inputs)]
+        (let [inputs  (load-inputs config)
+              outputs (run-simulations-sequential inputs)]
           (output-landfire-layers! inputs)
-          (->> (run-simulations-sequential! inputs outputs)
-               (write-csv-outputs! inputs))
-          (output-burn-probability-layer! inputs outputs))))))
+          (output-burn-probability-layer! inputs outputs)
+          (write-csv-outputs! inputs outputs))))))
 ;; command-line-interface ends here
