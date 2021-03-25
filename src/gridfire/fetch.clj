@@ -151,12 +151,12 @@
   (postgis-raster-to-matrix db-spec source))
 
 (defn fuel-moisture-layers
-  "Returns a map of moisture rasters (represented as maps) with the following form:
-  {:dead {:1hr  #vectorz/matrix Large matrix with shape: [73 100 100]
-          :10hr #vectorz/matrix Large matrix with shape: [73 100 100]
-          :100hr #vectorz/matrix Large matrix with shape: [73 100 100]}
-   :live {:herbaceous  #vectorz/matrix Large matrix with shape: [100 100]
-          :woody #vectorz/matrix Large matrix with shape: [100 100]}}"
+  "Returns a map of moisture layers (represented as maps) with the following units:
+  {:dead {:1hr        %
+          :10hr       %
+          :100hr      %
+   :live {:herbaceous %
+          :woody      %"
   [{:keys [db-spec fuel-moisture-layers]}]
   (when fuel-moisture-layers
     (letfn [(f [spec] (-> (fuel-moisture-layer db-spec spec)

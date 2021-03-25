@@ -257,25 +257,25 @@
                    (* width scalex)
                    (* -1.0 height scaley))))
 
-(defn fuel-moisture-multiplier-lookup
-  [cell-size fuel-moisture-layers]
-  (when fuel-moisture-layers
-    (letfn [(f [{:keys [scalex]}] (int (quot (m->ft scalex) cell-size)))]
-      (-> fuel-moisture-layers
-          (update-in [:dead :1hr] f)
-          (update-in [:dead :10hr] f)
-          (update-in [:dead :100hr] f)
-          (update-in [:live :herbaceous] f)
-          (update-in [:live :woody] f)))))
+(defn cell-size-multiplier
+  [cell-size {:keys [scalex]}]
+  (int (quot (m->ft scalex) cell-size)))  ; FIXME: Should we be using /?
 
+;; FIXME: This would be simpler is we flattened fuel-moisture-layers into a single-level map
 (defn create-multiplier-lookup
   [{:keys [cell-size weather-layers fuel-moisture-layers]}]
-  (merge
-   (reduce-kv (fn [acc k {:keys [scalex]}]
-                (assoc acc k (int (quot (m->ft scalex) cell-size))))
-              {}
-              weather-layers)
-   (fuel-moisture-multiplier-lookup cell-size fuel-moisture-layers)))
+  (let [layers (merge weather-layers fuel-moisture-layers)]
+    (reduce (fn [acc ks] (assoc-in acc ks (cell-size-multiplier cell-size (get-in layers ks))))
+            {}
+            [[:temperature]
+             [:relative-humidity]
+             [:wind-speed-20ft]
+             [:wind-from-direction]
+             [:dead :1hr]
+             [:dead :10hr]
+             [:dead :100hr]
+             [:live :herbaceous]
+             [:live :woody]])))
 
 (defn get-weather [config rand-generator weather-type weather-layers]
   (if (contains? weather-layers weather-type)
