@@ -248,57 +248,6 @@
                                          (str/join "/" [output-directory output-name])
                                          output-name)))))
 
-(defn run-simulation
-  [{:keys [cell-size output-csvs? output-burn-probability] :as config}
-   landfire-rasters envelope ignition-row ignition-col max-runtime temperature
-   relative-humidity wind-speed-20ft wind-from-direction foliar-moisture
-   ellipse-adjustment-factor ignition-layer multiplier-lookup perturbations
-   burn-count-matrix fuel-moisture-layers i]
-  (let [matrix-or-i           (fn [obj i] (:matrix obj (obj i)))
-        initial-ignition-site (or ignition-layer
-                                  (when (and (ignition-row i) (ignition-col i))
-                                    [(ignition-row i) (ignition-col i)]))
-        input-variations      {:max-runtime               (max-runtime i)
-                               :temperature               (matrix-or-i temperature i)
-                               :relative-humidity         (matrix-or-i relative-humidity i)
-                               :wind-speed-20ft           (matrix-or-i wind-speed-20ft i)
-                               :wind-from-direction       (matrix-or-i wind-from-direction i)
-                               :foliar-moisture           (* 0.01 (foliar-moisture i))
-                               :ellipse-adjustment-factor (ellipse-adjustment-factor i)}
-        fire-spread-results   (run-fire-spread
-                               (merge input-variations
-                                      {:cell-size             cell-size
-                                       :landfire-rasters      landfire-rasters
-                                       :fuel-moisture-layers  fuel-moisture-layers
-                                       :num-rows              (m/row-count (:fuel-model landfire-rasters))
-                                       :num-cols              (m/column-count (:fuel-model landfire-rasters))
-                                       :multiplier-lookup     multiplier-lookup
-                                       :initial-ignition-site initial-ignition-site
-                                       :perturbations         (when perturbations
-                                                                (perturbations i))
-                                       :spotting              (:spotting config)})
-                               config)]
-    (when fire-spread-results
-      (process-output-layers! config fire-spread-results envelope i)
-      (when-let [timestep output-burn-probability]
-        (process-burn-count! fire-spread-results burn-count-matrix timestep))
-      (process-binary-output! config fire-spread-results i))
-    (when output-csvs?
-      (merge
-       input-variations
-       {:simulation      (inc i)
-        :ignition-row    (ignition-row i)
-        :ignition-col    (ignition-col i)
-        :foliar-moisture (foliar-moisture i)
-        :exit-condition  (:exit-condition fire-spread-results :no-fire-spread)}
-       (if fire-spread-results
-         (summarize-fire-spread-results fire-spread-results cell-size)
-         {:fire-size                  0.0
-          :flame-length-mean          0.0
-          :flame-length-stddev        0.0
-          :fire-line-intensity-mean   0.0
-          :fire-line-intensity-stddev 0.0})))))
-
 (defn get-envelope
   [config landfire-layers]
   (let [{:keys [upperleftx upperlefty width height scalex scaley]} (landfire-layers :elevation)]
@@ -307,11 +256,6 @@
                    (+ upperlefty (* height scaley))
                    (* width scalex)
                    (* -1.0 height scaley))))
-
-(defn get-weather [config rand-generator weather-type weather-layers]
-  (if (contains? weather-layers weather-type)
-    (weather-type weather-layers)
-    (draw-samples rand-generator (:simulations config) (config weather-type))))
 
 (defn fuel-moisture-multiplier-lookup
   [cell-size fuel-moisture-layers]
@@ -332,6 +276,11 @@
               {}
               weather-layers)
    (fuel-moisture-multiplier-lookup cell-size fuel-moisture-layers)))
+
+(defn get-weather [config rand-generator weather-type weather-layers]
+  (if (contains? weather-layers weather-type)
+    (weather-type weather-layers)
+    (draw-samples rand-generator (:simulations config) (config weather-type))))
 
 ;; FIXME: Use common raster vs layer terminology
 (defn add-input-layers
@@ -382,13 +331,61 @@
       (add-sampled-params)
       (add-weather-params)))
 
-;; FIXME: Don't destructure unused params
+;; FIXME: Update argument names
+(defn run-simulation!
+  [{:keys [cell-size output-csvs? output-burn-probability
+           landfire-rasters envelope ignition-row ignition-col max-runtime temperature
+           relative-humidity wind-speed-20ft wind-from-direction foliar-moisture
+           ellipse-adjustment-factor ignition-layer multiplier-lookup perturbations fuel-moisture-layers] :as inputs}
+   burn-count-matrix
+   i]
+  (let [matrix-or-i           (fn [obj i] (:matrix obj (obj i)))
+        initial-ignition-site (or ignition-layer
+                                  (when (and (ignition-row i) (ignition-col i))
+                                    [(ignition-row i) (ignition-col i)]))
+        input-variations      {:max-runtime               (max-runtime i)
+                               :temperature               (matrix-or-i temperature i)
+                               :relative-humidity         (matrix-or-i relative-humidity i)
+                               :wind-speed-20ft           (matrix-or-i wind-speed-20ft i)
+                               :wind-from-direction       (matrix-or-i wind-from-direction i)
+                               :foliar-moisture           (* 0.01 (foliar-moisture i))
+                               :ellipse-adjustment-factor (ellipse-adjustment-factor i)}
+        fire-spread-results   (run-fire-spread
+                               (merge input-variations
+                                      {:cell-size             cell-size
+                                       :landfire-rasters      landfire-rasters
+                                       :fuel-moisture-layers  fuel-moisture-layers
+                                       :num-rows              (m/row-count (:fuel-model landfire-rasters))
+                                       :num-cols              (m/column-count (:fuel-model landfire-rasters))
+                                       :multiplier-lookup     multiplier-lookup
+                                       :initial-ignition-site initial-ignition-site
+                                       :perturbations         (when perturbations
+                                                                (perturbations i))
+                                       :spotting              (:spotting inputs)})
+                               inputs)]
+    (when fire-spread-results
+      (process-output-layers! inputs fire-spread-results envelope i)
+      (when-let [timestep output-burn-probability]
+        (process-burn-count! fire-spread-results burn-count-matrix timestep))
+      (process-binary-output! inputs fire-spread-results i))
+    (when output-csvs?
+      (merge
+       input-variations
+       {:simulation      (inc i)
+        :ignition-row    (ignition-row i)
+        :ignition-col    (ignition-col i)
+        :foliar-moisture (foliar-moisture i)
+        :exit-condition  (:exit-condition fire-spread-results :no-fire-spread)}
+       (if fire-spread-results
+         (summarize-fire-spread-results fire-spread-results cell-size)
+         {:fire-size                  0.0
+          :flame-length-mean          0.0
+          :flame-length-stddev        0.0
+          :fire-line-intensity-mean   0.0
+          :fire-line-intensity-stddev 0.0})))))
+
 (defn run-simulations!
-  [{:keys [simulations landfire-rasters envelope ignition-rows ignition-cols max-runtimes
-           temperatures relative-humidities wind-speeds-20ft wind-from-directions
-           foliar-moistures ellipse-adjustment-factors ignition-layer multiplier-lookup
-           perturbations fuel-moisture-layers output-burn-probability parallel-strategy]
-    :as inputs}]
+  [{:keys [simulations landfire-rasters max-runtimes output-burn-probability parallel-strategy] :as inputs}]
   (let [[num-rows num-cols] ((juxt m/row-count m/column-count) (:fuel-model landfire-rasters))
         burn-count-matrix   (initialize-burn-count-matrix output-burn-probability
                                                           max-runtimes
@@ -400,23 +397,18 @@
                               #(into [] %))]
     {:burn-count-matrix burn-count-matrix
      :summary-stats     (->> (vec (range simulations))
-                             (r/map (partial run-simulation
-                                             inputs landfire-rasters envelope ignition-rows ignition-cols
-                                             max-runtimes temperatures relative-humidities wind-speeds-20ft
-                                             wind-from-directions foliar-moistures ellipse-adjustment-factors
-                                             ignition-layer multiplier-lookup perturbations burn-count-matrix
-                                             fuel-moisture-layers))
+                             (r/map (partial run-simulation! inputs burn-count-matrix))
                              (r/remove nil?)
                              (reducer-fn))}))
 
-(defn output-landfire-layers!
+(defn write-landfire-layers!
   [{:keys [output-landfire-inputs? outfile-suffix landfire-rasters envelope]}]
   (when output-landfire-inputs?
     (doseq [[layer matrix] landfire-rasters]
       (-> (matrix-to-raster (name layer) matrix envelope)
           (write-raster (str (name layer) outfile-suffix ".tif"))))))
 
-(defn output-burn-probability-layer!
+(defn write-burn-probability-layer!
   [{:keys [output-burn-probability simulations envelope] :as inputs} {:keys [burn-count-matrix]}]
   (when-let [timestep output-burn-probability]
     (let [output-name "burn_probability"]
@@ -472,7 +464,7 @@
         (s/explain ::spec/config config)
         (let [inputs  (load-inputs config)
               outputs (run-simulations! inputs)]
-          (output-landfire-layers! inputs)
-          (output-burn-probability-layer! inputs outputs)
+          (write-landfire-layers! inputs)
+          (write-burn-probability-layer! inputs outputs)
           (write-csv-outputs! inputs outputs))))))
 ;; command-line-interface ends here
