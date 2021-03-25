@@ -3,9 +3,7 @@
   (:require [clojure.core.matrix      :as m]
             [gridfire.conversion      :as convert]
             [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
-            [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]
-            [gridfire.spec.config     :as spec]))
-
+            [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]))
 
 ;;TODO refactor multi-methods landfire-layer weather, ignition-layer, ignition-mask-layer
 ;; to the same function
@@ -74,15 +72,15 @@
 (defmethod ignition-layer :postgis
   [{:keys [db-spec ignition-layer]}]
   (let [layer (postgis-raster-to-matrix db-spec (:source ignition-layer))]
-    (if-let [bv (:burn-values ignition-layer)]
-      (assoc layer :matrix (convert-burn-values (:matrix layer) bv))
+    (if-let [burn-values (:burn-values ignition-layer)]
+      (update layer :matrix convert-burn-values burn-values)
       layer)))
 
 (defmethod ignition-layer :geotiff
   [{:keys [ignition-layer]}]
   (let [layer (geotiff-raster-to-matrix (:source ignition-layer))]
-    (if-let [bv (:burn-values ignition-layer)]
-      (assoc layer :matrix (convert-burn-values (:matrix layer) bv))
+    (if-let [burn-values (:burn-values ignition-layer)]
+      (update layer :matrix convert-burn-values burn-values)
       layer)))
 
 (defmethod ignition-layer :default
@@ -92,6 +90,9 @@
 ;;-----------------------------------------------------------------------------
 ;; Weather
 ;;-----------------------------------------------------------------------------
+
+(def weather-names
+  [:temperature :relative-humidity :wind-speed-20ft :wind-from-direction])
 
 (defmulti weather
   (fn [_ {:keys [type]}] type))
@@ -111,15 +112,13 @@
     :wind-speed-20ft     mph
     :wind-from-direction degrees clockwise from north}"
   [config]
-  (reduce (fn [acc weather-name]
-            (let [weather-spec (weather-name config)]
-              (if (map? weather-spec)
-                (assoc acc weather-name (convert/to-imperial (weather config weather-spec)
-                                                             weather-spec
-                                                             weather-name))
-                acc)))
-          {}
-          spec/weather-names))
+  (into {}
+        (map (fn [weather-name]
+               (let [weather-spec (get config weather-name)]
+                 (when (map? weather-spec)
+                   [weather-name (-> (weather config weather-spec)
+                                     (convert/to-imperial weather-spec weather-name))]))))
+        weather-names))
 
 ;;-----------------------------------------------------------------------------
 ;; Ignition Mask
