@@ -1839,6 +1839,7 @@ pseudo-code lays out the steps taken in this procedure:
 (ns gridfire.fire-spread
   (:require [clojure.core.matrix           :as m]
             [clojure.core.matrix.operators :as mop]
+            [clojure.core.reducers         :as r]
             [gridfire.common               :refer [burnable-fuel-model?
                                                    burnable?
                                                    extract-constants
@@ -2047,13 +2048,17 @@ pseudo-code lays out the steps taken in this procedure:
        (into [])))
 
 (defn update-ignited-cells
-  [{:keys [landfire-rasters num-rows num-cols] :as constants}
+  [{:keys [landfire-rasters num-rows num-cols parallel-strategy] :as constants}
    ignited-cells
    ignition-events
    fire-spread-matrix
    global-clock]
   (let [newly-ignited-cells (into #{} (map :cell) ignition-events)
-        fuel-model-matrix   (:fuel-model landfire-rasters)]
+        fuel-model-matrix   (:fuel-model landfire-rasters)
+        parallel-bin-size   (max 1 (quot (count ignition-events) (.availableProcessors (Runtime/getRuntime))))
+        reducer-fn          (if (= parallel-strategy :within-fires)
+                              #(into [] (r/fold parallel-bin-size r/cat r/append! %))
+                              #(into [] %))]
     (into {}
           (concat
            (for [[cell spread-info] ignited-cells
@@ -2063,21 +2068,21 @@ pseudo-code lays out the steps taken in this procedure:
                                                          num-cols
                                                          cell)]
              [cell (remove #(contains? newly-ignited-cells (:cell %)) spread-info)])
-           (for [{:keys
-                  [cell
-                   trajectory
-                   fractional-distance]} ignition-events
-                 :when                   (burnable-neighbors? fire-spread-matrix
-                                                              fuel-model-matrix
-                                                              num-rows num-cols
-                                                              cell)]
-             [cell (compute-neighborhood-fire-spread-rates!
-                    constants
-                    fire-spread-matrix
-                    cell
-                    trajectory
-                    (- fractional-distance 1.0)
-                    global-clock)])))))
+           (->> ignition-events
+                (r/map (fn [{:keys [cell trajectory fractional-distance]}]
+                         (when (burnable-neighbors? fire-spread-matrix
+                                                    fuel-model-matrix
+                                                    num-rows num-cols
+                                                    cell)
+                           [cell (compute-neighborhood-fire-spread-rates!
+                                  constants
+                                  fire-spread-matrix
+                                  cell
+                                  trajectory
+                                  (- fractional-distance 1.0)
+                                  global-clock)])))
+                (r/remove nil?)
+                (reducer-fn))))))
 
 (defn generate-ignited-cells
   [constants fire-spread-matrix cells]
