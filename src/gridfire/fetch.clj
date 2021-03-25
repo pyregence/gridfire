@@ -36,7 +36,7 @@
   (geotiff-raster-to-matrix source))
 
 (defn landfire-layers
-  "Returns a map of LANDFIRE rasters (represented as maps) with the following units:
+  "Returns a map of LANDFIRE layers (represented as maps) with the following units:
    {:elevation          feet
     :slope              vertical feet/horizontal feet
     :aspect             degrees clockwise from north
@@ -46,18 +46,16 @@
     :crown-bulk-density lb/ft^3
     :canopy-cover       % (0-100)}"
   [{:keys [db-spec] :as config}]
-  (let [layers (:landfire-layers config)]
-    (reduce (fn [amap layer-name]
-              (let [source (get layers layer-name)]
-                (assoc amap
-                       layer-name
-                       (if (map? source)
-                         (-> (landfire-layer db-spec source)
-                             (convert/to-imperial source layer-name))
-                         (-> (postgis-raster-to-matrix db-spec source)
-                             (convert/to-imperial {:units :metric} layer-name))))))
-            {}
-            layer-names)))
+  (into {}
+        (map (fn [layer-name]
+               (let [source (get-in config [:landfire-layers layer-name])]
+                 [layer-name
+                  (if (map? source)
+                    (-> (landfire-layer db-spec source)
+                        (convert/to-imperial source layer-name))
+                    (-> (postgis-raster-to-matrix db-spec source)
+                        (convert/to-imperial {:units :metric} layer-name)))])))
+        layer-names))
 
 ;;-----------------------------------------------------------------------------
 ;; Initial Ignition
