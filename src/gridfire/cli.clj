@@ -282,14 +282,14 @@
     (weather-type weather-layers)
     (draw-samples rand-generator (:simulations config) (config weather-type))))
 
-;; FIXME: Use common raster vs layer terminology
+;; FIXME: Rename :landfire-rasters to :landfire-matrices everywhere (do we have to pass this parameter around?)
 (defn add-input-layers
   [config]
   (let [landfire-layers (fetch/landfire-layers config)]
     (assoc config
            :envelope             (get-envelope config landfire-layers)
-           :landfire-rasters     (into {}
-                                       (map (fn [[layer info]] [layer (first (:matrix info))]))
+           :landfire-matrices    (into {}
+                                       (map (fn [[layer-name layer-info]] [layer-name (first (:matrix layer-info))]))
                                        landfire-layers)
            :ignition-layer       (fetch/ignition-layer config)
            :weather-layers       (fetch/weather-layers config)
@@ -381,8 +381,8 @@
           :fire-line-intensity-stddev 0.0})))))
 
 (defn run-simulations!
-  [{:keys [simulations landfire-rasters max-runtimes output-burn-probability parallel-strategy] :as inputs}]
-  (let [[num-rows num-cols] ((juxt m/row-count m/column-count) (:fuel-model landfire-rasters))
+  [{:keys [simulations max-runtimes landfire-matrices output-burn-probability parallel-strategy] :as inputs}]
+  (let [[num-rows num-cols] ((juxt m/row-count m/column-count) (:fuel-model landfire-matrices))
         burn-count-matrix   (initialize-burn-count-matrix output-burn-probability
                                                           max-runtimes
                                                           num-rows
@@ -400,9 +400,9 @@
                              (reducer-fn))}))
 
 (defn write-landfire-layers!
-  [{:keys [output-landfire-inputs? outfile-suffix landfire-rasters envelope]}]
+  [{:keys [output-landfire-inputs? outfile-suffix landfire-matrices envelope]}]
   (when output-landfire-inputs?
-    (doseq [[layer matrix] landfire-rasters]
+    (doseq [[layer matrix] landfire-matrices]
       (-> (matrix-to-raster (name layer) matrix envelope)
           (write-raster (str (name layer) outfile-suffix ".tif"))))))
 
