@@ -382,19 +382,22 @@
       (add-sampled-params)
       (add-weather-params)))
 
-;; FIXME: Make a run-simulations multimethod that calls the correct version of this function based on a config.edn parameter
 ;; FIXME: Don't destructure unused params
-(defn run-simulations-sequential
+(defn run-simulations!
   [{:keys [simulations landfire-rasters envelope ignition-rows ignition-cols max-runtimes
            temperatures relative-humidities wind-speeds-20ft wind-from-directions
            foliar-moistures ellipse-adjustment-factors ignition-layer multiplier-lookup
-           perturbations fuel-moisture-layers output-burn-probability]
+           perturbations fuel-moisture-layers output-burn-probability parallel-strategy]
     :as inputs}]
   (let [[num-rows num-cols] ((juxt m/row-count m/column-count) (:fuel-model landfire-rasters))
         burn-count-matrix   (initialize-burn-count-matrix output-burn-probability
                                                           max-runtimes
                                                           num-rows
-                                                          num-cols)]
+                                                          num-cols)
+        parallel-bin-size   (max 1 (quot simulations (.availableProcessors (Runtime/getRuntime))))
+        reducer-fn          (if (= parallel-strategy :between-fires)
+                              #(into [] (r/fold parallel-bin-size r/cat r/append! %))
+                              #(into [] %))]
     {:burn-count-matrix burn-count-matrix
      :summary-stats     (->> (vec (range simulations))
                              (r/map (partial run-simulation
@@ -404,34 +407,7 @@
                                              ignition-layer multiplier-lookup perturbations burn-count-matrix
                                              fuel-moisture-layers))
                              (r/remove nil?)
-                             (into []))}))
-
-;; FIXME: Make a run-simulations multimethod that calls the correct version of this function based on a config.edn parameter
-;; FIXME: Don't destructure unused params
-(defn run-simulations-parallel
-  [{:keys [simulations landfire-rasters envelope ignition-rows ignition-cols max-runtimes
-           temperatures relative-humidities wind-speeds-20ft wind-from-directions
-           foliar-moistures ellipse-adjustment-factors ignition-layer multiplier-lookup
-           perturbations fuel-moisture-layers output-burn-probability]
-    :as inputs}]
-  (let [[num-rows num-cols] ((juxt m/row-count m/column-count) (:fuel-model landfire-rasters))
-        burn-count-matrix   (initialize-burn-count-matrix output-burn-probability
-                                                          max-runtimes
-                                                          num-rows
-                                                          num-cols)]
-    {:burn-count-matrix burn-count-matrix
-     :summary-stats     (->> (vec (range simulations))
-                             (r/map (partial run-simulation
-                                             inputs landfire-rasters envelope ignition-rows ignition-cols
-                                             max-runtimes temperatures relative-humidities wind-speeds-20ft
-                                             wind-from-directions foliar-moistures ellipse-adjustment-factors
-                                             ignition-layer multiplier-lookup perturbations burn-count-matrix
-                                             fuel-moisture-layers))
-                             (r/remove nil?)
-                             (r/fold (max 1 (quot simulations (.availableProcessors (Runtime/getRuntime))))
-                                     r/cat
-                                     r/append!)
-                             seq)}))
+                             (reducer-fn))}))
 
 (defn output-landfire-layers!
   [{:keys [output-landfire-inputs? outfile-suffix landfire-rasters envelope]}]
@@ -495,7 +471,7 @@
       (if-not (s/valid? ::spec/config config)
         (s/explain ::spec/config config)
         (let [inputs  (load-inputs config)
-              outputs (run-simulations-sequential inputs)]
+              outputs (run-simulations! inputs)]
           (output-landfire-layers! inputs)
           (output-burn-probability-layer! inputs outputs)
           (write-csv-outputs! inputs outputs))))))
