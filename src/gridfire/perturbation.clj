@@ -1,21 +1,34 @@
 ;; [[file:../../org/GridFire.org::perturbation][perturbation]]
 (ns gridfire.perturbation
-  (:require [gridfire.utils.random :refer [random-float]]))
+  (:require [gridfire.utils.random :refer [my-rand]]))
+
+(defn add-rand-generator
+  [rand-generator config]
+  (into config
+        (map (fn [[layer spec]] [layer (assoc spec :rand-generator rand-generator)]))
+        config))
+
+(defn add-simulation-id
+  [id config]
+  (into config
+        (map (fn [[layer spec]] [layer (assoc spec :simulation-id id)]))
+        config))
+
+(defn add-global-values
+  [config]
+  (into config
+        (map (fn [[layer {:keys [spatial-type rand-generator range] :as spec}]]
+               (if (= spatial-type :global)
+                 [layer (assoc spec :global-value (my-rand rand-generator (apply - range)))]
+                 [layer spec])))
+        config))
 
 (defn- enrich-info
   [perturbations rand-generator id]
-  (reduce-kv
-   (fn [acc k {:keys [spatial-type range rand-gen] :as v}]
-     (let [simulation-id     id
-           [min-val max-val] range]
-       (if (= spatial-type :global)
-         (update-in acc [k] merge {:global-value   (random-float min-val max-val rand-generator)
-                                   :simulation-id  simulation-id
-                                   :rand-generator rand-generator})
-         (update-in acc [k] merge {:simulation-id  simulation-id
-                                   :rand-generator rand-generator}))))
-   perturbations
-   perturbations))
+  (->> perturbations
+      (add-rand-generator rand-generator)
+      (add-simulation-id id)
+      (add-global-values)))
 
 (defn draw-samples
   [rand-generator n perturbations]
@@ -27,10 +40,9 @@
    (value-at perturb-info raster here nil))
 
   ([{:keys [range spatial-type global-value rand-generator]} raster here frequency-band]
-   (let [[min-val max-val] range]
-     (if (= spatial-type :global)
-       global-value
-       (random-float min-val max-val rand-generator)))))
+   (if (= spatial-type :global)
+     global-value
+     (my-rand rand-generator (apply - range)))))
 
 (def value-at
   (memoize value-at))
@@ -54,8 +66,7 @@
        (let [{:keys [frequency
                      range
                      rand-generator]} (get-in acc [:perturbations layer-name])
-             [min-val max-val]        range
-             new-global               (random-float min-val max-val rand-generator)]
+             new-global               (my-rand rand-generator (apply - range))]
          (if (update? current-clock next-clock frequency)
            (assoc-in acc [:perturbations layer-name :global-value] new-global)
            acc)))
