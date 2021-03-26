@@ -4063,13 +4063,22 @@ To specify this in the config file include the following mappings:
 The above config specify that a randomly selected value between -1.0
 and 1.0 should be added to the canopy height value. This perturbation
 will be applied globally to all cells. We could also, instead, specify
-that each cell should be perturbed individually by setting spatial
-type to *:pixel*.
+that each cell should be perturbed individually by setting *:spatial-type*
+to *:pixel*.
+
+Gridfire expects perturbations to be in imperial units. If these perturbations
+are meant to be in metric, you must include an entry for the units:
+
+#+begin_src clojure
+{:perturbations {:canopy-height {:spatial-type :global
+                                 :range        [-1.0 1.0]
+                                 :units        :metric}}}
+#+end_src
 
  #+name: perturbation
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/perturbation.clj :padline no :no-expand :comments link
 (ns gridfire.perturbation
-  (:require [gridfire.utils.random :refer [my-rand]]
+  (:require [gridfire.utils.random :refer [my-rand-range]]
             [gridfire.conversion :refer [conversion-table]]))
 
 (defn add-rand-generator
@@ -4099,7 +4108,7 @@ type to *:pixel*.
   (into config
         (map (fn [[layer {:keys [spatial-type rand-generator range] :as spec}]]
                (if (= spatial-type :global)
-                 [layer (assoc spec :global-value (my-rand rand-generator (apply - range)))]
+                 [layer (assoc spec :global-value (my-rand-range rand-generator range))]
                  [layer spec])))
         config))
 
@@ -4123,7 +4132,7 @@ type to *:pixel*.
   ([{:keys [range spatial-type global-value rand-generator]} raster here frequency-band]
    (if (= spatial-type :global)
      global-value
-     (my-rand rand-generator (apply - range)))))
+     (my-rand-range rand-generator range))))
 
 (def value-at
   (memoize value-at))
@@ -4147,7 +4156,7 @@ type to *:pixel*.
        (let [{:keys [frequency
                      range
                      rand-generator]} (get-in acc [:perturbations layer-name])
-             new-global               (my-rand rand-generator (apply - range))]
+             new-global               (my-rand-range rand-generator range)]
          (if (update? current-clock next-clock frequency)
            (assoc-in acc [:perturbations layer-name :global-value] new-global)
            acc)))

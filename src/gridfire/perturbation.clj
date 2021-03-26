@@ -1,6 +1,6 @@
 ;; [[file:../../org/GridFire.org::perturbation][perturbation]]
 (ns gridfire.perturbation
-  (:require [gridfire.utils.random :refer [my-rand]]
+  (:require [gridfire.utils.random :refer [my-rand-range]]
             [gridfire.conversion :refer [conversion-table]]))
 
 (defn add-rand-generator
@@ -30,7 +30,7 @@
   (into config
         (map (fn [[layer {:keys [spatial-type rand-generator range] :as spec}]]
                (if (= spatial-type :global)
-                 [layer (assoc spec :global-value (my-rand rand-generator (apply - range)))]
+                 [layer (assoc spec :global-value (my-rand-range rand-generator range))]
                  [layer spec])))
         config))
 
@@ -54,7 +54,7 @@
   ([{:keys [range spatial-type global-value rand-generator]} raster here frequency-band]
    (if (= spatial-type :global)
      global-value
-     (my-rand rand-generator (apply - range)))))
+     (my-rand-range rand-generator range))))
 
 (def value-at
   (memoize value-at))
@@ -78,7 +78,7 @@
        (let [{:keys [frequency
                      range
                      rand-generator]} (get-in acc [:perturbations layer-name])
-             new-global               (my-rand rand-generator (apply - range))]
+             new-global               (my-rand-range rand-generator range)]
          (if (update? current-clock next-clock frequency)
            (assoc-in acc [:perturbations layer-name :global-value] new-global)
            acc)))
