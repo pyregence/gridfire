@@ -56,16 +56,22 @@
     (merge config
            {:landfire-layers {:aspect             {:type   :geotiff
                                                    :source (file-path dir ASP_FILENAME)}
-                              :canopy-base-height {:type   :geotiff
-                                                   :source (file-path dir CBH_FILENAME)}
+                              :canopy-base-height {:type       :geotiff
+                                                   :source     (file-path dir CBH_FILENAME)
+                                                   :units      :metric
+                                                   :multiplier 0.1}
                               :canopy-cover       {:type   :geotiff
                                                    :source (file-path dir CC_FILENAME)}
-                              :canopy-height      {:type   :geotiff
-                                                   :source (file-path dir CH_FILENAME)}
+                              :canopy-height      {:type       :geotiff
+                                                   :source     (file-path dir CH_FILENAME)
+                                                   :units      :metric
+                                                   :multiplier 0.1}
                               :crown-bulk-density {:type   :geotiff
-                                                   :source (file-path dir CBD_FILENAME)}
+                                                   :source (file-path dir CBD_FILENAME)
+                                                   :units  :metric}
                               :elevation          {:type   :geotiff
-                                                   :source (file-path dir DEM_FILENAME)}
+                                                   :source (file-path dir DEM_FILENAME)
+                                                   :units  :metric}
                               :fuel-model         {:type   :geotiff
                                                    :source (file-path dir FBFM_FILENAME)}
                               :slope              {:type   :geotiff
@@ -307,7 +313,8 @@
           :simulations               NUM_ENSEMBLE_MEMBERS
           :random-seed               SEED
           :foliar-moisture           FOLIAR_MOISTURE_CONTENT
-          :ellipse-adjustment-factor 1.0}
+          :ellipse-adjustment-factor 1.0
+          :parallel-strategy         :within-fires}
          (process-landfire-layers data options)
          (process-ignition data options)
          (process-weather data options)
