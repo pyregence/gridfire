@@ -157,7 +157,7 @@
    "GLOBAL" :global
    "PIXEL"  :pixel})
 
-(def layers-in-metric #{:canopy-bulk-density :canopy-base-height :canopy-height :elevation})
+(def layers-in-metric #{:crown-bulk-density :canopy-base-height :canopy-height :elevation})
 
 (defn perturbation-info
   [config index]
