@@ -1,6 +1,7 @@
 (ns gridfire.perturbation-test
   (:require [clojure.test :refer [deftest is testing]]
-            [gridfire.perturbation :as perturbation])
+            [gridfire.perturbation :as perturbation]
+            [gridfire.conversion :as convert])
   (:import java.util.Random))
 
 (deftest enrich-info-test
@@ -24,7 +25,16 @@
 
       (is (every? (fn [[k v]] (contains? v :simulation-id)) p-info))
 
-      (is (every? (fn [[k v]] (contains? v :rand-generator)) p-info)))))
+      (is (every? (fn [[k v]] (contains? v :rand-generator)) p-info))))
+
+  (testing "unit conversion"
+    (let [perturbations   {:canopy-height {:spatial-type :pixel
+                                           :range        [-1 1]
+                                           :units        :metric}}
+          p-info          (#'perturbation/enrich-info perturbations (Random.) 1)
+          converted-range (get-in p-info [:canopy-height :range])]
+
+      (is (= (map convert/m->ft [-1 1]) converted-range)))))
 
 (deftest value-at-test
   (testing "memoization of value-at"

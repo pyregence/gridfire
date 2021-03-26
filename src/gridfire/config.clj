@@ -157,6 +157,8 @@
    "GLOBAL" :global
    "PIXEL"  :pixel})
 
+(def layers-in-metric #{:canopy-bulk-density :canopy-base-height :canopy-height :elevation})
+
 (defn perturbation-info
   [config index]
   {:spatial-type (->> (str/join "-" ["SPATIAL_PERTURBATION" index])
@@ -179,9 +181,19 @@
                    [key (perturbation-info config index)]))
                (range 1 (inc NUM_RASTERS_TO_PERTURB))))))
 
+(defn add-units
+  [config]
+  (into config
+        (map (fn [[layer spec]]
+               (if (layers-in-metric layer)
+                 [layer (assoc spec :units :metric)]
+                 [layer spec])))
+        config))
+
 (defn process-perturbations
-  [{:strs [NUM_RASTERS_TO_PERTURB] :as data} options config]
-  (let [perturbations (extract-perturbations data)]
+  [data _ config]
+  (let [perturbations (-> (extract-perturbations data)
+                          (add-units))]
     (when (seq perturbations)
       (merge config
              {:perturbations perturbations}))))

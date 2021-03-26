@@ -14,6 +14,7 @@
   [rand-generator coll]
   (nth coll (my-rand-int rand-generator (count coll))))
 
+;;TODO remove , we can just use my-rand
 (defn random-float
   [min-val max-val rand-generator]
   (let [range (- max-val min-val)]

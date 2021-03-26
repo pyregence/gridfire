@@ -1,6 +1,7 @@
 ;; [[file:../../org/GridFire.org::perturbation][perturbation]]
 (ns gridfire.perturbation
-  (:require [gridfire.utils.random :refer [my-rand]]))
+  (:require [gridfire.utils.random :refer [my-rand]]
+            [gridfire.conversion :refer [conversion-table]]))
 
 (defn add-rand-generator
   [rand-generator config]
@@ -12,6 +13,16 @@
   [id config]
   (into config
         (map (fn [[layer spec]] [layer (assoc spec :simulation-id id)]))
+        config))
+
+(defn convert-ranges
+  [config]
+  (into config
+        (map (fn [[layer {:keys [units range] :as spec}]]
+               (if (= units :metric)
+                 (let [convert-fn (conversion-table layer)]
+                   [layer (assoc spec :range (map convert-fn range))])
+                 [layer spec])))
         config))
 
 (defn add-global-values
@@ -28,6 +39,7 @@
   (->> perturbations
       (add-rand-generator rand-generator)
       (add-simulation-id id)
+      (convert-ranges)
       (add-global-values)))
 
 (defn draw-samples

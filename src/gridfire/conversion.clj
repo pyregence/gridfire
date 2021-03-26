@@ -64,7 +64,7 @@
   [s]
   (/ s 60))
 
-(def conversion
+(def conversion-table
   {:elevation          m->ft
    :slope              deg->rad
    :canopy-height      m->ft
@@ -78,42 +78,42 @@
 
 (defmethod to-imperial :elevation
   [layer {:keys [units multiplier]} layer-name]
-  (if-let [xforms (seq (remove nil? [(when (= units :metric) (conversion layer-name))
+  (if-let [xforms (seq (remove nil? [(when (= units :metric) (conversion-table layer-name))
                                      (when-not (contains? #{1 1.0 nil} multiplier) #(* % multiplier))]))]
     (update layer :matrix (fn [matrix] (m/emap (apply comp xforms) matrix)))
     layer))
 
 (defmethod to-imperial :slope
   [layer {:keys [multiplier]} layer-name]
-  (if-let [xforms (seq (remove nil? [(conversion layer-name)
+  (if-let [xforms (seq (remove nil? [(conversion-table layer-name)
                                      (when-not (contains? #{1 1.0 nil} multiplier) #(* % multiplier))]))]
     (update layer :matrix (fn [matrix] (m/emap (apply comp xforms) matrix)))
     layer))
 
 (defmethod to-imperial :canopy-height
   [layer {:keys [units multiplier]} layer-name]
-  (if-let [xforms (seq (remove nil? [(when (= units :metric) (conversion layer-name))
+  (if-let [xforms (seq (remove nil? [(when (= units :metric) (conversion-table layer-name))
                                      (when-not (contains? #{1 1.0 nil} multiplier) #(* % multiplier))]))]
     (update layer :matrix (fn [matrix] (m/emap (apply comp xforms) matrix)))
     layer))
 
 (defmethod to-imperial :canopy-base-height
   [layer {:keys [units multiplier]} layer-name]
-  (if-let [xforms (seq (remove nil? [(when (= units :metric) (conversion layer-name))
+  (if-let [xforms (seq (remove nil? [(when (= units :metric) (conversion-table layer-name))
                                      (when-not (contains? #{1 1.0 nil} multiplier) #(* % multiplier))]))]
     (update layer :matrix (fn [matrix] (m/emap (apply comp xforms) matrix)))
     layer))
 
 (defmethod to-imperial :crown-bulk-density
   [layer {:keys [units multiplier]} layer-name]
-  (if-let [xforms (seq (remove nil? [(when (= units :metric) (conversion layer-name))
+  (if-let [xforms (seq (remove nil? [(when (= units :metric) (conversion-table layer-name))
                                      (when-not (contains? #{1 1.0 nil} multiplier) #(* % multiplier))]))]
     (update layer :matrix (fn [matrix] (m/emap (apply comp xforms) matrix)))
     layer))
 
 (defmethod to-imperial :wind-speed-20ft
   [layer {:keys [units multiplier]} layer-name]
-  (if-let [xforms (seq (remove nil? [(when (= units :metric) (conversion layer-name))
+  (if-let [xforms (seq (remove nil? [(when (= units :metric) (conversion-table layer-name))
                                      (when-not (contains? #{1 1.0 nil} multiplier) #(* % multiplier))]))]
     (update layer :matrix (fn [matrix] (m/emap (apply comp xforms) matrix)))
     layer))
@@ -121,8 +121,8 @@
 (defmethod to-imperial :temperature
   [layer {:keys [units multiplier]} layer-name]
   (if-let [xforms (seq (remove nil? [(cond
-                                       (= units :metric)   (get-in conversion [layer-name units])
-                                       (= units :absolute) (get-in conversion [layer-name units]))
+                                       (= units :metric)   (get-in conversion-table [layer-name units])
+                                       (= units :absolute) (get-in conversion-table [layer-name units]))
                                      (when-not (contains? #{1 1.0 nil} multiplier) #(* % multiplier))]))]
     (update layer :matrix (fn [matrix] (m/emap (apply comp xforms) matrix)))
     layer))
