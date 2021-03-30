@@ -429,10 +429,10 @@
       :random-ignition-point)))
 
 (defmethod run-fire-spread :random-ignition-point
-  [{:keys [landfire-rasters] :as inputs}]
+  [inputs]
   (run-fire-spread (assoc inputs
                           :initial-ignition-site
-                          (random-ignition/ignition-site inputs (:fuel-model landfire-rasters)))))
+                          (random-ignition/select-ignition-site inputs))))
 
 (defmethod run-fire-spread :ignition-point
   [{:keys [landfire-rasters num-rows num-cols initial-ignition-site spotting] :as inputs}]

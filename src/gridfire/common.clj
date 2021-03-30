@@ -24,9 +24,6 @@
          (+ value-here (perturbation/value-at perturb-info matrix cell)))
        value-here))))
 
-(def sample-at
-  (memoize sample-at))
-
 (defn extract-constants
 
   [{:keys [landfire-rasters wind-speed-20ft wind-from-direction temperature
@@ -93,7 +90,12 @@
    (fuel-moisture-from-raster constants here 0))
 
   ([{:keys [fuel-moisture-layers multiplier-lookup]} here global-clock]
-   (when fuel-moisture-layers
+   {:dead {:1hr   0.02
+           :10hr  0.02
+           :100hr 0.02}
+    :live {:herbaceous 0.3
+           :woody      0.6}}
+   #_(when fuel-moisture-layers
     (extract-fuel-moisture fuel-moisture-layers multiplier-lookup here global-clock))))
 
 (defn in-bounds?

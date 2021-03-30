@@ -128,15 +128,19 @@
 ;;-----------------------------------------------------------------------------
 
 (defmulti ignition-mask-layer
-  (fn [_ {:keys [type]}] type))
+  (fn [{:keys [random-ignition]}]
+    (when (map? random-ignition)
+     (get-in random-ignition [:ignition-mask :type]))))
 
 (defmethod ignition-mask-layer :geotiff
-  [_ {:keys [source]}]
-  (geotiff-raster-to-matrix source))
+  [{:keys [random-ignition]}]
+  (geotiff-raster-to-matrix (get-in random-ignition [:ignition-mask :source])))
 
 (defmethod ignition-mask-layer :postgis
-  [db-spec {:keys [source]}]
-  (postgis-raster-to-matrix db-spec source))
+  [{:keys [db-spec random-ignition]}]
+  (postgis-raster-to-matrix db-spec (get-in random-ignition [:ignition-mask :source])))
+
+(defmethod ignition-mask-layer :default [_] nil)
 
 ;;-----------------------------------------------------------------------------
 ;; Moisture Layers

@@ -56,9 +56,6 @@
      global-value
      (my-rand-range rand-generator range))))
 
-(def value-at
-  (memoize value-at))
-
 (defn- update?
   [global-clock next-clock frequency]
   (< (quot global-clock frequency)

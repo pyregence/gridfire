@@ -2,45 +2,50 @@
 (ns gridfire.random-ignition
   (:require [clojure.core.matrix    :as m]
             [gridfire.utils.random :as random]
-            [gridfire.common :refer [burnable-fuel-model?
-                                     burnable-neighbors?]]
-            [gridfire.fetch :as fetch]))
+            [gridfire.common :refer [burnable-fuel-model? get-neighbors]]))
 
 (defn- in-edge-buffer?
   "Returns true if give [row col] is within the buffer region defined
   by buffer-size. The buffer size is the thickness (pixel) of the edge
   buffer region."
-  [num-rows num-cols buffer-size [row col]]
+  [num-rows num-cols buffer-size row col]
   (or  (<= row buffer-size)
        (> row (- num-rows buffer-size))
        (<= col buffer-size)
        (> col (- num-cols buffer-size))))
 
-(defn- in-ignition-mask? [raster [i j]]
-  (pos? (m/mget raster i j)))
+(defn valid-ignition-site? [{:keys [num-rows num-cols random-ignition cell-size landfire-rasters]} row col]
+  (let [{:keys [edge-buffer]} random-ignition
+        {:keys [fuel-model]}  landfire-rasters]
+    (and (if edge-buffer
+           (let [buffer-size (int (Math/ceil (/ edge-buffer cell-size)))]
+             (not (in-edge-buffer? num-rows num-cols buffer-size row col)))
+           true)
+         (burnable-fuel-model? (m/mget fuel-model row col))
+         (some (fn [[row col]]
+                 (burnable-fuel-model? (m/mget fuel-model row col)))
+               (get-neighbors [row col])))))
 
-(defn- get-ignitable-cells [{:keys [random-ignition cell-size db-spec]} fuel-model-matrix]
-  (let [num-rows                            (m/row-count fuel-model-matrix)
-        num-cols                            (m/column-count fuel-model-matrix)
-        {:keys [ignition-mask edge-buffer]} random-ignition
-        ignition-mask-raster                (when ignition-mask
-                                              (first (:matrix (fetch/ignition-mask-layer db-spec ignition-mask))))
-        fire-spread-matrix                  (m/zero-matrix num-rows num-cols)
-        indices                             (for [row (range num-rows)
-                                                  col (range num-cols)]
-                                              [row col])]
-    (cond->> indices
-      ignition-mask (filter #(in-ignition-mask? ignition-mask-raster %))
-      edge-buffer   (remove #(in-edge-buffer? num-rows num-cols (int (Math/ceil (/ edge-buffer cell-size))) %))
-      true          (filter (fn [[i j]] (burnable-fuel-model? (m/mget fuel-model-matrix i j))))
-      true          (filter #(burnable-neighbors? fire-spread-matrix fuel-model-matrix
-                                                  num-rows num-cols %)))))
-
-(defn ignition-site
+(defn select-ignition-site
   "Returns [x y] coordinate that have been randomly sampled
   from cells in in the computational domain. Ignitable cells can also
   be constrained by ignition mask raster and/or edge-buffer."
-  [{:keys [rand-gen] :as config} fuel-model-matrix]
-  (let [ignitable-cells (get-ignitable-cells config fuel-model-matrix)]
-    (first (random/sample-from-list rand-gen 1 ignitable-cells))))
+  [{:keys [rand-gen ignition-mask-layer num-rows num-cols] :as inputs}]
+  (if-let [indices (some->> ignition-mask-layer
+                            :matrix
+                            first
+                            m/non-zero-indices
+                            (map-indexed (fn [i v] (when (pos? (count v)) [i v])))
+                            (filterv identity))]
+    (loop [[row cols] (random/my-rand-nth rand-gen indices)]
+      (let [col (random/my-rand-nth rand-gen cols)]
+        (if (valid-ignition-site? inputs row col)
+          [row col]
+          (recur (random/my-rand-nth rand-gen indices)))))
+    (loop [row (random/my-rand-int rand-gen num-rows)
+           col (random/my-rand-int rand-gen num-cols)]
+      (if (valid-ignition-site? inputs row col)
+        [row col]
+        (recur (random/my-rand-int rand-gen num-rows)
+               (random/my-rand-int rand-gen num-cols))))))
 ;; random_ignition.clj ends here
