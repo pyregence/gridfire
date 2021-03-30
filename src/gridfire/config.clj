@@ -322,7 +322,7 @@
     (->> {:cell-size                 (convert/m->ft COMPUTATIONAL_DOMAIN_CELLSIZE)
           :srid                      A_SRS
           :max-runtime               (sec->min SIMULATION_TSTOP)
-          :simulations               NUM_ENSEMBLE_MEMBERS
+          :simulations               10
           :random-seed               SEED
           :foliar-moisture           FOLIAR_MOISTURE_CONTENT
           :ellipse-adjustment-factor 1.0
