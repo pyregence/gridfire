@@ -10,7 +10,7 @@
 ;;=================================
 
 (defn send-to-server! [host port message]
-  (with-open [socket (Socket. host port)]
+  (with-open [socket (Socket. ^String host ^Integer port)]
     (doto (io/writer socket)
       (.write (-> message
                   (s/trim-newline)

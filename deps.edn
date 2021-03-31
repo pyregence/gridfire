@@ -21,25 +21,29 @@
 
  :mvn/repos {"osgeo" {:url "https://repo.osgeo.org/repository/release/"}}
 
- :aliases {:build-test-db {:extra-paths ["test"]
-                           :main-opts   ["-m" "gridfire.build-test-db"]}
-           :run           {:main-opts ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
-                                       "-m" "gridfire.cli"]}
-           :run-server    {:main-opts ["-m" "gridfire.server"]}
-           :repl          {:main-opts ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
-                                       "-e" "(require,'gridfire.cli)"
-                                       "-e" "(in-ns,'gridfire.cli)"
-                                       "-r"]}
-           :make-config   {:main-opts ["-m" "gridfire.config"]}
-           :make-uberjar  {:extra-deps {seancorfield/depstar {:mvn/version "1.0.97"}}
-                           :main-opts  ["-m" "hf.depstar.uberjar" "target/gridfire-20200909.105353.jar"
-                                        "-C" "-m" "gridfire.cli"]}
-           :test          {:extra-paths ["test"]
-                           :extra-deps  {com.cognitect/test-runner
-                                         {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                                          :sha     "209b64504cb3bd3b99ecfec7937b358a879f55c1"}}
-                           :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
-                                         "-m" "cognitect.test-runner"]}
-           :check-deps    {:extra-deps {olical/depot {:mvn/version "1.8.4"}}
-                           :main-opts  ["-m" "depot.outdated.main"]}}}
+ :aliases {:build-test-db     {:extra-paths ["test"]
+                               :main-opts   ["-m" "gridfire.build-test-db"]}
+           :run               {:main-opts ["-m" "gridfire.cli"]}
+           :run-server        {:main-opts ["-m" "gridfire.server"]}
+           :repl              {:main-opts ["-e" "(require,'gridfire.cli)"
+                                           "-e" "(in-ns,'gridfire.cli)"
+                                           "-r"]}
+           :make-config       {:main-opts ["-m" "gridfire.config"]}
+           :make-uberjar      {:extra-deps {seancorfield/depstar {:mvn/version "1.0.97"}}
+                               :main-opts  ["-m" "hf.depstar.uberjar" "target/gridfire-20200909.105353.jar"
+                                            "-C" "-m" "gridfire.cli"]}
+           :test              {:extra-paths ["test"]
+                               :extra-deps  {com.cognitect/test-runner
+                                             {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                              :sha     "209b64504cb3bd3b99ecfec7937b358a879f55c1"}}
+                               :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
+                                             "-m" "cognitect.test-runner"]}
+           :check-reflections {:extra-paths ["test"]
+                               :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
+                                             "-e" "(require,'gridfire.cli)"
+                                             "-e" "(require,'gridfire.server)"
+                                             "-e" "(require,'gridfire.config)"
+                                             "-e" "(require,'gridfire.build-test-db)"]}
+           :check-deps        {:extra-deps {olical/depot {:mvn/version "1.8.4"}}
+                               :main-opts  ["-m" "depot.outdated.main"]}}}
 ;; deps.edn ends here

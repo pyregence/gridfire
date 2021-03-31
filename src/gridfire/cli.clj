@@ -21,7 +21,8 @@
                                             register-new-crs-definitions-from-properties-file!
                                             write-raster]]
             [matrix-viz.core        :refer [save-matrix-as-png]]
-            [taoensso.tufte         :as tufte])
+            [taoensso.tufte         :as tufte]
+            [triangulum.logging     :refer [log-str log]])
   (:import java.util.Random))
 
 (m/set-current-implementation :vectorz)
@@ -349,63 +350,68 @@
            random-seed] :as inputs}
    burn-count-matrix
    i]
-  (let [matrix-or-i           (fn [obj i] (:matrix obj (obj i)))
-        initial-ignition-site (or ignition-layer
-                                  (when (and (ignition-rows i) (ignition-cols i))
-                                    [(ignition-rows i) (ignition-cols i)]))
-        input-variations      {:rand-gen                  (if random-seed (Random. (+ random-seed i)) (Random.))
-                               :max-runtime               (max-runtimes i)
-                               :foliar-moisture           (* 0.01 (foliar-moistures i))
-                               :ellipse-adjustment-factor (ellipse-adjustment-factors i)
-                               :perturbations             (when perturbations (perturbations i))
-                               :temperature               (matrix-or-i temperatures i)
-                               :relative-humidity         (matrix-or-i relative-humidities i)
-                               :wind-speed-20ft           (matrix-or-i wind-speeds-20ft i)
-                               :wind-from-direction       (matrix-or-i wind-from-directions i)}
-        fire-spread-results   (tufte/p :run-fire-spread
-                                       (run-fire-spread
-                                        (merge inputs
-                                               input-variations
-                                               {:initial-ignition-site initial-ignition-site})))]
-    (when fire-spread-results
-      (process-output-layers! inputs fire-spread-results envelope i)
-      (when-let [timestep output-burn-probability]
-        (process-burn-count! fire-spread-results burn-count-matrix timestep))
-      (process-binary-output! inputs fire-spread-results i))
-    (when output-csvs?
-      (merge
-       input-variations
-       {:simulation      (inc i)
-        :ignition-row    (ignition-rows i)
-        :ignition-col    (ignition-cols i)
-        :foliar-moisture (foliar-moistures i)
-        :exit-condition  (:exit-condition fire-spread-results :no-fire-spread)}
-       (if fire-spread-results
-         (summarize-fire-spread-results fire-spread-results cell-size)
-         {:fire-size                  0.0
-          :flame-length-mean          0.0
-          :flame-length-stddev        0.0
-          :fire-line-intensity-mean   0.0
-          :fire-line-intensity-stddev 0.0})))))
+  (tufte/profile
+   {:id :run-simulation}
+   (let [matrix-or-i           (fn [obj i] (:matrix obj (obj i)))
+         initial-ignition-site (or ignition-layer
+                                   (when (and (ignition-rows i) (ignition-cols i))
+                                     [(ignition-rows i) (ignition-cols i)]))
+         input-variations      {:rand-gen                  (if random-seed (Random. (+ random-seed i)) (Random.))
+                                :max-runtime               (max-runtimes i)
+                                :foliar-moisture           (* 0.01 (foliar-moistures i))
+                                :ellipse-adjustment-factor (ellipse-adjustment-factors i)
+                                :perturbations             (when perturbations (perturbations i))
+                                :temperature               (matrix-or-i temperatures i)
+                                :relative-humidity         (matrix-or-i relative-humidities i)
+                                :wind-speed-20ft           (matrix-or-i wind-speeds-20ft i)
+                                :wind-from-direction       (matrix-or-i wind-from-directions i)}
+         fire-spread-results   (tufte/p :run-fire-spread
+                                        (run-fire-spread
+                                         (merge inputs
+                                                input-variations
+                                                {:initial-ignition-site initial-ignition-site})))]
+     (when fire-spread-results
+       (process-output-layers! inputs fire-spread-results envelope i)
+       (when-let [timestep output-burn-probability]
+         (process-burn-count! fire-spread-results burn-count-matrix timestep))
+       (process-binary-output! inputs fire-spread-results i))
+     (when output-csvs?
+       (merge
+        input-variations
+        {:simulation      (inc i)
+         :ignition-row    (ignition-rows i)
+         :ignition-col    (ignition-cols i)
+         :foliar-moisture (foliar-moistures i)
+         :exit-condition  (:exit-condition fire-spread-results :no-fire-spread)}
+        (if fire-spread-results
+          (summarize-fire-spread-results fire-spread-results cell-size)
+          {:fire-size                  0.0
+           :flame-length-mean          0.0
+           :flame-length-stddev        0.0
+           :fire-line-intensity-mean   0.0
+           :fire-line-intensity-stddev 0.0}))))))
 
 (defn run-simulations!
   [{:keys [simulations max-runtimes output-burn-probability parallel-strategy num-rows num-cols] :as inputs}]
-  (let [burn-count-matrix (initialize-burn-count-matrix output-burn-probability
+  (let [stats-accumulator (do
+                            (tufte/remove-handler! :accumulating)
+                            (tufte/add-accumulating-handler! {:handler-id :accumulating}))
+        burn-count-matrix (initialize-burn-count-matrix output-burn-probability
                                                         max-runtimes
                                                         num-rows
                                                         num-cols)
         parallel-bin-size (max 1 (quot simulations (.availableProcessors (Runtime/getRuntime))))
         reducer-fn        (if (= parallel-strategy :between-fires)
                             #(into [] (r/fold parallel-bin-size r/cat r/append! %))
-                            #(into [] %))]
-    (tufte/add-basic-println-handler! {})
+                            #(into [] %))
+        summary-stats     (->> (vec (range simulations))
+                               (r/map (partial run-simulation! inputs burn-count-matrix))
+                               (r/remove nil?)
+                               (reducer-fn))]
+    (Thread/sleep 1000)
+    (println (tufte/format-grouped-pstats @stats-accumulator {:format-pstats-opts {:columns [:n-calls :min :max :mean :mad :clock :total]}}))
     {:burn-count-matrix burn-count-matrix
-     :summary-stats     (tufte/profile
-                         {:dynamic? true}
-                         (->> (vec (range simulations))
-                              (r/map (partial run-simulation! inputs burn-count-matrix))
-                              (r/remove nil?)
-                              (reducer-fn)))}))
+     :summary-stats     summary-stats}))
 
 (defn write-landfire-layers!
   [{:keys [output-landfire-inputs? outfile-suffix landfire-rasters envelope]}]

@@ -90,7 +90,7 @@
         :y     (vec (repeatedly num-burned-cells #(.readInt in))) ; Int32
         :value (vec (repeatedly num-burned-cells #(.readFloat in)))})))) ; Float32
 
-(defn- read-val [in ttype]
+(defn- read-val [^DataInputStream in ttype]
   (case ttype
     :float (.readFloat in)
     :int   (.readInt in)

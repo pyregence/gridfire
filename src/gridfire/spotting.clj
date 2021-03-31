@@ -92,13 +92,11 @@
   "Returns a sequence of cells that firebrands land in"
   [deltas wind-towards-direction cell cell-size]
   (let [step         (/ cell-size 2)
-        cell-center  (mapv #(+ step (* % step)) cell)
+        [x y]        (mapv #(+ step (* % step)) cell)
         coord-deltas (deltas-wind->coord deltas wind-towards-direction)]
-    (map (comp
-          (partial map int)
-          (partial map #(quot % step))
-          (partial map + cell-center))
-         coord-deltas)))
+    (mapv (fn [[dx dy]] [(int (Math/floor (/ (+ dx x) step)))
+                         (int (Math/floor (/ (+ dy y) step)))])
+          coord-deltas)))
 ;; convert-deltas ends here
 ;; [[file:../../org/GridFire.org::firebrand-ignition-probability][firebrand-ignition-probability]]
 (defn- specific-heat-dry-fuel
