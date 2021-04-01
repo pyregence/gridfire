@@ -11,7 +11,7 @@
             [gridfire.config         :as config]
             [gridfire.utils.server   :refer [nil-on-error]]
             [gridfire.spec.server    :as spec-server]
-            [triangulum.logging      :refer [log-str]]
+            [triangulum.logging      :refer [log-str set-log-path! log]]
             [triangulum.utils        :refer [parse-as-sh-cmd]]
             [clojure.spec.alpha      :as spec])
   (:import java.util.TimeZone))
@@ -73,19 +73,21 @@
   "Unzips tar file and returns file path to the extracted folder"
   [{:keys [data-dir incoming-dir]} {:keys [fire-name ignition-time]}]
   (let [file-name (build-file-name fire-name ignition-time)]
+    (log-str "Unziping input deck:" file-name)
     (sh-wrapper incoming-dir
                 {}
                 (format "tar -xvf %s -C %s" (str file-name ".tar") data-dir))
     (str/join "/" [data-dir file-name])))
 
 (defn- copy-post-process-script [from-dir to-dir]
+  (log-str "copying post process script into:" to-dir)
   (->> (sh-wrapper from-dir
                    {}
                    (format "cp resources/postprocess.sh %s"
                            (str to-dir "/outputs")))))
 
 (defn- post-process-script [dir]
-  (println "running post process script")
+  (log-str "Running post process script")
   (sh-wrapper dir {} "./postprocess.sh"))
 
 (defn process-requests! [config {:keys [host port]}]
@@ -159,9 +161,10 @@
           (run! println errors)
           (newline))
         (println (str "Usage:\n" summary)))
-      (let [{:keys [host port]} options
-            config              (edn/read-string (slurp (:config options)))]
-        (println (format "Running server on port %s" port))
+      (let [{:keys [host port]}          options
+            {:keys [log-dir] :as config} (edn/read-string (slurp (:config options)))]
+        (when log-dir (set-log-path! log-dir))
+        (log (format "Running server on port %s" port) :force-stdout? true)
         (sockets/start-server! port (partial handler host port))
         (process-requests! config options)))))
 

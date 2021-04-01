@@ -393,6 +393,7 @@
 
 (defn run-simulations!
   [{:keys [simulations max-runtimes output-burn-probability parallel-strategy num-rows num-cols] :as inputs}]
+  (log-str "Running simulations")
   (let [stats-accumulator (do
                             (tufte/remove-handler! :accumulating)
                             (tufte/add-accumulating-handler! {:handler-id :accumulating}))
@@ -409,7 +410,7 @@
                                (r/remove nil?)
                                (reducer-fn))]
     (Thread/sleep 1000)
-    (println (tufte/format-grouped-pstats @stats-accumulator {:format-pstats-opts {:columns [:n-calls :min :max :mean :mad :clock :total]}}))
+    (log-str (tufte/format-grouped-pstats @stats-accumulator {:format-pstats-opts {:columns [:n-calls :min :max :mean :mad :clock :total]}}))
     {:burn-count-matrix burn-count-matrix
      :summary-stats     summary-stats}))
 

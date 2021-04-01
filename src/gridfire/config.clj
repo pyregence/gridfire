@@ -2,7 +2,8 @@
   (:require [clojure.pprint :as pprint]
             [clojure.string :as str]
             [clojure.tools.cli :refer [parse-opts]]
-            [gridfire.conversion :as convert]))
+            [gridfire.conversion :as convert]
+            [triangulum.logging :refer [log-str]]))
 
 ;;-----------------------------------------------------------------------------
 ;; Util
@@ -337,8 +338,7 @@
 
 (defn write-config [config-params]
   (let [file-name "gridfire.edn"]
-    (println "Created Config file:" file-name)
-    (println "Directory:" elmfire-file-path)
+    (log-str "Created Config file: " elmfire-file-path "/" file-name)
     (spit (str/join "/" [elmfire-file-path file-name])
           (with-out-str (pprint/pprint config-params)))))
 
@@ -353,7 +353,7 @@
 
 (defn convert-config!
   [& args]
-  (println (str "Converting configuration file to one that Gridfire accepts."))
+  (log-str "Converting configuration file to one that Gridfire accepts.")
   (let [{:keys [options summary errors]} (parse-opts args cli-options)]
     (if (or (seq errors) (empty? options))
       (do

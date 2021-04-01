@@ -90,6 +90,7 @@
    (fuel-moisture-from-raster constants here 0))
 
   ([{:keys [fuel-moisture-layers multiplier-lookup]} here global-clock]
+   ;; FIXME Undo when ready to PR
    {:dead {:1hr   0.02
            :10hr  0.02
            :100hr 0.02}
