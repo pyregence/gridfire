@@ -8,15 +8,23 @@
 ;; We assume that matrix[0,0] is the upper left corner.
 (defn non-zero-data [matrix]
   (let [row-count (m/row-count matrix)]
-    (->> matrix
-         (m/non-zero-indices)
-         (reverse)
-         (map-indexed (fn [row cols]
-                        (let [true-row (- row-count (inc row))]
-                          {:x     (mapv inc cols)
-                           :y     (into [] (repeat (count cols) (inc row)))
-                           :value (mapv (fn [col] (m/mget matrix true-row col)) cols)})))
-         (apply merge-with into))))
+    (transduce
+     (comp (map-indexed (fn [row cols]
+                          (when (pos? (count cols))
+                            (let [y (- row-count row)]
+                              {:x (mapv inc cols) ; 1 -> m left to right
+                               :y (into [] (repeat (count cols) y)) ; n -> 1 top to bottom
+                               :v (mapv (fn [col] (m/mget matrix row col)) cols)}))))
+           (remove nil?))
+     (completing
+      (fn [m1 m2]
+        {:x (into (:x m1) (:x m2))
+         :y (into (:y m1) (:y m2))
+         :v (into (:v m1) (:v m2))}))
+     {:x []
+      :y []
+      :v []}
+     (m/non-zero-indices matrix))))
 
 (defn indices-to-matrix
   ([indices]
@@ -25,7 +33,7 @@
   ([indices ttype]
    (let [rows    (indices :y)
          cols    (indices :x)
-         values  (indices :value)
+         values  (indices :v)
          max-row (apply max rows)
          max-col (apply max cols)
          matrix  (if (= ttype :int)
@@ -44,7 +52,7 @@
       (.writeInt out (int num-burned-cells))                          ; Int32
       (doseq [x (burned-data :x)] (.writeInt out (int x)))            ; Int32
       (doseq [y (burned-data :y)] (.writeInt out (int y)))            ; Int32
-      (doseq [v (burned-data :value)] (.writeFloat out (float v)))))) ; Float32
+      (doseq [v (burned-data :v)] (.writeFloat out (float v)))))) ; Float32
 
 (defn ints-to-bytes [int-coll]
   (let [num-ints (tufte/p :count (count int-coll))
@@ -63,10 +71,10 @@
   (tufte/p
    :write-matrices-as-binary
    (let [num-burned-cells (m/non-zero-count (:matrix (first matrices)))
-         data             (mapv (fn [{:keys [ttype matrix]}]
-                                  {:ttype ttype
-                                   :data  (non-zero-data matrix)})
-                                matrices)]
+         data             (tufte/p :non-zero-data (mapv (fn [{:keys [ttype matrix]}]
+                                   {:ttype ttype
+                                    :data  (non-zero-data matrix)})
+                                 matrices))]
      (with-open [out (DataOutputStream. (io/output-stream file-name))]
        (.writeInt out (int num-burned-cells))                   ; Int32
        (let [xs (get-in data [0 :data :x])
@@ -74,7 +82,7 @@
          (.write out (ints-to-bytes xs) 0 (* 4 (count xs)))  ; Int32
          (.write out (ints-to-bytes ys) 0 (* 4 (count ys)))) ; Int32
        (doseq [d data]
-         (let [vs            (get-in d [:data :value])
+         (let [vs            (get-in d [:data :v])
                nums-to-bytes (case (:ttype d)
                                :int   ints-to-bytes
                                :float floats-to-bytes
@@ -88,7 +96,7 @@
       (indices-to-matrix
        {:x     (vec (repeatedly num-burned-cells #(.readInt in))) ; Int32
         :y     (vec (repeatedly num-burned-cells #(.readInt in))) ; Int32
-        :value (vec (repeatedly num-burned-cells #(.readFloat in)))})))) ; Float32
+        :v (vec (repeatedly num-burned-cells #(.readFloat in)))})))) ; Float32
 
 (defn- read-val [^DataInputStream in ttype]
   (case ttype
@@ -105,7 +113,7 @@
               (indices-to-matrix
                {:x     xs
                 :y     ys
-                :value (vec (repeatedly num-burned-cells #(read-val in ttype)))} ; Float32/Int32
+                :v (vec (repeatedly num-burned-cells #(read-val in ttype)))} ; Float32/Int32
                ttype))
             ttypes))))
 
