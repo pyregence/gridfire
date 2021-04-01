@@ -73,10 +73,10 @@
   "Unzips tar file and returns file path to the extracted folder"
   [{:keys [data-dir incoming-dir]} {:keys [fire-name ignition-time]}]
   (let [file-name (build-file-name fire-name ignition-time)]
-    (log-str "Unziping input deck:" file-name)
+    (log-str "Unzipping input deck: " file-name)
     (sh-wrapper incoming-dir
                 {}
-                (format "tar -xvf %s -C %s" (str file-name ".tar") data-dir))
+                (format "tar -xvf %s -C %s --one-top-level" (str file-name ".tar") data-dir))
     (str/join "/" [data-dir file-name])))
 
 (defn- copy-post-process-script [from-dir to-dir]
