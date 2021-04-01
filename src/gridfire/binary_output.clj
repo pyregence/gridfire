@@ -26,6 +26,7 @@
       :v []}
      (m/non-zero-indices matrix))))
 
+;;FIXME max-row max-col is not correct. Need dimensions in binary file.
 (defn indices-to-matrix
   ([indices]
    (indices-to-matrix indices nil))
@@ -67,27 +68,23 @@
     (.array buf)))
 
 (defn write-matrices-as-binary
-  [matrices file-name]
+  [file-name types matrices]
   (tufte/p
    :write-matrices-as-binary
-   (let [num-burned-cells (m/non-zero-count (:matrix (first matrices)))
-         data             (tufte/p :non-zero-data (mapv (fn [{:keys [ttype matrix]}]
-                                   {:ttype ttype
-                                    :data  (non-zero-data matrix)})
-                                 matrices))]
+   (let [num-burned-cells (m/non-zero-count (first matrices))
+         data             (tufte/p :non-zero-data (mapv non-zero-data matrices))]
      (with-open [out (DataOutputStream. (io/output-stream file-name))]
        (.writeInt out (int num-burned-cells))                   ; Int32
-       (let [xs (get-in data [0 :data :x])
-             ys (get-in data [0 :data :y])]
+       (let [xs (:x (first data))
+             ys (:y (first data))]
          (.write out (ints-to-bytes xs) 0 (* 4 (count xs)))  ; Int32
          (.write out (ints-to-bytes ys) 0 (* 4 (count ys)))) ; Int32
-       (doseq [d data]
-         (let [vs            (get-in d [:data :v])
-               nums-to-bytes (case (:ttype d)
-                               :int   ints-to-bytes
-                               :float floats-to-bytes
-                               nil)]
-           (when nums-to-bytes
+       (doseq [[t d] (map vector types data)]
+         (when-let [nums-to-bytes (case t
+                                    :int   ints-to-bytes
+                                    :float floats-to-bytes
+                                    nil)]
+           (let [vs (:v d)]
              (.write out (nums-to-bytes vs) 0 (* 4 (count vs))))))))))
 
 (defn read-matrix-as-binary [file-name]
@@ -104,6 +101,7 @@
     :int   (.readInt in)
     nil))
 
+;;FIXME make faster
 (defn read-matrices-as-binary [file-name ttypes]
   (with-open [in (DataInputStream. (io/input-stream file-name))]
     (let [num-burned-cells (.readInt in)
@@ -111,8 +109,8 @@
           ys               (vec (repeatedly num-burned-cells #(.readInt in)))] ; Int32
       (mapv (fn [ttype]
               (indices-to-matrix
-               {:x     xs
-                :y     ys
+               {:x xs
+                :y ys
                 :v (vec (repeatedly num-burned-cells #(read-val in ttype)))} ; Float32/Int32
                ttype))
             ttypes))))

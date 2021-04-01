@@ -238,18 +238,16 @@
    {:keys [burn-time-matrix flame-length-matrix spread-rate-matrix fire-type-matrix]}
    simulation]
   (when output-binary?
-    (let [output-name (format "toa_0001_%05d.bin" (inc simulation))]
-      (binary/write-matrices-as-binary [{:ttype  :float
-                                         :matrix (m/emap #(if (pos? %) (* 60 %) %) burn-time-matrix)}
-                                        {:ttype  :float
-                                         :matrix flame-length-matrix}
-                                        {:ttype  :float
-                                         :matrix spread-rate-matrix}
-                                        {:ttype  :int
-                                         :matrix fire-type-matrix}]
-                                       (if output-directory
-                                         (.getPath (io/file output-directory output-name))
-                                         output-name)))))
+    (let [output-name (format "toa_0001_%05d.bin" (inc simulation))
+          output-path (if output-directory
+                        (.getPath (io/file output-directory output-name))
+                        output-name)]
+      (binary/write-matrices-as-binary output-path
+                                       [:float :float :float :int]
+                                       [(m/emap #(if (pos? %) (* 60 %) %) burn-time-matrix)
+                                        flame-length-matrix
+                                        spread-rate-matrix
+                                        fire-type-matrix]))))
 
 (defn get-envelope
   [config landfire-layers]
