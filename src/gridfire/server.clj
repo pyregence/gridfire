@@ -84,6 +84,8 @@
   (->> (sh-wrapper from-dir
                    {}
                    (format "cp resources/postprocess.sh %s"
+                           (str to-dir "/outputs"))
+                   (format "cp resources/make_tifs.sh %s"
                            (str to-dir "/outputs")))))
 
 (defn- post-process-script [dir]
