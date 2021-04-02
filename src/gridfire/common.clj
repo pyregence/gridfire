@@ -91,12 +91,7 @@
 
   ([{:keys [fuel-moisture-layers multiplier-lookup]} here global-clock]
    ;; FIXME Undo when ready to PR
-   {:dead {:1hr   0.02
-           :10hr  0.02
-           :100hr 0.02}
-    :live {:herbaceous 0.3
-           :woody      0.6}}
-   #_(when fuel-moisture-layers
+   (when fuel-moisture-layers
     (extract-fuel-moisture fuel-moisture-layers multiplier-lookup here global-clock))))
 
 (defn in-bounds?
