@@ -23,8 +23,7 @@ compress () {
     fi
 }
 
-# N=`cat /proc/cpuinfo | grep "cpu cores" | cut -d: -f2 | tail -n 1 | xargs`
-N=44
+N=`grep processor /proc/cpuinfo | wc -l`
 (
     for f in *.bil; do
         ((i=i%N)); ((i++==0)) && wait

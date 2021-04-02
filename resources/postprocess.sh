@@ -9,8 +9,7 @@ MODEL=gridfire
 ELMFIRE_POST=elmfire_post_$ELMFIRE_VER
 MPIRUN=/usr/bin/mpirun
 HOSTS=`printf "$(hostname),%.0s" {1..64}`
-# NP=`cat /proc/cpuinfo | grep "cpu cores" | cut -d: -f2 | tail -n 1 | xargs`
-NP=44
+NP=`grep processor /proc/cpuinfo | wc -l`
 CELLSIZE=`cat ../elmfire.data | grep COMPUTATIONAL_DOMAIN_CELLSIZE | cut -d= -f2 | xargs`
 XLLCORNER=`cat ../elmfire.data | grep COMPUTATIONAL_DOMAIN_XLLCORNER | cut -d= -f2 | xargs`
 YLLCORNER=`cat ../elmfire.data | grep COMPUTATIONAL_DOMAIN_YLLCORNER | cut -d= -f2 | xargs`
