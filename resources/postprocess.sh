@@ -5,6 +5,7 @@ rm -f *.bil *.hdr *.tif
 if [ -z "$ELMFIRE_VER" ]; then
    ELMFIRE_VER=0.6548
 fi
+MODEL=gridfire
 ELMFIRE_POST=elmfire_post_$ELMFIRE_VER
 MPIRUN=/usr/bin/mpirun
 HOSTS=`printf "$(hostname),%.0s" {1..64}`
@@ -76,10 +77,10 @@ sleep 0.5
 
 cd geoserver
 echo "Creating tarball for GeoServer"
-tar -cvf $FIRENAME-${START_DATE}_${START_TIME}.tar * >& /dev/null
+tar -cvf $MODEL-$FIRENAME-${START_DATE}_${START_TIME}.tar * >& /dev/null
 
 echo "Uploading tarball to GeoServer"
-scp  $FIRENAME-${START_DATE}_${START_TIME}.tar gridfire@data.pyregence.org:/incoming/
+scp  $MODEL-$FIRENAME-${START_DATE}_${START_TIME}.tar gridfire@data.pyregence.org:/incoming/
 mv *.tar ..
 
 echo "Compressing binary files and removing originals"
