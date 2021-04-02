@@ -81,6 +81,9 @@ tar -cvf $MODEL-$FIRENAME-${START_DATE}_${START_TIME}.tar * >& /dev/null
 echo "Uploading tarball to GeoServer"
 scp  $MODEL-$FIRENAME-${START_DATE}_${START_TIME}.tar gridfire@data.pyregence.org:/incoming/
 mv *.tar ..
+ssh gridfire@data.pyregence.org \
+    tar -xf /incoming/$MODEL-$FIRENAME-${START_DATE}_${START_TIME}.tar \
+        -C /var/www/html/fire_spread_forecast
 
 echo "Compressing binary files and removing originals"
 cd ..
