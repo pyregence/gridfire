@@ -41,11 +41,12 @@
                    (make-array Integer/TYPE max-row max-col)
                    (make-array Float/TYPE max-row max-col))]
      (dotimes [i (count values)]
-       (let [true-row (- max-row (rows i))
-             true-col (dec (cols i))]
-         (aset matrix true-row true-col (values i))))
+       (let [true-row (- max-row (aget rows i))
+             true-col (dec (aget cols i))]
+         (aset matrix true-row true-col (aget values i))))
      (m/matrix matrix))))
 
+;;FIXME optimize
 (defn write-matrix-as-binary [matrix file-name]
   (let [num-burned-cells (m/non-zero-count matrix)
         burned-data      (non-zero-data matrix)]
@@ -87,38 +88,42 @@
            (let [vs (:v d)]
              (.write out (nums-to-bytes vs) 0 (* 4 (count vs))))))))))
 
+;;FIXME optimize
 (defn read-matrix-as-binary [file-name]
   (with-open [in (DataInputStream. (io/input-stream file-name))]
     (let [num-burned-cells (.readInt in)]                                ; Int32
       (indices-to-matrix
-       {:x     (vec (repeatedly num-burned-cells #(.readInt in))) ; Int32
-        :y     (vec (repeatedly num-burned-cells #(.readInt in))) ; Int32
-        :v (vec (repeatedly num-burned-cells #(.readFloat in)))})))) ; Float32
+       {:x (into-array Integer/TYPE (repeatedly num-burned-cells #(.readInt in))) ; Int32
+        :y (into-array Integer/TYPE (repeatedly num-burned-cells #(.readInt in))) ; Int32
+        :v (into-array Float/TYPE (repeatedly num-burned-cells #(.readFloat in)))})))) ; Float32
 
-(defn- read-val [^DataInputStream in ttype]
-  (case ttype
-    :float (.readFloat in)
-    :int   (.readInt in)
-    nil))
-
-;;FIXME make faster
 (defn read-matrices-as-binary [file-name ttypes]
   (with-open [in (DataInputStream. (io/input-stream file-name))]
     (let [num-burned-cells (.readInt in)
-          xs               (vec (repeatedly num-burned-cells #(.readInt in))) ; Int32
-          ys               (vec (repeatedly num-burned-cells #(.readInt in)))] ; Int32
+          xs-bytes         (byte-array (* 4 num-burned-cells))
+          ys-bytes         (byte-array (* 4 num-burned-cells))
+          _                (.read in xs-bytes) ; Int32
+          _                (.read in ys-bytes)
+          xs               (int-array num-burned-cells)
+          ys               (int-array num-burned-cells)
+          _               (.get (.asIntBuffer (ByteBuffer/wrap xs-bytes)) xs)
+          _               (.get (.asIntBuffer (ByteBuffer/wrap ys-bytes)) ys)] ; Int32
       (mapv (fn [ttype]
               (indices-to-matrix
                {:x xs
                 :y ys
-                :v (vec (repeatedly num-burned-cells #(read-val in ttype)))} ; Float32/Int32
+                :v (let [vs-bytes (byte-array (* 4 num-burned-cells))
+                         _        (.read in vs-bytes)]
+                     (case ttype
+                       :int   (let [vs (int-array num-burned-cells)]
+                                (.get (.asIntBuffer (ByteBuffer/wrap vs-bytes)) vs)
+                                vs)
+                       :float (let [vs (float-array num-burned-cells)]
+                                (.get (.asFloatBuffer (ByteBuffer/wrap vs-bytes)) vs)
+                                vs)
+                       nil))} ; Float32/Int32
                ttype))
             ttypes))))
-
-(defn write-two-int-file [file-name]
-  (with-open [out (DataOutputStream. (io/output-stream file-name))]
-    (.writeInt out 1)   ; Int32
-    (.writeInt out 2))) ; Int32
 
 ;; toa_test.bin was created with:
 ;; (write-matrix-as-binary [[0 1 2] [3 0 4] [5 6 0]] "toa_test.bin")
