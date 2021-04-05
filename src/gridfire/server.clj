@@ -49,16 +49,16 @@
          (.parse in-format)
          (.format out-format))))
 
-;; TODO remove when code is in triangulum
-(defn sh-wrapper [dir env & commands]
-  (let [path-env (System/getenv "PATH")]
-    (io/make-parents (str dir "/dummy"))
-    (sh/with-sh-dir dir
-      (sh/with-sh-env (merge {:PATH path-env} env)
-        (doseq [cmd commands]
-          (let [{:keys [exit err]} (apply sh/sh (parse-as-sh-cmd cmd))]
-            (when-not (= 0 exit)
-              (throw (ex-info err {})))))))))
+(def ^:private path-env (System/getenv "PATH"))
+
+(defn- sh-wrapper [dir env verbose & commands]
+  (sh/with-sh-dir dir
+    (sh/with-sh-env (merge {:PATH path-env} env)
+      (reduce (fn [acc cmd]
+                (let [{:keys [out err]} (apply sh/sh (parse-as-sh-cmd cmd))]
+                  (str acc (when verbose out) err)))
+              ""
+              commands))))
 
 ;;-----------------------------------------------------------------------------
 ;; Server and Handler Functions
@@ -76,21 +76,33 @@
     (log-str "Unzipping input deck: " file-name)
     (sh-wrapper incoming-dir
                 {}
-                (format "tar -xvf %s -C %s --one-top-level" (str file-name ".tar") data-dir))
+                false
+                (format "tar -xf %s -C %s --one-top-level" (str file-name ".tar") data-dir))
     (str/join "/" [data-dir file-name])))
 
 (defn- copy-post-process-script [from-dir to-dir]
-  (log-str "copying post process script into:" to-dir)
-  (->> (sh-wrapper from-dir
-                   {}
-                   (format "cp resources/postprocess.sh %s"
-                           (str to-dir "/outputs"))
-                   (format "cp resources/make_tifs.sh %s"
-                           (str to-dir "/outputs")))))
+  (let [output-dir (str to-dir "/outputs")]
+   (log-str "copying post process script into:" output-dir)
+   (sh-wrapper from-dir
+               {}
+               false
+               (format "cp resources/postprocess.sh %s" output-dir)
+               (format "cp resources/elmfire_post.sh %s" output-dir)
+               (format "cp resources/make_tifs.sh %s" output-dir)
+               (format "cp resources/build_geoserver_directory.sh %s" output-dir)
+               (format "cp resources/upload_tarball.sh %s" output-dir)
+               (format "cp resources/cleanup.sh %s" output-dir))))
 
 (defn- post-process-script [dir]
   (log-str "Running post process script")
-  (sh-wrapper dir {} "./postprocess.sh"))
+  (let [commands ["./elmfire_post.sh"
+                  "./make_tifs.sh"
+                  "./build_geoserver_directory.sh"
+                  "./upload_tarball.sh"
+                  "./cleanup.sh"]]
+    (run! #(log % :truncate? false :newline? false)
+          (doall (for [cmd commands]
+                   (sh-wrapper dir {} true cmd))))))
 
 (defn process-requests! [config {:keys [host port]}]
   (go (loop [{:keys [response-host response-port] :as request} (<! job-queue)]

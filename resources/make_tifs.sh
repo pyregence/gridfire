@@ -27,11 +27,13 @@ N=`grep processor /proc/cpuinfo | wc -l`
 (
     for f in *.bil; do
         ((i=i%N)); ((i++==0)) && wait
-        compress "$f" &
+        compress "$f" &>/dev/null &
     done
 )
 
 wait
 sleep 0.5
+
+echo "Created Geotiffs"
 
 exit 0
