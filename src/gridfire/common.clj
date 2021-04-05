@@ -90,7 +90,6 @@
    (fuel-moisture-from-raster constants here 0))
 
   ([{:keys [fuel-moisture-layers multiplier-lookup]} here global-clock]
-   ;; FIXME Undo when ready to PR
    (when fuel-moisture-layers
     (extract-fuel-moisture fuel-moisture-layers multiplier-lookup here global-clock))))
 

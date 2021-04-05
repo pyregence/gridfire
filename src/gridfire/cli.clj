@@ -408,7 +408,9 @@
                                (r/remove nil?)
                                (reducer-fn))]
     (Thread/sleep 1000)
-    (log (tufte/format-grouped-pstats @stats-accumulator {:format-pstats-opts {:columns [:n-calls :min :max :mean :mad :clock :total]}}) :truncate? false)
+    (log (tufte/format-grouped-pstats @stats-accumulator
+                                      {:format-pstats-opts {:columns [:n-calls :min :max :mean :mad :clock :total]}})
+         :truncate? false)
     {:burn-count-matrix burn-count-matrix
      :summary-stats     summary-stats}))
 
