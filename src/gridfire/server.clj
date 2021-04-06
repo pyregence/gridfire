@@ -65,7 +65,7 @@
 ;;-----------------------------------------------------------------------------
 
 (defonce job-queue (chan 10))
-(defonce job-queue-count 0)
+(defonce job-queue-count (atom 0))
 
 (defn- build-file-name [fire-name ignition-time]
   (str/join "_" [fire-name (convert-date-string ignition-time) "001"]))
