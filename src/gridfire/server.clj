@@ -64,8 +64,10 @@
 ;; Server and Handler Functions
 ;;-----------------------------------------------------------------------------
 
-(defonce job-queue (chan 10))
-(defonce job-queue-count (atom 0))
+(defonce job-queue-size (atom 0))
+(defonce job-queue (chan 10 (map (fn [x]
+                                   (swap! job-queue-size inc)
+                                   (delay (swap! job-queue-size dec) x)))))
 
 (defn- build-file-name [fire-name ignition-time]
   (str/join "_" [fire-name (convert-date-string ignition-time) "001"]))
@@ -121,8 +123,7 @@
                            (build-response request options status status-msg)))
 
 (defn- process-requests! [config options]
-  (go (loop [request (<! job-queue)]
-        (swap! job-queue-count dec)
+  (go (loop [request @(<! job-queue)]
         (log-str "Processing Request: " request)
         (let [respond-with        (partial send-response! request options)
               [status status-msg] (try
@@ -137,7 +138,7 @@
                                       [1 (str "Processing Error " (ex-message e))]))]
           (log-str "-> " status-msg)
           (respond-with status status-msg))
-        (recur (<! job-queue)))))
+        (recur @(<! job-queue)))))
 
 (defn- handler [host port request-msg]
   (go
@@ -146,9 +147,8 @@
       (when-let [[status status-msg] (try
                                        (if (spec/valid? ::spec-server/gridfire-server-request request)
                                          (do (>! job-queue request)
-                                             (swap! job-queue-count inc)
                                              [2 (format "GridFire: Added to Job Queue. You are %d in line."
-                                                        @job-queue-count)])
+                                                        (inc @job-queue-size))])
                                          [1 (str "Invalid Request: " (spec/explain-str ::spec-server/gridfire-server-request request))])
                                        (catch AssertionError _
                                          [1 "GridFire: Job Queue Limit Exceeded! Dropping Request!"])
