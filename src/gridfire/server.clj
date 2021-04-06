@@ -127,7 +127,7 @@
                                       (respond-with 2 "GridFire: Running Simulation")
                                       (cli/-main (str input-deck-path "/gridfire.edn"))
                                       (copy-post-process-script (:software-dir config) input-deck-path)
-                                      (respond-with 2 "GridFire: Processing binaries")
+                                      (respond-with 2 "GridFire: Processing Binaries")
                                       (post-process-script (str input-deck-path "/outputs"))
                                       [0 "GridFire: Successful Run! Results uploaded to Geoserver!"])
                                     (catch Exception e
