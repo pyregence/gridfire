@@ -104,18 +104,20 @@
        (-> (sh-wrapper dir {} true cmd)
            (#(log % :truncate? false :newline? false)))))))
 
-(defn build-response [{:keys [host port]} status status-msg]
-  (json/write-str {:status        status
-                   :message       status-msg
-                   :response-host host
-                   :response-port port}
+(defn build-response [request {:keys [host port]} status status-msg]
+  (json/write-str (merge
+                   request
+                   {:status        status
+                    :message       status-msg
+                    :response-host host
+                    :response-port port})
                   :key-fn (comp kebab->camel name)))
 
 (defn send-response!
-  [{:keys [response-host response-port]} options status status-msg]
+  [{:keys [response-host response-port] :as request} options status status-msg]
   (sockets/send-to-server! response-host
                            response-port
-                           (build-response options status status-msg)))
+                           (build-response request options status status-msg)))
 
 (defn process-requests! [config options]
   (go (loop [request (<! job-queue)]
