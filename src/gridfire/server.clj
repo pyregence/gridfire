@@ -86,7 +86,6 @@
     (sh-wrapper from-dir
                 {}
                 false
-                (format "cp resources/postprocess.sh %s" output-dir)
                 (format "cp resources/elmfire_post.sh %s" output-dir)
                 (format "cp resources/make_tifs.sh %s" output-dir)
                 (format "cp resources/build_geoserver_directory.sh %s" output-dir)
