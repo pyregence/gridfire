@@ -105,12 +105,11 @@
            (#(log % :truncate? false :newline? false)))))))
 
 (defn- build-response [request {:keys [host port]} status status-msg]
-  (json/write-str (merge
-                   request
-                   {:status        status
-                    :message       status-msg
-                    :response-host host
-                    :response-port port})
+  (json/write-str (merge request
+                         {:status        status
+                          :message       status-msg
+                          :response-host host
+                          :response-port port})
                   :key-fn (comp kebab->camel name)))
 
 (defn- send-response!
