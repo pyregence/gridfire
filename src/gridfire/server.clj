@@ -99,10 +99,9 @@
                   "./build_geoserver_directory.sh"
                   "./upload_tarball.sh"
                   "./cleanup.sh"]]
-    (doall
-     (for [cmd commands]
-       (-> (sh-wrapper dir {} true cmd)
-           (#(log % :truncate? false :newline? false)))))))
+    (doseq [cmd commands]
+      (-> (sh-wrapper dir {} true cmd)
+          (#(log % :truncate? false :newline? false))))))
 
 (defn- build-response [request {:keys [host port]} status status-msg]
   (json/write-str (merge request
@@ -125,10 +124,12 @@
               [status status-msg] (try
                                     (let [input-deck-path (unzip-tar config request)]
                                       (config/convert-config! "-c" (str input-deck-path "/elmfire.data"))
+                                      (respond-with 2 "GridFire: Running Simulation")
                                       (cli/-main (str input-deck-path "/gridfire.edn"))
                                       (copy-post-process-script (:software-dir config) input-deck-path)
+                                      (respond-with 2 "GridFire: Processing binaries")
                                       (post-process-script (str input-deck-path "/outputs"))
-                                      [0 "Successful Run! Results uploaded to Geoserver!"])
+                                      [0 "GridFire: Successful Run! Results uploaded to Geoserver!"])
                                     (catch Exception e
                                       [1 (str "Processing Error " (ex-message e))]))]
           (log-str "-> " status-msg)
@@ -142,10 +143,10 @@
       (when-let [[status status-msg] (try
                                        (if (spec/valid? ::spec-server/gridfire-server-request request)
                                          (do (>! job-queue request)
-                                             [2 "Added to Job Queue"])
+                                             [2 "GridFire: Added to Job Queue"])
                                          [1 (str "Invalid Request: " (spec/explain-str ::spec-server/gridfire-server-request request))])
                                        (catch AssertionError _
-                                         [1 "Job Queue Limit Exceeded! Dropping Request!"])
+                                         [1 "GridFire: Job Queue Limit Exceeded! Dropping Request!"])
                                        (catch Exception e
                                          [1 (str "Validation Error: " (ex-message e))]))]
         (log-str "-> " status-msg)
