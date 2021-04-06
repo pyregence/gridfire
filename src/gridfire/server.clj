@@ -82,16 +82,16 @@
 
 (defn- copy-post-process-script [from-dir to-dir]
   (let [output-dir (str to-dir "/outputs")]
-   (log-str "copying post process script into:" output-dir)
-   (sh-wrapper from-dir
-               {}
-               false
-               (format "cp resources/postprocess.sh %s" output-dir)
-               (format "cp resources/elmfire_post.sh %s" output-dir)
-               (format "cp resources/make_tifs.sh %s" output-dir)
-               (format "cp resources/build_geoserver_directory.sh %s" output-dir)
-               (format "cp resources/upload_tarball.sh %s" output-dir)
-               (format "cp resources/cleanup.sh %s" output-dir))))
+    (log-str "copying post process script into:" output-dir)
+    (sh-wrapper from-dir
+                {}
+                false
+                (format "cp resources/postprocess.sh %s" output-dir)
+                (format "cp resources/elmfire_post.sh %s" output-dir)
+                (format "cp resources/make_tifs.sh %s" output-dir)
+                (format "cp resources/build_geoserver_directory.sh %s" output-dir)
+                (format "cp resources/upload_tarball.sh %s" output-dir)
+                (format "cp resources/cleanup.sh %s" output-dir))))
 
 (defn- post-process-script [dir]
   (log-str "Running post process script")
@@ -104,10 +104,24 @@
           (doall (for [cmd commands]
                    (sh-wrapper dir {} true cmd))))))
 
-(defn process-requests! [config {:keys [host port]}]
-  (go (loop [{:keys [response-host response-port] :as request} (<! job-queue)]
+(defn build-response [{:keys [host port]} status status-msg]
+  (json/write-str {:status        status
+                   :message       status-msg
+                   :response-host host
+                   :response-port port}
+                  :key-fn (comp kebab->camel name)))
+
+(defn send-response!
+  [{:keys [response-host response-port]} options status status-msg]
+  (sockets/send-to-server! response-host
+                           response-port
+                           (build-response options status status-msg)))
+
+(defn process-requests! [config options]
+  (go (loop [request (<! job-queue)]
         (log-str "Processing Request: " request)
-        (let [[status status-msg] (try
+        (let [respond-with        (partial send-response! request options)
+              [status status-msg] (try
                                     (let [input-deck-path (unzip-tar config request)]
                                       (config/convert-config! "-c" (str input-deck-path "/elmfire.data"))
                                       (cli/-main (str input-deck-path "/gridfire.edn"))
@@ -117,14 +131,7 @@
                                     (catch Exception e
                                       [1 (str "Processing Error " (ex-message e))]))]
           (log-str "-> " status-msg)
-          (sockets/send-to-server! response-host
-                                   response-port
-                                   (json/write-str (merge request
-                                                          {:status        status
-                                                           :message       status-msg
-                                                           :response-host host
-                                                           :response-port port})
-                                                   :key-fn (comp kebab->camel name))))
+          (respond-with status status-msg))
         (recur (<! job-queue)))))
 
 (defn handler [host port request-msg]
