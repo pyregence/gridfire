@@ -100,9 +100,10 @@
                   "./build_geoserver_directory.sh"
                   "./upload_tarball.sh"
                   "./cleanup.sh"]]
-    (run! #(log % :truncate? false :newline? false)
-          (doall (for [cmd commands]
-                   (sh-wrapper dir {} true cmd))))))
+    (doall
+     (for [cmd commands]
+       (-> (sh-wrapper dir {} true cmd)
+           (#(log % :truncate? false :newline? false)))))))
 
 (defn build-response [{:keys [host port]} status status-msg]
   (json/write-str {:status        status
