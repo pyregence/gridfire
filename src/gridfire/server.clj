@@ -104,7 +104,7 @@
        (-> (sh-wrapper dir {} true cmd)
            (#(log % :truncate? false :newline? false)))))))
 
-(defn build-response [request {:keys [host port]} status status-msg]
+(defn- build-response [request {:keys [host port]} status status-msg]
   (json/write-str (merge
                    request
                    {:status        status
@@ -113,13 +113,13 @@
                     :response-port port})
                   :key-fn (comp kebab->camel name)))
 
-(defn send-response!
+(defn- send-response!
   [{:keys [response-host response-port] :as request} options status status-msg]
   (sockets/send-to-server! response-host
                            response-port
                            (build-response request options status status-msg)))
 
-(defn process-requests! [config options]
+(defn- process-requests! [config options]
   (go (loop [request (<! job-queue)]
         (log-str "Processing Request: " request)
         (let [respond-with        (partial send-response! request options)
@@ -136,7 +136,7 @@
           (respond-with status status-msg))
         (recur (<! job-queue)))))
 
-(defn handler [host port request-msg]
+(defn- handler [host port request-msg]
   (go
     (log-str "Request: " request-msg)
     (if-let [request (nil-on-error (json/read-str request-msg :key-fn (comp keyword camel->kebab)))]
