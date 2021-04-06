@@ -65,6 +65,7 @@
 ;;-----------------------------------------------------------------------------
 
 (defonce job-queue (chan 10))
+(defonce job-queue-count 0)
 
 (defn- build-file-name [fire-name ignition-time]
   (str/join "_" [fire-name (convert-date-string ignition-time) "001"]))
@@ -92,14 +93,16 @@
                 (format "cp resources/upload_tarball.sh %s" output-dir)
                 (format "cp resources/cleanup.sh %s" output-dir))))
 
-(defn- post-process-script [dir]
+(defn- post-process-script [respond-with! dir]
   (log-str "Running post process script")
-  (let [commands ["./elmfire_post.sh"
-                  "./make_tifs.sh"
-                  "./build_geoserver_directory.sh"
-                  "./upload_tarball.sh"
-                  "./cleanup.sh"]]
-    (doseq [cmd commands]
+  (let [commands [["./elmfire_post.sh" "GridFire: Running elmfire_post processing"]
+                  ["./make_tifs.sh" "GridFire: Creating Geotiffs"]
+                  ["./build_geoserver_directory.sh"]
+                  ["./upload_tarball.sh"]
+                  ["./cleanup.sh"]]]
+    (doseq [[cmd response-msg] commands]
+      (when response-msg
+        (respond-with! 2 response-msg))
       (-> (sh-wrapper dir {} true cmd)
           (#(log % :truncate? false :newline? false))))))
 
@@ -119,6 +122,7 @@
 
 (defn- process-requests! [config options]
   (go (loop [request (<! job-queue)]
+        (swap! job-queue-count dec)
         (log-str "Processing Request: " request)
         (let [respond-with        (partial send-response! request options)
               [status status-msg] (try
@@ -127,8 +131,7 @@
                                       (respond-with 2 "GridFire: Running Simulation")
                                       (cli/-main (str input-deck-path "/gridfire.edn"))
                                       (copy-post-process-script (:software-dir config) input-deck-path)
-                                      (respond-with 2 "GridFire: Processing Binaries")
-                                      (post-process-script (str input-deck-path "/outputs"))
+                                      (post-process-script respond-with (str input-deck-path "/outputs"))
                                       [0 "GridFire: Successful Run! Results uploaded to Geoserver!"])
                                     (catch Exception e
                                       [1 (str "Processing Error " (ex-message e))]))]
@@ -143,7 +146,9 @@
       (when-let [[status status-msg] (try
                                        (if (spec/valid? ::spec-server/gridfire-server-request request)
                                          (do (>! job-queue request)
-                                             [2 "GridFire: Added to Job Queue"])
+                                             (swap! job-queue-count inc)
+                                             [2 (format "GridFire: Added to Job Queue. You are %d in line."
+                                                        @job-queue-count)])
                                          [1 (str "Invalid Request: " (spec/explain-str ::spec-server/gridfire-server-request request))])
                                        (catch AssertionError _
                                          [1 "GridFire: Job Queue Limit Exceeded! Dropping Request!"])
