@@ -67,7 +67,7 @@
         perpendicular           (distribution/normal {:mu 0 :sd 0.92})
         parallel-values         (distribution/sample num-firebrands parallel {:seed random-seed})
         perpendicular-values    (distribution/sample num-firebrands perpendicular {:seed random-seed})]
-    (map (comp (partial mapv convert/m->ft) vector)
+    (mapv (fn [x y] [(convert/m->ft x) (convert/m->ft y)])
          parallel-values
          perpendicular-values)))
 ;; sardoy-firebrand-dispersal ends here
@@ -79,7 +79,7 @@
   "Converts deltas from the torched tree in the wind direction to deltas
   in the coordinate plane"
   [deltas wind-direction]
-  (map (fn [[d-paral d-perp]]
+  (mapv (fn [[d-paral d-perp]]
          (let [H  (hypotenuse d-paral d-perp)
                t1 wind-direction
                t2 (convert/rad->deg (Math/atan (/ d-perp d-paral)))
@@ -173,12 +173,12 @@
         b              (- a 1.4)
         D              0.003 ;firebrand diaemeter (m)
         z-max          (* 0.39 D (Math/pow 10 5))
-        t-steady-state 20    ;min
-        t-max-height   (convert/sec->min ;min
-                        (+ (/ (* 2 flame-length) wind-speed-20ft)
-                           1.2
-                           (* (/ a 3.0)
-                              (- (Math/pow (/ (+ b (/ z-max flame-length)) a) (/ 3.0 2.0)) 1))))]
+        t-steady-state 20 ;period of building up to steady state from ignition (min)
+        t_o            1 ;period of steady burning of tree crowns (min)
+        t-max-height   (+ (/ t_o (/ (* 2 flame-length) wind-speed-20ft))
+                          1.2
+                          (* (/ a 3.0)
+                             (- (Math/pow (/ (+ b (/ z-max flame-length)) a) (/ 3.0 2.0)) 1)))]
     (+ global-clock (* 2 t-max-height) t-steady-state)))
 ;; firebrands-time-of-ignition ends here
 ;; [[file:../../org/GridFire.org::spread-firebrands][spread-firebrands]]
