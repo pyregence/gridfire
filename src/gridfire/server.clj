@@ -147,8 +147,8 @@
       (when-let [[status status-msg] (try
                                        (if (spec/valid? ::spec-server/gridfire-server-request request)
                                          (do (>! job-queue request)
-                                             [2 (format "GridFire: Added to Job Queue. You are %d in line."
-                                                        (inc @job-queue-size))])
+                                             [2 (format "GridFire: Added to Job Queue. You are number %d in line."
+                                                        @job-queue-size)])
                                          [1 (str "Invalid Request: " (spec/explain-str ::spec-server/gridfire-server-request request))])
                                        (catch AssertionError _
                                          [1 "GridFire: Job Queue Limit Exceeded! Dropping Request!"])

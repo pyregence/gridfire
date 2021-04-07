@@ -34,7 +34,7 @@ done
 )
 wait
 sleep 0.5
-echo "Geoserver directory Prepared"
+echo "geoserver directory prepared"
 
 cd geoserver
 tar -cvf $MODEL-$FIRENAME-${START_DATE}_${START_TIME}.tar * >& /dev/null
