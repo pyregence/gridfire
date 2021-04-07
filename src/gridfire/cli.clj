@@ -15,7 +15,7 @@
             [gridfire.fire-spread   :refer [run-fire-spread]]
             [gridfire.perturbation  :as perturbation]
             [gridfire.spec.config   :as spec]
-            [gridfire.utils.random  :refer [draw-samples]]
+            [gridfire.utils.random  :refer [draw-sample draw-samples]]
             [magellan.core          :refer [make-envelope
                                             matrix-to-raster
                                             register-new-crs-definitions-from-properties-file!
@@ -303,6 +303,7 @@
                               (Random. random-seed)
                               (Random.))))
 
+;; FIXME: Try using draw-sample within run-simulation instead of draw-samples here.
 (defn add-sampled-params
   [{:keys [rand-gen simulations max-runtime ignition-row ignition-col
            foliar-moisture ellipse-adjustment-factor perturbations]
@@ -315,6 +316,7 @@
          :ellipse-adjustment-factors (draw-samples rand-gen simulations ellipse-adjustment-factor)
          :perturbations              (perturbation/draw-samples rand-gen simulations perturbations))) ; FIXME: shadowed
 
+;; FIXME: Try using draw-sample within run-simulation instead of get-weather here.
 (defn add-weather-params
   [{:keys [rand-gen weather-layers] :as inputs}]
   (assoc inputs
