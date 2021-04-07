@@ -1,6 +1,6 @@
 (ns gridfire.simple-sockets
   (:import (java.io BufferedReader)
-           (java.net Socket ServerSocket))
+           (java.net ConnectException Socket ServerSocket))
   (:require [clojure.java.io :as io]
             [clojure.string  :as s]
             [triangulum.logging :refer [log log-str]]))
@@ -10,17 +10,17 @@
 ;;=================================
 
 (defn send-to-server! [host port message]
-  (with-open [socket (Socket. ^String host ^Integer port)]
-    (doto (io/writer socket)
-      (.write (-> message
-                  (s/trim-newline)
-                  (str "\n")))
-      (.flush))
-    (.shutdownOutput socket)))
-
-#_(send-to-server! "wx.pyregence.org"
-                   31337
-                   "clj-socket-test2,2021-03-01 12:00 PDT,-117.5,33.8,24000,24000,24000,24000,no,yes,localhost")
+  (try
+    (with-open [socket (Socket. ^String host ^Integer port)]
+      (doto (io/writer socket)
+        (.write (-> message
+                    (s/trim-newline)
+                    (str "\n")))
+        (.flush))
+      (.shutdownOutput socket)
+      true)
+    (catch ConnectException _
+      (log-str "Connection to " host ":" port " failed!"))))
 
 ;;=================================
 ;; Server Socket
