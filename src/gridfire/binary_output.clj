@@ -57,15 +57,15 @@
       (doseq [v (burned-data :v)] (.writeFloat out (float v)))))) ; Float32
 
 (defn ints-to-bytes [int-coll]
-  (let [num-ints (tufte/p :count (count int-coll))
+  (let [num-ints (count int-coll)
         buf      (ByteBuffer/allocate (* 4 num-ints))]
-    (tufte/p :doseq (doseq [i int-coll] (.putInt buf (int i))))
+    (doseq [i int-coll] (.putInt buf (int i)))
     (.array buf)))
 
 (defn floats-to-bytes [float-coll]
-  (let [num-floats (tufte/p :count (count float-coll))
+  (let [num-floats (count float-coll)
         buf        (ByteBuffer/allocate (* 4 num-floats))]
-    (tufte/p :doseq (doseq [i float-coll] (.putFloat buf (float i))))
+    (doseq [i float-coll] (.putFloat buf (float i)))
     (.array buf)))
 
 (defn write-matrices-as-binary
