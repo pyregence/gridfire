@@ -171,7 +171,7 @@
   [global-clock flame-length wind-speed-20ft]
   (let [a              5.963
         b              (- a 1.4)
-        D              0.003 ;firebrand diaemeter (m)
+        D              0.003 ;firebrand diameter (m)
         z-max          (* 0.39 D (Math/pow 10 5))
         t-steady-state 20 ;period of building up to steady state from ignition (min)
         t_o            1 ;period of steady burning of tree crowns (min)
