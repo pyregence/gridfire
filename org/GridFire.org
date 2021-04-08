@@ -106,33 +106,43 @@ complete deps.edn is shown below.
         org.postgresql/postgresql           {:mvn/version "42.2.16"}
         net.mikera/core.matrix              {:mvn/version "0.62.0"}
         net.mikera/vectorz-clj              {:mvn/version "0.48.0"}
-        sig-gis/magellan                    {:mvn/version "20210113"}
+        sig-gis/magellan                    {:mvn/version "20210401"}
         org.clojars.lambdatronic/matrix-viz {:mvn/version "0.1.7"}
         org.clojure/tools.cli               {:mvn/version "1.0.194"}
-        kixi/stats                          {:mvn/version "0.5.4"}}
+        kixi/stats                          {:mvn/version "0.5.4"}
+        org.clojure/data.json               {:mvn/version "1.1.0"}
+        sig-gis/triangulum                  {:git/url "https://github.com/sig-gis/triangulum"
+                                             :sha     "3feea51ad546828cecc2bf96256534d4c0aad066"}
+        org.clojure/core.async              {:mvn/version "1.3.610"}
+        com.taoensso/tufte                  {:mvn/version "2.2.0"}}
 
  :mvn/repos {"osgeo" {:url "https://repo.osgeo.org/repository/release/"}}
 
- :aliases {:build-test-db {:extra-paths ["test"]
-                           :main-opts   ["-m" "gridfire.build-test-db"]}
-           :run           {:main-opts ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
-                                       "-m" "gridfire.cli"]}
-           :repl          {:main-opts ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
-                                       "-e" "(require,'gridfire.cli)"
-                                       "-e" "(in-ns,'gridfire.cli)"
-                                       "-r"]}
-           :make-config   {:main-opts ["-m" "gridfire.config"]}
-           :make-uberjar  {:extra-deps {seancorfield/depstar {:mvn/version "1.0.97"}}
-                           :main-opts  ["-m" "hf.depstar.uberjar" "target/gridfire-20200909.105353.jar"
-                                        "-C" "-m" "gridfire.cli"]}
-           :test          {:extra-paths ["test"]
-                           :extra-deps  {com.cognitect/test-runner
-                                         {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                                          :sha     "209b64504cb3bd3b99ecfec7937b358a879f55c1"}}
-                           :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
-                                         "-m" "cognitect.test-runner"]}
-           :check-deps    {:extra-deps {olical/depot {:mvn/version "1.8.4"}}
-                           :main-opts  ["-m" "depot.outdated.main"]}}}
+ :aliases {:build-test-db     {:extra-paths ["test"]
+                               :main-opts   ["-m" "gridfire.build-test-db"]}
+           :run               {:main-opts ["-m" "gridfire.cli"]}
+           :run-server        {:main-opts ["-m" "gridfire.server"]}
+           :repl              {:main-opts ["-e" "(require,'gridfire.cli)"
+                                           "-e" "(in-ns,'gridfire.cli)"
+                                           "-r"]}
+           :make-config       {:main-opts ["-m" "gridfire.config"]}
+           :make-uberjar      {:extra-deps {seancorfield/depstar {:mvn/version "1.0.97"}}
+                               :main-opts  ["-m" "hf.depstar.uberjar" "target/gridfire-20200909.105353.jar"
+                                            "-C" "-m" "gridfire.cli"]}
+           :test              {:extra-paths ["test"]
+                               :extra-deps  {com.cognitect/test-runner
+                                             {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                              :sha     "209b64504cb3bd3b99ecfec7937b358a879f55c1"}}
+                               :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
+                                             "-m" "cognitect.test-runner"]}
+           :check-reflections {:extra-paths ["test"]
+                               :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
+                                             "-e" "(require,'gridfire.cli)"
+                                             "-e" "(require,'gridfire.server)"
+                                             "-e" "(require,'gridfire.config)"
+                                             "-e" "(require,'gridfire.build-test-db)"]}
+           :check-deps        {:extra-deps {olical/depot {:mvn/version "1.8.4"}}
+                               :main-opts  ["-m" "depot.outdated.main"]}}}
 #+end_src
 
 Once this file is created, we need to instruct Clojure to download
@@ -2266,10 +2276,10 @@ pseudo-code lays out the steps taken in this procedure:
       :random-ignition-point)))
 
 (defmethod run-fire-spread :random-ignition-point
-  [{:keys [landfire-rasters] :as inputs}]
+  [inputs]
   (run-fire-spread (assoc inputs
                           :initial-ignition-site
-                          (random-ignition/ignition-site inputs (:fuel-model landfire-rasters)))))
+                          (random-ignition/select-ignition-site inputs))))
 
 (defmethod run-fire-spread :ignition-point
   [{:keys [landfire-rasters num-rows num-cols initial-ignition-site spotting] :as inputs}]
@@ -2516,13 +2526,11 @@ these deltas by using trigonometric functions.
   "Returns a sequence of cells that firebrands land in"
   [deltas wind-towards-direction cell cell-size]
   (let [step         (/ cell-size 2)
-        cell-center  (mapv #(+ step (* % step)) cell)
+        [x y]        (mapv #(+ step (* % step)) cell)
         coord-deltas (deltas-wind->coord deltas wind-towards-direction)]
-    (map (comp
-          (partial map int)
-          (partial map #(quot % step))
-          (partial map + cell-center))
-         coord-deltas)))
+    (mapv (fn [[dx dy]] [(int (Math/floor (/ (+ dx x) step)))
+                         (int (Math/floor (/ (+ dy y) step)))])
+          coord-deltas)))
 #+end_src
 
 The Spot Ignition model describes the probability of a spot ignition as well as
@@ -2883,7 +2891,9 @@ described in the previous section.
 (ns gridfire.magellan-bridge
   (:require [clojure.core.matrix     :as m]
             [magellan.core           :refer [read-raster]]
-            [magellan.raster.inspect :as inspect]))
+            [magellan.raster.inspect :as inspect])
+  (:import org.geotools.coverage.grid.GridGeometry2D
+           org.geotools.referencing.operation.transform.AffineTransform2D))
 
 (defn geotiff-raster-to-matrix
   "Reads a raster from a file using the magellan.core library. Returns the
@@ -2903,18 +2913,19 @@ described in the previous section.
    :matrix #vectorz/matrix Large matrix with shape: [10,534,486]}"
   [file-path]
   (let [raster   (read-raster file-path)
-        grid     (:grid raster)
+        grid     ^GridGeometry2D (:grid raster)
         r-info   (inspect/describe-raster raster)
         matrix   (inspect/extract-matrix raster)
         image    (:image r-info)
-        envelope (:envelope r-info)]
+        envelope (:envelope r-info)
+        crs2d    ^AffineTransform2D (.getGridToCRS2D grid)]
     {:srid       (:srid r-info)
      :upperleftx (get-in envelope [:x :min])
      :upperlefty (get-in envelope [:y :max])
      :width      (:width image)
      :height     (:height image)
-     :scalex     (.getScaleX (.getGridToCRS2D grid))
-     :scaley     (.getScaleY (.getGridToCRS2D grid))
+     :scalex     (.getScaleX crs2d)
+     :scaley     (.getScaleY crs2d)
      :skewx      0.0 ;FIXME not used?
      :skewy      0.0 ;FIXME not used?
      :numbands   (:bands image)
@@ -2988,7 +2999,9 @@ or false:
                                             matrix-to-raster
                                             register-new-crs-definitions-from-properties-file!
                                             write-raster]]
-            [matrix-viz.core        :refer [save-matrix-as-png]])
+            [matrix-viz.core        :refer [save-matrix-as-png]]
+            [taoensso.tufte         :as tufte]
+            [triangulum.logging     :refer [log-str log]])
   (:import java.util.Random))
 
 (m/set-current-implementation :vectorz)
@@ -3201,20 +3214,19 @@ or false:
 
 (defn process-binary-output!
   [{:keys [output-binary? output-directory]}
-   {:keys [burn-time-matrix flame-length-matrix spread-rate-matrix fire-type-matrix]} simulation]
+   {:keys [burn-time-matrix flame-length-matrix spread-rate-matrix fire-type-matrix]}
+   simulation]
   (when output-binary?
-    (let [output-name (format "toa_0001_%05d.bin" (inc simulation))]
-      (binary/write-matrices-as-binary [{:ttype  :float
-                                         :matrix (m/emap #(if (pos? %) (* 60 %) %) burn-time-matrix)}
-                                        {:ttype  :float
-                                         :matrix flame-length-matrix}
-                                        {:ttype  :float
-                                         :matrix spread-rate-matrix}
-                                        {:ttype  :int
-                                         :matrix fire-type-matrix}]
-                                       (if output-directory
-                                         (str/join "/" [output-directory output-name])
-                                         output-name)))))
+    (let [output-name (format "toa_0001_%05d.bin" (inc simulation))
+          output-path (if output-directory
+                        (.getPath (io/file output-directory output-name))
+                        output-name)]
+      (binary/write-matrices-as-binary output-path
+                                       [:float :float :float :int]
+                                       [(m/emap #(if (pos? %) (* 60 %) %) burn-time-matrix)
+                                        flame-length-matrix
+                                        spread-rate-matrix
+                                        fire-type-matrix]))))
 
 (defn get-envelope
   [config landfire-layers]
@@ -3260,12 +3272,15 @@ or false:
                                        (map (fn [[layer info]] [layer (first (:matrix info))]))
                                        landfire-layers)
            :ignition-layer       (fetch/ignition-layer config)
+           :ignition-mask-layer  (fetch/ignition-mask-layer config)
            :weather-layers       (fetch/weather-layers config)
            :fuel-moisture-layers (fetch/fuel-moisture-layers config))))
 
 (defn add-misc-params
-  [{:keys [random-seed] :as inputs}]
+  [{:keys [random-seed landfire-rasters] :as inputs}]
   (assoc inputs
+         :num-rows          (m/row-count (:fuel-model landfire-rasters))
+         :num-cols          (m/column-count (:fuel-model landfire-rasters))
          :multiplier-lookup (create-multiplier-lookup inputs)
          :rand-gen          (if random-seed
                               (Random. random-seed)
@@ -3308,64 +3323,75 @@ or false:
 (defn run-simulation!
   [{:keys [output-csvs? output-burn-probability envelope ignition-layer cell-size
            max-runtimes ignition-rows ignition-cols foliar-moistures ellipse-adjustment-factors perturbations
-           temperatures relative-humidities wind-speeds-20ft wind-from-directions] :as inputs}
+           temperatures relative-humidities wind-speeds-20ft wind-from-directions
+           random-seed] :as inputs}
    burn-count-matrix
    i]
-  (let [matrix-or-i           (fn [obj i] (:matrix obj (obj i)))
-        initial-ignition-site (or ignition-layer
-                                  (when (and (ignition-rows i) (ignition-cols i))
-                                    [(ignition-rows i) (ignition-cols i)]))
-        input-variations      {:max-runtime               (max-runtimes i)
-                               :foliar-moisture           (* 0.01 (foliar-moistures i))
-                               :ellipse-adjustment-factor (ellipse-adjustment-factors i)
-                               :perturbations             (when perturbations (perturbations i))
-                               :temperature               (matrix-or-i temperatures i)
-                               :relative-humidity         (matrix-or-i relative-humidities i)
-                               :wind-speed-20ft           (matrix-or-i wind-speeds-20ft i)
-                               :wind-from-direction       (matrix-or-i wind-from-directions i)}
-        fire-spread-results   (run-fire-spread
-                               (merge inputs
-                                      input-variations
-                                      {:initial-ignition-site initial-ignition-site}))]
-    (when fire-spread-results
-      (process-output-layers! inputs fire-spread-results envelope i)
-      (when-let [timestep output-burn-probability]
-        (process-burn-count! fire-spread-results burn-count-matrix timestep))
-      (process-binary-output! inputs fire-spread-results i))
-    (when output-csvs?
-      (merge
-       input-variations
-       {:simulation      (inc i)
-        :ignition-row    (ignition-rows i)
-        :ignition-col    (ignition-cols i)
-        :foliar-moisture (foliar-moistures i)
-        :exit-condition  (:exit-condition fire-spread-results :no-fire-spread)}
-       (if fire-spread-results
-         (summarize-fire-spread-results fire-spread-results cell-size)
-         {:fire-size                  0.0
-          :flame-length-mean          0.0
-          :flame-length-stddev        0.0
-          :fire-line-intensity-mean   0.0
-          :fire-line-intensity-stddev 0.0})))))
+  (tufte/profile
+   {:id :run-simulation}
+   (let [matrix-or-i           (fn [obj i] (:matrix obj (obj i)))
+         initial-ignition-site (or ignition-layer
+                                   (when (and (ignition-rows i) (ignition-cols i))
+                                     [(ignition-rows i) (ignition-cols i)]))
+         input-variations      {:rand-gen                  (if random-seed (Random. (+ random-seed i)) (Random.))
+                                :max-runtime               (max-runtimes i)
+                                :foliar-moisture           (* 0.01 (foliar-moistures i))
+                                :ellipse-adjustment-factor (ellipse-adjustment-factors i)
+                                :perturbations             (when perturbations (perturbations i))
+                                :temperature               (matrix-or-i temperatures i)
+                                :relative-humidity         (matrix-or-i relative-humidities i)
+                                :wind-speed-20ft           (matrix-or-i wind-speeds-20ft i)
+                                :wind-from-direction       (matrix-or-i wind-from-directions i)}
+         fire-spread-results   (tufte/p :run-fire-spread
+                                        (run-fire-spread
+                                         (merge inputs
+                                                input-variations
+                                                {:initial-ignition-site initial-ignition-site})))]
+     (when fire-spread-results
+       (process-output-layers! inputs fire-spread-results envelope i)
+       (when-let [timestep output-burn-probability]
+         (process-burn-count! fire-spread-results burn-count-matrix timestep))
+       (process-binary-output! inputs fire-spread-results i))
+     (when output-csvs?
+       (merge
+        input-variations
+        {:simulation      (inc i)
+         :ignition-row    (ignition-rows i)
+         :ignition-col    (ignition-cols i)
+         :foliar-moisture (foliar-moistures i)
+         :exit-condition  (:exit-condition fire-spread-results :no-fire-spread)}
+        (if fire-spread-results
+          (summarize-fire-spread-results fire-spread-results cell-size)
+          {:fire-size                  0.0
+           :flame-length-mean          0.0
+           :flame-length-stddev        0.0
+           :fire-line-intensity-mean   0.0
+           :fire-line-intensity-stddev 0.0}))))))
 
 (defn run-simulations!
-  [{:keys [simulations landfire-rasters max-runtimes output-burn-probability parallel-strategy] :as inputs}]
-  (let [[num-rows num-cols] ((juxt m/row-count m/column-count) (:fuel-model landfire-rasters))
-        burn-count-matrix   (initialize-burn-count-matrix output-burn-probability
-                                                          max-runtimes
-                                                          num-rows
-                                                          num-cols)
-        parallel-bin-size   (max 1 (quot simulations (.availableProcessors (Runtime/getRuntime))))
-        reducer-fn          (if (= parallel-strategy :between-fires)
-                              #(into [] (r/fold parallel-bin-size r/cat r/append! %))
-                              #(into [] %))]
+  [{:keys [simulations max-runtimes output-burn-probability parallel-strategy num-rows num-cols] :as inputs}]
+  (log-str "Running simulations")
+  (let [stats-accumulator (do
+                            (tufte/remove-handler! :accumulating)
+                            (tufte/add-accumulating-handler! {:handler-id :accumulating}))
+        burn-count-matrix (initialize-burn-count-matrix output-burn-probability
+                                                        max-runtimes
+                                                        num-rows
+                                                        num-cols)
+        parallel-bin-size (max 1 (quot simulations (.availableProcessors (Runtime/getRuntime))))
+        reducer-fn        (if (= parallel-strategy :between-fires)
+                            #(into [] (r/fold parallel-bin-size r/cat r/append! %))
+                            #(into [] %))
+        summary-stats     (->> (vec (range simulations))
+                               (r/map (partial run-simulation! inputs burn-count-matrix))
+                               (r/remove nil?)
+                               (reducer-fn))]
+    (Thread/sleep 1000)
+    (log (tufte/format-grouped-pstats @stats-accumulator
+                                      {:format-pstats-opts {:columns [:n-calls :min :max :mean :mad :clock :total]}})
+         :truncate? false)
     {:burn-count-matrix burn-count-matrix
-     :summary-stats     (->> (vec (range simulations))
-                             (r/map (partial run-simulation!
-                                             (assoc inputs :num-rows num-rows :num-cols num-cols)
-                                             burn-count-matrix))
-                             (r/remove nil?)
-                             (reducer-fn))}))
+     :summary-stats     summary-stats}))
 
 (defn write-landfire-layers!
   [{:keys [output-landfire-inputs? outfile-suffix landfire-rasters envelope]}]
@@ -3452,6 +3478,7 @@ or false:
   [rand-generator coll]
   (nth coll (my-rand-int rand-generator (count coll))))
 
+;;TODO remove , we can just use my-rand-range
 (defn random-float
   [min-val max-val rand-generator]
   (let [range (- max-val min-val)]
@@ -3656,47 +3683,52 @@ Here's the namespace that implments this functionality.
 (ns gridfire.random-ignition
   (:require [clojure.core.matrix    :as m]
             [gridfire.utils.random :as random]
-            [gridfire.common :refer [burnable-fuel-model?
-                                     burnable-neighbors?]]
-            [gridfire.fetch :as fetch]))
+            [gridfire.common :refer [burnable-fuel-model? get-neighbors]]))
 
 (defn- in-edge-buffer?
   "Returns true if give [row col] is within the buffer region defined
   by buffer-size. The buffer size is the thickness (pixel) of the edge
   buffer region."
-  [num-rows num-cols buffer-size [row col]]
+  [num-rows num-cols buffer-size row col]
   (or  (<= row buffer-size)
        (> row (- num-rows buffer-size))
        (<= col buffer-size)
        (> col (- num-cols buffer-size))))
 
-(defn- in-ignition-mask? [raster [i j]]
-  (pos? (m/mget raster i j)))
+(defn valid-ignition-site? [{:keys [num-rows num-cols random-ignition cell-size landfire-rasters]} row col]
+  (let [{:keys [edge-buffer]} random-ignition
+        {:keys [fuel-model]}  landfire-rasters]
+    (and (if edge-buffer
+           (let [buffer-size (int (Math/ceil (/ edge-buffer cell-size)))]
+             (not (in-edge-buffer? num-rows num-cols buffer-size row col)))
+           true)
+         (burnable-fuel-model? (m/mget fuel-model row col))
+         (some (fn [[row col]]
+                 (burnable-fuel-model? (m/mget fuel-model row col)))
+               (get-neighbors [row col])))))
 
-(defn- get-ignitable-cells [{:keys [random-ignition cell-size db-spec]} fuel-model-matrix]
-  (let [num-rows                            (m/row-count fuel-model-matrix)
-        num-cols                            (m/column-count fuel-model-matrix)
-        {:keys [ignition-mask edge-buffer]} random-ignition
-        ignition-mask-raster                (when ignition-mask
-                                              (first (:matrix (fetch/ignition-mask-layer db-spec ignition-mask))))
-        fire-spread-matrix                  (m/zero-matrix num-rows num-cols)
-        indices                             (for [row (range num-rows)
-                                                  col (range num-cols)]
-                                              [row col])]
-    (cond->> indices
-      ignition-mask (filter #(in-ignition-mask? ignition-mask-raster %))
-      edge-buffer   (remove #(in-edge-buffer? num-rows num-cols (int (Math/ceil (/ edge-buffer cell-size))) %))
-      true          (filter (fn [[i j]] (burnable-fuel-model? (m/mget fuel-model-matrix i j))))
-      true          (filter #(burnable-neighbors? fire-spread-matrix fuel-model-matrix
-                                                  num-rows num-cols %)))))
-
-(defn ignition-site
+(defn select-ignition-site
   "Returns [x y] coordinate that have been randomly sampled
   from cells in in the computational domain. Ignitable cells can also
   be constrained by ignition mask raster and/or edge-buffer."
-  [{:keys [rand-gen] :as config} fuel-model-matrix]
-  (let [ignitable-cells (get-ignitable-cells config fuel-model-matrix)]
-    (first (random/sample-from-list rand-gen 1 ignitable-cells))))
+  [{:keys [rand-gen ignition-mask-layer num-rows num-cols] :as inputs}]
+  (if-let [indices (some->> ignition-mask-layer
+                            :matrix
+                            first
+                            m/non-zero-indices
+                            (map-indexed (fn [i v] (when (pos? (count v)) [i v])))
+                            (filterv identity))]
+    (loop [[row cols] (random/my-rand-nth rand-gen indices)]
+      (let [col (random/my-rand-nth rand-gen cols)]
+        (if (valid-ignition-site? inputs row col)
+          [row col]
+          (recur (random/my-rand-nth rand-gen indices)))))
+    (loop [row (random/my-rand-int rand-gen num-rows)
+           col (random/my-rand-int rand-gen num-cols)]
+      (if (valid-ignition-site? inputs row col)
+        [row col]
+        (recur (random/my-rand-int rand-gen num-rows)
+               (random/my-rand-int rand-gen num-cols))))))
 #+end_src
 
 
@@ -3866,15 +3898,19 @@ this functionality.
 ;;-----------------------------------------------------------------------------
 
 (defmulti ignition-mask-layer
-  (fn [_ {:keys [type]}] type))
+  (fn [{:keys [random-ignition]}]
+    (when (map? random-ignition)
+     (get-in random-ignition [:ignition-mask :type]))))
 
 (defmethod ignition-mask-layer :geotiff
-  [_ {:keys [source]}]
-  (geotiff-raster-to-matrix source))
+  [{:keys [random-ignition]}]
+  (geotiff-raster-to-matrix (get-in random-ignition [:ignition-mask :source])))
 
 (defmethod ignition-mask-layer :postgis
-  [db-spec {:keys [source]}]
-  (postgis-raster-to-matrix db-spec source))
+  [{:keys [db-spec random-ignition]}]
+  (postgis-raster-to-matrix db-spec (get-in random-ignition [:ignition-mask :source])))
+
+(defmethod ignition-mask-layer :default [_] nil)
 
 ;;-----------------------------------------------------------------------------
 ;; Moisture Layers
