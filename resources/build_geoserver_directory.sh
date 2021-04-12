@@ -13,8 +13,10 @@ mkdir geoserver/$FIRENAME
 mkdir geoserver/$FIRENAME/${START_DATE}_${START_TIME}
 mkdir geoserver/$FIRENAME/${START_DATE}_${START_TIME}/gridfire/
 mkdir geoserver/$FIRENAME/${START_DATE}_${START_TIME}/gridfire/landfire/
-for BP in 10 20 30 40 50 60 70 80 90; do
-   mkdir ./geoserver/$FIRENAME/${START_DATE}_${START_TIME}/gridfire/landfire/$BP
+
+for BP in 10 30 50 70 90; do
+    mkdir ./geoserver/$FIRENAME/${START_DATE}_${START_TIME}/gridfire/landfire/$BP
+    cp ./imagemosaic/*.properties ./geoserver/$FIRENAME/${START_DATE}_${START_TIME}/gridfire/landfire/$BP/
 done
 
 rename () {
