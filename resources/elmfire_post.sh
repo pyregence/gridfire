@@ -32,6 +32,11 @@ echo "NUM_TIMESTEPS = $NUM_TIMESTEPS"                 >> elmfire_post.data
 echo "POSTPROCESS_TYPE = 1"                           >> elmfire_post.data
 echo "BINARY_FILE_TYPE = 2"                           >> elmfire_post.data
 echo "FIRE_SIZE_STATS_FILENAME = 'summary_stats.csv'" >> elmfire_post.data
+echo "N_PERCENTILES = 5"                              >> elmfire_post.data
+echo "PERCENTILES(:) = 10.0, 30.0, 50.0, 70.0, 90.0"  >> elmfire_post.data
+echo "DUMP_FLAME_LENGTH = .FALSE."                    >> elmfire_post.data
+echo "DUMP_SPREAD_RATE = .FALSE."                     >> elmfire_post.data
+echo "DUMP_CROWN_FIRE = .FALSE."                      >> elmfire_post.data
 echo "/"                                              >> elmfire_post.data
 
 OMP_PROC_BIND=true $MPIRUN --mca btl tcp,self,vader --map-by core --bind-to core -np $NP -host $HOSTS $ELMFIRE_POST elmfire_post.data 1> /dev/null
