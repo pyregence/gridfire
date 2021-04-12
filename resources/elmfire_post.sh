@@ -3,7 +3,7 @@
 rm -f *.bil *.hdr *.tif
 
 if [ -z "$ELMFIRE_VER" ]; then
-   ELMFIRE_VER=0.6548
+   ELMFIRE_VER=0.6550
 fi
 ELMFIRE_POST=elmfire_post_$ELMFIRE_VER
 MPIRUN=/usr/bin/mpirun
