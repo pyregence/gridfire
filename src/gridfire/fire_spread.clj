@@ -237,14 +237,13 @@
   [constants fire-spread-matrix cells]
   (when (seq cells)
     (reduce (fn [ignited-cells cell]
-              (apply conj
-                     ignited-cells
-                     (compute-neighborhood-fire-spread-rates! constants
-                                                              fire-spread-matrix
-                                                              cell
-                                                              nil
-                                                              0.0
-                                                              0.0)))
+              (into ignited-cells
+                    (compute-neighborhood-fire-spread-rates! constants
+                                                             fire-spread-matrix
+                                                             cell
+                                                             nil
+                                                             0.0
+                                                             0.0)))
             []
             cells)))
 
