@@ -1872,8 +1872,7 @@ pseudo-code lays out the steps taken in this procedure:
                                                   rothermel-surface-fire-spread-any
                                                   rothermel-surface-fire-spread-max
                                                   rothermel-surface-fire-spread-no-wind-no-slope
-                                                  wind-adjustment-factor]]
-            [taoensso.tufte :as tufte]))
+                                                  wind-adjustment-factor]]))
 
 (m/set-current-implementation :vectorz)
 
@@ -2170,35 +2169,30 @@ pseudo-code lays out the steps taken in this procedure:
          spot-ignitions {}]
     (if (and (< global-clock max-runtime)
              (seq ignited-cells))
-      (let [dt                (tufte/p
-                               :calculate-dt
-                               (->> ignited-cells
-                                    (reduce (fn [max-spread-rate {:keys [spread-rate]}]
-                                              (max max-spread-rate spread-rate))
-                                            0.0)
-                                    (/ cell-size)))
+      (let [dt                (->> ignited-cells
+                                   (reduce (fn [max-spread-rate {:keys [spread-rate]}]
+                                             (max max-spread-rate spread-rate))
+                                           0.0)
+                                   (/ cell-size))
             timestep          (if (> (+ global-clock dt) max-runtime)
                                 (- max-runtime global-clock)
                                 dt)
             next-global-clock (+ global-clock timestep)
-            ignition-events   (tufte/p :identify-ignition-events
-                                       (identify-ignition-events ignited-cells timestep fire-spread-matrix))
+            ignition-events   (identify-ignition-events ignited-cells timestep fire-spread-matrix)
             inputs            (perturbation/update-global-vals inputs global-clock next-global-clock)]
         ;; [{:cell :trajectory :fractional-distance
         ;;   :flame-length :fire-line-intensity} ...]
-        (tufte/p
-         :update-matrices
-         (doseq [{:keys
-                  [cell flame-length fire-line-intensity
-                   ignition-probability spread-rate fire-type
-                   dt-adjusted] :as ignition-event} ignition-events]
-           (let [[i j] cell]
-             (m/mset! fire-spread-matrix         i j ignition-probability)
-             (m/mset! flame-length-matrix        i j flame-length)
-             (m/mset! fire-line-intensity-matrix i j fire-line-intensity)
-             (m/mset! burn-time-matrix           i j (+ global-clock dt-adjusted))
-             (m/mset! spread-rate-matrix         i j spread-rate)
-             (m/mset! fire-type-matrix           i j (fire-type fire-type-to-value)))))
+        (doseq [{:keys
+                 [cell flame-length fire-line-intensity
+                  ignition-probability spread-rate fire-type
+                  dt-adjusted] :as ignition-event} ignition-events]
+          (let [[i j] cell]
+            (m/mset! fire-spread-matrix         i j ignition-probability)
+            (m/mset! flame-length-matrix        i j flame-length)
+            (m/mset! fire-line-intensity-matrix i j fire-line-intensity)
+            (m/mset! burn-time-matrix           i j (+ global-clock dt-adjusted))
+            (m/mset! spread-rate-matrix         i j spread-rate)
+            (m/mset! fire-type-matrix           i j (fire-type fire-type-to-value))))
         (let [new-spot-ignitions (new-spot-ignitions (assoc inputs :global-clock global-clock)
                                                      matrices
                                                      ignition-events)
@@ -2212,12 +2206,11 @@ pseudo-code lays out the steps taken in this procedure:
                                                      matrices
                                                      spot-ignite-now)]
           (recur next-global-clock
-                 (tufte/p :update-ignited-cells
-                          (update-ignited-cells inputs
-                                                (into spot-ignited-cells ignited-cells)
-                                                ignition-events
-                                                fire-spread-matrix
-                                                global-clock))
+                 (update-ignited-cells inputs
+                                       (into spot-ignited-cells ignited-cells)
+                                       ignition-events
+                                       fire-spread-matrix
+                                       global-clock)
                  spot-ignite-later)))
       {:global-clock               global-clock
        :exit-condition             (if (seq ignited-cells) :max-runtime-reached :no-burnable-fuels)
