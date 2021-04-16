@@ -25,7 +25,8 @@
                                                   rothermel-surface-fire-spread-any
                                                   rothermel-surface-fire-spread-max
                                                   rothermel-surface-fire-spread-no-wind-no-slope
-                                                  wind-adjustment-factor]]))
+                                                  wind-adjustment-factor]]
+            [taoensso.tufte :as tufte]))
 
 (m/set-current-implementation :vectorz)
 
@@ -112,6 +113,7 @@
                               surface-intensity)
         flame-length        (byram-flame-length fire-line-intensity)]
     {:cell                neighbor
+     :source              here
      :trajectory          trajectory
      :terrain-distance    (distance-3d (:elevation landfire-rasters) cell-size here neighbor)
      :spread-rate         spread-rate
@@ -178,37 +180,29 @@
 
 (defn identify-ignition-events
   [ignited-cells timestep fire-spread-matrix]
-  (->> (for [[source destinations] ignited-cells
-             {:keys [cell
-                     trajectory
-                     terrain-distance
-                     spread-rate
-                     flame-length
-                     fire-line-intensity
-                     fractional-distance
-                     crown-fire?
-                     fire-type]} destinations]
-         (let [[i j]               source
-               new-spread-fraction (/ (* spread-rate timestep) terrain-distance)
-               old-total           @fractional-distance
-               new-total           (vreset! fractional-distance
-                                            (+ @fractional-distance new-spread-fraction))]
-           (if (>= new-total 1.0)
-             {:cell                 cell
-              :trajectory           trajectory
-              :fractional-distance  @fractional-distance
-              :flame-length         flame-length
-              :fire-line-intensity  fire-line-intensity
-              :spread-rate          spread-rate
-              :crown-fire?          crown-fire?
-              :fire-type            fire-type
-              :dt-adjusted          (* (/ (- 1.0 old-total) (- new-total old-total))
-                                       timestep)
-              :ignition-probability (m/mget fire-spread-matrix i j)})))
-       (remove nil?)
-       (group-by :cell)
-       (map (fn [[_ trajectories]] (apply max-key :fractional-distance trajectories)))
-       (into [])))
+  (->> ignited-cells
+       (reduce (fn [acc trajectory]
+                 (let [{:keys
+                        [source
+                         cell
+                         terrain-distance
+                         spread-rate
+                         fractional-distance]} trajectory
+                       [i j]                   source
+                       new-spread-fraction     (/ (* spread-rate timestep) terrain-distance)
+                       old-total               @fractional-distance
+                       new-total               (vreset! fractional-distance
+                                                        (+ old-total new-spread-fraction))]
+                   (if (and (>= new-total 1.0)
+                            (> new-total (get-in acc [cell :fractional-distance] 0.0)))
+                     (assoc! acc cell (merge trajectory {:fractional-distance  @fractional-distance
+                                                         :dt-adjusted          (* (/ (- 1.0 old-total) (- new-total old-total))
+                                                                                  timestep)
+                                                         :ignition-probability (m/mget fire-spread-matrix i j)}))
+                     acc)))
+               (transient {}))
+       persistent!
+       vals))
 
 (defn update-ignited-cells
   [{:keys [landfire-rasters num-rows num-cols parallel-strategy] :as constants}
@@ -216,49 +210,45 @@
    ignition-events
    fire-spread-matrix
    global-clock]
-  (let [newly-ignited-cells (into #{} (map :cell) ignition-events)
-        fuel-model-matrix   (:fuel-model landfire-rasters)
-        parallel-bin-size   (max 1 (quot (count ignition-events) (.availableProcessors (Runtime/getRuntime))))
-        reducer-fn          (if (= parallel-strategy :within-fires)
-                              #(into [] (r/fold parallel-bin-size r/cat r/append! %))
-                              #(into [] %))]
-    (into {}
-          (concat
-           (for [[cell spread-info] ignited-cells
-                 :when              (burnable-neighbors? fire-spread-matrix
-                                                         fuel-model-matrix
-                                                         num-rows
-                                                         num-cols
-                                                         cell)]
-             [cell (remove #(contains? newly-ignited-cells (:cell %)) spread-info)])
-           (->> ignition-events
-                (r/map (fn [{:keys [cell trajectory fractional-distance]}]
-                         (when (burnable-neighbors? fire-spread-matrix
-                                                    fuel-model-matrix
-                                                    num-rows num-cols
-                                                    cell)
-                           [cell (compute-neighborhood-fire-spread-rates!
-                                  constants
-                                  fire-spread-matrix
-                                  cell
-                                  trajectory
-                                  (- fractional-distance 1.0)
-                                  global-clock)])))
-                (r/remove nil?)
-                (reducer-fn))))))
+  (let [fuel-model-matrix    (:fuel-model landfire-rasters)
+        parallel-bin-size    (max 1 (quot (count ignition-events) (.availableProcessors (Runtime/getRuntime))))
+        newly-ignited-cells  (into #{} (map :cell) ignition-events)
+        pruned-ignited-cells (into [] (remove #(contains? newly-ignited-cells (:cell %))) ignited-cells)
+        reducer-fn           (if (= parallel-strategy :within-fires)
+                               #(->> (r/fold parallel-bin-size r/cat r/append! %)
+                                     (reduce (fn [acc v] (into acc v)) pruned-ignited-cells))
+                               #(reduce (fn [acc v] (into acc v)) pruned-ignited-cells %))]
+    (->> ignition-events
+         (r/map (fn [{:keys [cell trajectory fractional-distance]}]
+                  (when (burnable-neighbors? fire-spread-matrix
+                                             fuel-model-matrix
+                                             num-rows num-cols
+                                             cell)
+                    (compute-neighborhood-fire-spread-rates!
+                     constants
+                     fire-spread-matrix
+                     cell
+                     trajectory
+                     (- fractional-distance 1.0)
+                     global-clock))))
+         (r/remove nil?)
+         (reducer-fn))))
 
 (defn generate-ignited-cells
   [constants fire-spread-matrix cells]
   (when (seq cells)
-    (into {}
-          (for [cell cells]
-            [cell (compute-neighborhood-fire-spread-rates!
-                   constants
-                   fire-spread-matrix
-                   cell
-                   nil
-                   0.0
-                   0.0)]))))
+    (persistent!
+     (reduce (fn [ignited-cells cell]
+               (apply conj
+                      ignited-cells
+                      (compute-neighborhood-fire-spread-rates! constants
+                                                               fire-spread-matrix
+                                                               cell
+                                                               nil
+                                                               0.0
+                                                               0.0)))
+             (transient [])
+             cells))))
 
 (defn identify-spot-ignition-events
   [global-clock spot-ignitions]
@@ -333,30 +323,35 @@
          spot-ignitions {}]
     (if (and (< global-clock max-runtime)
              (seq ignited-cells))
-      (let [dt                (->> ignited-cells
-                                   (vals)
-                                   (apply concat)
-                                   (map :spread-rate)
-                                   (reduce max 0.0)
-                                   (/ cell-size))
+      (let [dt                (tufte/p
+                               :calculate-dt
+                               (->> ignited-cells
+                                    (reduce (fn [max-spread-rate {:keys [spread-rate]}]
+                                              (max max-spread-rate spread-rate))
+                                            0.0)
+                                    (/ cell-size)))
             timestep          (if (> (+ global-clock dt) max-runtime)
                                 (- max-runtime global-clock)
                                 dt)
             next-global-clock (+ global-clock timestep)
-            ignition-events   (identify-ignition-events ignited-cells timestep fire-spread-matrix)
+            ignition-events   (tufte/p :identify-ignition-events
+                                       (identify-ignition-events ignited-cells timestep fire-spread-matrix))
             inputs            (perturbation/update-global-vals inputs global-clock next-global-clock)]
         ;; [{:cell :trajectory :fractional-distance
         ;;   :flame-length :fire-line-intensity} ...]
-        (doseq [{:keys [cell flame-length fire-line-intensity
-                        ignition-probability spread-rate fire-type
-                        dt-adjusted] :as ignition-event} ignition-events]
-          (let [[i j] cell]
-            (m/mset! fire-spread-matrix         i j ignition-probability)
-            (m/mset! flame-length-matrix        i j flame-length)
-            (m/mset! fire-line-intensity-matrix i j fire-line-intensity)
-            (m/mset! burn-time-matrix           i j (+ global-clock dt-adjusted))
-            (m/mset! spread-rate-matrix         i j spread-rate)
-            (m/mset! fire-type-matrix           i j (fire-type fire-type-to-value))))
+        (tufte/p
+         :update-matrices
+         (doseq [{:keys
+                  [cell flame-length fire-line-intensity
+                   ignition-probability spread-rate fire-type
+                   dt-adjusted] :as ignition-event} ignition-events]
+           (let [[i j] cell]
+             (m/mset! fire-spread-matrix         i j ignition-probability)
+             (m/mset! flame-length-matrix        i j flame-length)
+             (m/mset! fire-line-intensity-matrix i j fire-line-intensity)
+             (m/mset! burn-time-matrix           i j (+ global-clock dt-adjusted))
+             (m/mset! spread-rate-matrix         i j spread-rate)
+             (m/mset! fire-type-matrix           i j (fire-type fire-type-to-value)))))
         (let [new-spot-ignitions (new-spot-ignitions (assoc inputs :global-clock global-clock)
                                                      matrices
                                                      ignition-events)
@@ -370,11 +365,12 @@
                                                      matrices
                                                      spot-ignite-now)]
           (recur next-global-clock
-                 (update-ignited-cells inputs
-                                       (merge spot-ignited-cells ignited-cells)
-                                       ignition-events
-                                       fire-spread-matrix
-                                       global-clock)
+                 (tufte/p :update-ignited-cells
+                          (update-ignited-cells inputs
+                                                (into spot-ignited-cells ignited-cells)
+                                                ignition-events
+                                                fire-spread-matrix
+                                                global-clock))
                  spot-ignite-later)))
       {:global-clock               global-clock
        :exit-condition             (if (seq ignited-cells) :max-runtime-reached :no-burnable-fuels)
@@ -456,14 +452,13 @@
       (m/mset! burn-time-matrix i j -1.0)
       (m/mset! spread-rate-matrix i j -1.0)
       (m/mset! fire-type-matrix i j -1.0)
-      (let [ignited-cells {initial-ignition-site
-                           (compute-neighborhood-fire-spread-rates!
-                            inputs
-                            fire-spread-matrix
-                            initial-ignition-site
-                            nil
-                            0.0
-                            0.0)}]
+      (let [ignited-cells (compute-neighborhood-fire-spread-rates!
+                           inputs
+                           fire-spread-matrix
+                           initial-ignition-site
+                           nil
+                           0.0
+                           0.0)]
         (run-loop inputs
                   {:fire-spread-matrix         fire-spread-matrix
                    :spread-rate-matrix         spread-rate-matrix
