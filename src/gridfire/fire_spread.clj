@@ -25,7 +25,8 @@
                                                   rothermel-surface-fire-spread-any
                                                   rothermel-surface-fire-spread-max
                                                   rothermel-surface-fire-spread-no-wind-no-slope
-                                                  wind-adjustment-factor]]))
+                                                  wind-adjustment-factor]]
+            [taoensso.tufte :as tufte]))
 
 (m/set-current-implementation :vectorz)
 
@@ -370,8 +371,8 @@
     (if (and (< global-clock max-runtime)
              (seq ignited-cells))
       (let [dt                (->> ignited-cells
-                                   (reduce (fn [max-spread-rate {:keys [spread-rate]}]
-                                             (max max-spread-rate spread-rate))
+                                   (reduce (fn [max-spread-rate ignited-cell]
+                                             (max max-spread-rate (:spread-rate ignited-cell)))
                                            0.0)
                                    (/ cell-size))
             timestep          (if (> (+ global-clock dt) max-runtime)
