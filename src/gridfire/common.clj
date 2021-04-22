@@ -24,6 +24,11 @@
          (+ value-here (perturbation/value-at perturb-info matrix cell)))
        value-here))))
 
+(defn get-value-at [here global-clock matrix-or-val multiplier perturb-info]
+  (if (> (m/dimensionality matrix-or-val) 1)
+    (sample-at here global-clock matrix-or-val multiplier perturb-info)
+    matrix-or-val))
+
 (defn calc-emc
   "Computes the Equilibrium Moisture Content (EMC) from rh (relative
    humidity in %) and temp (temperature in F)."

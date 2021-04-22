@@ -1,9 +1,9 @@
 ;; [[file:../../org/GridFire.org::sardoy-firebrand-dispersal][sardoy-firebrand-dispersal]]
 (ns gridfire.spotting
   (:require [clojure.core.matrix :as m]
-            [gridfire.common :refer [extract-constants
-                                     distance-3d
+            [gridfire.common :refer [distance-3d
                                      get-fuel-moisture
+                                     get-value-at
                                      in-bounds?
                                      burnable?
                                      fuel-moisture-from-raster]]
@@ -68,8 +68,8 @@
         parallel-values         (distribution/sample num-firebrands parallel {:seed random-seed})
         perpendicular-values    (distribution/sample num-firebrands perpendicular {:seed random-seed})]
     (mapv (fn [x y] [(convert/m->ft x) (convert/m->ft y)])
-         parallel-values
-         perpendicular-values)))
+          parallel-values
+          perpendicular-values)))
 ;; sardoy-firebrand-dispersal ends here
 ;; [[file:../../org/GridFire.org::convert-deltas][convert-deltas]]
 (defn- hypotenuse [x y]
@@ -80,13 +80,13 @@
   in the coordinate plane"
   [deltas wind-direction]
   (mapv (fn [[d-paral d-perp]]
-         (let [H  (hypotenuse d-paral d-perp)
-               t1 wind-direction
-               t2 (convert/rad->deg (Math/atan (/ d-perp d-paral)))
-               t3 (+ t1 t2)]
-           [(* -1 H (Math/cos (convert/deg->rad t3)))
-            (* H (Math/sin (convert/deg->rad t3)))]))
-       deltas))
+          (let [H  (hypotenuse d-paral d-perp)
+                t1 wind-direction
+                t2 (convert/rad->deg (Math/atan (/ d-perp d-paral)))
+                t3 (+ t1 t2)]
+            [(* -1 H (Math/cos (convert/deg->rad t3)))
+             (* H (Math/sin (convert/deg->rad t3)))]))
+        deltas))
 
 (defn- firebrands
   "Returns a sequence of cells that firebrands land in"
@@ -249,23 +249,41 @@
   val: [t p] where:
   t: time of ignition
   p: ignition-probability"
-  [{:keys [num-rows num-cols cell-size landfire-rasters global-clock spotting rand-gen] :as inputs}
+  [{:keys
+    [num-rows num-cols cell-size landfire-rasters global-clock spotting rand-gen
+     multiplier-lookup perturbations temperature relative-humidity wind-speed-20ft
+     wind-from-direction] :as inputs}
    {:keys [firebrand-count-matrix fire-spread-matrix fire-line-intensity-matrix flame-length-matrix]}
    {:keys [cell fire-line-intensity crown-fire?]}]
   (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
-    (let [{:keys
-           [wind-speed-20ft
-            temperature
-            wind-from-direction
-            relative-humidity]} (extract-constants inputs global-clock cell)
-          fuel-moisture         (or (fuel-moisture-from-raster inputs cell global-clock)
-                                    (get-fuel-moisture relative-humidity temperature))
-          deltas                (sample-wind-dir-deltas inputs
-                                                        fire-line-intensity-matrix
-                                                        (convert/mph->mps wind-speed-20ft)
-                                                        cell)
-          wind-to-direction     (mod (+ 180 wind-from-direction) 360)
-          firebrands            (firebrands deltas wind-to-direction cell cell-size)]
+    (let [tmp               (get-value-at cell
+                                          global-clock
+                                          temperature
+                                          (:temperature multiplier-lookup)
+                                          (:temperature perturbations))
+          rh                (get-value-at cell
+                                          global-clock
+                                          relative-humidity
+                                          (:relative-humidity multiplier-lookup)
+                                          (:relative-humidity perturbations))
+          ws                (get-value-at cell
+                                          global-clock
+                                          wind-speed-20ft
+                                          (:wind-speed-20ft multiplier-lookup)
+                                          (:wind-speed-20ft perturbations))
+          wd                (get-value-at cell
+                                          global-clock
+                                          wind-from-direction
+                                          (:wind-from-direction multiplier-lookup)
+                                          (:wind-from-direction perturbations))
+          fuel-moisture     (or (fuel-moisture-from-raster inputs cell global-clock)
+                                (get-fuel-moisture rh temperature))
+          deltas            (sample-wind-dir-deltas inputs
+                                                    fire-line-intensity-matrix
+                                                    (convert/mph->mps ws)
+                                                    cell)
+          wind-to-direction (mod (+ 180 wd) 360)
+          firebrands        (firebrands deltas wind-to-direction cell cell-size)]
       (update-firebrand-counts! inputs firebrand-count-matrix fire-spread-matrix cell firebrands)
       (->> (for [[x y] firebrands
                  :when (and (in-bounds? num-rows num-cols [x y])
@@ -274,7 +292,7 @@
                         spot-ignition-p (spot-ignition-probability inputs
                                                                    spotting
                                                                    fuel-moisture
-                                                                   temperature
+                                                                   tmp
                                                                    firebrand-count
                                                                    cell
                                                                    [x y])]]
@@ -282,7 +300,7 @@
                (let [[i j] cell
                      t     (spot-ignition-time global-clock
                                                (ft->m (m/mget flame-length-matrix i j))
-                                               (convert/mph->mps wind-speed-20ft))]
+                                               (convert/mph->mps ws))]
                  [[x y] [t spot-ignition-p]])))
            (remove nil?)))))
 ;; spread-firebrands ends here

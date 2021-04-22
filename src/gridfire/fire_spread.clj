@@ -10,6 +10,7 @@
                                                    in-bounds?
                                                    burnable-neighbors?
                                                    get-neighbors
+                                                   get-value-at
                                                    sample-at]]
             [gridfire.crown-fire          :refer [crown-fire-eccentricity
                                                   crown-fire-line-intensity
@@ -124,11 +125,6 @@
                                        0.0))
      :fire-type           (if crown-fire? crown-type :surface)
      :crown-fire?         crown-fire?}))
-
-(defn- get-value-at [here global-clock matrix-or-val multiplier perturb-info]
-  (if (> (m/dimensionality matrix-or-val) 1)
-    (sample-at here global-clock matrix-or-val multiplier perturb-info)
-    matrix-or-val))
 
 (defn compute-neighborhood-fire-spread-rates!
   "Returns a vector of entries of the form:
