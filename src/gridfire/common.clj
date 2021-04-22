@@ -15,7 +15,7 @@
 
   ([here global-clock matrix multiplier perturb-info]
    (let [cell       (if multiplier
-                      (map #(quot % multiplier) here)
+                      (mapv #(quot % multiplier) here)
                       here)
          value-here (matrix-value-at cell global-clock matrix)]
      (if perturb-info
@@ -23,30 +23,6 @@
          (+ value-here (perturbation/value-at perturb-info matrix cell (quot global-clock freq)))
          (+ value-here (perturbation/value-at perturb-info matrix cell)))
        value-here))))
-
-(defn extract-constants
-
-  [{:keys [landfire-rasters wind-speed-20ft wind-from-direction temperature
-           relative-humidity foliar-moisture ellipse-adjustment-factor
-           multiplier-lookup perturbations]}
-   global-clock
-   [i j :as here]]
-  (let [layers (merge landfire-rasters
-                      {:wind-speed-20ft     wind-speed-20ft
-                       :wind-from-direction wind-from-direction
-                       :temperature         temperature
-                       :relative-humidity   relative-humidity})]
-    (reduce-kv
-     (fn[acc name val]
-       (if (> (m/dimensionality val) 1)
-         (assoc acc name (sample-at here
-                                    global-clock
-                                    val
-                                    (name multiplier-lookup)
-                                    (name perturbations)))
-         (assoc acc name val)))
-     {}
-     layers)))
 
 (defn calc-emc
   "Computes the Equilibrium Moisture Content (EMC) from rh (relative

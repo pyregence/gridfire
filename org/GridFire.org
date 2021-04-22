@@ -1852,12 +1852,12 @@ pseudo-code lays out the steps taken in this procedure:
             [clojure.core.reducers         :as r]
             [gridfire.common               :refer [burnable-fuel-model?
                                                    burnable?
-                                                   extract-constants
                                                    get-fuel-moisture
                                                    fuel-moisture-from-raster
                                                    in-bounds?
                                                    burnable-neighbors?
-                                                   get-neighbors]]
+                                                   get-neighbors
+                                                   sample-at]]
             [gridfire.crown-fire          :refer [crown-fire-eccentricity
                                                   crown-fire-line-intensity
                                                   cruz-crown-fire-spread
@@ -1971,8 +1971,13 @@ pseudo-code lays out the steps taken in this procedure:
      :fire-type           (if crown-fire? crown-type :surface)
      :crown-fire?         crown-fire?}))
 
+(defn- get-value-at [here global-clock matrix-or-val multiplier perturb-info]
+  (if (> (m/dimensionality matrix-or-val) 1)
+    (sample-at here global-clock matrix-or-val multiplier perturb-info)
+    matrix-or-val))
+
 (defn compute-neighborhood-fire-spread-rates!
-   "Returns a vector of entries of the form:
+  "Returns a vector of entries of the form:
   {:cell [i j],
    :trajectory [di dj],
    :terrain-distance ft,
@@ -1980,25 +1985,69 @@ pseudo-code lays out the steps taken in this procedure:
    :fire-line-intensity Btu/ft/s,
    :flame-length ft,
    :fractional-distance [0-1]}, one for each cell adjacent to here."
-  [{:keys [landfire-rasters
-           foliar-moisture ellipse-adjustment-factor cell-size num-rows num-cols] :as constants}
+  [{:keys [landfire-rasters multiplier-lookup perturbations wind-speed-20ft wind-from-direction
+           temperature relative-humidity foliar-moisture ellipse-adjustment-factor
+           cell-size num-rows num-cols] :as constants}
    fire-spread-matrix
-   [i j :as here]
+   here
    overflow-trajectory
    overflow-heat
    global-clock]
-  (let [{:keys
-         [aspect
-          canopy-base-height
-          canopy-cover
-          canopy-height
-          crown-bulk-density
-          fuel-model
-          relative-humidity
-          slope
-          temperature
-          wind-from-direction
-          wind-speed-20ft]}           (extract-constants constants global-clock here)
+  (let [aspect                      (sample-at here
+                                               global-clock
+                                               (:aspect landfire-rasters)
+                                               (:aspect multiplier-lookup)
+                                               (:aspect perturbations))
+        canopy-base-height          (sample-at here
+                                               global-clock
+                                               (:canopy-base-height landfire-rasters)
+                                               (:canopy-base-height multiplier-lookup)
+                                               (:canopy-base-height perturbations))
+        canopy-cover                (sample-at here
+                                               global-clock
+                                               (:canopy-cover landfire-rasters)
+                                               (:canopy-cover multiplier-lookup)
+                                               (:canopy-cover perturbations))
+        canopy-height               (sample-at here
+                                               global-clock
+                                               (:canopy-height landfire-rasters)
+                                               (:canopy-height multiplier-lookup)
+                                               (:canopy-height perturbations))
+        crown-bulk-density           (sample-at here
+                                                global-clock
+                                                (:crown-bulk-density landfire-rasters)
+                                                (:crown-bulk-density multiplier-lookup)
+                                                (:crown-bulk-density perturbations))
+        fuel-model                   (sample-at here
+                                                global-clock
+                                                (:fuel-model landfire-rasters)
+                                                (:fuel-model multiplier-lookup)
+                                                (:fuel-model perturbations))
+        slope                        (sample-at here
+                                                global-clock
+                                                (:slope landfire-rasters)
+                                                (:slope multiplier-lookup)
+                                                (:slope perturbations))
+        relative-humidity            (get-value-at here
+                                                   global-clock
+                                                   relative-humidity
+                                                   (:relative-humidity multiplier-lookup)
+                                                   (:relative-humidity perturbations))
+        temperature                   (get-value-at here
+                                                    global-clock
+                                                    temperature
+                                                    (:temperature multiplier-lookup)
+                                                    (:temperature perturbations))
+        wind-from-direction           (get-value-at here
+                                                    global-clock
+                                                    wind-from-direction
+                                                    (:wind-from-direction multiplier-lookup)
+                                                    (:wind-from-direction perturbations))
+        wind-speed-20ft               (get-value-at here
+                                                    global-clock
+                                                    wind-speed-20ft
+                                                    (:wind-speed-20ft multiplier-lookup)
+                                                    (:wind-speed-20ft perturbations))
         fuel-moisture                 (or (fuel-moisture-from-raster constants here global-clock)
                                           (get-fuel-moisture relative-humidity temperature))
         [fuel-model spread-info-min]  (rothermel-fast-wrapper fuel-model fuel-moisture)
@@ -2083,18 +2132,16 @@ pseudo-code lays out the steps taken in this procedure:
 (defn generate-ignited-cells
   [constants fire-spread-matrix cells]
   (when (seq cells)
-    (persistent!
-     (reduce (fn [ignited-cells cell]
-               (apply conj
-                      ignited-cells
-                      (compute-neighborhood-fire-spread-rates! constants
-                                                               fire-spread-matrix
-                                                               cell
-                                                               nil
-                                                               0.0
-                                                               0.0)))
-             (transient [])
-             cells))))
+    (reduce (fn [ignited-cells cell]
+              (into ignited-cells
+                    (compute-neighborhood-fire-spread-rates! constants
+                                                             fire-spread-matrix
+                                                             cell
+                                                             nil
+                                                             0.0
+                                                             0.0)))
+            []
+            cells)))
 
 (defn identify-spot-ignition-events
   [global-clock spot-ignitions]
