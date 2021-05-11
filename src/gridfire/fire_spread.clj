@@ -1,7 +1,6 @@
 ;; [[file:../../org/GridFire.org::fire-spread-algorithm][fire-spread-algorithm]]
 (ns gridfire.fire-spread
   (:require [clojure.core.matrix           :as m]
-            [clojure.core.matrix.operators :as mop]
             [clojure.core.reducers         :as r]
             [gridfire.common               :refer [burnable-fuel-model?
                                                    burnable?
@@ -73,7 +72,7 @@
    canopy-cover canopy-height canopy-base-height foliar-moisture crown-spread-max
    crown-eccentricity landfire-rasters cell-size overflow-trajectory overflow-heat
    crown-type]
-  (let [trajectory                (mop/- neighbor here)
+  (let [trajectory                (mapv - neighbor here)
         spread-direction          (offset-to-degrees trajectory)
         surface-spread-rate       (rothermel-surface-fire-spread-any spread-info-max
                                                                      spread-direction)

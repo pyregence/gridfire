@@ -382,7 +382,9 @@
          :foliar-moisture (foliar-moistures i)
          :exit-condition  (:exit-condition fire-spread-results :no-fire-spread)}
         (if fire-spread-results
-          (summarize-fire-spread-results fire-spread-results cell-size)
+          (tufte/p
+           :summarize-fire-spread-results
+           (summarize-fire-spread-results fire-spread-results cell-size))
           {:fire-size                  0.0
            :flame-length-mean          0.0
            :flame-length-stddev        0.0

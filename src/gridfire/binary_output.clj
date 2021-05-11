@@ -73,7 +73,7 @@
   (tufte/p
    :write-matrices-as-binary
    (let [num-burned-cells (m/non-zero-count (first matrices))
-         data             (tufte/p :non-zero-data (mapv non-zero-data matrices))]
+         data             (mapv non-zero-data matrices)]
      (with-open [out (DataOutputStream. (io/output-stream file-name))]
        (.writeInt out (int num-burned-cells))                   ; Int32
        (let [xs (:x (first data))
