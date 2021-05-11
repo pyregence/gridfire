@@ -807,11 +807,11 @@ $M_{f}^{lh}$ is the live herbaceous moisture content.
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj :no-expand :comments link
 (defn add-dynamic-fuel-loading
   [{:keys [number M_x M_f w_o sigma] :as fuel-model}]
-  (let [number               (long number)
-        live-herbaceous-load (-> w_o :live ^double (:herbaceous))]
+  (let [number               (double number)
+        live-herbaceous-load (-> w_o :live :herbaceous double)]
     (if (and (> number 100) (pos? live-herbaceous-load))
       ;; dynamic fuel model
-      (let [fraction-green (max 0.0 (min 1.0 (- (/ (-> M_f :live ^double (:herbaceous)) 0.9) (/ 1.0 3.0))))
+      (let [fraction-green (max 0.0 (min 1.0 (- (/ (-> M_f :live :herbaceous double) 0.9) (/ 1.0 3.0))))
             fraction-cured (- 1.0 fraction-green)]
         (-> fuel-model
             (assoc-in [:M_f   :dead :herbaceous] (-> M_f :dead :1hr))
@@ -904,33 +904,38 @@ size class $c$.
 (defn add-live-moisture-of-extinction
   "Equation 88 from Rothermel 1972 adjusted by Albini 1976 Appendix III."
   [{:keys [w_o sigma M_f M_x] :as fuel-model}]
-  (let [^double
-        dead-loading-factor  (:dead (size-class-sum
-                                     (fn [i j] (if (pos? (-> sigma i ^double (j)))
+  (let [dead-loading-factor  (->> (size-class-sum
+                                   (fn [i j] (let [sigma_ij (-> sigma i j double)]
+                                               (if (pos? sigma_ij)
                                                  (* (-> w_o i ^double (j))
-                                                    (Math/exp (/ -138.0 (-> sigma i ^double (j)))))
+                                                    (Math/exp (/ -138.0 sigma_ij)))
                                                  0.0))))
-        ^double
-        live-loading-factor  (:live (size-class-sum
-                                     (fn [i j] (if (pos? (-> sigma i ^double (j)))
+                                  :dead
+                                  double)
+        live-loading-factor  (->> (size-class-sum
+                                   (fn [i j] (let [sigma_ij (-> sigma i j double)]
+                                               (if (pos? sigma_ij)
                                                  (* (-> w_o i ^double (j))
-                                                    (Math/exp (/ -500.0 (-> sigma i ^double (j)))))
+                                                    (Math/exp (/ -500.0 sigma_ij)))
                                                  0.0))))
-        ^double
-        dead-moisture-factor (:dead (size-class-sum
-                                     (fn [i j] (if (pos? (-> sigma i ^double (j)))
-                                                 (* (-> w_o i ^double (j))
-                                                    (Math/exp (/ -138.0 (-> sigma i ^double (j))))
-                                                    (-> M_f i ^double (j)))
-                                                 0.0))))
+                                  :live
+                                  double)
+        dead-moisture-factor (->> (size-class-sum
+                                   (fn [i j] (let [sigma_ij (-> sigma i j double)]
+                                              (if (pos? sigma_ij)
+                                                (* (-> w_o i ^double (j))
+                                                   (Math/exp (/ -138.0 sigma_ij))
+                                                   (-> M_f i ^double (j)))
+                                                0.0))))
+                                  :dead
+                                  double)
         ^double
         dead-to-live-ratio   (when (pos? live-loading-factor)
                                (/ dead-loading-factor live-loading-factor))
         dead-fuel-moisture   (if (pos? dead-loading-factor)
                                (/ dead-moisture-factor dead-loading-factor)
                                0.0)
-        ^double
-        M_x-dead             (-> M_x :dead :1hr)
+        M_x-dead             (-> M_x :dead :1hr double)
         M_x-live             (if (pos? live-loading-factor)
                                (max M_x-dead
                                     (- (* 2.9

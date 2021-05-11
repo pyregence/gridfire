@@ -106,7 +106,7 @@
 ;; [[file:../../org/GridFire.org::fuel-model-constructor-functions][fuel-model-constructor-functions]]
 (defn build-fuel-model
   [fuel-model-number]
-  (let [[name delta M_x-dead h
+  (let [[name delta ^double M_x-dead ^double h
          [w_o-dead-1hr w_o-dead-10hr w_o-dead-100hr
           w_o-live-herbaceous w_o-live-woody]
          [sigma-dead-1hr sigma-dead-10hr sigma-dead-100hr
@@ -164,10 +164,11 @@
 ;; [[file:../../org/GridFire.org::add-dynamic-fuel-loading][add-dynamic-fuel-loading]]
 (defn add-dynamic-fuel-loading
   [{:keys [number M_x M_f w_o sigma] :as fuel-model}]
-  (let [live-herbaceous-load (-> w_o :live :herbaceous)]
+  (let [number               (double number)
+        live-herbaceous-load (-> w_o :live :herbaceous double)]
     (if (and (> number 100) (pos? live-herbaceous-load))
       ;; dynamic fuel model
-      (let [fraction-green (max 0.0 (min 1.0 (- (/ (-> M_f :live :herbaceous) 0.9) 1/3)))
+      (let [fraction-green (max 0.0 (min 1.0 (- (/ (-> M_f :live :herbaceous double) 0.9) (/ 1.0 3.0))))
             fraction-cured (- 1.0 fraction-green)]
         (-> fuel-model
             (assoc-in [:M_f   :dead :herbaceous] (-> M_f :dead :1hr))
@@ -182,20 +183,20 @@
 ;; [[file:../../org/GridFire.org::add-weighting-factors][add-weighting-factors]]
 (defn add-weighting-factors
   [{:keys [w_o sigma rho_p] :as fuel-model}]
-  (let [A_ij (map-size-class (fn [i j] (/ (* (-> sigma i j) (-> w_o i j))
-                                          (-> rho_p i j))))
+  (let [A_ij (map-size-class (fn [i j] (/ (* (-> sigma i ^double (j)) (-> w_o i ^double (j)))
+                                          (-> rho_p i ^double (j)))))
 
         A_i  (size-class-sum (fn [i j] (-> A_ij i j)))
 
         A_T  (category-sum (fn [i] (-> A_i i)))
 
-        f_ij (map-size-class (fn [i j] (if (pos? (-> A_i i))
-                                         (/ (-> A_ij i j)
-                                            (-> A_i i))
+        f_ij (map-size-class (fn [i j] (if (pos? ^double ( A_i i))
+                                         (/ (-> A_ij i ^double (j))
+                                            ^double (A_i i))
                                          0.0)))
 
         f_i  (map-category (fn [i] (if (pos? A_T)
-                                     (/ (-> A_i i) A_T)
+                                     (/ ^double (A_i i) A_T)
                                      0.0)))
 
         firemod-size-classes (map-size-class
@@ -227,28 +228,38 @@
 (defn add-live-moisture-of-extinction
   "Equation 88 from Rothermel 1972 adjusted by Albini 1976 Appendix III."
   [{:keys [w_o sigma M_f M_x] :as fuel-model}]
-  (let [dead-loading-factor  (:dead (size-class-sum
-                                     (fn [i j] (if (pos? (-> sigma i j))
-                                                 (* (-> w_o i j)
-                                                    (Math/exp (/ -138.0 (-> sigma i j))))
+  (let [dead-loading-factor  (->> (size-class-sum
+                                   (fn [i j] (let [sigma_ij (-> sigma i j double)]
+                                               (if (pos? sigma_ij)
+                                                 (* (-> w_o i ^double (j))
+                                                    (Math/exp (/ -138.0 sigma_ij)))
                                                  0.0))))
-        live-loading-factor  (:live (size-class-sum
-                                     (fn [i j] (if (pos? (-> sigma i j))
-                                                 (* (-> w_o i j)
-                                                    (Math/exp (/ -500.0 (-> sigma i j))))
+                                  :dead
+                                  double)
+        live-loading-factor  (->> (size-class-sum
+                                   (fn [i j] (let [sigma_ij (-> sigma i j double)]
+                                               (if (pos? sigma_ij)
+                                                 (* (-> w_o i ^double (j))
+                                                    (Math/exp (/ -500.0 sigma_ij)))
                                                  0.0))))
-        dead-moisture-factor (:dead (size-class-sum
-                                     (fn [i j] (if (pos? (-> sigma i j))
-                                                 (* (-> w_o i j)
-                                                    (Math/exp (/ -138.0 (-> sigma i j)))
-                                                    (-> M_f i j))
-                                                 0.0))))
-        dead-to-live-ratio   (if (pos? live-loading-factor)
+                                  :live
+                                  double)
+        dead-moisture-factor (->> (size-class-sum
+                                   (fn [i j] (let [sigma_ij (-> sigma i j double)]
+                                              (if (pos? sigma_ij)
+                                                (* (-> w_o i ^double (j))
+                                                   (Math/exp (/ -138.0 sigma_ij))
+                                                   (-> M_f i ^double (j)))
+                                                0.0))))
+                                  :dead
+                                  double)
+        ^double
+        dead-to-live-ratio   (when (pos? live-loading-factor)
                                (/ dead-loading-factor live-loading-factor))
         dead-fuel-moisture   (if (pos? dead-loading-factor)
                                (/ dead-moisture-factor dead-loading-factor)
                                0.0)
-        M_x-dead             (-> M_x :dead :1hr)
+        M_x-dead             (-> M_x :dead :1hr double)
         M_x-live             (if (pos? live-loading-factor)
                                (max M_x-dead
                                     (- (* 2.9
