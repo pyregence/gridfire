@@ -16,6 +16,7 @@
 
 ;;TODO remove , we can just use my-rand-range
 (defn random-float
+  ^double
   [min-val max-val rand-generator]
   (let [range (- max-val min-val)]
     (+ min-val (my-rand rand-generator range))))

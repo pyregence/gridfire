@@ -33,7 +33,8 @@
 
 (defn rad->deg
   "Convert radians to degrees."
-  [d]
+  ^double
+  [^double d]
   (* d (/ 180 Math/PI)))
 
 (defn m->ft
