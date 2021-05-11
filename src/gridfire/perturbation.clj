@@ -48,23 +48,23 @@
     (mapv #(enrich-info perturbations rand-generator %) (range n))))
 
 (defn value-at
-  ([perturb-info raster here]
+  (^double [perturb-info raster here]
    (value-at perturb-info raster here nil))
 
-  ([{:keys [range spatial-type global-value rand-generator]} raster here frequency-band]
+  (^double [{:keys [range spatial-type global-value rand-generator]} raster here frequency-band]
    (if (= spatial-type :global)
      global-value
      (my-rand-range rand-generator range))))
 
 (defn- update?
-  [global-clock next-clock frequency]
+  [^double global-clock ^double next-clock ^long frequency]
   (< (quot global-clock frequency)
      (quot next-clock frequency)))
 
 (defn- global-temporal-perturbations
   [perturbations]
   (->> perturbations
-       (filter (fn [[k v]] (and (:frequency v) (= (:spatial-type v) :global))))
+       (filter (fn [[_ v]] (and (:frequency v) (= (:spatial-type v) :global))))
        keys))
 
 (defn update-global-vals

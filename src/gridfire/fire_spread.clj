@@ -11,7 +11,8 @@
                                                    burnable-neighbors?
                                                    get-neighbors
                                                    get-value-at
-                                                   sample-at]]
+                                                   sample-at
+                                                   distance-3d]]
             [gridfire.crown-fire          :refer [crown-fire-eccentricity
                                                   crown-fire-line-intensity
                                                   cruz-crown-fire-spread
@@ -47,15 +48,6 @@
   [num-rows num-cols]
   [(rand-int num-rows)
    (rand-int num-cols)])
-
-(defn distance-3d
-  "Returns the terrain distance between two points in feet."
-  [elevation-matrix cell-size [i1 j1] [i2 j2]]
-  (let [di (* cell-size (- i1 i2))
-        dj (* cell-size (- j1 j2))
-        dz (- (m/mget elevation-matrix i1 j1)
-              (m/mget elevation-matrix i2 j2))]
-    (Math/sqrt (+ (* di di) (* dj dj) (* dz dz)))))
 
 (def offset-to-degrees
   "Returns clockwise degrees from north."
