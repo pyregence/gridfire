@@ -95,12 +95,12 @@
    :live {:herbaceous (f :live :herbaceous)
           :woody      (f :live :woody)}})
 
-(defn category-sum [f]
-  (+ (f :dead) (f :live)))
+(defn category-sum ^double [f]
+  (+ ^double (f :dead) ^double (f :live)))
 
 (defn size-class-sum [f]
-  {:dead (+ (f :dead :1hr) (f :dead :10hr) (f :dead :100hr) (f :dead :herbaceous))
-   :live (+ (f :live :herbaceous) (f :live :woody))})
+  {:dead (+ ^double (f :dead :1hr) ^double (f :dead :10hr) ^double (f :dead :100hr) ^double (f :dead :herbaceous))
+   :live (+ ^double (f :live :herbaceous) ^double (f :live :woody))})
 ;; fuel-category-and-size-class-functions ends here
 
 ;; [[file:../../org/GridFire.org::fuel-model-constructor-functions][fuel-model-constructor-functions]]

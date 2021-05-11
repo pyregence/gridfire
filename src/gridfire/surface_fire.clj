@@ -3,7 +3,9 @@
   (:require [gridfire.fuel-models :refer [map-category map-size-class
                                           category-sum size-class-sum]]))
 
-(def grass-fuel-model? #(and (> % 100) (< % 110)))
+(defn grass-fuel-model?
+  [^long number]
+  (and (> number 100) (< number 110)))
 
 (defn rothermel-surface-fire-spread-no-wind-no-slope
   "Returns the rate of surface fire spread in ft/min and the reaction
@@ -22,48 +24,50 @@
    - f_ij [percent of load per size class (%)]
    - f_i [percent of load per category (%)]
    - g_ij [percent of load per size class from Albini_1976_FIREMOD, page 20]"
-  [{:keys [number delta w_o sigma h rho_p S_T S_e M_x M_f f_ij f_i g_ij] :as fuel-model}]
-  (let [S_e_i      (size-class-sum (fn [i j] (* (-> f_ij i j) (-> S_e i j))))
+  [{:keys [number delta w_o sigma  h rho_p S_T S_e M_x  M_f f_ij f_i g_ij]}]
+  (let [number     (long number)
+        delta      (double delta)
+        S_e_i      (size-class-sum (fn [i j] (* (-> f_ij i ^double (j)) (-> S_e i ^double (j)))))
 
         ;; Mineral damping coefficient
-        eta_S_i    (map-category (fn [i] (let [S_e_i (-> S_e_i i)]
+        eta_S_i    (map-category (fn [i] (let [^double S_e_i (-> S_e_i i)]
                                            (if (pos? S_e_i)
                                              (/ 0.174 (Math/pow S_e_i 0.19))
                                              1.0))))
 
-        M_f_i      (size-class-sum (fn [i j] (* (-> f_ij i j) (-> M_f i j))))
+        M_f_i      (size-class-sum (fn [i j] (* (-> f_ij i ^double (j)) (-> M_f i ^double (j)))))
 
-        M_x_i      (size-class-sum (fn [i j] (* (-> f_ij i j) (-> M_x i j))))
+        M_x_i      (size-class-sum (fn [i j] (* (-> f_ij i ^double (j)) (-> M_x i ^double (j)))))
 
-        r_M_i      (map-category (fn [i] (let [M_f (-> M_f_i i)
-                                               M_x (-> M_x_i i)]
+        r_M_i      (map-category (fn [i] (let [^double M_f (-> M_f_i i)
+                                               ^double M_x (-> M_x_i i)]
                                            (if (pos? M_x)
                                              (min 1.0 (/ M_f M_x))
                                              1.0))))
 
         ;; Moisture damping coefficient
         eta_M_i    (map-category (fn [i] (+ 1.0
-                                            (* -2.59 (-> r_M_i i))
+                                            (* -2.59 (-> r_M_i ^double (i)))
                                             (* 5.11 (Math/pow (-> r_M_i i) 2))
                                             (* -3.52 (Math/pow (-> r_M_i i) 3)))))
 
-        h_i        (size-class-sum (fn [i j] (* (-> f_ij i j) (-> h i j))))
+        h_i        (size-class-sum (fn [i j] (* (-> f_ij i ^double (j)) (-> h i ^double (j)))))
 
         ;; Net fuel loading (lb/ft^2)
-        W_n_i      (size-class-sum (fn [i j] (* (-> g_ij i j)
-                                                (-> w_o i j)
-                                                (- 1.0 (-> S_T i j)))))
+        W_n_i      (size-class-sum (fn [i j] (* (-> g_ij i ^double (j))
+                                                (-> w_o i ^double (j))
+                                                (- 1.0 (-> S_T i ^double (j))))))
 
-        beta_i     (size-class-sum (fn [i j] (/ (-> w_o i j) (-> rho_p i j))))
+        beta_i     (size-class-sum (fn [i j] (/ (-> w_o i ^double (j)) (-> rho_p i ^double (j)))))
 
         ;; Packing ratio
         beta       (if (pos? delta)
-                     (/ (category-sum (fn [i] (-> beta_i i))) delta)
+                     (/ (category-sum (fn [i] (-> beta_i ^double (i)))) delta)
                      0.0)
 
-        sigma'_i   (size-class-sum (fn [i j] (* (-> f_ij i j) (-> sigma i j))))
+        sigma'_i   (size-class-sum (fn [i j] (* (-> f_ij i ^double (j)) (-> sigma i ^double (j)))))
 
-        sigma'     (category-sum (fn [i] (* (-> f_i i) (-> sigma'_i i))))
+        sigma'     (category-sum (fn [i] (* (-> f_i ^double (i)) (-> sigma'_i ^double (i)))))
 
         ;; Optimum packing ratio
         beta_op    (if (pos? sigma')
@@ -85,8 +89,8 @@
                       (Math/exp (* A (- 1.0 (/ beta beta_op)))))
 
         ;; Reaction intensity (Btu/ft^2*min)
-        I_R        (* Gamma' (category-sum (fn [i] (* (W_n_i i) (h_i i)
-                                                      (eta_M_i i) (eta_S_i i)))))
+        I_R        (* Gamma' (category-sum (fn [i] (* ^double (W_n_i i) ^double (h_i i)
+                                                      ^double (eta_M_i i) ^double (eta_S_i i)))))
 
         ;; Propagating flux ratio
         xi         (/ (Math/exp (* (+ 0.792 (* 0.681 (Math/pow sigma' 0.5)))
@@ -100,7 +104,7 @@
         C          (* 7.47 (Math/exp (* -0.133 (Math/pow sigma' 0.55))))
 
         ;; Derive wind factor
-        get-phi_W  (fn [midflame-wind-speed]
+        get-phi_W  (fn ^double [^double midflame-wind-speed]
                      (if (and (pos? beta) (pos? midflame-wind-speed))
                        (-> midflame-wind-speed
                            (Math/pow B)
@@ -109,25 +113,25 @@
                        0.0))
 
         ;; Derive wind speed from wind factor
-        get-wind-speed (fn [phi_W]
+        get-wind-speed (fn [^double phi_W]
                          (-> phi_W
                              (* (Math/pow (/ beta beta_op) E))
-                             (/ C)
+                             ^double (/ C)
                              (Math/pow (/ 1.0 B))))
 
         ;; Derive slope factor
-        get-phi_S  (fn [slope]
+        get-phi_S  (fn [^double slope]
                      (if (and (pos? beta) (pos? slope))
                        (* 5.275 (Math/pow beta -0.3) (Math/pow slope 2.0))
                        0.0))
 
         ;; Heat of preignition (Btu/lb)
-        Q_ig       (map-size-class (fn [i j] (+ 250.0 (* 1116.0 (-> M_f i j)))))
+        Q_ig       (map-size-class (fn [i j] (+ 250.0 (* 1116.0 (-> M_f i ^double (j))))))
 
-        foo_i      (size-class-sum (fn [i j] (let [sigma_ij (-> sigma i j)
-                                                   Q_ig_ij  (-> Q_ig  i j)]
+        foo_i      (size-class-sum (fn [i j] (let [^double sigma_ij (-> sigma i j)
+                                                   ^double Q_ig_ij  (-> Q_ig  i j)]
                                                (if (pos? sigma_ij)
-                                                 (* (-> f_ij i j)
+                                                 (* (-> f_ij i ^double (j))
                                                     (Math/exp (/ -138 sigma_ij))
                                                     Q_ig_ij)
                                                  0.0))))
@@ -139,7 +143,7 @@
                      (/ (category-sum (fn [i] (-> rho_b_i i))) delta)
                      0.0)
 
-        rho_b-epsilon-Q_ig (* rho_b (category-sum (fn [i] (* (-> f_i i) (-> foo_i i)))))
+        rho_b-epsilon-Q_ig (* rho_b (category-sum (fn [i] (* (-> f_i ^double (i)) (-> foo_i ^double (i))))))
 
         ;; Surface fire spread rate (ft/min)
         R          (if (pos? rho_b-epsilon-Q_ig)
@@ -160,7 +164,8 @@
 ;; [[file:../../org/GridFire.org::wind-adjustment-factor][wind-adjustment-factor]]
 (defn wind-adjustment-factor
   "ft ft 0-100"
-  [fuel-bed-depth canopy-height canopy-cover]
+  ^double
+  [^double fuel-bed-depth ^double canopy-height ^double canopy-cover]
   (cond
     ;; sheltered: equation 2 based on CC and CH, CR=1 (Andrews 2012)
     (and (pos? canopy-cover)
@@ -178,7 +183,8 @@
 
 (defn wind-adjustment-factor-elmfire
   "ft m 0-1"
-  [fuel-bed-depth canopy-height canopy-cover]
+  ^double
+  [^double fuel-bed-depth ^double canopy-height ^double canopy-cover]
   (cond
     ;; sheltered WAF
     (and (pos? canopy-cover)
@@ -203,34 +209,39 @@
 (defn almost-zero? [^double x]
   (< (Math/abs x) 0.000001))
 
-(defn degrees-to-radians
-  [degrees]
+(defn degrees-to-radians ^double
+  [^double degrees]
   (/ (* degrees Math/PI) 180.0))
 
 (defn radians-to-degrees
-  [radians]
+  ^double
+  [^double radians]
   (/ (* radians 180.0) Math/PI))
 
 (defn scale-spread-to-max-wind-speed
   [{:keys [effective-wind-speed max-spread-direction] :as spread-properties}
-   spread-rate max-wind-speed phi-max]
-  (if (> effective-wind-speed max-wind-speed)
-    {:max-spread-rate      (* spread-rate (+ 1.0 phi-max))
-     :max-spread-direction max-spread-direction
-     :effective-wind-speed max-wind-speed}
-    spread-properties))
+   ^double spread-rate max-wind-speed  ^double phi-max]
+  (let [effective-wind-speed (double effective-wind-speed)
+        max-spread-direction (double max-spread-direction)]
+    (if (> effective-wind-speed ^double max-wind-speed)
+      {:max-spread-rate      (* spread-rate (+ 1.0 phi-max))
+       :max-spread-direction max-spread-direction
+       :effective-wind-speed max-wind-speed}
+      spread-properties)))
 
 (defn add-eccentricity
   [{:keys [effective-wind-speed] :as spread-properties} ellipse-adjustment-factor]
-  (let [length-width-ratio (+ 1.0 (* 0.002840909
+  (let [effective-wind-speed (double effective-wind-speed)
+        length-width-ratio (+ 1.0 (* 0.002840909
                                      effective-wind-speed
-                                     ellipse-adjustment-factor))
+                                     ^double ellipse-adjustment-factor))
         eccentricity       (/ (Math/sqrt (- (Math/pow length-width-ratio 2.0) 1.0))
                               length-width-ratio)]
     (assoc spread-properties :eccentricity eccentricity)))
 
-(defn smallest-angle-between [theta1 theta2]
-  (let [angle (Math/abs ^double (- theta1 theta2))]
+(defn smallest-angle-between ^double
+  [^double theta1 ^double theta2]
+  (let [angle (Math/abs (- theta1 theta2))]
     (if (> angle 180.0)
       (- 360.0 angle)
       angle)))
@@ -239,12 +250,13 @@
   "Note: fire ellipse adjustment factor, < 1.0 = more circular, > 1.0 = more elliptical"
   [{:keys [spread-rate reaction-intensity get-phi_W get-phi_S get-wind-speed]}
    midflame-wind-speed wind-from-direction slope aspect ellipse-adjustment-factor]
-  (let [phi_W             (get-phi_W midflame-wind-speed)
-        phi_S             (get-phi_S slope)
-        slope-direction   (mod (+ aspect 180.0) 360.0)
-        wind-to-direction (mod (+ wind-from-direction 180.0) 360.0)
-        max-wind-speed    (* 0.9 reaction-intensity)
-        phi-max           (get-phi_W max-wind-speed)]
+  (let [^double phi_W             (get-phi_W midflame-wind-speed)
+        ^double phi_S             (get-phi_S slope)
+        ^double slope-direction   (mod (+ ^double aspect 180.0) 360.0)
+        ^double wind-to-direction (mod (+ ^double wind-from-direction 180.0) 360.0)
+        max-wind-speed            (* 0.9 ^double reaction-intensity)
+        ^double phi-max           (get-phi_W max-wind-speed)
+        spread-rate               (double spread-rate)]
     (->
      (cond (and (almost-zero? midflame-wind-speed) (almost-zero? slope))
            ;; no wind, no slope
@@ -303,9 +315,12 @@
      (scale-spread-to-max-wind-speed spread-rate max-wind-speed phi-max)
      (add-eccentricity ellipse-adjustment-factor))))
 
-(defn rothermel-surface-fire-spread-any
+(defn rothermel-surface-fire-spread-any ^double
   [{:keys [max-spread-rate max-spread-direction eccentricity]} spread-direction]
-  (let [theta (smallest-angle-between max-spread-direction spread-direction)]
+  (let [max-spread-rate      (double max-spread-rate)
+        max-spread-direction (double max-spread-direction)
+        eccentricity         (double eccentricity)
+        theta                (smallest-angle-between max-spread-direction spread-direction)]
     (if (or (almost-zero? eccentricity) (almost-zero? theta))
       max-spread-rate
       (* max-spread-rate (/ (- 1.0 eccentricity)
@@ -319,19 +334,22 @@
    of a free-spreading fire in ft given:
    - spread-rate (ft/min)
    - residence-time (min)"
-  [spread-rate residence-time]
+  ^double
+  [^double spread-rate ^double residence-time]
   (* spread-rate residence-time))
 
 (defn byram-fire-line-intensity
   "Returns the rate of heat release per unit of fire edge in Btu/ft*s given:
    - reaction-intensity (Btu/ft^2*min)
    - flame-depth (ft)"
-  [reaction-intensity flame-depth]
+  ^double
+  [^double reaction-intensity ^double flame-depth]
   (/ (* reaction-intensity flame-depth) 60.0))
 
 (defn byram-flame-length
   "Returns the average flame length in ft given:
    - fire-line-intensity (Btu/ft*s)"
-  [fire-line-intensity]
+  ^double
+  [^double fire-line-intensity]
   (* 0.45 (Math/pow fire-line-intensity 0.46)))
 ;; surface-fire-intensity-formulas ends here
