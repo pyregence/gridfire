@@ -1945,6 +1945,18 @@ pseudo-code lays out the steps taken in this procedure:
            spread-info-min (rothermel-surface-fire-spread-no-wind-no-slope fuel-model)]
        [fuel-model spread-info-min]))))
 
+(defrecord BurnTrajectory
+    [cell
+     source
+     trajectory
+     ^double terrain-distance
+     ^double spread-rate
+     ^double fire-line-intensity
+     ^double flame-length
+     fractional-distance
+     fire-type
+     crown-fire?])
+
 (defn compute-burn-trajectory
   [neighbor here spread-info-min spread-info-max fuel-model crown-bulk-density
    canopy-cover canopy-height canopy-base-height foliar-moisture crown-spread-max
@@ -1982,18 +1994,18 @@ pseudo-code lays out the steps taken in this procedure:
                                     (+ surface-intensity crown-intensity)
                                     surface-intensity)
         flame-length              (byram-flame-length fire-line-intensity)]
-    {:cell                neighbor
-     :source              here
-     :trajectory          trajectory
-     :terrain-distance    (distance-3d (:elevation landfire-rasters) cell-size here neighbor)
-     :spread-rate         spread-rate
-     :fire-line-intensity fire-line-intensity
-     :flame-length        flame-length
-     :fractional-distance (volatile! (if (= trajectory overflow-trajectory)
-                                       overflow-heat
-                                       0.0))
-     :fire-type           (if crown-fire? crown-type :surface)
-     :crown-fire?         crown-fire?}))
+    (->BurnTrajectory neighbor
+                      here
+                      trajectory
+                      (distance-3d (:elevation landfire-rasters) cell-size here neighbor)
+                      spread-rate
+                      fire-line-intensity
+                      flame-length
+                      (volatile! (if (= trajectory overflow-trajectory)
+                                   overflow-heat
+                                   0.0))
+                      (if crown-fire? crown-type :surface)
+                      crown-fire?)))
 
 (defn compute-neighborhood-fire-spread-rates!
   "Returns a vector of entries of the form:
