@@ -97,8 +97,8 @@
 
 (defn- post-process-script [respond-with! dir]
   (log-str "Running post process script")
-  (let [commands [["./elmfire_post.sh" "GridFire: Running elmfire_post processing"]
-                  ["./make_tifs.sh" "GridFire: Creating Geotiffs"]
+  (let [commands [["./elmfire_post.sh" "Running elmfire_post processing"]
+                  ["./make_tifs.sh" "Creating Geotiffs"]
                   ["./build_geoserver_directory.sh"]
                   ["./upload_tarball.sh"]
                   ["./cleanup.sh"]]]
@@ -129,11 +129,11 @@
               [status status-msg] (try
                                     (let [input-deck-path (unzip-tar config request)]
                                       (config/convert-config! "-c" (str input-deck-path "/elmfire.data"))
-                                      (respond-with 2 "GridFire: Running Simulation")
+                                      (respond-with 2 "Running Simulation")
                                       (cli/-main (str input-deck-path "/gridfire.edn"))
                                       (copy-post-process-script (:software-dir config) input-deck-path)
                                       (post-process-script respond-with (str input-deck-path "/outputs"))
-                                      [0 "GridFire: Successful Run! Results uploaded to Geoserver!"])
+                                      [0 "Successful Run! Results uploaded to Geoserver!"])
                                     (catch Exception e
                                       [1 (str "Processing Error " (ex-message e))]))]
           (log-str "-> " status-msg)
@@ -147,11 +147,11 @@
       (when-let [[status status-msg] (try
                                        (if (spec/valid? ::spec-server/gridfire-server-request request)
                                          (do (>! job-queue request)
-                                             [2 (format "GridFire: Added to Job Queue. You are number %d in line."
+                                             [2 (format "Added to Job Queue. You are number %d in line."
                                                         @job-queue-size)])
                                          [1 (str "Invalid Request: " (spec/explain-str ::spec-server/gridfire-server-request request))])
                                        (catch AssertionError _
-                                         [1 "GridFire: Job Queue Limit Exceeded! Dropping Request!"])
+                                         [1 "Job Queue Limit Exceeded! Dropping Request!"])
                                        (catch Exception e
                                          [1 (str "Validation Error: " (ex-message e))]))]
         (log-str "-> " status-msg)
