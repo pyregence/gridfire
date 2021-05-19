@@ -376,11 +376,12 @@
      (when output-csvs?
        (merge
         input-variations
-        {:simulation      (inc i)
-         :ignition-row    (ignition-rows i)
-         :ignition-col    (ignition-cols i)
-         :foliar-moisture (foliar-moistures i)
-         :exit-condition  (:exit-condition fire-spread-results :no-fire-spread)}
+        {:simulation       (inc i)
+         :ignition-row     (ignition-rows i)
+         :ignition-col     (ignition-cols i)
+         :foliar-moisture  (foliar-moistures i)
+         :exit-condition   (:exit-condition fire-spread-results :no-fire-spread)
+         :crown-fire-count (:crown-fire-count fire-spread-results)}
         (if fire-spread-results
           (tufte/p
            :summarize-fire-spread-results

@@ -371,7 +371,8 @@
            fire-type-matrix] :as matrices}
    ignited-cells]
   (let [max-runtime (double max-runtime)
-        cell-size   (double cell-size)]
+        cell-size   (double cell-size)
+        crown-fire-count (atom 0)]
    (loop [global-clock   0.0
           ignited-cells  ignited-cells
           spot-ignitions {}]
@@ -392,9 +393,10 @@
          (doseq [{:keys
                   [cell flame-length fire-line-intensity
                    ignition-probability spread-rate fire-type
-                   dt-adjusted]} ignition-events]
+                   dt-adjusted crown-fire?]} ignition-events]
            (let [[i j]       cell
                  dt-adjusted (double dt-adjusted)]
+             (when crown-fire? (swap! crown-fire-count inc))
              (m/mset! fire-spread-matrix         i j ignition-probability)
              (m/mset! flame-length-matrix        i j flame-length)
              (m/mset! fire-line-intensity-matrix i j fire-line-intensity)
@@ -427,7 +429,8 @@
         :fire-line-intensity-matrix fire-line-intensity-matrix
         :burn-time-matrix           burn-time-matrix
         :spread-rate-matrix         spread-rate-matrix
-        :fire-type-matrix           fire-type-matrix}))))
+        :fire-type-matrix           fire-type-matrix
+        :crown-fire-count           @crown-fire-count}))))
 
 (defn- initialize-matrix
   [num-rows num-cols indices]

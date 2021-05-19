@@ -225,16 +225,16 @@
      ENABLE_SPOTTING] :as data}]
   (if (or GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN)
     (if ENABLE_SPOTTING
-      [[[1 204] [GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MAX]]]
-      [[[1 204] GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT]])
+      [[[1 204] [(* 0.01 GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN) (* 0.01 GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MAX)]]]
+      [[[1 204] (* 0.01 GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT)]])
     (extract-surface-spotting-percents data)))
 
 (defn extract-crown-fire-spotting-percent
   [{:strs [CROWN_FIRE_SPOTTING_PERCENT_MIN CROWN_FIRE_SPOTTING_PERCENT_MAX
            CROWN_FIRE_SPOTTING_PERCENT ENABLE_SPOTTING]}]
   (if ENABLE_SPOTTING
-    [CROWN_FIRE_SPOTTING_PERCENT_MIN CROWN_FIRE_SPOTTING_PERCENT_MAX]
-    CROWN_FIRE_SPOTTING_PERCENT))
+    [(* 0.01 CROWN_FIRE_SPOTTING_PERCENT_MIN) (* 0.01 CROWN_FIRE_SPOTTING_PERCENT_MAX)]
+    (* 0.01 CROWN_FIRE_SPOTTING_PERCENT)))
 
 (defn extract-num-firebrands
   [{:strs [NEMBERS NEMBERS_MIN NEMBERS_MIN_LO NEMBERS_MIN_HI NEMBERS_MAX
@@ -286,7 +286,7 @@
                             ENABLE_SURFACE_FIRE_SPOTTING
                             (assoc-in [:spotting :surface-fire-spotting]
                                       {:spotting-percent             (extract-global-surface-spotting-percents data)
-                                       :critical-fire-line-intensity CRITICAL_SPOTTING_FIRELINE_INTENSITY}))]
+                                       :critical-fire-line-intensity (convert/kW-m->Btu-ft-s CRITICAL_SPOTTING_FIRELINE_INTENSITY)}))]
       (merge config spotting-config))
     config))
 

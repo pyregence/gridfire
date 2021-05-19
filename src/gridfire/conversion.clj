@@ -60,6 +60,12 @@
   [^double Btu-ft-s]
   (/ Btu-ft-s 0.288894658272))
 
+(defn kW-m->Btu-ft-s
+  "Convert kilowatt per meter to BTU per feet per second"
+  ^double
+  [^double kW-m]
+  (* kW-m 0.288894658272))
+
 (defn percent->dec
   ^double
   [^double p]
