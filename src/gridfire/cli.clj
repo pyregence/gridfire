@@ -41,6 +41,7 @@
         fire-line-intensities      (filterv pos? (m/eseq (:fire-line-intensity-matrix fire-spread-results)))
         burned-cells               (count flame-lengths)
         fire-size                  (cells-to-acres cell-size burned-cells)
+        crown-fire-size            (cells-to-acres cell-size (:crown-fire-count fire-spread-results))
         flame-length-mean          (/ (m/esum flame-lengths) burned-cells)
         fire-line-intensity-mean   (/ (m/esum fire-line-intensities) burned-cells)
         flame-length-stddev        (->> flame-lengths
@@ -54,11 +55,11 @@
                                         (#(/ % burned-cells))
                                         (Math/sqrt))]
     {:fire-size                  fire-size
+     :crown-fire-size            crown-fire-size
      :flame-length-mean          flame-length-mean
      :flame-length-stddev        flame-length-stddev
      :fire-line-intensity-mean   fire-line-intensity-mean
-     :fire-line-intensity-stddev fire-line-intensity-stddev
-     :crown-fire-count           (:crown-fire-count fire-spread-results)}))
+     :fire-line-intensity-stddev fire-line-intensity-stddev}))
 
 (defn calc-ffwi
   "Computes the Fosberg Fire Weather Index value from rh (relative
@@ -451,7 +452,7 @@
              (mapv (fn [{:keys [ignition-row ignition-col max-runtime temperature relative-humidity
                                 wind-speed-20ft wind-from-direction foliar-moisture ellipse-adjustment-factor
                                 fire-size flame-length-mean flame-length-stddev fire-line-intensity-mean
-                                fire-line-intensity-stddev simulation crown-fire-count]}]
+                                fire-line-intensity-stddev simulation crown-fire-size]}]
                      [simulation
                       ignition-row
                       ignition-col
@@ -467,10 +468,10 @@
                       flame-length-stddev
                       fire-line-intensity-mean
                       fire-line-intensity-stddev
-                      crown-fire-count]))
+                      crown-fire-size]))
              (cons ["simulation" "ignition-row" "ignition-col" "max-runtime" "temperature" "relative-humidity" "wind-speed-20ft"
                     "wind-from-direction" "foliar-moisture" "ellipse-adjustment-factor" "fire-size" "flame-length-mean"
-                    "flame-length-stddev" "fire-line-intensity-mean" "fire-line-intensity-stddev" "crown-fire-count"])
+                    "flame-length-stddev" "fire-line-intensity-mean" "fire-line-intensity-stddev" "crown-fire-size"])
              (csv/write-csv out-file))))))
 
 ;; FIXME: Add a program banner and better usage/error messages
