@@ -323,11 +323,11 @@
     (->> {:cell-size                 (convert/m->ft COMPUTATIONAL_DOMAIN_CELLSIZE)
           :srid                      A_SRS
           :max-runtime               (sec->min SIMULATION_TSTOP)
-          :simulations               10
+          :simulations               100
           :random-seed               SEED
           :foliar-moisture           FOLIAR_MOISTURE_CONTENT
           :ellipse-adjustment-factor 1.0
-          :parallel-strategy         :within-fires}
+          :parallel-strategy         :between-fires}
          (process-landfire-layers data options)
          (process-ignition data options)
          (process-weather data options)
