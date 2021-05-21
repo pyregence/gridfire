@@ -21,8 +21,8 @@
          value-here (matrix-value-at cell global-clock matrix)]
      (if perturb-info
        (if-let [^long freq (:frequency perturb-info)]
-         (+ value-here (perturbation/value-at perturb-info matrix cell (quot ^double global-clock freq)))
-         (+ value-here (perturbation/value-at perturb-info matrix cell)))
+         (max 0 (+ value-here (perturbation/value-at perturb-info matrix cell (quot ^double global-clock freq))))
+         (max 0 (+ value-here (perturbation/value-at perturb-info matrix cell))))
        value-here))))
 
 (defn get-value-at
