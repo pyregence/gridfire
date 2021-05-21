@@ -370,9 +370,10 @@
            spread-rate-matrix
            fire-type-matrix] :as matrices}
    ignited-cells]
-  (let [max-runtime (double max-runtime)
-        cell-size   (double cell-size)
-        crown-fire-count (atom 0)]
+  (let [max-runtime      (double max-runtime)
+        cell-size        (double cell-size)
+        crown-fire-count (atom 0)
+        spot-count       (atom 0)]
    (loop [global-clock   0.0
           ignited-cells  ignited-cells
           spot-ignitions {}]
@@ -415,6 +416,7 @@
                                                       global-clock
                                                       matrices
                                                       spot-ignite-now)]
+           (reset! spot-count (+ @spot-count (count spot-ignited-cells)))
            (recur next-global-clock
                   (update-ignited-cells inputs
                                         (into spot-ignited-cells ignited-cells)
@@ -430,7 +432,8 @@
         :burn-time-matrix           burn-time-matrix
         :spread-rate-matrix         spread-rate-matrix
         :fire-type-matrix           fire-type-matrix
-        :crown-fire-count           @crown-fire-count}))))
+        :crown-fire-count           @crown-fire-count
+        :spot-count                 @spot-count}))))
 
 (defn- initialize-matrix
   [num-rows num-cols indices]
