@@ -175,7 +175,7 @@
 
 (defn extract-perturbations
   [{:strs [NUM_RASTERS_TO_PERTURB] :as config}]
-  (when (pos? NUM_RASTERS_TO_PERTURB)
+  (when (and NUM_RASTERS_TO_PERTURB (pos? NUM_RASTERS_TO_PERTURB))
     (into {}
           (map (fn [index]
                  (when-let [key (perturbation-key config index)]
@@ -191,13 +191,19 @@
                  [layer spec])))
         config))
 
+(defn remove-unused-perturbations
+  [config]
+  (dissoc config :crown-bulk-density :canopy-base-height))
+
 (defn process-perturbations
   [data _ config]
   (let [perturbations (-> (extract-perturbations data)
-                          (add-units))]
-    (when (seq perturbations)
+                          (add-units)
+                          remove-unused-perturbations)]
+    (if (seq perturbations)
       (merge config
-             {:perturbations perturbations}))))
+             {:perturbations perturbations})
+      config)))
 
 ;;-----------------------------------------------------------------------------
 ;; Spotting
