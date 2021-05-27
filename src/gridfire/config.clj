@@ -69,7 +69,8 @@
                                                    :multiplier 0.1}
                               :crown-bulk-density {:type   :geotiff
                                                    :source (file-path dir CBD_FILENAME)
-                                                   :units  :metric}
+                                                   :units  :metric
+                                                   :multiplier 0.01}
                               :elevation          {:type   :geotiff
                                                    :source (file-path dir DEM_FILENAME)
                                                    :units  :metric}
