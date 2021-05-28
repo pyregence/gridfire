@@ -2248,8 +2248,10 @@ pseudo-code lays out the steps taken in this procedure:
            spread-rate-matrix
            fire-type-matrix] :as matrices}
    ignited-cells]
-  (let [max-runtime (double max-runtime)
-        cell-size   (double cell-size)]
+  (let [max-runtime      (double max-runtime)
+        cell-size        (double cell-size)
+        crown-fire-count (atom 0)
+        spot-count       (atom 0)]
    (loop [global-clock   0.0
           ignited-cells  ignited-cells
           spot-ignitions {}]
@@ -2270,9 +2272,10 @@ pseudo-code lays out the steps taken in this procedure:
          (doseq [{:keys
                   [cell flame-length fire-line-intensity
                    ignition-probability spread-rate fire-type
-                   dt-adjusted]} ignition-events]
+                   dt-adjusted crown-fire?]} ignition-events]
            (let [[i j]       cell
                  dt-adjusted (double dt-adjusted)]
+             (when crown-fire? (swap! crown-fire-count inc))
              (m/mset! fire-spread-matrix         i j ignition-probability)
              (m/mset! flame-length-matrix        i j flame-length)
              (m/mset! fire-line-intensity-matrix i j fire-line-intensity)
@@ -2291,6 +2294,7 @@ pseudo-code lays out the steps taken in this procedure:
                                                       global-clock
                                                       matrices
                                                       spot-ignite-now)]
+           (reset! spot-count (+ @spot-count (count spot-ignited-cells)))
            (recur next-global-clock
                   (update-ignited-cells inputs
                                         (into spot-ignited-cells ignited-cells)
@@ -2305,7 +2309,9 @@ pseudo-code lays out the steps taken in this procedure:
         :fire-line-intensity-matrix fire-line-intensity-matrix
         :burn-time-matrix           burn-time-matrix
         :spread-rate-matrix         spread-rate-matrix
-        :fire-type-matrix           fire-type-matrix}))))
+        :fire-type-matrix           fire-type-matrix
+        :crown-fire-count           @crown-fire-count
+        :spot-count                 @spot-count}))))
 
 (defn- initialize-matrix
   [num-rows num-cols indices]
@@ -3128,6 +3134,7 @@ or false:
         fire-line-intensities      (filterv pos? (m/eseq (:fire-line-intensity-matrix fire-spread-results)))
         burned-cells               (count flame-lengths)
         fire-size                  (cells-to-acres cell-size burned-cells)
+        crown-fire-size            (cells-to-acres cell-size (:crown-fire-count fire-spread-results))
         flame-length-mean          (/ (m/esum flame-lengths) burned-cells)
         fire-line-intensity-mean   (/ (m/esum fire-line-intensities) burned-cells)
         flame-length-stddev        (->> flame-lengths
@@ -3141,10 +3148,12 @@ or false:
                                         (#(/ % burned-cells))
                                         (Math/sqrt))]
     {:fire-size                  fire-size
+     :crown-fire-size            crown-fire-size
      :flame-length-mean          flame-length-mean
      :flame-length-stddev        flame-length-stddev
      :fire-line-intensity-mean   fire-line-intensity-mean
-     :fire-line-intensity-stddev fire-line-intensity-stddev}))
+     :fire-line-intensity-stddev fire-line-intensity-stddev
+     :spot-count                 (:spot-count fire-spread-results)}))
 
 (defn calc-ffwi
   "Computes the Fosberg Fire Weather Index value from rh (relative
@@ -3463,11 +3472,12 @@ or false:
      (when output-csvs?
        (merge
         input-variations
-        {:simulation      (inc i)
-         :ignition-row    (ignition-rows i)
-         :ignition-col    (ignition-cols i)
-         :foliar-moisture (foliar-moistures i)
-         :exit-condition  (:exit-condition fire-spread-results :no-fire-spread)}
+        {:simulation       (inc i)
+         :ignition-row     (ignition-rows i)
+         :ignition-col     (ignition-cols i)
+         :foliar-moisture  (foliar-moistures i)
+         :exit-condition   (:exit-condition fire-spread-results :no-fire-spread)
+         :crown-fire-count (:crown-fire-count fire-spread-results)}
         (if fire-spread-results
           (tufte/p
            :summarize-fire-spread-results
@@ -3536,7 +3546,7 @@ or false:
              (mapv (fn [{:keys [ignition-row ignition-col max-runtime temperature relative-humidity
                                 wind-speed-20ft wind-from-direction foliar-moisture ellipse-adjustment-factor
                                 fire-size flame-length-mean flame-length-stddev fire-line-intensity-mean
-                                fire-line-intensity-stddev simulation]}]
+                                fire-line-intensity-stddev simulation crown-fire-size spot-count]}]
                      [simulation
                       ignition-row
                       ignition-col
@@ -3551,10 +3561,12 @@ or false:
                       flame-length-mean
                       flame-length-stddev
                       fire-line-intensity-mean
-                      fire-line-intensity-stddev]))
+                      fire-line-intensity-stddev
+                      crown-fire-size
+                      spot-count]))
              (cons ["simulation" "ignition-row" "ignition-col" "max-runtime" "temperature" "relative-humidity" "wind-speed-20ft"
                     "wind-from-direction" "foliar-moisture" "ellipse-adjustment-factor" "fire-size" "flame-length-mean"
-                    "flame-length-stddev" "fire-line-intensity-mean" "fire-line-intensity-stddev"])
+                    "flame-length-stddev" "fire-line-intensity-mean" "fire-line-intensity-stddev" "crown-fire-size" "spot-count"])
              (csv/write-csv out-file))))))
 
 ;; FIXME: Add a program banner and better usage/error messages
