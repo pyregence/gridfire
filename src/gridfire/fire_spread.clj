@@ -226,32 +226,69 @@
                                           overflow-trajectory overflow-heat crown-type)))
           (get-neighbors here))))
 
+(defn- get-old-fractional-distance
+  [{:keys [trajectory-combination]} {:keys [fractional-distance]} fractional-distance-matrix [i j]]
+  (if (= trajectory-combination :sum)
+    (m/mget fractional-distance-matrix i j)
+    @fractional-distance))
+
+(defn- update-fractional-distance-matrix!
+  "Update the fractional distance matrix with the largest fractional distance calculated."
+  [fractional-distance-matrix max-fractionals]
+  (doseq [[cell fractional-distance] @max-fractionals]
+    (let [[i j] cell]
+     (m/mset! fractional-distance-matrix i j fractional-distance))))
+
+(defn- update-fractional-distance!
+  "Update fractional distance for given trajectory into the current cell. Return a tuple of [old-value new-value]"
+  [{:keys [trajectory-combination] :as inputs} max-fractionals trajectory fractional-distance-matrix timestep cell]
+  (let [terrain-distance    (double (:terrain-distance trajectory))
+        spread-rate         (double (:spread-rate trajectory))
+        new-spread-fraction (/ (* spread-rate timestep) terrain-distance)
+        old-total           (get-old-fractional-distance inputs trajectory fractional-distance-matrix cell)
+        new-total           (+ old-total new-spread-fraction)]
+    (if (= trajectory-combination :sum)
+      (let [max-fractional-distance  (max (get @max-fractionals cell 0.0) new-total)]
+        (swap! max-fractionals assoc cell max-fractional-distance))
+      (vreset! (:fractional-distance trajectory) new-total))
+    [old-total new-total]))
+
+(defn- update-overflow-heat
+  [fractional-distance-matrix {:keys [cell trajectory]} fractional-distance]
+  (let [[i j] (mapv + cell trajectory)]
+    (m/mset! fractional-distance-matrix i j (- fractional-distance 1.0))))
+
 (defn identify-ignition-events
-  [ignited-cells timestep fire-spread-matrix]
-  (let [timestep (double timestep)]
-   (->> ignited-cells
-        (reduce (fn [acc trajectory]
-                  (let [{:keys
-                         [source
-                          cell
-                          fractional-distance]} trajectory
-                        [i j]                   source
-                        terrain-distance        (double (:terrain-distance trajectory))
-                        spread-rate             (double (:spread-rate trajectory))
-                        new-spread-fraction     (/ (* spread-rate timestep)  terrain-distance)
-                        ^double old-total       @fractional-distance
-                        ^double new-total       (vreset! fractional-distance
-                                                         (+ old-total new-spread-fraction))]
-                    (if (and (>= new-total 1.0)
-                             (> new-total ^double (get-in acc [cell :fractional-distance] 0.0)))
-                      (assoc! acc cell (merge trajectory {:fractional-distance  @fractional-distance
-                                                          :dt-adjusted          (* (/ (- 1.0 old-total) (- new-total old-total))
-                                                                                   timestep)
-                                                          :ignition-probability (m/mget fire-spread-matrix i j)}))
-                      acc)))
-                (transient {}))
-        persistent!
-        vals)))
+  [{:keys [trajectory-combination] :as inputs} ignited-cells timestep fire-spread-matrix fractional-distance-matrix]
+  (let [timestep        (double timestep)
+        max-fractionals (atom {})
+        ignition-events (->> ignited-cells
+                             (reduce (fn [acc trajectory]
+                                       (let [{:keys
+                                              [source
+                                               cell]}              trajectory
+                                             [i j]                 source
+                                             [^double old-total
+                                              ^double new-total] (update-fractional-distance! inputs
+                                                                                              max-fractionals
+                                                                                              trajectory
+                                                                                              fractional-distance-matrix
+                                                                                              timestep
+                                                                                              cell)]
+                                         (if (and (>= new-total 1.0)
+                                                  (> new-total ^double (get-in acc [cell :fractional-distance] 0.0)))
+                                           (do (when (= trajectory-combination :sum)
+                                                 (update-overflow-heat fractional-distance-matrix trajectory new-total))
+                                               (assoc! acc cell (merge trajectory {:fractional-distance  new-total
+                                                                                   :dt-adjusted          (* (/ (- 1.0 old-total) (- new-total old-total))
+                                                                                                            timestep)
+                                                                                   :ignition-probability (m/mget fire-spread-matrix i j)})))
+                                           acc)))
+                                     (transient {}))
+                             persistent!
+                             vals)]
+    (when (= trajectory-combination :sum) (update-fractional-distance-matrix! fractional-distance-matrix max-fractionals))
+    ignition-events))
 
 (defn update-ignited-cells
   [{:keys [landfire-rasters num-rows num-cols parallel-strategy] :as constants}
@@ -368,7 +405,8 @@
            fire-line-intensity-matrix
            burn-time-matrix
            spread-rate-matrix
-           fire-type-matrix] :as matrices}
+           fire-type-matrix
+           fractional-distance-matrix] :as matrices}
    ignited-cells]
   (let [max-runtime      (double max-runtime)
         cell-size        (double cell-size)
@@ -387,7 +425,7 @@
                                  (- max-runtime global-clock)
                                  dt)
              next-global-clock (+ global-clock timestep)
-             ignition-events   (identify-ignition-events ignited-cells timestep fire-spread-matrix)
+             ignition-events   (identify-ignition-events inputs ignited-cells timestep fire-spread-matrix fractional-distance-matrix)
              inputs            (perturbation/update-global-vals inputs global-clock next-global-clock)]
          ;; [{:cell :trajectory :fractional-distance
          ;;   :flame-length :fire-line-intensity} ...]
@@ -485,7 +523,7 @@
                           (random-ignition/select-ignition-site inputs))))
 
 (defmethod run-fire-spread :ignition-point
-  [{:keys [landfire-rasters num-rows num-cols initial-ignition-site spotting] :as inputs}]
+  [{:keys [landfire-rasters num-rows num-cols initial-ignition-site spotting trajectory-combination] :as inputs}]
   (let [[i j]                      initial-ignition-site
         fuel-model-matrix          (:fuel-model landfire-rasters)
         fire-spread-matrix         (m/zero-matrix num-rows num-cols)
@@ -494,7 +532,8 @@
         burn-time-matrix           (m/zero-matrix num-rows num-cols)
         firebrand-count-matrix     (when spotting (m/zero-matrix num-rows num-cols))
         spread-rate-matrix         (m/zero-matrix num-rows num-cols)
-        fire-type-matrix           (m/zero-matrix num-rows num-cols)]
+        fire-type-matrix           (m/zero-matrix num-rows num-cols)
+        fractional-distance-matrix (when (= trajectory-combination :sum) (m/zero-matrix num-rows num-cols))]
     (when (and (in-bounds? num-rows num-cols initial-ignition-site)
                (burnable-fuel-model? (m/mget fuel-model-matrix i j))
                (burnable-neighbors? fire-spread-matrix fuel-model-matrix
@@ -520,11 +559,12 @@
                    :fire-line-intensity-matrix fire-line-intensity-matrix
                    :firebrand-count-matrix     firebrand-count-matrix
                    :burn-time-matrix           burn-time-matrix
-                   :fire-type-matrix           fire-type-matrix}
+                   :fire-type-matrix           fire-type-matrix
+                   :fractional-distance-matrix fractional-distance-matrix}
                   ignited-cells)))))
 
 (defmethod run-fire-spread :ignition-perimeter
-  [{:keys [num-rows num-cols initial-ignition-site landfire-rasters spotting] :as inputs}]
+  [{:keys [num-rows num-cols initial-ignition-site landfire-rasters spotting trajectory-combination] :as inputs}]
   (let [fire-spread-matrix         (first (m/mutable (:matrix initial-ignition-site)))
         non-zero-indices           (get-non-zero-indices fire-spread-matrix)
         perimeter-indices          (filter #(burnable-neighbors? fire-spread-matrix
@@ -540,6 +580,7 @@
             firebrand-count-matrix     (when spotting (m/zero-matrix num-rows num-cols))
             spread-rate-matrix         (initialize-matrix num-rows num-cols non-zero-indices)
             fire-type-matrix           (initialize-matrix num-rows num-cols non-zero-indices)
+            fractional-distance-matrix (when (= trajectory-combination :sum) (initialize-matrix num-rows num-cols non-zero-indices))
             ignited-cells              (generate-ignited-cells inputs fire-spread-matrix perimeter-indices)]
         (when (seq ignited-cells)
           (run-loop inputs
@@ -549,6 +590,7 @@
                      :fire-line-intensity-matrix fire-line-intensity-matrix
                      :firebrand-count-matrix     firebrand-count-matrix
                      :burn-time-matrix           burn-time-matrix
-                     :fire-type-matrix           fire-type-matrix}
+                     :fire-type-matrix           fire-type-matrix
+                     :fractional-distance-matrix fractional-distance-matrix}
                     ignited-cells))))))
 ;; fire-spread-algorithm ends here
