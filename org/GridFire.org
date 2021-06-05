@@ -2061,22 +2061,22 @@ pseudo-code lays out the steps taken in this procedure:
                                                  (:slope perturbations))
         ^double relative-humidity     (get-value-at here
                                                     global-clock
-                                                    (first relative-humidity)
+                                                    relative-humidity
                                                     (:relative-humidity multiplier-lookup)
                                                     (:relative-humidity perturbations))
         ^double temperature           (get-value-at here
                                                     global-clock
-                                                    (first temperature)
+                                                    temperature
                                                     (:temperature multiplier-lookup)
                                                     (:temperature perturbations))
         ^double wind-from-direction   (get-value-at here
                                                     global-clock
-                                                    (first wind-from-direction)
+                                                    wind-from-direction
                                                     (:wind-from-direction multiplier-lookup)
                                                     (:wind-from-direction perturbations))
         ^double wind-speed-20ft       (get-value-at here
                                                     global-clock
-                                                    (first wind-speed-20ft)
+                                                    wind-speed-20ft
                                                     (:wind-speed-20ft multiplier-lookup)
                                                     (:wind-speed-20ft perturbations))
         ^double fuel-moisture         (or (fuel-moisture-from-raster constants here global-clock)
@@ -2132,9 +2132,10 @@ pseudo-code lays out the steps taken in this procedure:
     [old-total new-total]))
 
 (defn- update-overflow-heat
-  [fractional-distance-matrix {:keys [cell trajectory]} fractional-distance]
-  (let [[i j] (mapv + cell trajectory)]
-    (m/mset! fractional-distance-matrix i j (- fractional-distance 1.0))))
+  [{:keys [num-rows num-cols]} fractional-distance-matrix {:keys [cell trajectory]} fractional-distance]
+  (let [[i j :as target] (mapv + cell trajectory)]
+    (when (in-bounds? num-rows num-cols target)
+     (m/mset! fractional-distance-matrix i j (- fractional-distance 1.0)))))
 
 (defn identify-ignition-events
   [{:keys [trajectory-combination] :as inputs} ignited-cells timestep fire-spread-matrix fractional-distance-matrix]
@@ -2156,10 +2157,10 @@ pseudo-code lays out the steps taken in this procedure:
                                          (if (and (>= new-total 1.0)
                                                   (> new-total ^double (get-in acc [cell :fractional-distance] 0.0)))
                                            (do (when (= trajectory-combination :sum)
-                                                 (update-overflow-heat fractional-distance-matrix trajectory new-total))
+                                                 (update-overflow-heat inputs fractional-distance-matrix trajectory new-total))
                                                (assoc! acc cell (merge trajectory {:fractional-distance  new-total
                                                                                    :dt-adjusted          (* (/ (- 1.0 old-total) (- new-total old-total))
-                                                                                                           timestep)
+                                                                                                            timestep)
                                                                                    :ignition-probability (m/mget fire-spread-matrix i j)})))
                                            acc)))
                                      (transient {}))
