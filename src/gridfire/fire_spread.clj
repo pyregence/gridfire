@@ -254,9 +254,10 @@
     [old-total new-total]))
 
 (defn- update-overflow-heat
-  [fractional-distance-matrix {:keys [cell trajectory]} fractional-distance]
-  (let [[i j] (mapv + cell trajectory)]
-    (m/mset! fractional-distance-matrix i j (- fractional-distance 1.0))))
+  [{:keys [num-rows num-cols]} fractional-distance-matrix {:keys [cell trajectory]} fractional-distance]
+  (let [[i j :as target] (mapv + cell trajectory)]
+    (when (in-bounds? num-rows num-cols target)
+     (m/mset! fractional-distance-matrix i j (- fractional-distance 1.0)))))
 
 (defn identify-ignition-events
   [{:keys [trajectory-combination] :as inputs} ignited-cells timestep fire-spread-matrix fractional-distance-matrix]
@@ -278,7 +279,7 @@
                                          (if (and (>= new-total 1.0)
                                                   (> new-total ^double (get-in acc [cell :fractional-distance] 0.0)))
                                            (do (when (= trajectory-combination :sum)
-                                                 (update-overflow-heat fractional-distance-matrix trajectory new-total))
+                                                 (update-overflow-heat inputs fractional-distance-matrix trajectory new-total))
                                                (assoc! acc cell (merge trajectory {:fractional-distance  new-total
                                                                                    :dt-adjusted          (* (/ (- 1.0 old-total) (- new-total old-total))
                                                                                                             timestep)
