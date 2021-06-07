@@ -237,7 +237,7 @@
   [fractional-distance-matrix max-fractionals]
   (doseq [[cell fractional-distance] @max-fractionals]
     (let [[i j] cell]
-     (m/mset! fractional-distance-matrix i j fractional-distance))))
+      (m/mset! fractional-distance-matrix i j fractional-distance))))
 
 (defn- update-fractional-distance!
   "Update fractional distance for given trajectory into the current cell. Return a tuple of [old-value new-value]"
