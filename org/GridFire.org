@@ -4435,6 +4435,22 @@ Gridfire supports two types of paralleliztion. To prallelize:
 - between ensemble of simulations use the keyword *:between-fires*
 - within each ensemble member use the keyword *:within-fires*
 
+** Section 10: Spread Algorithm
+
+Gridfire uses the method of adaptive timestep and fractional distances cording
+to Morais2001. Gridfire provides implementation for two interpretations on how
+fractional distances are handled. When calculating the fractional distance of a
+cell, there are 8 possible trajectories from which fire can spread into the
+cell. When fractional distances are preserved between temesteps, they can be
+individually tracked so that each trajectory does not have an effect on another,
+or combined using the largest value among the trajectories. By default Gridfire
+will track fractional distances individually.
+
+To specify trajectories to have a cumulative effect include the following key
+value pair at the top level of the config file:
+
+- *:fractional-distance-combination* : the keyword `:sum`
+
 * Example Configuration files
 
 Here is a complete sample configuration for using landfire layers from our postigs enabled
