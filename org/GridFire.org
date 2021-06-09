@@ -2156,7 +2156,7 @@ pseudo-code lays out the steps taken in this procedure:
                                                                                               cell)]
                                          (if (and (>= new-total 1.0)
                                                   (> new-total ^double (get-in acc [cell :fractional-distance] 0.0)))
-                                           (do (when (= trajectory-combination :sum)
+                                           (do (when (and (= trajectory-combination :sum) (> new-total 1.0))
                                                  (update-overflow-heat inputs fractional-distance-matrix trajectory new-total))
                                                (assoc! acc cell (merge trajectory {:fractional-distance  new-total
                                                                                    :dt-adjusted          (* (/ (- 1.0 old-total) (- new-total old-total))
