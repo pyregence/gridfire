@@ -8,6 +8,7 @@ fi
 ELMFIRE_POST=elmfire_post_$ELMFIRE_VER
 MPIRUN=/usr/bin/mpirun
 HOSTS=`printf "$(hostname),%.0s" {1..64}`
+NP=`cat /proc/cpuinfo | grep "cpu cores" | cut -d: -f2 | tail -n 1 | xargs`
 CELLSIZE=`cat ../elmfire.data | grep COMPUTATIONAL_DOMAIN_CELLSIZE | cut -d= -f2 | xargs`
 XLLCORNER=`cat ../elmfire.data | grep COMPUTATIONAL_DOMAIN_XLLCORNER | cut -d= -f2 | xargs`
 YLLCORNER=`cat ../elmfire.data | grep COMPUTATIONAL_DOMAIN_YLLCORNER | cut -d= -f2 | xargs`
@@ -38,6 +39,6 @@ echo "DUMP_SPREAD_RATE = .FALSE."                     >> elmfire_post.data
 echo "DUMP_CROWN_FIRE = .FALSE."                      >> elmfire_post.data
 echo "/"                                              >> elmfire_post.data
 
-OMP_PROC_BIND=true $MPIRUN --mca btl tcp,self,vader --map-by core --bind-to core --use-hwthread-cpus -host $HOSTS $ELMFIRE_POST elmfire_post.data 1> /dev/null
+$MPIRUN --mca btl tcp,self,vader --map-by core --bind-to core -np $NP -host $HOSTS $ELMFIRE_POST elmfire_post.data 2> /dev/null
 
 echo "Built .bil & .hdr files"
