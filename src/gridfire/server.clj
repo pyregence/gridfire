@@ -1,19 +1,21 @@
 (ns gridfire.server
-  (:require [clojure.core.async      :refer [<! >! chan go]]
-            [clojure.data.json       :as json]
-            [clojure.edn             :as edn]
-            [clojure.java.io         :as io]
-            [clojure.java.shell      :as sh]
-            [clojure.string          :as str]
-            [clojure.tools.cli       :refer [parse-opts]]
-            [gridfire.simple-sockets :as sockets]
-            [gridfire.cli            :as cli]
-            [gridfire.config         :as config]
-            [gridfire.utils.server   :refer [nil-on-error]]
-            [gridfire.spec.server    :as spec-server]
-            [triangulum.logging      :refer [log-str set-log-path! log]]
-            [triangulum.utils        :refer [parse-as-sh-cmd]]
-            [clojure.spec.alpha      :as spec])
+  (:require [clojure.core.async           :refer [<! >! chan go]]
+            [clojure.data.json            :as json]
+            [clojure.edn                  :as edn]
+            [clojure.java.io              :as io]
+            [clojure.java.shell           :as sh]
+            [clojure.string               :as str]
+            [clojure.tools.cli            :refer [parse-opts]]
+            [gridfire.active-fire-watcher :as active-fire-watcher]
+            [gridfire.simple-sockets      :as sockets]
+            [gridfire.cli                 :as cli]
+            [gridfire.config              :as config]
+            [gridfire.utils.server        :refer [nil-on-error]]
+            [gridfire.spec.server         :as spec-server]
+            [triangulum.logging           :refer [log-str set-log-path! log]]
+            [triangulum.utils             :refer [parse-as-sh-cmd]]
+            [clojure.spec.alpha           :as spec])
+
   (:import java.util.TimeZone))
 
 ;;-----------------------------------------------------------------------------
@@ -74,10 +76,10 @@
 
 (defn- unzip-tar
   "Unzips tar file and returns file path to the extracted folder"
-  [{:keys [data-dir incoming-dir]} {:keys [fire-name ignition-time]}]
+  [{:keys [data-dir incoming-dir active-fire-dir]} {:keys [fire-name ignition-time type]}]
   (let [file-name (build-file-name fire-name ignition-time)]
     (log-str "Unzipping input deck: " file-name)
-    (sh-wrapper incoming-dir
+    (sh-wrapper (if (= type :active-fire) active-fire-dir incoming-dir)
                 {}
                 false
                 (format "tar -xf %s -C %s --one-top-level" (str file-name ".tar") data-dir))
@@ -118,9 +120,10 @@
 
 (defn- send-response!
   [{:keys [response-host response-port] :as request} options status status-msg]
-  (sockets/send-to-server! response-host
-                           response-port
-                           (build-response request options status status-msg)))
+  (when (and response-host response-port)
+   (sockets/send-to-server! response-host
+                            response-port
+                            (build-response request options status status-msg))))
 
 (defn- process-requests! [config options]
   (go (loop [request @(<! job-queue)]
@@ -193,6 +196,7 @@
             {:keys [log-dir] :as config} (edn/read-string (slurp (:config options)))]
         (when log-dir (set-log-path! log-dir))
         (log (format "Running server on port %s" port) :force-stdout? true)
+        (active-fire-watcher/start! config job-queue)
         (sockets/start-server! port (partial handler host port))
         (process-requests! config options)))))
 

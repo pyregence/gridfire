@@ -7,9 +7,9 @@
 (spec/def ::fire-name                       fire-name?)
 (spec/def ::ignition-time                   time?)
 (spec/def ::gridfire-server-request         (spec/keys :req-un [::fire-name
-                                                                ::ignition-time
-                                                                ::response-host
-                                                                ::response-port]))
+                                                                ::ignition-time]
+                                                       :req-opt [::response-host
+                                                                 ::response-port]))
 
-(spec/def ::gridfire-server-request-minimal (spec/keys :req-un [::response-host
-                                                                ::response-port]))
+(spec/def ::gridfire-server-response-minimal (spec/keys :req-un [::response-host
+                                                                 ::response-port]))
