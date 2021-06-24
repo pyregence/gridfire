@@ -66,10 +66,13 @@
 ;;-----------------------------------------------------------------------------
 
 (defonce job-queue-size (atom 0))
+(defonce stand-by-queue-size (atom 0))
 (defonce job-queue (chan 10 (map (fn [x]
                                    (swap! job-queue-size inc)
                                    (delay (swap! job-queue-size dec) x)))))
-(defonce stand-by-queue (chan 10))
+(defonce stand-by-queue (chan 10 (map (fn [x]
+                                        (swap! stand-by-queue-size inc)
+                                        (delay (swap! stand-by-queue-size dec) x)))))
 
 (defn- build-file-name [fire-name ignition-time]
   (str/join "_" [fire-name (convert-date-string ignition-time) "001"]))
@@ -127,7 +130,7 @@
 
 (defn- process-requests! [config options]
   (go (loop [[val _] (alts! [job-queue stand-by-queue]
-                                :priority true)]
+                            :priority true)]
         (let [request             @val
               _                   (log-str "Processing Request: " request)
               respond-with        (partial send-response! request options)

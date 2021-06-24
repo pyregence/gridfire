@@ -1,6 +1,6 @@
 (ns gridfire.active-fire-watcher
   (:require [nextjournal.beholder :as beholder]
-            [clojure.core.async   :refer [>!!]])
+            [clojure.core.async   :refer [>!! go >!]])
 
   (:import java.util.TimeZone))
 
@@ -28,12 +28,13 @@
 
 (defn- handler [job-queue]
   (fn [{:keys [type path]}]
-    (when (= type :create)
-      (let [[fire-name ignition-time] (parse-tar (.toString path))
-            job                       {:fire-name     fire-name
-                                       :ignition-time ignition-time
-                                       :type          :active-fire}]
-        (>!! job-queue job)))))
+    (go
+     (when (= type :create)
+       (let [[fire-name ignition-time] (parse-tar (.toString path))
+             job                       {:fire-name     fire-name
+                                        :ignition-time ignition-time
+                                        :type          :active-fire}]
+         (>! job-queue job))))))
 
 (defn start! [{:keys [active-fire-dir]} job-queue]
   (when active-fire-dir
