@@ -23,7 +23,8 @@
     (re-matches #"^\d+$" s)                (Integer/parseInt s)
     (re-matches #".TRUE." s)               true
     (re-matches #".FALSE." s)              false
-    :else                                  (subs s 1 (dec (count s)))))
+    (re-matches #"'[a-zA-Z_.//]*'" s)      (subs s 1 (dec (count s)))
+    :else                                  nil))
 
 (defn convert-key [s]
   (if (re-matches regex-for-array-item s)
@@ -328,7 +329,7 @@
    options]
   (let [data (into (sorted-map ) d)]
     (->> {:cell-size                 (convert/m->ft COMPUTATIONAL_DOMAIN_CELLSIZE)
-          :srid                      A_SRS
+          :srid                      (or A_SRS "EPSG:32610")
           :max-runtime               (sec->min SIMULATION_TSTOP)
           :simulations               100
           :random-seed               SEED
