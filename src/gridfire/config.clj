@@ -23,7 +23,7 @@
     (re-matches #"^\d+$" s)                (Integer/parseInt s)
     (re-matches #".TRUE." s)               true
     (re-matches #".FALSE." s)              false
-    (re-matches #"'[a-zA-Z_.//]*'" s)      (subs s 1 (dec (count s)))
+    (re-matches #"'[0-9a-zA-Z_.//]*'" s)   (subs s 1 (dec (count s)))
     :else                                  nil))
 
 (defn convert-key [s]
