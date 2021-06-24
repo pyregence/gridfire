@@ -1,8 +1,7 @@
 (ns gridfire.server
-  (:require [clojure.core.async           :refer [<! >! chan go]]
+  (:require [clojure.core.async           :refer [>! chan go alts!]]
             [clojure.data.json            :as json]
             [clojure.edn                  :as edn]
-            [clojure.java.io              :as io]
             [clojure.java.shell           :as sh]
             [clojure.string               :as str]
             [clojure.tools.cli            :refer [parse-opts]]
@@ -70,6 +69,7 @@
 (defonce job-queue (chan 10 (map (fn [x]
                                    (swap! job-queue-size inc)
                                    (delay (swap! job-queue-size dec) x)))))
+(defonce stand-by-queue (chan 10))
 
 (defn- build-file-name [fire-name ignition-time]
   (str/join "_" [fire-name (convert-date-string ignition-time) "001"]))
@@ -121,14 +121,16 @@
 (defn- send-response!
   [{:keys [response-host response-port] :as request} options status status-msg]
   (when (and response-host response-port)
-   (sockets/send-to-server! response-host
-                            response-port
-                            (build-response request options status status-msg))))
+    (sockets/send-to-server! response-host
+                             response-port
+                             (build-response request options status status-msg))))
 
 (defn- process-requests! [config options]
-  (go (loop [request @(<! job-queue)]
-        (log-str "Processing Request: " request)
-        (let [respond-with        (partial send-response! request options)
+  (go (loop [[val _] (alts! [job-queue stand-by-queue]
+                                :priority true)]
+        (let [request             @val
+              _                   (log-str "Processing Request: " request)
+              respond-with        (partial send-response! request options)
               [status status-msg] (try
                                     (let [input-deck-path (unzip-tar config request)]
                                       (config/convert-config! "-c" (str input-deck-path "/elmfire.data"))
@@ -141,7 +143,8 @@
                                       [1 (str "Processing Error " (ex-message e))]))]
           (log-str "-> " status-msg)
           (respond-with status status-msg))
-        (recur @(<! job-queue)))))
+        (recur (alts! [job-queue stand-by-queue]
+                      :priority true)))))
 
 (defn- handler [host port request-msg]
   (go
@@ -196,7 +199,7 @@
             {:keys [log-dir] :as config} (edn/read-string (slurp (:config options)))]
         (when log-dir (set-log-path! log-dir))
         (log (format "Running server on port %s" port) :force-stdout? true)
-        (active-fire-watcher/start! config job-queue)
+        (active-fire-watcher/start! config stand-by-queue)
         (sockets/start-server! port (partial handler host port))
         (process-requests! config options)))))
 
