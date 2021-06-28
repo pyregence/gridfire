@@ -34,6 +34,7 @@
              job                       {:fire-name     fire-name
                                         :ignition-time ignition-time
                                         :type          :active-fire}]
+         (Thread/sleep 30000)
          (>! job-queue job))))))
 
 (defn start! [{:keys [active-fire-dir]} job-queue]
