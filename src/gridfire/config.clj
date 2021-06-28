@@ -2,6 +2,7 @@
   (:require [clojure.pprint :as pprint]
             [clojure.string :as str]
             [clojure.tools.cli :refer [parse-opts]]
+            [clojure.java.io :as io]
             [gridfire.conversion :as convert]
             [triangulum.logging :refer [log-str]]))
 
@@ -89,10 +90,11 @@
            USE_IGNITION_MASK EDGEBUFFER IGNITION_MASK_FILENAME]}
    _
    config]
-  (let [dir FUELS_AND_TOPOGRAPHY_DIRECTORY]
+  (let [dir            FUELS_AND_TOPOGRAPHY_DIRECTORY
+        ignition-mask? (.exists (io/file (file-path dir IGNITION_MASK_FILENAME)))]
     (merge config
            (if RANDOM_IGNITIONS
-             {:random-ignition {:ignition-mask (when USE_IGNITION_MASK
+             {:random-ignition {:ignition-mask (when (and USE_IGNITION_MASK ignition-mask?)
                                                  {:type   :geotiff
                                                   :source (file-path dir IGNITION_MASK_FILENAME)})
                                 :edge-buffer   (when EDGEBUFFER
