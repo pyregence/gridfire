@@ -128,6 +128,18 @@
                              response-port
                              (build-response request options status status-msg))))
 
+(defn- build-geosync-request [{:keys [fire-name ignition-time]}]
+  (json/write-str
+   {"action"             "add"
+    "dataDir"            (format "/var/www/html/fire_spread_forecast/%s/%s"
+                                 fire-name
+                                 (convert-date-string ignition-time))
+    "geoserverWorkspace" (format "fire-spread-forecast_%s_%s"
+                                 fire-name
+                                 (convert-date-string ignition-time))
+    "responseHost"       "gridfire.pyregence.org"
+    "responsePort"       31340}))
+
 (defn- process-requests! [config options]
   (go (loop [[val _] (alts! [job-queue stand-by-queue]
                             :priority true)]
@@ -145,7 +157,13 @@
                                     (catch Exception e
                                       [1 (str "Processing Error " (ex-message e))]))]
           (log-str "-> " status-msg)
-          (respond-with status status-msg))
+          (if (= (:type request) :active-fire)
+            (let [geosync-request (build-geosync-request request)]
+              (log-str "Sending Geosync Request:" geosync-request)
+              (sockets/send-to-server! "data.pyregence.org"
+                                       31337
+                                       geosync-request))
+            (respond-with status status-msg)))
         (recur (alts! [job-queue stand-by-queue]
                       :priority true)))))
 

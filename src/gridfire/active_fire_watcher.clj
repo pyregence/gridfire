@@ -1,5 +1,6 @@
 (ns gridfire.active-fire-watcher
   (:require [nextjournal.beholder :as beholder]
+            [triangulum.logging   :refer [log-str]]
             [clojure.core.async   :refer [>!! go >!]])
 
   (:import java.util.TimeZone))
@@ -28,6 +29,7 @@
 
 (defn- handler [job-queue]
   (fn [{:keys [type path]}]
+    (log-str "Active Fire input deck detected: " type ":" (.toString path))
     (go
      (when (= type :create)
        (let [[fire-name ignition-time] (parse-tar (.toString path))
