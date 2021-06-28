@@ -331,7 +331,7 @@
     (->> {:cell-size                 (convert/m->ft COMPUTATIONAL_DOMAIN_CELLSIZE)
           :srid                      (or A_SRS "EPSG:32610")
           :max-runtime               (sec->min SIMULATION_TSTOP)
-          :simulations               100
+          :simulations               10
           :random-seed               SEED
           :foliar-moisture           FOLIAR_MOISTURE_CONTENT
           :ellipse-adjustment-factor 1.0
