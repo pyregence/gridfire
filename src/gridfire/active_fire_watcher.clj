@@ -46,6 +46,7 @@
           (swap! seconds dec)
           (recur (get @download-in-progress tar)))
       (do (log-str "SCP Complete:" tar)
+          (swap! download-in-progress dissoc tar)
           (>!! job-queue (build-job tar))))))
 
 ;;-----------------------------------------------------------------------------
