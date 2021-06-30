@@ -40,6 +40,9 @@ if [ "$ISLT0" = "1" ]; then
     READ_PHI=yes
 fi
 
+rm -f -r scratch
+mkdir scratch
+
 echo '&ELMFIRE_POST_INPUTS'                           > elmfire_post.data
 echo "NX = $NX"                                      >> elmfire_post.data
 echo "NY = $NY"                                      >> elmfire_post.data
