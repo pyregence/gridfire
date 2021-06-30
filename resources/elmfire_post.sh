@@ -4,7 +4,7 @@ rm -f *.bil *.hdr *.tif
 
 
 if [ -z "$ELMFIRE_VER" ]; then
-    ELMFIRE_VER=0.6551
+    ELMFIRE_VER=0.6552
 fi
 ELMFIRE_POST=elmfire_post_$ELMFIRE_VER
 MPIRUN=/usr/bin/mpirun
@@ -69,6 +69,8 @@ if [ "$READ_PHI" = "yes" ]; then
    echo "READ_PHI = .TRUE."                                >> elmfire_post.data
    echo "PHI_FILENAME = 'phi'"                             >> elmfire_post.data
 fi
+echo "FIRE_SIZE_STATS_FILENAME = 'summary_stats.csv'" >> elmfire_post.data
+echo "BINARY_FILE_TYPE = 2"                           >> elmfire_post.data
 
 echo "/"                                             >> elmfire_post.data
 
