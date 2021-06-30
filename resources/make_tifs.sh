@@ -11,10 +11,12 @@ compress () {
     local f=$1
     IS_CROWN_FIRE=`echo $f | grep crown | wc -l`
     IS_HOURS=`echo $f | grep hours | wc -l`
-    if [ "$IS_CROWN_FIRE" = "1" ] || [ "$IS_HOURS" = "1" ]; then
-        OT=Byte
-    else
+    IS_TOA=`echo $f | grep time | wc -l`
+
+    if [ "$IS_TOA" = "1" ] ; then
         OT=Float32
+    else
+        OT=Byte
     fi
     local STUB=`echo $f | cut -d. -f1`
     $GDAL_TRANSLATE -a_srs "$SRS" -a_nodata 0 -ot $OT -co "TILED=yes" -co "COMPRESS=DEFLATE" -co "ZLEVEL=9" -co "NUM_THREADS=2" ${STUB}.bil ${STUB}.tif
@@ -23,17 +25,15 @@ compress () {
     fi
 }
 
-N=`grep processor /proc/cpuinfo | wc -l`
+N=`cat /proc/cpuinfo | grep "cpu cores" | cut -d: -f2 | tail -n 1 | xargs`
 (
     for f in *.bil; do
         ((i=i%N)); ((i++==0)) && wait
-        compress "$f" &>/dev/null &
+        compress "$f" &
     done
 )
 
 wait
 sleep 0.5
-
-echo "Created Geotiffs"
 
 exit 0
