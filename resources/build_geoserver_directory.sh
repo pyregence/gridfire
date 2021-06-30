@@ -6,6 +6,8 @@ FIRENAME=`echo $(pwd) | rev | cut -d'/' -f2 | rev | cut -d_ -f1`
 START_DATE=`echo $(pwd) | rev | cut -d'/' -f2 | rev | cut -d_ -f2`
 START_TIME=`echo $(pwd) | rev | cut -d'/' -f2 | rev | cut -d_ -f3`
 START_HOUR=${START_TIME:0:2}
+START_MIN=${START_TIME:2:2}
+start_min=$((10#$START_MIN))
 
 rm -f -r geoserver
 mkdir geoserver
