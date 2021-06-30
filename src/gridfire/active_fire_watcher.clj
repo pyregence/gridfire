@@ -4,16 +4,22 @@
             [triangulum.logging :refer [log-str]])
   (:import java.util.TimeZone))
 
+
 ;;-----------------------------------------------------------------------------
-;; Utils
+;; Regex
 ;;-----------------------------------------------------------------------------
-(defonce download-in-progress (atom {}))
 
 (def file-name-regex #"[^/]*(?=[.][a-zA-Z]+$)")
 
 (def fire-name-regex #"[a-zA-Z]*[-[a-zA-Z2-9]]*")
 
 (def ignition-time-regex #"\d{8}_\d{6}")
+
+;;-----------------------------------------------------------------------------
+;; Utils
+;;-----------------------------------------------------------------------------
+
+(defonce download-in-progress (atom {}))
 
 (defn- convert-date-string
   [date-str from-format to-format]
