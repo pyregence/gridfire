@@ -75,8 +75,13 @@
    (fuel-moisture-from-raster constants here 0))
 
   ([{:keys [fuel-moisture-layers multiplier-lookup]} here global-clock]
-   (when fuel-moisture-layers
-     (extract-fuel-moisture fuel-moisture-layers multiplier-lookup here global-clock))))
+   {:dead {:1hr   0.02
+           :10hr  0.02
+           :100hr 0.02}
+    :live {:herbaceous 0.3
+           :woody      0.6}}
+   #_(when fuel-moisture-layers
+       (extract-fuel-moisture fuel-moisture-layers multiplier-lookup here global-clock))))
 
 (defn in-bounds?
   "Returns true if the point lies within the bounds [0,rows) by [0,cols)."

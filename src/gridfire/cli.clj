@@ -13,6 +13,7 @@
             [gridfire.crown-fire      :refer [m->ft]]
             [gridfire.fetch           :as fetch]
             [gridfire.fire-spread     :refer [run-fire-spread]]
+            [gridfire.fire-spread-optimal     :as optimal]
             [gridfire.perturbation    :as perturbation]
             [gridfire.random-ignition :as random-ignition]
             [gridfire.spec.config     :as spec]
@@ -42,7 +43,7 @@
         fire-line-intensities      (filterv pos? (m/eseq (:fire-line-intensity-matrix fire-spread-results)))
         burned-cells               (count flame-lengths)
         fire-size                  (cells-to-acres cell-size burned-cells)
-        crown-fire-size            (cells-to-acres cell-size (:crown-fire-count fire-spread-results))
+        ;; crown-fire-size            (cells-to-acres cell-size (:crown-fire-count fire-spread-results))
         flame-length-mean          (/ (m/esum flame-lengths) burned-cells)
         fire-line-intensity-mean   (/ (m/esum fire-line-intensities) burned-cells)
         flame-length-stddev        (->> flame-lengths
@@ -56,7 +57,7 @@
                                         (#(/ % burned-cells))
                                         (Math/sqrt))]
     {:fire-size                  fire-size
-     :crown-fire-size            crown-fire-size
+     ;; :crown-fire-size            crown-fire-size
      :flame-length-mean          flame-length-mean
      :flame-length-stddev        flame-length-stddev
      :fire-line-intensity-mean   fire-line-intensity-mean
@@ -388,10 +389,14 @@
                                 :wind-speed-20ft           (matrix-or-i wind-speeds-20ft i)
                                 :wind-from-direction       (matrix-or-i wind-from-directions i)}
          fire-spread-results   (tufte/p :run-fire-spread
-                                        (run-fire-spread
+                                        (optimal/run-fire-spread
                                          (merge inputs
                                                 input-variations
-                                                {:initial-ignition-site initial-ignition-site})))]
+                                                {:initial-ignition-site initial-ignition-site}))
+                                        #_(run-fire-spread
+                                           (merge inputs
+                                                  input-variations
+                                                  {:initial-ignition-site initial-ignition-site})))]
      (when fire-spread-results
        (process-output-layers! inputs fire-spread-results envelope i)
        (when-let [timestep output-burn-probability]
