@@ -1,5 +1,5 @@
 (ns gridfire.active-fire-watcher
-  (:require [clojure.core.async :refer [<! >!! go-loop timeout]]
+  (:require [clojure.core.async :refer [<! >! go-loop timeout]]
             [nextjournal.beholder :as beholder]
             [triangulum.logging :refer [log-str]])
   (:import java.util.TimeZone))
@@ -53,7 +53,7 @@
           (recur (get @download-in-progress tar)))
       (do (log-str "SCP Complete:" tar)
           (swap! download-in-progress dissoc tar)
-          (>!! job-queue (build-job tar))))))
+          (>! job-queue (build-job tar))))))
 
 ;;-----------------------------------------------------------------------------
 ;; Main
