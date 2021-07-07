@@ -1,28 +1,29 @@
 ;; [[file:../../org/GridFire.org::command-line-interface][command-line-interface]]
 (ns gridfire.cli
   (:gen-class)
-  (:require [clojure.core.matrix    :as m]
-            [clojure.core.reducers  :as r]
-            [clojure.data.csv       :as csv]
-            [clojure.edn            :as edn]
-            [clojure.java.io        :as io]
-            [clojure.spec.alpha     :as s]
-            [clojure.string         :as str]
-            [gridfire.binary-output :as binary]
-            [gridfire.common        :refer [calc-emc get-neighbors in-bounds?]]
-            [gridfire.crown-fire    :refer [m->ft]]
-            [gridfire.fetch         :as fetch]
-            [gridfire.fire-spread   :refer [run-fire-spread]]
-            [gridfire.perturbation  :as perturbation]
-            [gridfire.spec.config   :as spec]
-            [gridfire.utils.random  :refer [draw-samples]]
-            [magellan.core          :refer [make-envelope
-                                            matrix-to-raster
-                                            register-new-crs-definitions-from-properties-file!
-                                            write-raster]]
-            [matrix-viz.core        :refer [save-matrix-as-png]]
-            [taoensso.tufte         :as tufte]
-            [triangulum.logging     :refer [log-str log]])
+  (:require [clojure.core.matrix      :as m]
+            [clojure.core.reducers    :as r]
+            [clojure.data.csv         :as csv]
+            [clojure.edn              :as edn]
+            [clojure.java.io          :as io]
+            [clojure.spec.alpha       :as s]
+            [clojure.string           :as str]
+            [gridfire.binary-output   :as binary]
+            [gridfire.common          :refer [calc-emc get-neighbors in-bounds?]]
+            [gridfire.crown-fire      :refer [m->ft]]
+            [gridfire.fetch           :as fetch]
+            [gridfire.fire-spread     :refer [run-fire-spread]]
+            [gridfire.perturbation    :as perturbation]
+            [gridfire.random-ignition :as random-ignition]
+            [gridfire.spec.config     :as spec]
+            [gridfire.utils.random    :refer [draw-samples]]
+            [magellan.core            :refer [make-envelope
+                                              matrix-to-raster
+                                              register-new-crs-definitions-from-properties-file!
+                                              write-raster]]
+            [matrix-viz.core          :refer [save-matrix-as-png]]
+            [taoensso.tufte           :as tufte]
+            [triangulum.logging       :refer [log-str log]])
   (:import java.util.Random))
 
 (m/set-current-implementation :vectorz)
@@ -330,13 +331,33 @@
          :wind-speeds-20ft     (get-weather inputs rand-gen :wind-speed-20ft weather-layers)
          :wind-from-directions (get-weather inputs rand-gen :wind-from-direction weather-layers)))
 
+(defn add-ignitable-sites
+  [{:keys [ignition-mask-layer num-rows num-cols] :as inputs}]
+  (let [ignition-mask-indices (some->> ignition-mask-layer
+                                       :matrix
+                                       first
+                                       m/non-zero-indices
+                                       (map-indexed (fn [i v] (when (pos? (count v)) [i v])))
+                                       (filterv identity))
+        ignitable-sites (if ignition-mask-indices
+                          (for [[row cols] ignition-mask-indices
+                                col        cols
+                                :when      (random-ignition/valid-ignition-site? inputs row col)]
+                            [row col])
+                          (for [row   (range num-rows)
+                                col   (range num-cols)
+                                :when (random-ignition/valid-ignition-site? inputs row col)]
+                            [row col]))]
+    (assoc inputs :ignitable-sites ignitable-sites)))
+
 (defn load-inputs
   [config]
   (-> config
       (add-input-layers)
       (add-misc-params)
       (add-sampled-params)
-      (add-weather-params)))
+      (add-weather-params)
+      (add-ignitable-sites)))
 
 ;; FIXME: Replace input-variations expression with add-sampled-params
 ;;        and add-weather-params (and remove them from load-inputs).
@@ -483,9 +504,11 @@
     (let [config (edn/read-string (slurp config-file))]
       (if-not (s/valid? ::spec/config config)
         (s/explain ::spec/config config)
-        (let [inputs  (load-inputs config)
-              outputs (run-simulations! inputs)]
-          (write-landfire-layers! inputs)
-          (write-burn-probability-layer! inputs outputs)
-          (write-csv-outputs! inputs outputs))))))
+        (let [inputs  (load-inputs config)]
+          (if (seq (:ignitable-sites inputs))
+            (let [outputs (run-simulations! inputs)]
+              (write-landfire-layers! inputs)
+              (write-burn-probability-layer! inputs outputs)
+              (write-csv-outputs! inputs outputs))
+            (log-str "Could not run simulation. No valid ignition sites. Config:" config-file)))))))
 ;; command-line-interface ends here

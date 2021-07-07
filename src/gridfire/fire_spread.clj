@@ -19,7 +19,6 @@
             [gridfire.fuel-models         :refer [build-fuel-model moisturize]]
             [gridfire.perturbation        :as perturbation]
             [gridfire.utils.primitive     :refer [double-reduce]]
-            [gridfire.random-ignition     :as random-ignition]
             [gridfire.spotting            :as spot]
             [gridfire.surface-fire        :refer [anderson-flame-depth
                                                   byram-fire-line-intensity
@@ -27,7 +26,8 @@
                                                   rothermel-surface-fire-spread-any
                                                   rothermel-surface-fire-spread-max
                                                   rothermel-surface-fire-spread-no-wind-no-slope
-                                                  wind-adjustment-factor]]))
+                                                  wind-adjustment-factor]]
+            [gridfire.utils.random        :as random]))
 
 (m/set-current-implementation :vectorz)
 
@@ -479,10 +479,11 @@
       :random-ignition-point)))
 
 (defmethod run-fire-spread :random-ignition-point
-  [inputs]
+  [{:keys [ignitable-sites rand-gen] :as inputs}]
+  (.nextDouble rand-gen)
   (run-fire-spread (assoc inputs
                           :initial-ignition-site
-                          (random-ignition/select-ignition-site inputs))))
+                          (random/my-rand-nth rand-gen ignitable-sites))))
 
 (defmethod run-fire-spread :ignition-point
   [{:keys [landfire-rasters num-rows num-cols initial-ignition-site spotting] :as inputs}]
