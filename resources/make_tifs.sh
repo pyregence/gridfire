@@ -1,5 +1,7 @@
 #!/bin/bash
 
+exec > /dev/null 2>&1
+
 SRS=`gdalsrsinfo ../fuels_and_topography/asp.tif  | grep "PROJ.4" | cut -d':' -f2 | xargs`
 
 if [ -z "$GDALROOT" ]; then
