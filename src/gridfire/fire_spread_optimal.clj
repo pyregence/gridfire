@@ -309,11 +309,12 @@
    source-cells
    target-cells]
   (let [max-runtime (double max-runtime)
-        cell-size   (double cell-size)]
+        cell-size   (double cell-size)
+        dt          (calc-dt spread-rate-matrix cell-size source-cells)]
     (loop [global-clock 0.0
            source-cells source-cells
            target-cells target-cells
-           dt           (calc-dt spread-rate-matrix cell-size source-cells)]
+           dt           dt]
       (if (and (< global-clock max-runtime)
                (seq source-cells))
         (let [timestep         (if (> (+ global-clock dt) max-runtime)

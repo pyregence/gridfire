@@ -13,6 +13,6 @@ mv *.tar ..
 echo "Extracting tarball on data.pyregence.org"
 ssh gridfire@data.pyregence.org \
     tar -xf /incoming/match_drop/$MODEL-$FIRENAME-${START_DATE}_${START_TIME}.tar \
-    -C /var/www/html/fire_spread_forecast
+    -C /var/www/html/fire_spread_forecast --no-overwrite-dir
 
 exit 0
