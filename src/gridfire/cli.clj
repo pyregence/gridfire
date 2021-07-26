@@ -376,9 +376,6 @@
   (tufte/profile
    {:id :run-simulation}
    (let [matrix-or-i           (fn [obj i] (:matrix obj (obj i)))
-         initial-ignition-site (or ignition-layer
-                                   (when (and (ignition-rows i) (ignition-cols i))
-                                     [(ignition-rows i) (ignition-cols i)]))
          input-variations      {:rand-gen                  (if random-seed (Random. (+ random-seed i)) (Random.))
                                 :max-runtime               (max-runtimes i)
                                 :foliar-moisture           (* 0.01 (foliar-moistures i))
@@ -387,16 +384,13 @@
                                 :temperature               (matrix-or-i temperatures i)
                                 :relative-humidity         (matrix-or-i relative-humidities i)
                                 :wind-speed-20ft           (matrix-or-i wind-speeds-20ft i)
-                                :wind-from-direction       (matrix-or-i wind-from-directions i)}
+                                :wind-from-direction       (matrix-or-i wind-from-directions i)
+                                :initial-ignition-site     (or ignition-layer
+                                                               (when (and (ignition-rows i) (ignition-cols i))
+                                                                 [(ignition-rows i) (ignition-cols i)]))}
          fire-spread-results   (tufte/p :run-fire-spread
-                                        (optimal/run-fire-spread
-                                         (merge inputs
-                                                input-variations
-                                                {:initial-ignition-site initial-ignition-site}))
-                                        #_(run-fire-spread
-                                           (merge inputs
-                                                  input-variations
-                                                  {:initial-ignition-site initial-ignition-site})))]
+                                        (optimal/run-fire-spread (merge inputs input-variations))
+                                        #_(run-fire-spread (merge inputs input-variations)))]
      (when fire-spread-results
        (process-output-layers! inputs fire-spread-results envelope i)
        (when-let [timestep output-burn-probability]
@@ -509,7 +503,7 @@
     (let [config (edn/read-string (slurp config-file))]
       (if-not (s/valid? ::spec/config config)
         (s/explain ::spec/config config)
-        (let [inputs  (load-inputs config)]
+        (let [inputs (load-inputs config)]
           (if (seq (:ignitable-sites inputs))
             (let [outputs (run-simulations! inputs)]
               (write-landfire-layers! inputs)
