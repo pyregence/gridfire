@@ -219,7 +219,7 @@
       (let [{:keys [host port]}          options
             {:keys [log-dir] :as config} (edn/read-string (slurp (:config options)))]
         (when log-dir (set-log-path! log-dir))
-        (log (format "Running server on port %s" port) :force-stdout? true)
+        (log-str (format "Running server on port %s" port))
         (active-fire-watcher/start! config stand-by-queue)
         (sockets/start-server! port (partial handler host port))
         (process-requests! config options)))))
