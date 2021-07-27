@@ -182,7 +182,7 @@
                                        (catch Exception e
                                          [1 (str "Validation Error: " (ex-message e))]))]
         (log-str "-> " status-msg)
-        (when (spec/valid? ::spec-server/gridfire-server-request-minimal request)
+        (when (spec/valid? ::spec-server/gridfire-server-response-minimal request)
           (sockets/send-to-server! (:response-host request)
                                    (:response-port request)
                                    (json/write-str (merge request
