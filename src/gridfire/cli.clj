@@ -303,19 +303,20 @@
            :fuel-moisture-layers (fetch/fuel-moisture-layers config))))
 
 (defn add-misc-params
-  [{:keys [random-seed landfire-rasters] :as inputs}]
+  [{:keys [random-seed landfire-rasters perturbations] :as inputs}]
   (assoc inputs
          :num-rows          (m/row-count (:fuel-model landfire-rasters))
          :num-cols          (m/column-count (:fuel-model landfire-rasters))
          :multiplier-lookup (create-multiplier-lookup inputs)
          :rand-gen          (if random-seed
                               (Random. random-seed)
-                              (Random.))))
+                              (Random.))
+         :recompute-dt      (reduce min 60.0 (into [] (comp (map :frequency) (remove nil?)) perturbations))))
 
 (defn add-sampled-params
   [{:keys [rand-gen simulations max-runtime ignition-row ignition-col
            foliar-moisture ellipse-adjustment-factor perturbations]
-    :as inputs}]
+    :as   inputs}]
   (assoc inputs
          :max-runtimes               (draw-samples rand-gen simulations max-runtime)
          :ignition-rows              (draw-samples rand-gen simulations ignition-row)
