@@ -316,7 +316,7 @@
      (add-eccentricity ellipse-adjustment-factor))))
 
 (defn rothermel-surface-fire-spread-any ^double
-  [{:keys [max-spread-rate max-spread-direction eccentricity]} spread-direction] ;FIXME eliminiate map destructure
+  [max-spread-rate max-spread-direction eccentricity spread-direction]
   (let [max-spread-rate      (double max-spread-rate)
         max-spread-direction (double max-spread-direction)
         eccentricity         (double eccentricity)
