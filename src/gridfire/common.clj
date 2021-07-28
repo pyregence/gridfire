@@ -16,7 +16,7 @@
 
   ([here global-clock matrix multiplier perturb-info]
    (let [cell       (if multiplier
-                      (mapv #(quot ^long % ^long multiplier) here)
+                      (mapv #(quot % multiplier) here)
                       here)
          value-here (matrix-value-at cell global-clock matrix)]
      (if perturb-info
@@ -27,9 +27,9 @@
 
 (defn get-value-at
   [here global-clock matrix-or-val multiplier perturb-info]
-  (if (> (m/dimensionality matrix-or-val) 1)
-    (sample-at here global-clock matrix-or-val multiplier perturb-info)
-    matrix-or-val))
+  (if (number? matrix-or-val)
+    matrix-or-val
+    (sample-at here global-clock matrix-or-val multiplier perturb-info)))
 
 (defn calc-emc
   "Computes the Equilibrium Moisture Content (EMC) from rh (relative

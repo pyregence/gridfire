@@ -61,10 +61,10 @@
            spread-info-min (rothermel-surface-fire-spread-no-wind-no-slope fuel-model)]
        [fuel-model spread-info-min]))))
 
-(defn- compute-fire-behavior-values
-  "Returns Map of fire behavior values
+(defn- compute-fire-behavior-values ;FIXME fix docstring
+  "Returns Map of fire behavior values:
   {:crown-fire?               boolean
-   :crown-type                #{1.0 2.0}
+   :fire-type                 #{:surface :passive-crown :active-crown}
    :flame-length              ft
    :fire-line-intensity       Btu/ft*s
    :spread-info-max           spread-info-max
@@ -73,10 +73,11 @@
    :crown-spread-max          crown-spread-max}"
   [{:keys
     [landfire-rasters multiplier-lookup perturbations wind-speed-20ft wind-from-direction
-     temperature relative-humidity foliar-moisture ellipse-adjustment-factor] :as constants}
+     temperature relative-humidity foliar-moisture ellipse-adjustment-factor] :as inputs}
    global-clock
    here]
-  (let [^double aspect                (sample-at here global-clock
+  (let [^double aspect                (sample-at here
+                                                 global-clock
                                                  (:aspect landfire-rasters)
                                                  (:aspect multiplier-lookup)
                                                  (:aspect perturbations))
@@ -130,7 +131,7 @@
                                                     wind-speed-20ft
                                                     (:wind-speed-20ft multiplier-lookup)
                                                     (:wind-speed-20ft perturbations))
-        ^double fuel-moisture         (or (fuel-moisture-from-raster constants here global-clock)
+        ^double fuel-moisture         (or (fuel-moisture-from-raster inputs here global-clock)
                                           (get-fuel-moisture relative-humidity temperature))
         [fuel-model spread-info-min]  (rothermel-fast-wrapper fuel-model fuel-moisture)
         waf                           (wind-adjustment-factor ^long (:delta fuel-model)
@@ -164,7 +165,7 @@
                                         (+ surface-intensity crown-intensity)
                                         surface-intensity)]
     {:crown-fire?         crown-fire?
-     :crown-type          crown-type
+     :fire-type           (if crown-fire? crown-type :surface)
      :flame-length        (byram-flame-length fire-line-intensity)
      :fire-line-intensity fire-line-intensity
      :spread-info-max     spread-info-max
@@ -175,11 +176,11 @@
 (defn- store-fire-behavior-values!
   [{:keys [spread-rate-matrix fire-line-intensity-matrix flame-length-matrix fire-type-matrix]}
    [i j]
-   {:keys [fire-line-intensity spread-info-max flame-length crown-fire? crown-type ]}]
+   {:keys [fire-line-intensity spread-info-max flame-length fire-type]}]
   (m/mset! spread-rate-matrix i j (:max-spread-rate spread-info-max))
   (m/mset! fire-line-intensity-matrix i j fire-line-intensity)
   (m/mset! flame-length-matrix i j flame-length)
-  (m/mset! fire-type-matrix i j (if crown-fire? (fire-type-to-value crown-type) 1.0)))
+  (m/mset! fire-type-matrix i j (fire-type-to-value fire-type)))
 
 (defn- update-target-cell!
   "Return target cell"
@@ -195,7 +196,7 @@
         surface-spread-rate       (rothermel-surface-fire-spread-any spread-info-max
                                                                      spread-direction)
         ^double crown-spread-rate (when crown-fire?
-                                    (rothermel-surface-fire-spread-any
+                                    (rothermel-surface-fire-spread-any ;FIXME pass args directly
                                      (assoc spread-info-max
                                             :max-spread-rate crown-spread-max
                                             :eccentricity crown-eccentricity)
@@ -211,28 +212,34 @@
       (m/mset! max-probability-matrix i j (m/mget fire-probability-matrix x y)))))
 
 (defn- process-source-cell!
+  [inputs matrices global-clock source-cell] ;FIXME add recompute as arg?
+  (let [fire-behavior-values (compute-fire-behavior-values inputs global-clock source-cell)] ;FIXME  pass in recompute? and return record
+    (store-fire-behavior-values! matrices source-cell fire-behavior-values) ;FIXME when recompute? store values in matrices
+    fire-behavior-values))
+
+(defn- process-target-cells!
   [{:keys [num-rows num-cols landfire-rasters] :as inputs}
    {:keys [fire-probability-matrix] :as matrices}
-   global-clock
    timestep]
-  (fn [acc source-cell]
-    (let [fire-behavior-values (compute-fire-behavior-values inputs global-clock source-cell)]
-      (store-fire-behavior-values! matrices source-cell fire-behavior-values)
-      (let [target-cells (filterv #(and (in-bounds? num-rows num-cols %)
-                                        (burnable? fire-probability-matrix
-                                                   (:fuel-model landfire-rasters)
-                                                   source-cell
-                                                   %))
-                                  (get-neighbors source-cell))]
-        (doseq [target-cell target-cells]
-          (update-target-cell! inputs
-                               matrices
-                               fire-behavior-values
-                               (:elevation landfire-rasters)
-                               timestep
-                               source-cell
-                               target-cell))
-        (into acc target-cells)))))
+  (fn [source-cell fire-behavior-values]
+    (let [fuel-model-matrix (:fuel-model landfire-rasters)
+          elevation-matrix  (:elevation landfire-rasters)
+          target-cells      (filterv #(and (in-bounds? num-rows num-cols %) ;FIXME drop inbounds
+                                           (burnable? fire-probability-matrix
+                                                      fuel-model-matrix
+                                                      source-cell
+                                                      %))
+                                     (get-neighbors source-cell))]
+                                        ;FIXME stamp updated neighbor target-cells back into target-matrix
+      (doseq [target-cell target-cells]
+        (update-target-cell! inputs
+                             matrices
+                             fire-behavior-values
+                             elevation-matrix
+                             timestep
+                             source-cell
+                             target-cell))
+      target-cells)))
 
 (defn- update-overflow-targets!
   [{:keys [num-rows num-cols landfire-rasters]}
@@ -322,33 +329,33 @@
    source-cells
    target-cells]
   (let [max-runtime (double max-runtime)
-        cell-size   (double cell-size)
-        dt          (calc-dt spread-rate-matrix cell-size source-cells)]
+        cell-size   (double cell-size)]
     (loop [global-clock 0.0
            source-cells source-cells
-           target-cells target-cells
-           dt           dt]
+           target-cells target-cells] ;FIXME add (quot global-clock recompute-dt) => temporal-index
       (if (and (< global-clock max-runtime)
                (seq source-cells))
-        (let [timestep               (if (> (+ global-clock dt) max-runtime)
+        (let [fire-behavior-values   (mapv (partial process-source-cell! inputs matrices global-clock) source-cells)
+              dt                     (calc-dt spread-rate-matrix cell-size source-cells)
+              timestep               (if (> (+ global-clock dt) max-runtime)
                                        (- max-runtime global-clock)
                                        dt)
-              immediate-target-cells (reduce (process-source-cell! inputs matrices global-clock timestep)
+              immediate-target-cells (reduce into
                                              target-cells
-                                             source-cells)
+                                             (map (process-target-cells! inputs matrices timestep) source-cells fire-behavior-values))
               overflow-target-cells  (update-all-overflow-targets! inputs matrices immediate-target-cells)
               new-target-cells       (into immediate-target-cells overflow-target-cells)
               new-sources            (identify-ignitions matrices global-clock timestep new-target-cells)
               updated-sources        (into source-cells new-sources)]
           (recur (+ global-clock timestep)
-                 (filter #(burnable-neighbors? fire-probability-matrix
-                                               (:fuel-model landfire-rasters)
-                                               num-rows
-                                               num-cols
-                                               %)
-                         updated-sources)
-                 (apply disj new-target-cells new-sources)
-                 (calc-dt spread-rate-matrix cell-size updated-sources)))
+                 (into #{}
+                       (filter #(burnable-neighbors? fire-probability-matrix
+                                                     (:fuel-model landfire-rasters)
+                                                     num-rows
+                                                     num-cols
+                                                     %))
+                       updated-sources)
+                 (apply disj new-target-cells new-sources)))
         {:global-clock               global-clock
          :exit-condition             (if (seq source-cells) :max-runtime-reached :no-burnable-fuels)
          :fire-spread-matrix         (:fire-probability-matrix matrices)
@@ -358,13 +365,21 @@
          :spread-rate-matrix         spread-rate-matrix
          :fire-type-matrix           fire-type-matrix}))))
 
+                                        ;FIXME init target-matrix
+                                        ; set all interior cells to 2r11111111 = 255
+                                        ; Along edge leave certain cells 0
+
+;; Bit representation of target cells
+;;   N E S W
+;; 2r11111111
+
 (defn- initialize-matrices
   [{:keys [num-rows num-cols]} non-zero-indices]
   (let [initial-matrix (m/zero-matrix num-rows num-cols)]
     (when non-zero-indices
       (doseq [[i j] non-zero-indices]
         (m/mset! initial-matrix i j -1.0)))
-    {:fire-probability-matrix    (m/mutable initial-matrix)
+    {:fire-probability-matrix    (m/mutable initial-matrix) ;FIXME init/add target-matrix (for byte arith)
      :spread-rate-matrix         (m/mutable initial-matrix)
      :flame-length-matrix        (m/mutable initial-matrix)
      :fire-line-intensity-matrix (m/mutable initial-matrix)
@@ -415,7 +430,7 @@
                           :initial-ignition-site
                           (random/my-rand-nth rand-gen ignitable-sites))))
 
-(defmethod run-fire-spread :ignition-point
+(defmethod run-fire-spread :ignition-point ;FIXME Calculate recompute-dt  (min)
   [{:keys [landfire-rasters num-rows num-cols initial-ignition-site] :as inputs}]
   (let [[i j]                                          initial-ignition-site
         fuel-model-matrix                              (:fuel-model landfire-rasters)
@@ -425,6 +440,4 @@
                (burnable-fuel-model? (m/mget fuel-model-matrix i j))
                (burnable-neighbors? fire-probability-matrix fuel-model-matrix
                                     num-rows num-cols initial-ignition-site))
-      (let [fire-behavior-values (compute-fire-behavior-values inputs 0.0 initial-ignition-site)]
-        (store-fire-behavior-values! matrices initial-ignition-site fire-behavior-values)
-        (run-loop inputs matrices #{initial-ignition-site} #{})))))
+      (run-loop inputs matrices #{initial-ignition-site} #{}))))

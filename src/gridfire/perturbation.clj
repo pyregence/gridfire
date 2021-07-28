@@ -37,7 +37,7 @@
 (defn- enrich-info
   [perturbations rand-generator id]
   (->> perturbations
-      (add-rand-generator rand-generator)
+      (add-rand-generator rand-generator) ;FIXME remove rand-generator and get from inputs directly
       (add-simulation-id id)
       (convert-ranges)
       (add-global-values)))
@@ -47,7 +47,7 @@
   (when perturbations
     (mapv #(enrich-info perturbations rand-generator %) (range n))))
 
-(defn value-at
+(defn value-at ;FIXME get rand-gen from inputs
   (^double [perturb-info raster here]
    (value-at perturb-info raster here nil))
 

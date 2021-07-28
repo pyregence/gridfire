@@ -2,6 +2,8 @@
 (ns gridfire.utils.random
   (:import java.util.Random))
 
+;FIXME try definline
+
 (defn my-rand
   ([^Random rand-generator] (.nextDouble rand-generator))
   (^double [^Random rand-generator n] (* n (my-rand rand-generator))))
