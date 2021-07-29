@@ -9,7 +9,10 @@
             [clojure.spec.alpha       :as s]
             [clojure.string           :as str]
             [gridfire.binary-output   :as binary]
-            [gridfire.common          :refer [calc-emc get-neighbors in-bounds?]]
+            [gridfire.common          :refer [calc-emc
+                                              get-neighbors
+                                              in-bounds?
+                                              distance-3d]]
             [gridfire.crown-fire      :refer [m->ft]]
             [gridfire.fetch           :as fetch]
             [gridfire.fire-spread     :refer [run-fire-spread]]
@@ -352,6 +355,33 @@
                             [row col]))]
     (assoc inputs :ignitable-sites ignitable-sites)))
 
+(defn trajectory-distance-3d
+  [{:keys [landfire-rasters cell-size num-rows num-cols]} trajectory here _]
+  (let [elevation-matrix (:elevation landfire-rasters)
+        neighbor (mapv + here trajectory)]
+    (if (in-bounds? num-rows num-cols neighbor)
+      (distance-3d elevation-matrix cell-size here neighbor)
+      -1)))
+
+(defn init-distance-matrix
+  [inputs matrix trajectory]
+  (let [f (partial trajectory-distance-3d inputs trajectory)]
+    (m/emap-indexed f matrix)))
+
+(defn add-distance-3d-matrices
+  [{:keys [num-rows num-cols] :as inputs}]
+  (let [initial-matrix (m/zero-matrix num-rows num-cols)]
+    (assoc inputs
+           :distance-3d-matrices
+           {[-1 0]  (init-distance-matrix inputs (m/mutable initial-matrix) [-1 0])
+            [-1 1]  (init-distance-matrix inputs (m/mutable initial-matrix) [-1 1])
+            [0 1]   (init-distance-matrix inputs (m/mutable initial-matrix) [0 1])
+            [1 1]   (init-distance-matrix inputs (m/mutable initial-matrix) [1 1])
+            [1 0]   (init-distance-matrix inputs (m/mutable initial-matrix) [1 0])
+            [1 -1]  (init-distance-matrix inputs (m/mutable initial-matrix) [1 -1])
+            [0 -1]  (init-distance-matrix inputs (m/mutable initial-matrix) [0 -1])
+            [-1 -1] (init-distance-matrix inputs (m/mutable initial-matrix) [-1 -1])})))
+
 (defn load-inputs
   [config]
   (-> config
@@ -359,7 +389,8 @@
       (add-misc-params)
       (add-sampled-params)
       (add-weather-params)
-      (add-ignitable-sites)))
+      (add-ignitable-sites)
+      (add-distance-3d-matrices)))
 
 ;; FIXME: Replace input-variations expression with add-sampled-params
 ;;        and add-weather-params (and remove them from load-inputs).

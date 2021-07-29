@@ -223,11 +223,11 @@
 
 (defn- update-target-cell!
   "Return target cell"
-  [{:keys [cell-size]}
+  [{:keys [distance-3d-matrices]}
    {:keys [fire-probability-matrix max-distance-matrix max-direction-matrix max-probability-matrix]}
    {:keys [surface-max-rate surface-max-direction surface-eccentricity crown-max-rate crown-eccentricity crown-fire?]}
-   elevation-raster
-   timestep [x y :as source]
+   timestep
+   [x y :as source]
    [i j :as target]]
   (let [trajectory                (mapv - target source)
         spread-direction          (offset-to-degrees trajectory)
@@ -243,7 +243,7 @@
         spread-rate               (if crown-fire?
                                     (max surface-spread-rate crown-spread-rate)
                                     surface-spread-rate)
-        terrain-distance          (distance-3d elevation-raster cell-size source target) ;TODO Precalculate this in load-inputs phase
+        terrain-distance          (m/mget (get distance-3d-matrices trajectory) x y) ;TODO Precalculate this in load-inputs phase
         spread-distance           (/ (* spread-rate timestep) terrain-distance)]
     (when (> spread-distance (m/mget max-distance-matrix i j))
       (m/mset! max-distance-matrix i j spread-distance)
@@ -266,7 +266,6 @@
    timestep]
   (fn [source-cell fire-behavior-values]
     (let [fuel-model-matrix (:fuel-model landfire-rasters)
-          elevation-matrix  (:elevation landfire-rasters)
           target-cells      (filterv #(and (in-bounds? num-rows num-cols %) ;FIXME drop inbounds
                                            (burnable? fire-probability-matrix
                                                       fuel-model-matrix
@@ -278,7 +277,6 @@
         (update-target-cell! inputs
                              matrices
                              fire-behavior-values
-                             elevation-matrix
                              timestep
                              source-cell
                              target-cell))
