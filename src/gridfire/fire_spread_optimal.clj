@@ -68,16 +68,16 @@
    [i j]]
   (let [fire-type (m/mget fire-type-matrix i j)]
     {:crown-eccentricity    (m/mget crown-eccentricity-matrix i j)
-     :crown-fire?           (contains? #{2.0 3.0} fire-type)
-     :crown-max-rate        (m/mget crown-rate-matrix  i j)
+     :crown-fire?           (> fire-type 1.0)
+     :crown-max-rate        (m/mget crown-rate-matrix i j)
      :fire-line-intensity   (m/mget fire-line-intensity-matrix i j)
      :fire-type             (m/mget fire-type-matrix i j)
      :flame-length          (m/mget flame-length-matrix i j)
      :reaction-intensity    (m/mget reaction-intensity-matrix i j)
      :residence-time        (m/mget residence-time-matrix i j)
+     :spread-rate           (m/mget spread-rate-matrix i j)
      :surface-eccentricity  (m/mget surface-eccentricity-matrix i j)
      :surface-max-direction (m/mget surface-max-direction-matrix i j)
-     :spread-rate           (m/mget spread-rate-matrix i j)
      :surface-max-rate      (m/mget surface-max-rate-matrix i j)}))
 
 (defn- compute-fire-behavior-values
@@ -162,11 +162,10 @@
                                                              canopy-cover)
         midflame-wind-speed          (* wind-speed-20ft 88.0 waf) ; mi/hr -> ft/min
         spread-info-max              (rothermel-surface-fire-spread-max spread-info-min
-                                                                       midflame-wind-speed
-                                                                       wind-from-direction
-                                                                       slope
-                                                                       aspect
-                                                                       ellipse-adjustment-factor)
+                                                                        wind-from-direction
+                                                                        slope
+                                                                        aspect
+                                                                        ellipse-adjustment-factor)
         surface-max-rate             (:max-spread-rate spread-info-max)
         surface-max-direction        (:max-spread-direction spread-info-max)
         [crown-type crown-max-rate]  (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density
@@ -205,21 +204,22 @@
 
 (defn- store-fire-behavior-values!
   [{:keys [crown-eccentricity-matrix crown-rate-matrix fire-line-intensity-matrix fire-type-matrix
-           flame-length-matrix reaction-intensity-matrix residence-time-matrix surface-eccentricity-matrix
-           spread-rate-matrix surface-max-rate-matrix]}
+           flame-length-matrix reaction-intensity-matrix residence-time-matrix spread-rate-matrix
+           surface-eccentricity-matrix surface-max-direction-matrix surface-max-rate-matrix]}
    [i j]
    {:keys [crown-eccentricity crown-max-rate fire-line-intensity fire-type flame-length reaction-intensity
-           residence-time surface-eccentricity surface-max-rate spread-rate]}]
-  (m/mset! crown-eccentricity-matrix i j crown-eccentricity)
-  (m/mset! crown-rate-matrix  i j crown-max-rate)
-  (m/mset! fire-line-intensity-matrix i j fire-line-intensity)
-  (m/mset! fire-type-matrix i j fire-type)
-  (m/mset! flame-length-matrix i j flame-length)
-  (m/mset! reaction-intensity-matrix i j reaction-intensity)
-  (m/mset! residence-time-matrix i j residence-time)
-  (m/mset! spread-rate-matrix i j spread-rate)
-  (m/mset! surface-eccentricity-matrix i j surface-eccentricity)
-  (m/mset! surface-max-rate-matrix i j surface-max-rate))
+           residence-time spread-rate surface-eccentricity surface-max-direction surface-max-rate]}]
+  (m/mset! crown-eccentricity-matrix    i j crown-eccentricity)
+  (m/mset! crown-rate-matrix            i j crown-max-rate)
+  (m/mset! fire-line-intensity-matrix   i j fire-line-intensity)
+  (m/mset! fire-type-matrix             i j fire-type)
+  (m/mset! flame-length-matrix          i j flame-length)
+  (m/mset! reaction-intensity-matrix    i j reaction-intensity)
+  (m/mset! residence-time-matrix        i j residence-time)
+  (m/mset! spread-rate-matrix           i j spread-rate)
+  (m/mset! surface-eccentricity-matrix  i j surface-eccentricity)
+  (m/mset! surface-max-direction-matrix i j surface-max-direction)
+  (m/mset! surface-max-rate-matrix      i j surface-max-rate))
 
 (defn- update-target-cell!
   "Return target cell"
@@ -286,8 +286,8 @@
   [{:keys [num-rows num-cols landfire-rasters]}
    {:keys [max-direction-matrix max-probability-matrix max-distance-matrix fire-probability-matrix]}
    [x y :as source] overflow-direction overflow-heat overflow-offset overflow-count]
-  (loop [overflow-count        overflow-count
-         source                source
+  (loop [source                source
+         overflow-count        overflow-count
          overflow-heat         overflow-heat
          burned-overflow-cells #{}]
     (let [[i j :as overflow-target] (mapv + source overflow-offset)]
@@ -296,11 +296,11 @@
                (burnable? fire-probability-matrix (:fuel-model landfire-rasters) source overflow-target)
                (> overflow-heat (m/mget max-distance-matrix i j)))
         (let [old-max-distance (m/mget max-distance-matrix i j)]
-          (m/mset! max-distance-matrix i j overflow-heat)
-          (m/mset! max-direction-matrix i j overflow-direction)
+          (m/mset! max-distance-matrix    i j overflow-heat)
+          (m/mset! max-direction-matrix   i j overflow-direction)
           (m/mset! max-probability-matrix i j (m/mget max-probability-matrix x y))
-          (recur (dec overflow-count)
-                 overflow-target
+          (recur overflow-target
+                 (dec overflow-count)
                  (dec overflow-heat)
                  (if (= old-max-distance 0.0)
                    (conj burned-overflow-cells overflow-target)
@@ -335,20 +335,21 @@
    global-clock
    timestep
    target-cells]
-  (reduce (fn [acc [i j :as target]]
-            (let [total-distance (m/mget total-distance-matrix i j)
-                  max-distance   (m/mget max-distance-matrix i j)
-                  new-total      (+ total-distance max-distance)]
-              (m/mset! total-distance-matrix i j new-total)
-              (m/mset! max-distance-matrix i j 0.0)
-              (if (>= new-total 1.0)
-                (let [dt-ignition (* (/ (- 1.0 total-distance) max-distance) timestep)]
-                  (m/mset! burn-time-matrix i j (+ global-clock dt-ignition))
-                  (m/mset! fire-probability-matrix i j (m/mget max-probability-matrix i j))
-                 (conj acc target))
-                acc)))
-          #{}
-          target-cells))
+  (persistent!
+   (reduce (fn [acc [i j :as target]]
+             (let [total-distance (m/mget total-distance-matrix i j)
+                   max-distance   (m/mget max-distance-matrix i j)
+                   new-total      (+ total-distance max-distance)]
+               (m/mset! total-distance-matrix i j new-total)
+               (m/mset! max-distance-matrix i j 0.0)
+               (if (>= new-total 1.0)
+                 (let [dt-ignition (* (/ (- 1.0 total-distance) max-distance) timestep)]
+                   (m/mset! burn-time-matrix i j (+ global-clock dt-ignition))
+                   (m/mset! fire-probability-matrix i j (m/mget max-probability-matrix i j))
+                   (conj! acc target))
+                 acc)))
+           (transient #{})
+           target-cells)))
 
 (defn- reducer-fn ^double
   [spread-rate-matrix ^double max-spread-rate [i j]]
@@ -376,34 +377,35 @@
      fire-type-matrix
      flame-length-matrix
      spread-rate-matrix] :as matrices}
-   source-cells
-   target-cells]
+   source-cells]
   (let [max-runtime (double max-runtime)
         cell-size   (double cell-size)]
     (loop [global-clock        0.0
            source-cells        source-cells
-           target-cells        target-cells
            new-sources         #{}
-           prev-temporal-index 0.0]
+           prev-temporal-index 0]
       (if (and (< global-clock max-runtime)
                (seq source-cells))
-        (let [temporal-index         (quot global-clock recompute-dt)
-              recompute-fn           (partial recompute? global-clock prev-temporal-index temporal-index new-sources)
-              fire-behavior-values   (mapv (partial process-source-cell! inputs matrices global-clock recompute-fn)
+        (let [temporal-index         (int (quot global-clock recompute-dt))
+              recompute-fn           #(recompute? global-clock prev-temporal-index temporal-index new-sources %)
+              fire-behavior-values   (mapv #(process-source-cell! inputs matrices global-clock recompute-fn %)
                                            source-cells)
               dt                     (calc-dt spread-rate-matrix cell-size source-cells)
               timestep               (if (> (+ global-clock dt) max-runtime)
                                        (- max-runtime global-clock)
                                        dt)
               immediate-target-cells (reduce into
-                                             target-cells
+                                             #{}
                                              (map (process-target-cells! inputs matrices timestep)
                                                   source-cells
                                                   fire-behavior-values))
+              ;; immediate-target-cells (into #{} ;TODO run comparison
+              ;;                              (mapcat (process-target-cells! inputs matrices timestep)
+              ;;                                      source-cells
+              ;;                                      fire-behavior-values))
               overflow-target-cells  (update-all-overflow-targets! inputs matrices immediate-target-cells)
               new-target-cells       (into immediate-target-cells overflow-target-cells)
-              new-sources            (identify-new-sources! matrices global-clock timestep new-target-cells)
-              updated-sources        (into source-cells new-sources)]
+              new-sources            (identify-new-sources! matrices global-clock timestep new-target-cells)]
           (recur (+ global-clock timestep)
                  (into #{}
                        (filter #(burnable-neighbors? fire-probability-matrix
@@ -411,8 +413,7 @@
                                                      num-rows
                                                      num-cols
                                                      %))
-                       updated-sources)
-                 (apply disj new-target-cells new-sources)
+                       (into source-cells new-sources))
                  new-sources
                  temporal-index))
         {:global-clock               global-clock
@@ -506,4 +507,4 @@
 
                (burnable-neighbors? fire-probability-matrix fuel-model-matrix
                                     num-rows num-cols initial-ignition-site))
-      (run-loop inputs matrices #{initial-ignition-site} #{}))))
+      (run-loop inputs matrices #{initial-ignition-site}))))
