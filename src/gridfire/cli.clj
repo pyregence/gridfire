@@ -360,10 +360,10 @@
   (let [elevation-matrix (:elevation landfire-rasters)]
     (dotimes [i num-rows]
       (dotimes [j num-cols]
-       (let [neighbor [(+ i di) (+ j dj)]]
-         (if (in-bounds? num-rows num-cols neighbor)
-           (m/mset! matrix i j (distance-3d elevation-matrix cell-size [i j] neighbor)) ;TODO new version that unpack i j di dj
-           (m/mset! matrix i j -1.0)))))
+        (let [neighbor [(+ i di) (+ j dj)]]
+          (if (in-bounds? num-rows num-cols neighbor)
+            (m/mset! matrix i j (distance-3d elevation-matrix cell-size [i j] neighbor)) ;TODO new version that unpack i j di dj
+            (m/mset! matrix i j -1.0)))))
     matrix))
 
 (defn add-distance-3d-matrices
@@ -371,14 +371,14 @@
   (let [initial-matrix (m/zero-matrix num-rows num-cols)]
     (assoc inputs
            :distance-3d-matrices
-           {[-1 0]  (init-distance-matrix inputs (m/mutable initial-matrix) [-1 0]) ;TODO key off floating point instead of vector
-            [-1 1]  (init-distance-matrix inputs (m/mutable initial-matrix) [-1 1])
-            [0 1]   (init-distance-matrix inputs (m/mutable initial-matrix) [0 1])
-            [1 1]   (init-distance-matrix inputs (m/mutable initial-matrix) [1 1])
-            [1 0]   (init-distance-matrix inputs (m/mutable initial-matrix) [1 0])
-            [1 -1]  (init-distance-matrix inputs (m/mutable initial-matrix) [1 -1])
-            [0 -1]  (init-distance-matrix inputs (m/mutable initial-matrix) [0 -1])
-            [-1 -1] (init-distance-matrix inputs (m/mutable initial-matrix) [-1 -1])})))
+           {0.0   (init-distance-matrix inputs (m/mutable initial-matrix) [-1 0])
+            45.0  (init-distance-matrix inputs (m/mutable initial-matrix) [-1 1])
+            90.0  (init-distance-matrix inputs (m/mutable initial-matrix) [0 1])
+            135.0 (init-distance-matrix inputs (m/mutable initial-matrix) [1 1])
+            180.0 (init-distance-matrix inputs (m/mutable initial-matrix) [1 0])
+            225.0 (init-distance-matrix inputs (m/mutable initial-matrix) [1 -1])
+            270.0 (init-distance-matrix inputs (m/mutable initial-matrix) [0 -1])
+            315.0 (init-distance-matrix inputs (m/mutable initial-matrix) [-1 -1])})))
 
 (defn load-inputs
   [config]
