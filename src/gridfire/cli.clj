@@ -355,25 +355,23 @@
                             [row col]))]
     (assoc inputs :ignitable-sites ignitable-sites)))
 
-(defn trajectory-distance-3d
-  [{:keys [landfire-rasters cell-size num-rows num-cols]} trajectory here _]
-  (let [elevation-matrix (:elevation landfire-rasters)
-        neighbor (mapv + here trajectory)]
-    (if (in-bounds? num-rows num-cols neighbor)
-      (distance-3d elevation-matrix cell-size here neighbor)
-      -1)))
-
 (defn init-distance-matrix
-  [inputs matrix trajectory]
-  (let [f (partial trajectory-distance-3d inputs trajectory)]
-    (m/emap-indexed f matrix)))
+  [{:keys [num-rows num-cols landfire-rasters cell-size]} matrix [di dj]]
+  (let [elevation-matrix (:elevation landfire-rasters)]
+    (dotimes [i num-rows]
+      (dotimes [j num-cols]
+       (let [neighbor [(+ i di) (+ j dj)]]
+         (if (in-bounds? num-rows num-cols neighbor)
+           (m/mset! matrix i j (distance-3d elevation-matrix cell-size [i j] neighbor)) ;TODO new version that unpack i j di dj
+           (m/mset! matrix i j -1.0)))))
+    matrix))
 
 (defn add-distance-3d-matrices
   [{:keys [num-rows num-cols] :as inputs}]
   (let [initial-matrix (m/zero-matrix num-rows num-cols)]
     (assoc inputs
            :distance-3d-matrices
-           {[-1 0]  (init-distance-matrix inputs (m/mutable initial-matrix) [-1 0])
+           {[-1 0]  (init-distance-matrix inputs (m/mutable initial-matrix) [-1 0]) ;TODO key off floating point instead of vector
             [-1 1]  (init-distance-matrix inputs (m/mutable initial-matrix) [-1 1])
             [0 1]   (init-distance-matrix inputs (m/mutable initial-matrix) [0 1])
             [1 1]   (init-distance-matrix inputs (m/mutable initial-matrix) [1 1])

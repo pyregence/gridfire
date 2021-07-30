@@ -78,7 +78,7 @@
      :spread-rate           (m/mget spread-rate-matrix i j)
      :surface-eccentricity  (m/mget surface-eccentricity-matrix i j)
      :surface-max-direction (m/mget surface-max-direction-matrix i j)
-     :surface-max-rate      (m/mget surface-max-rate-matrix i j)}))
+     :surface-max-rate      (m/mget surface-max-rate-matrix i j)})) ;TODO return record
 
 (defn- compute-fire-behavior-values
   "Returns Map of fire behavior values:
@@ -162,6 +162,7 @@
                                                              canopy-cover)
         midflame-wind-speed          (* wind-speed-20ft 88.0 waf) ; mi/hr -> ft/min
         spread-info-max              (rothermel-surface-fire-spread-max spread-info-min
+                                                                        midflame-wind-speed
                                                                         wind-from-direction
                                                                         slope
                                                                         aspect
@@ -189,7 +190,7 @@
                                        (+ surface-intensity crown-intensity)
                                        surface-intensity)
         fire-type                    (if crown-fire? crown-type :surface)]
-    {:crown-eccentricity    (crown-fire-eccentricity wind-speed-20ft ellipse-adjustment-factor)
+    {:crown-eccentricity    (crown-fire-eccentricity wind-speed-20ft ellipse-adjustment-factor) ;TODO return a record
      :crown-fire?           (not= fire-type :surface)
      :crown-max-rate        crown-max-rate
      :fire-line-intensity   fire-line-intensity
@@ -243,7 +244,7 @@
         spread-rate               (if crown-fire?
                                     (max surface-spread-rate crown-spread-rate)
                                     surface-spread-rate)
-        terrain-distance          (m/mget (get distance-3d-matrices trajectory) x y) ;TODO Precalculate this in load-inputs phase
+        terrain-distance          (m/mget (get distance-3d-matrices trajectory) x y)
         spread-distance           (/ (* spread-rate timestep) terrain-distance)]
     (when (> spread-distance (m/mget max-distance-matrix i j))
       (m/mset! max-distance-matrix i j spread-distance)
@@ -386,7 +387,7 @@
            prev-temporal-index 0]
       (if (and (< global-clock max-runtime)
                (seq source-cells))
-        (let [temporal-index         (int (quot global-clock recompute-dt))
+        (let [temporal-index         (int (quot global-clock recompute-dt)) ;TODO Check temporal-index is working as expected. print outs
               recompute-fn           #(recompute? global-clock prev-temporal-index temporal-index new-sources %)
               fire-behavior-values   (mapv #(process-source-cell! inputs matrices global-clock recompute-fn %)
                                            source-cells)
