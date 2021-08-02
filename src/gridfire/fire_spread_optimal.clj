@@ -230,28 +230,28 @@
    timestep
    [x y :as source]
    [i j :as target]]
-  (tufte/p
-   :update-target-cell!
-   (let [trajectory                (mapv - target source)
-         spread-direction          (offset-to-degrees trajectory)
-         surface-spread-rate       (rothermel-surface-fire-spread-any surface-max-rate
-                                                                      surface-max-direction
-                                                                      surface-eccentricity
-                                                                      spread-direction)
-         ^double crown-spread-rate (when crown-fire?
-                                     (rothermel-surface-fire-spread-any crown-max-rate
-                                                                        surface-max-direction
-                                                                        crown-eccentricity
-                                                                        spread-direction))
-         spread-rate               (if crown-fire?
-                                     (max surface-spread-rate crown-spread-rate)
-                                     surface-spread-rate)
-         terrain-distance          (m/mget (get distance-3d-matrices spread-direction) x y)
-         spread-distance           (/ (* spread-rate timestep) terrain-distance)]
-     (when (> spread-distance (m/mget max-distance-matrix i j))
-       (m/mset! max-distance-matrix i j spread-distance)
-       (m/mset! max-direction-matrix i j spread-direction)
-       (m/mset! max-probability-matrix i j (m/mget fire-probability-matrix x y))))))
+  (let [trajectory                (mapv - target source)
+        spread-direction          (offset-to-degrees trajectory)
+        surface-spread-rate       (rothermel-surface-fire-spread-any surface-max-rate
+                                                                     surface-max-direction
+                                                                     surface-eccentricity
+                                                                     spread-direction)
+        ^double crown-spread-rate (when crown-fire?
+                                    (rothermel-surface-fire-spread-any crown-max-rate
+                                                                       surface-max-direction
+                                                                       crown-eccentricity
+                                                                       spread-direction))
+        spread-rate               (if crown-fire?
+                                    (max surface-spread-rate crown-spread-rate)
+                                    surface-spread-rate)
+        terrain-distance          (tufte/p
+                                   :distance-3d
+                                   (m/mget (get distance-3d-matrices spread-direction) x y))
+        spread-distance           (/ (* spread-rate timestep) terrain-distance)]
+    (when (> spread-distance (m/mget max-distance-matrix i j))
+      (m/mset! max-distance-matrix i j spread-distance)
+      (m/mset! max-direction-matrix i j spread-direction)
+      (m/mset! max-probability-matrix i j (m/mget fire-probability-matrix x y)))))
 
 (defn- process-source-cell!
   [inputs matrices global-clock recompute-fn source-cell]
