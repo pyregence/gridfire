@@ -244,7 +244,9 @@
         spread-rate               (if crown-fire?
                                     (max surface-spread-rate crown-spread-rate)
                                     surface-spread-rate)
-        terrain-distance          (distance-3d elevation-raster cell-size source target) ;TODO Precalculate this in load-inputs phase
+        terrain-distance          (tufte/p
+                                   :distance-3d
+                                   (distance-3d elevation-raster cell-size source target)) ;TODO Precalculate this in load-inputs phase
         spread-distance           (/ (* spread-rate timestep) terrain-distance)]
     (when (> spread-distance (m/mget max-distance-matrix i j))
       (m/mset! max-distance-matrix i j spread-distance)
