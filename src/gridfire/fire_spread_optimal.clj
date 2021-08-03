@@ -397,15 +397,12 @@
               timestep               (if (> (+ global-clock dt) max-runtime)
                                        (- max-runtime global-clock)
                                        dt)
-              ;; immediate-target-cells (reduce into
-              ;;                                #{}
-              ;;                                (map (process-target-cells! inputs matrices timestep)
-              ;;                                     source-cells
-              ;; fire-behavior-values))
-              immediate-target-cells (into #{} ;TODO run comparison
-                                           (mapcat (process-target-cells! inputs matrices timestep)
-                                                   source-cells
-                                                   fire-behavior-values))
+              immediate-target-cells (tufte/p
+                                      :immediate-target-cells
+                                      (into #{}
+                                            (mapcat (process-target-cells! inputs matrices timestep)
+                                                    source-cells
+                                                    fire-behavior-values)))
               overflow-target-cells  (update-all-overflow-targets! inputs matrices immediate-target-cells)
               new-target-cells       (into immediate-target-cells overflow-target-cells)
               new-sources            (identify-new-sources! matrices global-clock timestep new-target-cells)]
