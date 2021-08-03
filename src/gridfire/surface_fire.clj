@@ -315,8 +315,20 @@
      (scale-spread-to-max-wind-speed spread-rate max-wind-speed phi-max)
      (add-eccentricity ellipse-adjustment-factor))))
 
-(defn rothermel-surface-fire-spread-any ^double
+(defn rothermel-surface-fire-spread-any-optimal ^double
   [max-spread-rate max-spread-direction eccentricity spread-direction]
+  (let [max-spread-rate      (double max-spread-rate)
+        max-spread-direction (double max-spread-direction)
+        eccentricity         (double eccentricity)
+        theta                (smallest-angle-between max-spread-direction spread-direction)]
+    (if (or (almost-zero? eccentricity) (almost-zero? theta))
+      max-spread-rate
+      (* max-spread-rate (/ (- 1.0 eccentricity)
+                            (- 1.0 (* eccentricity
+                                      (Math/cos (degrees-to-radians theta)))))))))
+
+(defn rothermel-surface-fire-spread-any ^double
+  [{:keys [max-spread-rate max-spread-direction eccentricity]} spread-direction]
   (let [max-spread-rate      (double max-spread-rate)
         max-spread-direction (double max-spread-direction)
         eccentricity         (double eccentricity)
