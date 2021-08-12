@@ -1,18 +1,27 @@
 #!/bin/bash
 
-MODEL=gridfire
 FIRENAME=`echo $(pwd) | rev | cut -d'/' -f2 | rev | cut -d_ -f1`
 START_DATE=`echo $(pwd) | rev | cut -d'/' -f2 | rev | cut -d_ -f2`
 START_TIME=`echo $(pwd) | rev | cut -d'/' -f2 | rev | cut -d_ -f3`
 
-echo "Uploaded tarball to GeoServer"
+echo "Uploading tarball to data.pyregence.org"
 cd geoserver
-scp  $MODEL-$FIRENAME-${START_DATE}_${START_TIME}.tar gridfire@data.pyregence.org:/incoming/match_drop/
-mv *.tar ..
+scp $FIRENAME-${START_DATE}_$START_TIME.tar gridfire@data.pyregence.org:/home/gridfire/incoming/tar/gridfire-$FIRENAME-${START_DATE}_$START_TIME.tar
 
 echo "Extracting tarball on data.pyregence.org"
-ssh gridfire@data.pyregence.org \
-    tar -xf /incoming/match_drop/$MODEL-$FIRENAME-${START_DATE}_${START_TIME}.tar \
-    -C /var/www/html/fire_spread_forecast --no-overwrite-dir
+ssh gridfire@data.pyregence.org "cd /incoming; tar -xvf gridfire-$FIRENAME-${START_DATE}_$START_TIME.tar -C /var/www/html/fire_spread_forecast/ --no-overwrite-dir; chown -R elmfire:pyregence /var/www/html/fire_spread_forecast/$FIRENAME/; rm -f gridfire-$FIRENAME-${START_DATE}_$START_TIME.tar"
+mv *.tar ..
+
+# Process new geoserver directory
+cd ../geoserver_new
+echo "Creating tarball for GeoServer"
+tar -cvf $FIRENAME-${START_DATE}_$START_TIME.tar * >& /dev/null
+
+echo "Uploading tarball to data.pyregence.org"
+scp $FIRENAME-${START_DATE}_$START_TIME.tar gridfire@data.pyregence.org:/incoming/gridfire-$FIRENAME-${START_DATE}_$START_TIME.tar
+
+echo "Extracting tarball on data.pyregence.org"
+ssh gridfire@data.pyregence.org "cd /incoming; tar -xvf gridfire-$FIRENAME-${START_DATE}_$START_TIME.tar -C /var/www/html/fire_spread_forecast_dev/; chown -R elmfire:pyregence /var/www/html/fire_spread_forecast_dev/$FIRENAME/; rm gridfire-$FIRENAME-${START_DATE}_$START_TIME.tar"
+#mv *.tar ..
 
 exit 0
