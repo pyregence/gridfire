@@ -59,7 +59,7 @@
    [ 0 -1] 270.0   ; W
    [-1 -1] 315.0}) ; NW
 
-(defn rothermel
+(defn rothermel-fast-wrapper
   [fuel-model-number fuel-moisture]
   (let [fuel-model      (-> (build-fuel-model (int fuel-model-number))
                             (moisturize fuel-moisture))
@@ -202,7 +202,7 @@
                                                     (:wind-speed-20ft perturbations))
         ^double fuel-moisture         (or (fuel-moisture-from-raster constants here global-clock)
                                           (get-fuel-moisture relative-humidity temperature))
-        [fuel-model spread-info-min]  (rothermel fuel-model fuel-moisture)
+        [fuel-model spread-info-min]  (rothermel-fast-wrapper fuel-model fuel-moisture)
         midflame-wind-speed           (* wind-speed-20ft 88.0 (wind-adjustment-factor ^long (:delta fuel-model) canopy-height canopy-cover)) ; mi/hr -> ft/min
         spread-info-max               (rothermel-surface-fire-spread-max spread-info-min
                                                                          midflame-wind-speed

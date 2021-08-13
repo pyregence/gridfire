@@ -1937,7 +1937,7 @@ pseudo-code lays out the steps taken in this procedure:
    [ 0 -1] 270.0   ; W
    [-1 -1] 315.0}) ; NW
 
-(defn rothermel
+(defn rothermel-fast-wrapper
   [fuel-model-number fuel-moisture]
   (let [fuel-model      (-> (build-fuel-model (int fuel-model-number))
                             (moisturize fuel-moisture))
@@ -2080,7 +2080,7 @@ pseudo-code lays out the steps taken in this procedure:
                                                     (:wind-speed-20ft perturbations))
         ^double fuel-moisture         (or (fuel-moisture-from-raster constants here global-clock)
                                           (get-fuel-moisture relative-humidity temperature))
-        [fuel-model spread-info-min]  (rothermel fuel-model fuel-moisture)
+        [fuel-model spread-info-min]  (rothermel-fast-wrapper fuel-model fuel-moisture)
         midflame-wind-speed           (* wind-speed-20ft 88.0 (wind-adjustment-factor ^long (:delta fuel-model) canopy-height canopy-cover)) ; mi/hr -> ft/min
         spread-info-max               (rothermel-surface-fire-spread-max spread-info-min
                                                                          midflame-wind-speed
@@ -3105,7 +3105,8 @@ or false:
             [gridfire.common          :refer [calc-emc get-neighbors in-bounds?]]
             [gridfire.crown-fire      :refer [m->ft]]
             [gridfire.fetch           :as fetch]
-            [gridfire.fire-spread     :refer [run-fire-spread]]
+            [gridfire.fire-spread     :refer [rothermel-fast-wrapper
+                                              run-fire-spread]]
             [gridfire.perturbation    :as perturbation]
             [gridfire.random-ignition :as random-ignition]
             [gridfire.spec.config     :as spec]
@@ -3523,10 +3524,11 @@ or false:
         reducer-fn        (if (= parallel-strategy :between-fires)
                             #(into [] (r/fold parallel-bin-size r/cat r/append! %))
                             #(into [] %))
-        summary-stats     (->> (vec (range simulations))
-                               (r/map (partial run-simulation! inputs burn-count-matrix))
-                               (r/remove nil?)
-                               (reducer-fn))]
+        summary-stats     (with-redefs [rothermel-fast-wrapper (memoize rothermel-fast-wrapper)]
+                           (->> (vec (range simulations))
+                                (r/map (partial run-simulation! inputs burn-count-matrix))
+                                (r/remove nil?)
+                                (reducer-fn)))]
     (Thread/sleep 1000)
     (log (tufte/format-grouped-pstats @stats-accumulator
                                       {:format-pstats-opts {:columns [:n-calls :min :max :mean :mad :clock :total]}})

@@ -12,7 +12,8 @@
             [gridfire.common          :refer [calc-emc get-neighbors in-bounds?]]
             [gridfire.crown-fire      :refer [m->ft]]
             [gridfire.fetch           :as fetch]
-            [gridfire.fire-spread     :refer [run-fire-spread]]
+            [gridfire.fire-spread     :refer [rothermel-fast-wrapper
+                                              run-fire-spread]]
             [gridfire.perturbation    :as perturbation]
             [gridfire.random-ignition :as random-ignition]
             [gridfire.spec.config     :as spec]
@@ -430,10 +431,11 @@
         reducer-fn        (if (= parallel-strategy :between-fires)
                             #(into [] (r/fold parallel-bin-size r/cat r/append! %))
                             #(into [] %))
-        summary-stats     (->> (vec (range simulations))
-                               (r/map (partial run-simulation! inputs burn-count-matrix))
-                               (r/remove nil?)
-                               (reducer-fn))]
+        summary-stats     (with-redefs [rothermel-fast-wrapper (memoize rothermel-fast-wrapper)]
+                           (->> (vec (range simulations))
+                                (r/map (partial run-simulation! inputs burn-count-matrix))
+                                (r/remove nil?)
+                                (reducer-fn)))]
     (Thread/sleep 1000)
     (log (tufte/format-grouped-pstats @stats-accumulator
                                       {:format-pstats-opts {:columns [:n-calls :min :max :mean :mad :clock :total]}})
