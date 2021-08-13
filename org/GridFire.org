@@ -1937,13 +1937,12 @@ pseudo-code lays out the steps taken in this procedure:
    [ 0 -1] 270.0   ; W
    [-1 -1] 315.0}) ; NW
 
-(def rothermel-fast-wrapper
-  (memoize
-   (fn [fuel-model-number fuel-moisture]
-     (let [fuel-model      (-> (build-fuel-model (int fuel-model-number))
-                               (moisturize fuel-moisture))
-           spread-info-min (rothermel-surface-fire-spread-no-wind-no-slope fuel-model)]
-       [fuel-model spread-info-min]))))
+(defn rothermel
+  [fuel-model-number fuel-moisture]
+  (let [fuel-model      (-> (build-fuel-model (int fuel-model-number))
+                            (moisturize fuel-moisture))
+        spread-info-min (rothermel-surface-fire-spread-no-wind-no-slope fuel-model)]
+    [fuel-model spread-info-min]))
 
 (defrecord BurnTrajectory
     [cell
@@ -2081,7 +2080,7 @@ pseudo-code lays out the steps taken in this procedure:
                                                     (:wind-speed-20ft perturbations))
         ^double fuel-moisture         (or (fuel-moisture-from-raster constants here global-clock)
                                           (get-fuel-moisture relative-humidity temperature))
-        [fuel-model spread-info-min]  (rothermel-fast-wrapper fuel-model fuel-moisture)
+        [fuel-model spread-info-min]  (rothermel fuel-model fuel-moisture)
         midflame-wind-speed           (* wind-speed-20ft 88.0 (wind-adjustment-factor ^long (:delta fuel-model) canopy-height canopy-cover)) ; mi/hr -> ft/min
         spread-info-max               (rothermel-surface-fire-spread-max spread-info-min
                                                                          midflame-wind-speed
