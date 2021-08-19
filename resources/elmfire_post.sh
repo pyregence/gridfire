@@ -1,7 +1,5 @@
 #!/bin/bash
 
-FIRENAME="gridfire"
-
 rm -f *.bil *.hdr *.tif
 
 if [ -z "$ELMFIRE_VER" ]; then

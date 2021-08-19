@@ -26,6 +26,8 @@ rename () {
     mv $f ./geoserver_new/$FIRENAME/${START_DATE}_${START_TIME}/gridfire/landfire/$PERC/$RASTER/${RASTER}_$TIMESTAMP.tif
 }
 
+echo "Preparing tifs for GeoServer"
+
 for BASEDIR in geoserver geoserver_new; do
     rm -f -r $BASEDIR
     mkdir $BASEDIR
