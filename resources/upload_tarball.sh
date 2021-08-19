@@ -21,7 +21,7 @@ echo "Uploading tarball to data.pyregence.org"
 scp $FIRENAME-${START_DATE}_$START_TIME.tar gridfire@data.pyregence.org:/incoming/gridfire-$FIRENAME-${START_DATE}_$START_TIME.tar
 
 echo "Extracting tarball on data.pyregence.org"
-ssh gridfire@data.pyregence.org "cd /incoming; tar -xvf gridfire-$FIRENAME-${START_DATE}_$START_TIME.tar -C /var/www/html/fire_spread_forecast_dev/; chown -R elmfire:pyregence /var/www/html/fire_spread_forecast_dev/$FIRENAME/; rm gridfire-$FIRENAME-${START_DATE}_$START_TIME.tar"
+ssh gridfire@data.pyregence.org "cd /incoming; tar -xvf gridfire-$FIRENAME-${START_DATE}_$START_TIME.tar -C /var/www/html/fire_spread_forecast_dev/ --no-overwrite-dir; chown -R elmfire:pyregence /var/www/html/fire_spread_forecast_dev/$FIRENAME/; rm gridfire-$FIRENAME-${START_DATE}_$START_TIME.tar"
 #mv *.tar ..
 
 exit 0
