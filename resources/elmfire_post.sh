@@ -13,7 +13,7 @@ NP=`cat /proc/cpuinfo | grep "cpu cores" | cut -d: -f2 | tail -n 1 | xargs`
 CELLSIZE=`cat ../elmfire.data | grep COMPUTATIONAL_DOMAIN_CELLSIZE | cut -d= -f2 | xargs`
 XLLCORNER=`cat ../elmfire.data | grep COMPUTATIONAL_DOMAIN_XLLCORNER | cut -d= -f2 | xargs`
 YLLCORNER=`cat ../elmfire.data | grep COMPUTATIONAL_DOMAIN_YLLCORNER | cut -d= -f2 | xargs`
-NCASES=`tail -n +2 summary_stats.csv | wc -l`
+NCASES=`tail -n +2 summary_stats.csv | wc -l` #Do not remove for GridFire
 DT=3600.
 SIMULATION_TSTOP=`cat ../elmfire.data | grep SIMULATION_TSTOP | cut -d= -f2 | xargs`
 NX=`gdalinfo ../fuels_and_topography/slp.tif | grep "Size is" | cut -ds -f2 | cut -d, -f1 | xargs`
@@ -80,6 +80,10 @@ if [ "$READ_PHI" = "yes" ]; then
    echo "READ_PHI = .TRUE."                                >> elmfire_post.data
    echo "PHI_FILENAME = 'phi'"                             >> elmfire_post.data
 fi
+
+echo "FIRE_SIZE_STATS_FILENAME = 'summary_stats.csv'" >> elmfire_post.data #Do not remove for GridFire
+echo "BINARY_FILE_TYPE = 2"                           >> elmfire_post.data #Do not remove for GridFire
+
 echo "/"
 
 wait
