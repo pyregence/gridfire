@@ -13,7 +13,7 @@ NP=`cat /proc/cpuinfo | grep "cpu cores" | cut -d: -f2 | tail -n 1 | xargs`
 CELLSIZE=`cat ../elmfire.data | grep COMPUTATIONAL_DOMAIN_CELLSIZE | cut -d= -f2 | xargs`
 XLLCORNER=`cat ../elmfire.data | grep COMPUTATIONAL_DOMAIN_XLLCORNER | cut -d= -f2 | xargs`
 YLLCORNER=`cat ../elmfire.data | grep COMPUTATIONAL_DOMAIN_YLLCORNER | cut -d= -f2 | xargs`
-NCASES=`cat ../elmfire.data | grep NUM_ENSEMBLE_MEMBERS | cut -d= -f2 | xargs`
+NCASES=`tail -n +2 summary_stats.csv | wc -l`
 DT=3600.
 SIMULATION_TSTOP=`cat ../elmfire.data | grep SIMULATION_TSTOP | cut -d= -f2 | xargs`
 NX=`gdalinfo ../fuels_and_topography/slp.tif | grep "Size is" | cut -ds -f2 | cut -d, -f1 | xargs`
