@@ -2,6 +2,7 @@
 (ns gridfire.fire-spread
   (:require [clojure.core.matrix           :as m]
             [clojure.core.matrix.operators :as mop]
+            [gridfire.common               :refer [calc-emc]]
             [gridfire.fuel-models          :refer [build-fuel-model moisturize]]
             [gridfire.surface-fire         :refer [rothermel-surface-fire-spread-no-wind-no-slope
                                                    rothermel-surface-fire-spread-max
@@ -11,7 +12,8 @@
             [gridfire.crown-fire           :refer [van-wagner-crown-fire-initiation?
                                                    cruz-crown-fire-spread
                                                    crown-fire-line-intensity
-                                                   crown-fire-eccentricity]]))
+                                                   crown-fire-eccentricity]]
+            [mikera.vectorz.core           :as v]))
 
 (m/set-current-implementation :vectorz)
 
@@ -137,6 +139,25 @@
                                        overflow-heat
                                        0.0))}))
 
+(defn- sample-at
+  [[i j] global-clock raster]
+  (let [band (int (quot global-clock 60.0))] ; Assuming each band is 1 hour
+    (m/mget raster band i j)))
+
+(defn- get-fuel-moisture [here temperature relative-humidity global-clock]
+  (let [tmp                  (if (v/vectorz? temperature)
+                               (sample-at here global-clock temperature)
+                               temperature)
+        rh                   (if (v/vectorz? relative-humidity)
+                               (sample-at here global-clock relative-humidity)
+                               relative-humidity)
+        equilibrium-moisture (calc-emc rh tmp)]
+    {:dead {:1hr   (+ equilibrium-moisture 0.002)
+            :10hr  (+ equilibrium-moisture 0.015)
+            :100hr (+ equilibrium-moisture 0.025)}
+     :live {:herbaceous (* equilibrium-moisture 2.0)
+            :woody      (* equilibrium-moisture 0.5)}}))
+
 (defn compute-neighborhood-fire-spread-rates!
   "Returns a vector of entries of the form:
   {:cell [i j],
@@ -149,7 +170,8 @@
   [{:keys [landfire-rasters
            wind-speed-20ft
            wind-from-direction
-           fuel-moisture
+           temperature
+           relative-humidity
            foliar-moisture
            ellipse-adjustment-factor
            cell-size
@@ -158,22 +180,32 @@
    fire-spread-matrix
    [i j :as here]
    overflow-trajectory
-   overflow-heat]
-  (let [fuel-model-number   (m/mget (:fuel-model         landfire-rasters) i j)
+   overflow-heat
+   global-clock]
+  (let [wind-speed-20ft     (if (v/vectorz? wind-speed-20ft)
+                              (sample-at here global-clock wind-speed-20ft)
+                              wind-speed-20ft)
+        wind-from-direction (if (v/vectorz? wind-from-direction)
+                              (sample-at here global-clock wind-from-direction)
+                              wind-from-direction)
+        fuel-moisture       (get-fuel-moisture here temperature relative-humidity global-clock)
+        fuel-model-number   (m/mget (:fuel-model         landfire-rasters) i j)
         slope               (m/mget (:slope              landfire-rasters) i j)
         aspect              (m/mget (:aspect             landfire-rasters) i j)
         canopy-height       (m/mget (:canopy-height      landfire-rasters) i j)
         canopy-base-height  (m/mget (:canopy-base-height landfire-rasters) i j)
         crown-bulk-density  (m/mget (:crown-bulk-density landfire-rasters) i j)
         canopy-cover        (m/mget (:canopy-cover       landfire-rasters) i j)
-        [fuel-model spread-info-min] (rothermel-fast-wrapper fuel-model-number fuel-moisture)
+        [fuel-model
+         spread-info-min]   (rothermel-fast-wrapper fuel-model-number fuel-moisture)
         midflame-wind-speed (* wind-speed-20ft 88.0
-                               (wind-adjustment-factor (:delta fuel-model)
-                                                       canopy-height
-                                                       canopy-cover)) ; mi/hr -> ft/min
-        spread-info-max     (rothermel-surface-fire-spread-max
-                             spread-info-min midflame-wind-speed wind-from-direction
-                             slope aspect ellipse-adjustment-factor)
+                               (wind-adjustment-factor (:delta fuel-model) canopy-height canopy-cover)) ; mi/hr -> ft/min
+        spread-info-max     (rothermel-surface-fire-spread-max spread-info-min
+                                                               midflame-wind-speed
+                                                               wind-from-direction
+                                                               slope
+                                                               aspect
+                                                               ellipse-adjustment-factor)
         crown-spread-max    (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density
                                                     (-> fuel-moisture :dead :1hr))
         crown-eccentricity  (crown-fire-eccentricity wind-speed-20ft
@@ -227,7 +259,8 @@
   [{:keys [landfire-rasters num-rows num-cols] :as constants}
    ignited-cells
    ignition-events
-   fire-spread-matrix]
+   fire-spread-matrix
+   global-clock]
   (let [newly-ignited-cells (into #{} (map :cell) ignition-events)
         fuel-model-matrix   (:fuel-model landfire-rasters)]
     (into {}
@@ -244,7 +277,8 @@
                     fire-spread-matrix
                     cell
                     trajectory
-                    (- fractional-distance 1.0))])))))
+                    (- fractional-distance 1.0)
+                    global-clock)])))))
 
 (defn run-loop
   [{:keys [max-runtime cell-size] :as constants}
@@ -274,7 +308,7 @@
             (m/mset! flame-length-matrix        i j flame-length)
             (m/mset! fire-line-intensity-matrix i j fire-line-intensity)))
         (recur (+ global-clock timestep)
-               (update-ignited-cells constants ignited-cells ignition-events fire-spread-matrix)))
+               (update-ignited-cells constants ignited-cells ignition-events fire-spread-matrix global-clock)))
       {:exit-condition             (if (seq ignited-cells) :max-runtime-reached :no-burnable-fuels)
        :fire-spread-matrix         fire-spread-matrix
        :flame-length-matrix        flame-length-matrix
@@ -350,6 +384,7 @@
                             fire-spread-matrix
                             initial-ignition-site
                             nil
+                            0.0
                             0.0)}]
         (run-loop constants
                   ignited-cells
@@ -377,11 +412,13 @@
                                                        fire-spread-matrix
                                                        index
                                                        nil
+                                                       0.0
                                                        0.0)]]
                                            [index ignition-trajectories]))]
-    (run-loop constants
-              ignited-cells
-              fire-spread-matrix
-              flame-length-matrix
-              fire-line-intensity-matrix)))
+    (when (seq ignited-cells)
+      (run-loop constants
+                ignited-cells
+                fire-spread-matrix
+                flame-length-matrix
+                fire-line-intensity-matrix))))
 ;; fire-spread-algorithm ends here

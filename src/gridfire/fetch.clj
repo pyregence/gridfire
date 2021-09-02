@@ -98,9 +98,9 @@
 
 (defmethod weather :postgis
   [{:keys [db-spec]} {:keys [source]}]
-  (:matrix (postgis-raster-to-matrix db-spec source)))
+  (postgis-raster-to-matrix db-spec source))
 
 (defmethod weather :geotiff
   [_ {:keys [source]}]
-  (:matrix (geotiff-raster-to-matrix source)))
+  (geotiff-raster-to-matrix source))
 ;; fetch.clj ends here
