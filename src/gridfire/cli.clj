@@ -131,7 +131,7 @@
           layer-matrix
           burn-time-matrix))
 
-(defn process-output-layers-timestep!
+(defn output-simulation-layers-timestep!
   [{:keys [output-layers output-geotiffs? output-pngs?]}
    {:keys [global-clock burn-time-matrix] :as fire-spread-results}
    envelope
@@ -155,7 +155,7 @@
                                            simulation-id
                                            (str "t" output-time ".png")]))))))
 
-(defn process-output-layers!
+(defn output-simulation-layers!
   [{:keys [output-geotiffs? outfile-suffix output-pngs?]}
    fire-spread-results
    envelope
@@ -171,12 +171,49 @@
                           (fire-spread-results layer)
                           (str name outfile-suffix "_" simulation-id ".png")))))
 
+(defn process-burn-count!
+  [{:keys [fire-spread-matrix burn-time-matrix global-clock]}
+   burn-count-matrix
+   timestep]
+  (doseq [clock (range 0 (inc global-clock) timestep)]
+    (let [filtered-fire-spread (m/emap (fn [layer-value burn-time]
+                                         (if (<= burn-time clock)
+                                           layer-value
+                                           0))
+                                       fire-spread-matrix
+                                       burn-time-matrix)
+          band                 (int (quot clock timestep))]
+      (m/add! (nth (seq burn-count-matrix) band) filtered-fire-spread))))
+
+(defn output-burn-probability-layer!
+  [{:keys [output-geotiffs? output-pngs? output-burn-probability simulations]} envelope burn-count-matrix]
+  (when-let [timestep output-burn-probability]
+    (doseq [[band matrix] (map-indexed vector burn-count-matrix)]
+      (let [output-name        "burn_probability"
+            output-time        (* band timestep)
+            probability-matrix (m/emap #(/ % simulations) matrix)]
+        (do
+          (when output-geotiffs?
+           (-> (matrix-to-raster output-name probability-matrix envelope)
+               (write-raster (str/join "_" [output-name (str "t" output-time ".tif")]))))
+          (when output-pngs?
+            (save-matrix-as-png :color 4 -1.0
+                                probability-matrix
+                                (str/join "_" [output-name (str "t" output-time ".png")]))))))))
+
+(defn initialize-burn-count-matrix
+  [{:keys [output-burn-probability]} max-runtime num-rows num-cols]
+  (when output-burn-probability
+    (let [num-bands (inc (quot (apply max max-runtime) output-burn-probability))]
+      (m/zero-array [num-bands num-rows num-cols ]))))
+
 (defn run-simulations
   [{:keys
-    [cell-size output-csvs? simulations output-layers] :as config}
+    [cell-size output-csvs? simulations output-layers output-burn-probability] :as config}
    landfire-rasters envelope ignition-row ignition-col max-runtime temperature
    relative-humidity wind-speed-20ft wind-from-direction foliar-moisture
-   ellipse-adjustment-factor ignition-layer multiplier-lookup perturbations]
+   ellipse-adjustment-factor ignition-layer multiplier-lookup perturbations
+   burn-count-matrix]
   (mapv
    (fn [i]
      (let [matrix-or-i           (fn [obj i] (:matrix obj (obj i)))
@@ -203,7 +240,9 @@
        (when fire-spread-results
          (if output-layers
            (process-output-layers-timestep! config fire-spread-results envelope i)
-           (process-output-layers! config fire-spread-results envelope i)))
+           (process-output-layers! config fire-spread-results envelope i))
+         (when-let [timestep output-burn-probability]
+           (process-burn-count! fire-spread-results burn-count-matrix timestep)))
        (when output-csvs?
          (merge
           input-variations
@@ -285,7 +324,11 @@
               simulations       (:simulations config)
               rand-generator    (if-let [seed (:random-seed config)]
                                   (Random. seed)
-                                  (Random.))]
+                                  (Random.))
+              max-runtimes      (draw-samples rand-generator simulations (:max-runtime config))
+              num-rows          (m/row-count (:fuel-model landfire-rasters))
+              num-cols          (m/column-count (:fuel-model landfire-rasters))
+              burn-count-matrix (initialize-burn-count-matrix config max-runtimes num-rows num-cols)]
           (when (:output-landfire-inputs? config)
             (doseq [[layer matrix] landfire-rasters]
               (-> (matrix-to-raster (name layer) matrix envelope)
@@ -296,7 +339,7 @@
                 envelope
                 (draw-samples rand-generator simulations (:ignition-row config))
                 (draw-samples rand-generator simulations (:ignition-col config))
-                (draw-samples rand-generator simulations (:max-runtime config))
+                max-runtimes
                 (get-weather config rand-generator :temperature weather-layers)
                 (get-weather config rand-generator :relative-humidity weather-layers)
                 (get-weather config rand-generator :wind-speed-20ft weather-layers)
@@ -305,9 +348,11 @@
                 (draw-samples rand-generator simulations (:ellipse-adjustment-factor config))
                 ignition-layer
                 multiplier-lookup
-                (perturbation/draw-samples rand-generator simulations (:perturbations config)))
+                (perturbation/draw-samples rand-generator simulations (:perturbations config))
+                burn-count-matrix)
                (write-csv-outputs
                 (:output-csvs? config)
-                (str "summary_stats" (:outfile-suffix config) ".csv"))))
+                (str "summary_stats" (:outfile-suffix config) ".csv")))
+          (output-burn-probability-layer! config envelope burn-count-matrix))
         (s/explain ::spec/config config)))))
 ;; command-line-interface ends here
