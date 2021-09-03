@@ -3,9 +3,7 @@
   (:require [clojure.core.matrix      :as m]
             [gridfire.conversion      :as convert]
             [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
-            [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]
-            [gridfire.spec.config     :as spec]))
-
+            [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]))
 
 ;;TODO refactor multi-methods landfire-layer weather, ignition-layer, ignition-mask-layer
 ;; to the same function
@@ -36,7 +34,7 @@
   (geotiff-raster-to-matrix source))
 
 (defn landfire-layers
-  "Returns a map of LANDFIRE rasters (represented as maps) with the following units:
+  "Returns a map of LANDFIRE layers (represented as maps) with the following units:
    {:elevation          feet
     :slope              vertical feet/horizontal feet
     :aspect             degrees clockwise from north
@@ -46,18 +44,16 @@
     :crown-bulk-density lb/ft^3
     :canopy-cover       % (0-100)}"
   [{:keys [db-spec] :as config}]
-  (let [layers (:landfire-layers config)]
-    (reduce (fn [amap layer-name]
-              (let [source (get layers layer-name)]
-                (assoc amap
-                       layer-name
-                       (if (map? source)
-                         (-> (landfire-layer db-spec source)
-                             (convert/to-imperial source layer-name))
-                         (-> (postgis-raster-to-matrix db-spec source)
-                             (convert/to-imperial {:units :metric} layer-name))))))
-            {}
-            layer-names)))
+  (into {}
+        (map (fn [layer-name]
+               (let [source (get-in config [:landfire-layers layer-name])]
+                 [layer-name
+                  (if (map? source)
+                    (-> (landfire-layer db-spec source)
+                        (convert/to-imperial source layer-name))
+                    (-> (postgis-raster-to-matrix db-spec source)
+                        (convert/to-imperial {:units :metric} layer-name)))])))
+        layer-names))
 
 ;;-----------------------------------------------------------------------------
 ;; Initial Ignition
@@ -76,15 +72,15 @@
 (defmethod ignition-layer :postgis
   [{:keys [db-spec ignition-layer]}]
   (let [layer (postgis-raster-to-matrix db-spec (:source ignition-layer))]
-    (if-let [bv (:burn-values ignition-layer)]
-      (assoc layer :matrix (convert-burn-values (:matrix layer) bv))
+    (if-let [burn-values (:burn-values ignition-layer)]
+      (update layer :matrix convert-burn-values burn-values)
       layer)))
 
 (defmethod ignition-layer :geotiff
   [{:keys [ignition-layer]}]
   (let [layer (geotiff-raster-to-matrix (:source ignition-layer))]
-    (if-let [bv (:burn-values ignition-layer)]
-      (assoc layer :matrix (convert-burn-values (:matrix layer) bv))
+    (if-let [burn-values (:burn-values ignition-layer)]
+      (update layer :matrix convert-burn-values burn-values)
       layer)))
 
 (defmethod ignition-layer :default
@@ -94,6 +90,9 @@
 ;;-----------------------------------------------------------------------------
 ;; Weather
 ;;-----------------------------------------------------------------------------
+
+(def weather-names
+  [:temperature :relative-humidity :wind-speed-20ft :wind-from-direction])
 
 (defmulti weather
   (fn [_ {:keys [type]}] type))
@@ -113,15 +112,13 @@
     :wind-speed-20ft     mph
     :wind-from-direction degrees clockwise from north}"
   [config]
-  (reduce (fn [acc weather-name]
-            (let [weather-spec (weather-name config)]
-              (if (map? weather-spec)
-                (assoc acc weather-name (convert/to-imperial (weather config weather-spec)
-                                                             weather-spec
-                                                             weather-name))
-                acc)))
-          {}
-          spec/weather-names))
+  (into {}
+        (map (fn [weather-name]
+               (let [weather-spec (get config weather-name)]
+                 (when (map? weather-spec)
+                   [weather-name (-> (weather config weather-spec)
+                                     (convert/to-imperial weather-spec weather-name))]))))
+        weather-names))
 
 ;;-----------------------------------------------------------------------------
 ;; Ignition Mask
@@ -158,12 +155,12 @@
   (postgis-raster-to-matrix db-spec source))
 
 (defn fuel-moisture-layers
-  "Returns a map of moisture rasters (represented as maps) with the following form:
-  {:dead {:1hr  #vectorz/matrix Large matrix with shape: [73 100 100]
-          :10hr #vectorz/matrix Large matrix with shape: [73 100 100]
-          :100hr #vectorz/matrix Large matrix with shape: [73 100 100]}
-   :live {:herbaceous  #vectorz/matrix Large matrix with shape: [100 100]
-          :woody #vectorz/matrix Large matrix with shape: [100 100]}}"
+  "Returns a map of moisture layers (represented as maps) with the following units:
+  {:dead {:1hr        %
+          :10hr       %
+          :100hr      %
+   :live {:herbaceous %
+          :woody      %"
   [{:keys [db-spec fuel-moisture-layers]}]
   (when fuel-moisture-layers
     (letfn [(f [spec] (-> (fuel-moisture-layer db-spec spec)

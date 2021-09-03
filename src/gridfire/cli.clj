@@ -263,39 +263,39 @@
                    (* width scalex)
                    (* -1.0 height scaley))))
 
-(defn fuel-moisture-multiplier-lookup
-  [cell-size fuel-moisture-layers]
-  (when fuel-moisture-layers
-    (letfn [(f [{:keys [scalex]}] (int (quot (m->ft scalex) cell-size)))]
-      (-> fuel-moisture-layers
-          (update-in [:dead :1hr] f)
-          (update-in [:dead :10hr] f)
-          (update-in [:dead :100hr] f)
-          (update-in [:live :herbaceous] f)
-          (update-in [:live :woody] f)))))
+(defn cell-size-multiplier
+  [cell-size {:keys [scalex]}]
+  (int (quot (m->ft scalex) cell-size)))  ; FIXME: Should we be using /?
 
+;; FIXME: This would be simpler is we flattened fuel-moisture-layers into a single-level map
 (defn create-multiplier-lookup
   [{:keys [cell-size weather-layers fuel-moisture-layers]}]
-  (merge
-   (reduce-kv (fn [acc k {:keys [scalex]}]
-                (assoc acc k (int (quot (m->ft scalex) cell-size))))
-              {}
-              weather-layers)
-   (fuel-moisture-multiplier-lookup cell-size fuel-moisture-layers)))
+  (let [layers (merge weather-layers fuel-moisture-layers)]
+    (reduce (fn [acc ks] (assoc-in acc ks (cell-size-multiplier cell-size (get-in layers ks))))
+            {}
+            [[:temperature]
+             [:relative-humidity]
+             [:wind-speed-20ft]
+             [:wind-from-direction]
+             [:dead :1hr]
+             [:dead :10hr]
+             [:dead :100hr]
+             [:live :herbaceous]
+             [:live :woody]])))
 
 (defn get-weather [config rand-generator weather-type weather-layers]
   (if (contains? weather-layers weather-type)
     (weather-type weather-layers)
     (draw-samples rand-generator (:simulations config) (config weather-type))))
 
-;; FIXME: Use common raster vs layer terminology
+;; FIXME: Rename :landfire-rasters to :landfire-matrices everywhere (do we have to pass this parameter around?)
 (defn add-input-layers
   [config]
   (let [landfire-layers (fetch/landfire-layers config)]
     (assoc config
            :envelope             (get-envelope config landfire-layers)
-           :landfire-rasters     (into {}
-                                       (map (fn [[layer info]] [layer (first (:matrix info))]))
+           :landfire-matrices    (into {}
+                                       (map (fn [[layer-name layer-info]] [layer-name (first (:matrix layer-info))]))
                                        landfire-layers)
            :ignition-layer       (fetch/ignition-layer config)
            :ignition-mask-layer  (fetch/ignition-mask-layer config)
@@ -312,6 +312,7 @@
                               (Random. random-seed)
                               (Random.))))
 
+;; FIXME: Try using draw-sample within run-simulation instead of draw-samples here.
 (defn add-sampled-params
   [{:keys [rand-gen simulations max-runtime ignition-row ignition-col
            foliar-moisture ellipse-adjustment-factor perturbations]
@@ -324,6 +325,7 @@
          :ellipse-adjustment-factors (draw-samples rand-gen simulations ellipse-adjustment-factor)
          :perturbations              (perturbation/draw-samples rand-gen simulations perturbations))) ; FIXME: shadowed
 
+;; FIXME: Try using draw-sample within run-simulation instead of get-weather here.
 (defn add-weather-params
   [{:keys [rand-gen weather-layers] :as inputs}]
   (assoc inputs
@@ -444,9 +446,9 @@
      :summary-stats     summary-stats}))
 
 (defn write-landfire-layers!
-  [{:keys [output-landfire-inputs? outfile-suffix landfire-rasters envelope]}]
+  [{:keys [output-landfire-inputs? outfile-suffix landfire-matrices envelope]}]
   (when output-landfire-inputs?
-    (doseq [[layer matrix] landfire-rasters]
+    (doseq [[layer matrix] landfire-matrices]
       (-> (matrix-to-raster (name layer) matrix envelope)
           (write-raster (str (name layer) outfile-suffix ".tif"))))))
 

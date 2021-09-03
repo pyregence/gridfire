@@ -30,9 +30,6 @@
   (s/keys
    :req-un [::temperature ::relative-humidity ::wind-speed-20ft ::wind-from-direction]))
 
-(def weather-names
-  [:temperature :relative-humidity :wind-speed-20ft :wind-from-direction])
-
 ;;-----------------------------------------------------------------------------
 ;; Landfire Layers ;;TODO move into own namespace
 ;;-----------------------------------------------------------------------------
