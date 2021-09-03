@@ -8,3 +8,5 @@ org/_minted-GridFire/
 org/auto/
 org/missfont.log
 target/
+server.edn
+scratch.clj

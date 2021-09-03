@@ -1,8 +1,6 @@
-(ns gridfire.ignition-test
-  (:require [clojure.test   :refer [deftest is testing]]
-            [gridfire.cli   :as gf]
-            [gridfire.fetch :as fetch])
-  (:import java.util.Random))
+(ns gridfire.fetch-ignition-test
+  (:require [clojure.test :refer [deftest is testing]]
+            [gridfire.fetch :as fetch]))
 
 ;;-----------------------------------------------------------------------------
 ;; Config
@@ -54,34 +52,6 @@
 (defn in-file-path [filename]
   (str resources-path filename))
 
-(defn run-simulation [config]
-  (let [simulations      (:simulations config)
-        rand-generator   (if-let [seed (:random-seed config)]
-                           (Random. seed)
-                           (Random.))
-        landfire-layers  (fetch/landfire-layers config)
-        landfire-rasters (into {} (map (fn [[layer-name info]] [layer-name (first (:matrix info))])) landfire-layers)
-        ignition-layer   (fetch/ignition-layer config)]
-    (gf/run-simulations
-     simulations
-     landfire-rasters
-     (gf/get-envelope config landfire-layers)
-     (:cell-size config)
-     (gf/draw-samples rand-generator simulations (:ignition-row config))
-     (gf/draw-samples rand-generator simulations (:ignition-col config))
-     (gf/draw-samples rand-generator simulations (:max-runtime config))
-     (gf/draw-samples rand-generator simulations (:temperature config))
-     (gf/draw-samples rand-generator simulations (:relative-humidity config))
-     (gf/draw-samples rand-generator simulations (:wind-speed-20ft config))
-     (gf/draw-samples rand-generator simulations (:wind-from-direction config))
-     (gf/draw-samples rand-generator simulations (:foliar-moisture config))
-     (gf/draw-samples rand-generator simulations (:ellipse-adjustment-factor config))
-     (:outfile-suffix config)
-     (:output-geotiffs? config)
-     (:output-pngs? config)
-     (:output-csvs? config)
-     ignition-layer)))
-
 ;;-----------------------------------------------------------------------------
 ;; Tests
 ;;-----------------------------------------------------------------------------
@@ -99,22 +69,3 @@
 
       (is (= (:matrix geotiff-ignition-layer)
              (:matrix postgis-ignition-layer))))))
-
-(deftest geotiff-ignition-test
-  (testing "Running simulation with ignition layer read from geotiff file"
-    (let [geotiff-config (merge test-config-base
-                                {:ignition-layer {:type   :geotiff
-                                                  :source (in-file-path "ign.tif")}})
-          results        (run-simulation geotiff-config)]
-
-      (is (every? some? results)))))
-
-(deftest postgis-ignition-test
-  (testing "Running simulation with ignition layer read from postgis file"
-    (let [postgis-config (merge test-config-base
-                                {:db-spec        db-spec
-                                 :ignition-layer {:type   :postgis
-                                                  :source "ignition.ign WHERE rid=1"}})
-
-          results (run-simulation postgis-config)]
-      (is (every? some? results)))))

@@ -101,33 +101,48 @@ complete deps.edn is shown below.
  :deps {org.clojure/clojure                 {:mvn/version "1.10.1"}
         org.clojure/data.csv                {:mvn/version "1.0.0"}
         org.clojure/java.jdbc               {:mvn/version "0.7.11"}
+        org.clojure/spec.alpha              {:mvn/version "0.2.187"}
+        org.clojure/core.specs.alpha        {:mvn/version "0.2.44"}
         org.postgresql/postgresql           {:mvn/version "42.2.16"}
         net.mikera/core.matrix              {:mvn/version "0.62.0"}
         net.mikera/vectorz-clj              {:mvn/version "0.48.0"}
-        sig-gis/magellan                    {:mvn/version "20210113"}
-        org.clojars.lambdatronic/matrix-viz {:mvn/version "0.1.7"}}
+        sig-gis/magellan                    {:mvn/version "20210401"}
+        org.clojars.lambdatronic/matrix-viz {:mvn/version "0.1.7"}
+        org.clojure/tools.cli               {:mvn/version "1.0.194"}
+        kixi/stats                          {:mvn/version "0.5.4"}
+        org.clojure/data.json               {:mvn/version "1.1.0"}
+        sig-gis/triangulum                  {:git/url "https://github.com/sig-gis/triangulum"
+                                             :sha     "3feea51ad546828cecc2bf96256534d4c0aad066"}
+        org.clojure/core.async              {:mvn/version "1.3.610"}
+        com.taoensso/tufte                  {:mvn/version "2.2.0"}}
 
  :mvn/repos {"osgeo" {:url "https://repo.osgeo.org/repository/release/"}}
 
- :aliases {:build-test-db {:extra-paths ["test"]
-                           :main-opts   ["-m" "gridfire.build-test-db"]}
-           :run           {:main-opts ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
-                                       "-m" "gridfire.cli"]}
-           :repl          {:main-opts ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
-                                       "-e" "(require,'gridfire.cli)"
-                                       "-e" "(in-ns,'gridfire.cli)"
-                                       "-r"]}
-           :make-uberjar  {:extra-deps {seancorfield/depstar {:mvn/version "1.0.97"}}
-                           :main-opts  ["-m" "hf.depstar.uberjar" "target/gridfire-20200909.105353.jar"
-                                        "-C" "-m" "gridfire.cli"]}
-           :test          {:extra-paths ["test"]
-                           :extra-deps  {com.cognitect/test-runner
-                                         {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                                          :sha     "209b64504cb3bd3b99ecfec7937b358a879f55c1"}}
-                           :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
-                                         "-m" "cognitect.test-runner"]}
-           :check-deps    {:extra-deps {olical/depot {:mvn/version "1.8.4"}}
-                           :main-opts  ["-m" "depot.outdated.main"]}}}
+ :aliases {:build-test-db     {:extra-paths ["test"]
+                               :main-opts   ["-m" "gridfire.build-test-db"]}
+           :run               {:main-opts ["-m" "gridfire.cli"]}
+           :run-server        {:main-opts ["-m" "gridfire.server"]}
+           :repl              {:main-opts ["-e" "(require,'gridfire.cli)"
+                                           "-e" "(in-ns,'gridfire.cli)"
+                                           "-r"]}
+           :make-config       {:main-opts ["-m" "gridfire.config"]}
+           :make-uberjar      {:extra-deps {seancorfield/depstar {:mvn/version "1.0.97"}}
+                               :main-opts  ["-m" "hf.depstar.uberjar" "target/gridfire-20200909.105353.jar"
+                                            "-C" "-m" "gridfire.cli"]}
+           :test              {:extra-paths ["test"]
+                               :extra-deps  {com.cognitect/test-runner
+                                             {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                              :sha     "209b64504cb3bd3b99ecfec7937b358a879f55c1"}}
+                               :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
+                                             "-m" "cognitect.test-runner"]}
+           :check-reflections {:extra-paths ["test"]
+                               :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
+                                             "-e" "(require,'gridfire.cli)"
+                                             "-e" "(require,'gridfire.server)"
+                                             "-e" "(require,'gridfire.config)"
+                                             "-e" "(require,'gridfire.build-test-db)"]}
+           :check-deps        {:extra-deps {olical/depot {:mvn/version "1.8.4"}}
+                               :main-opts  ["-m" "depot.outdated.main"]}}}
 #+end_src
 
 Once this file is created, we need to instruct Clojure to download
@@ -454,10 +469,19 @@ elements in the for loop (i.e. tmpf_to_sample.tif)
 USERNAME=$1
 SCHEMA=$2
 SRID=$3
+TILING=$4
+
+echo $4
 
 for LAYER in tmpf wd ws rh
 do
-    raster2pgsql -I -C -t auto -s $SRID ${LAYER}_to_sample.tif $SCHEMA.$LAYER | psql -h localhost -U $USERNAME
+    if [ -z "$4" ]
+    then
+        raster2pgsql -I -C -t auto -s $SRID ${LAYER}_to_sample.tif $SCHEMA.$LAYER | psql -h localhost -U $USERNAME
+    else
+        raster2pgsql -I -C -t $TILING -s $SRID ${LAYER}_to_sample.tif $SCHEMA.$LAYER | psql -h localhost -U $USERNAME
+
+    fi
 done
 #+end_src
 
@@ -466,6 +490,14 @@ To run the script, give it the username, schema name, and srid we wish the layer
 #+begin_src bash
 sh import_weather_rasters.sh gridfire weather 90014
 #+end_src
+
+You may optionally include a fourth argument to set the tiling (defaults to auto).
+
+#+begin_src bash
+sh import_weather_rasters.sh gridfire weather 90014 800x800
+#+end_src
+
+*Note:* This script needs to be run in the same folder as where these rasters reside.
 
 * Fire Spread Model
 
@@ -478,6 +510,7 @@ science literature:
 - Flame Length and Fire Line Intensity: Byram 1959
 - Midflame Wind Adjustment Factor: Albini & Baughman 1979 parameterized as in BehavePlus, FARSITE, FlamMap, FSPro, and FPA according to Andrews 2012\nocite{Albini1979,Andrews2012}
 - Fire Spread on a Raster Grid: Morais 2001 (method of adaptive timesteps and fractional distances)
+- Spot Fire: Perryman 2013
 
 The following fuel models are supported:
 
@@ -667,12 +700,12 @@ be used in both the fuel moisture and fire spread algorithms.
    :live {:herbaceous (f :live :herbaceous)
           :woody      (f :live :woody)}})
 
-(defn category-sum [f]
-  (+ (f :dead) (f :live)))
+(defn category-sum ^double [f]
+  (+ ^double (f :dead) ^double (f :live)))
 
 (defn size-class-sum [f]
-  {:dead (+ (f :dead :1hr) (f :dead :10hr) (f :dead :100hr) (f :dead :herbaceous))
-   :live (+ (f :live :herbaceous) (f :live :woody))})
+  {:dead (+ ^double (f :dead :1hr) ^double (f :dead :10hr) ^double (f :dead :100hr) ^double (f :dead :herbaceous))
+   :live (+ ^double (f :live :herbaceous) ^double (f :live :woody))})
 #+end_src
 
 Using these new size class processing functions, we can translate the
@@ -683,7 +716,7 @@ the fuel model properties.
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj :no-expand :comments link
 (defn build-fuel-model
   [fuel-model-number]
-  (let [[name delta M_x-dead h
+  (let [[name delta ^double M_x-dead ^double h
          [w_o-dead-1hr w_o-dead-10hr w_o-dead-100hr
           w_o-live-herbaceous w_o-live-woody]
          [sigma-dead-1hr sigma-dead-10hr sigma-dead-100hr
@@ -774,10 +807,11 @@ $M_{f}^{lh}$ is the live herbaceous moisture content.
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj :no-expand :comments link
 (defn add-dynamic-fuel-loading
   [{:keys [number M_x M_f w_o sigma] :as fuel-model}]
-  (let [live-herbaceous-load (-> w_o :live :herbaceous)]
+  (let [number               (double number)
+        live-herbaceous-load (-> w_o :live :herbaceous double)]
     (if (and (> number 100) (pos? live-herbaceous-load))
       ;; dynamic fuel model
-      (let [fraction-green (max 0.0 (min 1.0 (- (/ (-> M_f :live :herbaceous) 0.9) 1/3)))
+      (let [fraction-green (max 0.0 (min 1.0 (- (/ (-> M_f :live :herbaceous double) 0.9) (/ 1.0 3.0))))
             fraction-cured (- 1.0 fraction-green)]
         (-> fuel-model
             (assoc-in [:M_f   :dead :herbaceous] (-> M_f :dead :1hr))
@@ -798,20 +832,20 @@ this text.
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj :no-expand :comments link
 (defn add-weighting-factors
   [{:keys [w_o sigma rho_p] :as fuel-model}]
-  (let [A_ij (map-size-class (fn [i j] (/ (* (-> sigma i j) (-> w_o i j))
-                                          (-> rho_p i j))))
+  (let [A_ij (map-size-class (fn [i j] (/ (* (-> sigma i ^double (j)) (-> w_o i ^double (j)))
+                                          (-> rho_p i ^double (j)))))
 
         A_i  (size-class-sum (fn [i j] (-> A_ij i j)))
 
         A_T  (category-sum (fn [i] (-> A_i i)))
 
-        f_ij (map-size-class (fn [i j] (if (pos? (-> A_i i))
-                                         (/ (-> A_ij i j)
-                                            (-> A_i i))
+        f_ij (map-size-class (fn [i j] (if (pos? ^double ( A_i i))
+                                         (/ (-> A_ij i ^double (j))
+                                            ^double (A_i i))
                                          0.0)))
 
         f_i  (map-category (fn [i] (if (pos? A_T)
-                                     (/ (-> A_i i) A_T)
+                                     (/ ^double (A_i i) A_T)
                                      0.0)))
 
         firemod-size-classes (map-size-class
@@ -870,28 +904,38 @@ size class $c$.
 (defn add-live-moisture-of-extinction
   "Equation 88 from Rothermel 1972 adjusted by Albini 1976 Appendix III."
   [{:keys [w_o sigma M_f M_x] :as fuel-model}]
-  (let [dead-loading-factor  (:dead (size-class-sum
-                                     (fn [i j] (if (pos? (-> sigma i j))
-                                                 (* (-> w_o i j)
-                                                    (Math/exp (/ -138.0 (-> sigma i j))))
+  (let [dead-loading-factor  (->> (size-class-sum
+                                   (fn [i j] (let [sigma_ij (-> sigma i j double)]
+                                               (if (pos? sigma_ij)
+                                                 (* (-> w_o i ^double (j))
+                                                    (Math/exp (/ -138.0 sigma_ij)))
                                                  0.0))))
-        live-loading-factor  (:live (size-class-sum
-                                     (fn [i j] (if (pos? (-> sigma i j))
-                                                 (* (-> w_o i j)
-                                                    (Math/exp (/ -500.0 (-> sigma i j))))
+                                  :dead
+                                  double)
+        live-loading-factor  (->> (size-class-sum
+                                   (fn [i j] (let [sigma_ij (-> sigma i j double)]
+                                               (if (pos? sigma_ij)
+                                                 (* (-> w_o i ^double (j))
+                                                    (Math/exp (/ -500.0 sigma_ij)))
                                                  0.0))))
-        dead-moisture-factor (:dead (size-class-sum
-                                     (fn [i j] (if (pos? (-> sigma i j))
-                                                 (* (-> w_o i j)
-                                                    (Math/exp (/ -138.0 (-> sigma i j)))
-                                                    (-> M_f i j))
-                                                 0.0))))
-        dead-to-live-ratio   (if (pos? live-loading-factor)
+                                  :live
+                                  double)
+        dead-moisture-factor (->> (size-class-sum
+                                   (fn [i j] (let [sigma_ij (-> sigma i j double)]
+                                              (if (pos? sigma_ij)
+                                                (* (-> w_o i ^double (j))
+                                                   (Math/exp (/ -138.0 sigma_ij))
+                                                   (-> M_f i ^double (j)))
+                                                0.0))))
+                                  :dead
+                                  double)
+        ^double
+        dead-to-live-ratio   (when (pos? live-loading-factor)
                                (/ dead-loading-factor live-loading-factor))
         dead-fuel-moisture   (if (pos? dead-loading-factor)
                                (/ dead-moisture-factor dead-loading-factor)
                                0.0)
-        M_x-dead             (-> M_x :dead :1hr)
+        M_x-dead             (-> M_x :dead :1hr double)
         M_x-live             (if (pos? live-loading-factor)
                                (max M_x-dead
                                     (- (* 2.9
@@ -966,7 +1010,9 @@ computed first without introducing the effects of wind and slope
   (:require [gridfire.fuel-models :refer [map-category map-size-class
                                           category-sum size-class-sum]]))
 
-(def grass-fuel-model? #(and (> % 100) (< % 110)))
+(defn grass-fuel-model?
+  [^long number]
+  (and (> number 100) (< number 110)))
 
 (defn rothermel-surface-fire-spread-no-wind-no-slope
   "Returns the rate of surface fire spread in ft/min and the reaction
@@ -985,48 +1031,50 @@ computed first without introducing the effects of wind and slope
    - f_ij [percent of load per size class (%)]
    - f_i [percent of load per category (%)]
    - g_ij [percent of load per size class from Albini_1976_FIREMOD, page 20]"
-  [{:keys [number delta w_o sigma h rho_p S_T S_e M_x M_f f_ij f_i g_ij] :as fuel-model}]
-  (let [S_e_i      (size-class-sum (fn [i j] (* (-> f_ij i j) (-> S_e i j))))
+  [{:keys [number delta w_o sigma  h rho_p S_T S_e M_x  M_f f_ij f_i g_ij]}]
+  (let [number     (long number)
+        delta      (double delta)
+        S_e_i      (size-class-sum (fn [i j] (* (-> f_ij i ^double (j)) (-> S_e i ^double (j)))))
 
         ;; Mineral damping coefficient
-        eta_S_i    (map-category (fn [i] (let [S_e_i (-> S_e_i i)]
+        eta_S_i    (map-category (fn [i] (let [^double S_e_i (-> S_e_i i)]
                                            (if (pos? S_e_i)
                                              (/ 0.174 (Math/pow S_e_i 0.19))
                                              1.0))))
 
-        M_f_i      (size-class-sum (fn [i j] (* (-> f_ij i j) (-> M_f i j))))
+        M_f_i      (size-class-sum (fn [i j] (* (-> f_ij i ^double (j)) (-> M_f i ^double (j)))))
 
-        M_x_i      (size-class-sum (fn [i j] (* (-> f_ij i j) (-> M_x i j))))
+        M_x_i      (size-class-sum (fn [i j] (* (-> f_ij i ^double (j)) (-> M_x i ^double (j)))))
 
-        r_M_i      (map-category (fn [i] (let [M_f (-> M_f_i i)
-                                               M_x (-> M_x_i i)]
+        r_M_i      (map-category (fn [i] (let [^double M_f (-> M_f_i i)
+                                               ^double M_x (-> M_x_i i)]
                                            (if (pos? M_x)
                                              (min 1.0 (/ M_f M_x))
                                              1.0))))
 
         ;; Moisture damping coefficient
         eta_M_i    (map-category (fn [i] (+ 1.0
-                                            (* -2.59 (-> r_M_i i))
+                                            (* -2.59 (-> r_M_i ^double (i)))
                                             (* 5.11 (Math/pow (-> r_M_i i) 2))
                                             (* -3.52 (Math/pow (-> r_M_i i) 3)))))
 
-        h_i        (size-class-sum (fn [i j] (* (-> f_ij i j) (-> h i j))))
+        h_i        (size-class-sum (fn [i j] (* (-> f_ij i ^double (j)) (-> h i ^double (j)))))
 
         ;; Net fuel loading (lb/ft^2)
-        W_n_i      (size-class-sum (fn [i j] (* (-> g_ij i j)
-                                                (-> w_o i j)
-                                                (- 1.0 (-> S_T i j)))))
+        W_n_i      (size-class-sum (fn [i j] (* (-> g_ij i ^double (j))
+                                                (-> w_o i ^double (j))
+                                                (- 1.0 (-> S_T i ^double (j))))))
 
-        beta_i     (size-class-sum (fn [i j] (/ (-> w_o i j) (-> rho_p i j))))
+        beta_i     (size-class-sum (fn [i j] (/ (-> w_o i ^double (j)) (-> rho_p i ^double (j)))))
 
         ;; Packing ratio
         beta       (if (pos? delta)
-                     (/ (category-sum (fn [i] (-> beta_i i))) delta)
+                     (/ (category-sum (fn [i] (-> beta_i ^double (i)))) delta)
                      0.0)
 
-        sigma'_i   (size-class-sum (fn [i j] (* (-> f_ij i j) (-> sigma i j))))
+        sigma'_i   (size-class-sum (fn [i j] (* (-> f_ij i ^double (j)) (-> sigma i ^double (j)))))
 
-        sigma'     (category-sum (fn [i] (* (-> f_i i) (-> sigma'_i i))))
+        sigma'     (category-sum (fn [i] (* (-> f_i ^double (i)) (-> sigma'_i ^double (i)))))
 
         ;; Optimum packing ratio
         beta_op    (if (pos? sigma')
@@ -1048,8 +1096,8 @@ computed first without introducing the effects of wind and slope
                       (Math/exp (* A (- 1.0 (/ beta beta_op)))))
 
         ;; Reaction intensity (Btu/ft^2*min)
-        I_R        (* Gamma' (category-sum (fn [i] (* (W_n_i i) (h_i i)
-                                                      (eta_M_i i) (eta_S_i i)))))
+        I_R        (* Gamma' (category-sum (fn [i] (* ^double (W_n_i i) ^double (h_i i)
+                                                      ^double (eta_M_i i) ^double (eta_S_i i)))))
 
         ;; Propagating flux ratio
         xi         (/ (Math/exp (* (+ 0.792 (* 0.681 (Math/pow sigma' 0.5)))
@@ -1063,7 +1111,7 @@ computed first without introducing the effects of wind and slope
         C          (* 7.47 (Math/exp (* -0.133 (Math/pow sigma' 0.55))))
 
         ;; Derive wind factor
-        get-phi_W  (fn [midflame-wind-speed]
+        get-phi_W  (fn ^double [^double midflame-wind-speed]
                      (if (and (pos? beta) (pos? midflame-wind-speed))
                        (-> midflame-wind-speed
                            (Math/pow B)
@@ -1072,25 +1120,25 @@ computed first without introducing the effects of wind and slope
                        0.0))
 
         ;; Derive wind speed from wind factor
-        get-wind-speed (fn [phi_W]
+        get-wind-speed (fn [^double phi_W]
                          (-> phi_W
                              (* (Math/pow (/ beta beta_op) E))
-                             (/ C)
+                             ^double (/ C)
                              (Math/pow (/ 1.0 B))))
 
         ;; Derive slope factor
-        get-phi_S  (fn [slope]
+        get-phi_S  (fn [^double slope]
                      (if (and (pos? beta) (pos? slope))
                        (* 5.275 (Math/pow beta -0.3) (Math/pow slope 2.0))
                        0.0))
 
         ;; Heat of preignition (Btu/lb)
-        Q_ig       (map-size-class (fn [i j] (+ 250.0 (* 1116.0 (-> M_f i j)))))
+        Q_ig       (map-size-class (fn [i j] (+ 250.0 (* 1116.0 (-> M_f i ^double (j))))))
 
-        foo_i      (size-class-sum (fn [i j] (let [sigma_ij (-> sigma i j)
-                                                   Q_ig_ij  (-> Q_ig  i j)]
+        foo_i      (size-class-sum (fn [i j] (let [^double sigma_ij (-> sigma i j)
+                                                   ^double Q_ig_ij  (-> Q_ig  i j)]
                                                (if (pos? sigma_ij)
-                                                 (* (-> f_ij i j)
+                                                 (* (-> f_ij i ^double (j))
                                                     (Math/exp (/ -138 sigma_ij))
                                                     Q_ig_ij)
                                                  0.0))))
@@ -1102,7 +1150,7 @@ computed first without introducing the effects of wind and slope
                      (/ (category-sum (fn [i] (-> rho_b_i i))) delta)
                      0.0)
 
-        rho_b-epsilon-Q_ig (* rho_b (category-sum (fn [i] (* (-> f_i i) (-> foo_i i)))))
+        rho_b-epsilon-Q_ig (* rho_b (category-sum (fn [i] (* (-> f_i ^double (i)) (-> foo_i ^double (i))))))
 
         ;; Surface fire spread rate (ft/min)
         R          (if (pos? rho_b-epsilon-Q_ig)
@@ -1157,7 +1205,8 @@ cover percentage (0-100).
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/surface_fire.clj :no-expand :comments link
 (defn wind-adjustment-factor
   "ft ft 0-100"
-  [fuel-bed-depth canopy-height canopy-cover]
+  ^double
+  [^double fuel-bed-depth ^double canopy-height ^double canopy-cover]
   (cond
     ;; sheltered: equation 2 based on CC and CH, CR=1 (Andrews 2012)
     (and (pos? canopy-cover)
@@ -1175,7 +1224,8 @@ cover percentage (0-100).
 
 (defn wind-adjustment-factor-elmfire
   "ft m 0-1"
-  [fuel-bed-depth canopy-height canopy-cover]
+  ^double
+  [^double fuel-bed-depth ^double canopy-height ^double canopy-cover]
   (cond
     ;; sheltered WAF
     (and (pos? canopy-cover)
@@ -1233,34 +1283,39 @@ ft/min for $U_{\textrm{eff}}$.
 (defn almost-zero? [^double x]
   (< (Math/abs x) 0.000001))
 
-(defn degrees-to-radians
-  [degrees]
+(defn degrees-to-radians ^double
+  [^double degrees]
   (/ (* degrees Math/PI) 180.0))
 
 (defn radians-to-degrees
-  [radians]
+  ^double
+  [^double radians]
   (/ (* radians 180.0) Math/PI))
 
 (defn scale-spread-to-max-wind-speed
   [{:keys [effective-wind-speed max-spread-direction] :as spread-properties}
-   spread-rate max-wind-speed phi-max]
-  (if (> effective-wind-speed max-wind-speed)
-    {:max-spread-rate      (* spread-rate (+ 1.0 phi-max))
-     :max-spread-direction max-spread-direction
-     :effective-wind-speed max-wind-speed}
-    spread-properties))
+   ^double spread-rate max-wind-speed  ^double phi-max]
+  (let [effective-wind-speed (double effective-wind-speed)
+        max-spread-direction (double max-spread-direction)]
+    (if (> effective-wind-speed ^double max-wind-speed)
+      {:max-spread-rate      (* spread-rate (+ 1.0 phi-max))
+       :max-spread-direction max-spread-direction
+       :effective-wind-speed max-wind-speed}
+      spread-properties)))
 
 (defn add-eccentricity
   [{:keys [effective-wind-speed] :as spread-properties} ellipse-adjustment-factor]
-  (let [length-width-ratio (+ 1.0 (* 0.002840909
+  (let [effective-wind-speed (double effective-wind-speed)
+        length-width-ratio (+ 1.0 (* 0.002840909
                                      effective-wind-speed
-                                     ellipse-adjustment-factor))
+                                     ^double ellipse-adjustment-factor))
         eccentricity       (/ (Math/sqrt (- (Math/pow length-width-ratio 2.0) 1.0))
                               length-width-ratio)]
     (assoc spread-properties :eccentricity eccentricity)))
 
-(defn smallest-angle-between [theta1 theta2]
-  (let [angle (Math/abs ^double (- theta1 theta2))]
+(defn smallest-angle-between ^double
+  [^double theta1 ^double theta2]
+  (let [angle (Math/abs (- theta1 theta2))]
     (if (> angle 180.0)
       (- 360.0 angle)
       angle)))
@@ -1269,12 +1324,13 @@ ft/min for $U_{\textrm{eff}}$.
   "Note: fire ellipse adjustment factor, < 1.0 = more circular, > 1.0 = more elliptical"
   [{:keys [spread-rate reaction-intensity get-phi_W get-phi_S get-wind-speed]}
    midflame-wind-speed wind-from-direction slope aspect ellipse-adjustment-factor]
-  (let [phi_W             (get-phi_W midflame-wind-speed)
-        phi_S             (get-phi_S slope)
-        slope-direction   (mod (+ aspect 180.0) 360.0)
-        wind-to-direction (mod (+ wind-from-direction 180.0) 360.0)
-        max-wind-speed    (* 0.9 reaction-intensity)
-        phi-max           (get-phi_W max-wind-speed)]
+  (let [^double phi_W             (get-phi_W midflame-wind-speed)
+        ^double phi_S             (get-phi_S slope)
+        ^double slope-direction   (mod (+ ^double aspect 180.0) 360.0)
+        ^double wind-to-direction (mod (+ ^double wind-from-direction 180.0) 360.0)
+        max-wind-speed            (* 0.9 ^double reaction-intensity)
+        ^double phi-max           (get-phi_W max-wind-speed)
+        spread-rate               (double spread-rate)]
     (->
      (cond (and (almost-zero? midflame-wind-speed) (almost-zero? slope))
            ;; no wind, no slope
@@ -1333,9 +1389,12 @@ ft/min for $U_{\textrm{eff}}$.
      (scale-spread-to-max-wind-speed spread-rate max-wind-speed phi-max)
      (add-eccentricity ellipse-adjustment-factor))))
 
-(defn rothermel-surface-fire-spread-any
+(defn rothermel-surface-fire-spread-any ^double
   [{:keys [max-spread-rate max-spread-direction eccentricity]} spread-direction]
-  (let [theta (smallest-angle-between max-spread-direction spread-direction)]
+  (let [max-spread-rate      (double max-spread-rate)
+        max-spread-direction (double max-spread-direction)
+        eccentricity         (double eccentricity)
+        theta                (smallest-angle-between max-spread-direction spread-direction)]
     (if (or (almost-zero? eccentricity) (almost-zero? theta))
       max-spread-rate
       (* max-spread-rate (/ (- 1.0 eccentricity)
@@ -1369,20 +1428,23 @@ the flame length in ft.
    of a free-spreading fire in ft given:
    - spread-rate (ft/min)
    - residence-time (min)"
-  [spread-rate residence-time]
+  ^double
+  [^double spread-rate ^double residence-time]
   (* spread-rate residence-time))
 
 (defn byram-fire-line-intensity
   "Returns the rate of heat release per unit of fire edge in Btu/ft*s given:
    - reaction-intensity (Btu/ft^2*min)
    - flame-depth (ft)"
-  [reaction-intensity flame-depth]
+  ^double
+  [^double reaction-intensity ^double flame-depth]
   (/ (* reaction-intensity flame-depth) 60.0))
 
 (defn byram-flame-length
   "Returns the average flame length in ft given:
    - fire-line-intensity (Btu/ft*s)"
-  [fire-line-intensity]
+  ^double
+  [^double fire-line-intensity]
   (* 0.45 (Math/pow fire-line-intensity 0.46)))
 #+end_src
 
@@ -1424,16 +1486,16 @@ crown fire initiation occurs.
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/crown_fire.clj :padline no :no-expand :comments link
 (ns gridfire.crown-fire)
 
-(defn ft->m [ft] (* 0.3048 ft))
+(defn ft->m ^double [^double ft] (* 0.3048 ft))
 
-(defn kW-m->Btu-ft-s [kW-m] (* 0.288894658272 kW-m))
+(defn kW-m->Btu-ft-s ^double [^double kW-m] (* 0.288894658272 kW-m))
 
 (defn van-wagner-crown-fire-initiation?
   "- canopy-cover (0-100 %)
    - canopy-base-height (ft)
    - foliar-moisture (lb moisture/lb ovendry weight)
    - fire-line-intensity (Btu/ft*s)"
-  [canopy-cover canopy-base-height foliar-moisture fire-line-intensity]
+  [^double canopy-cover ^double canopy-base-height ^double foliar-moisture ^double fire-line-intensity]
   (and (> canopy-cover 40.0)
        (-> (+ 460.0 (* 2600.0 foliar-moisture)) ;; heat-of-ignition = kJ/kg
            (* 0.01 (ft->m canopy-base-height))
@@ -1463,18 +1525,18 @@ active, otherwise passive.
 
 #+name: cruz-crown-fire-spread
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/crown_fire.clj :no-expand :comments link
-(defn mph->km-hr [mph] (* 1.609344 mph))
+(defn mph->km-hr ^double [^double mph] (* 1.609344 mph))
 
-(defn lb-ft3->kg-m3 [lb-ft3] (* 16.01846 lb-ft3))
+(defn lb-ft3->kg-m3 ^double [^double lb-ft3] (* 16.01846 lb-ft3))
 
-(defn m->ft [m] (* 3.281 m))
+(defn m->ft ^double [^double m] (* 3.281 m))
 
 (defn cruz-crown-fire-spread
   "Returns spread-rate in ft/min given:
    - wind-speed-20ft (mph)
    - crown-bulk-density (lb/ft^3)
    - estimated-fine-fuel-moisture (-> M_f :dead :1hr) (0-1)"
-  [wind-speed-20ft crown-bulk-density estimated-fine-fuel-moisture]
+  [wind-speed-20ft ^double crown-bulk-density ^double estimated-fine-fuel-moisture]
   (let [wind-speed-10m               (/ (mph->km-hr wind-speed-20ft) 0.87) ;; km/hr
         crown-bulk-density           (lb-ft3->kg-m3 crown-bulk-density) ;; kg/m^3
         estimated-fine-fuel-moisture (* 100.0 estimated-fine-fuel-moisture)
@@ -1482,13 +1544,12 @@ active, otherwise passive.
                                         (Math/pow wind-speed-10m 0.90)
                                         (Math/pow crown-bulk-density 0.19)
                                         (Math/exp (* -0.17 estimated-fine-fuel-moisture)))
-                                        ;; m/min
+        ;; m/min
         critical-spread-rate         (/ 3.0 crown-bulk-density) ;; m/min
         criteria-for-active-crowning (/ active-spread-rate critical-spread-rate)]
-    (m->ft
-     (if (> active-spread-rate critical-spread-rate)
-       active-spread-rate
-       (* active-spread-rate (Math/exp (- criteria-for-active-crowning)))))))
+    (if (> active-spread-rate critical-spread-rate)
+      [:active-crown (m->ft active-spread-rate)]
+      [:passive-crown (m->ft (* active-spread-rate (Math/exp (- criteria-for-active-crowning))))])))
 #+end_src
 
 Once the crown fire spread rate is determined, the crown fire line
@@ -1514,21 +1575,21 @@ surface fire line intensity in Btu/ft/s.
 (defn crown-fire-line-intensity
   "(ft/min * lb/ft^3 * ft * Btu/lb)/60 = (Btu/ft*min)/60 = Btu/ft*s"
   [crown-spread-rate crown-bulk-density canopy-height canopy-base-height heat-of-combustion]
-  (/ (* crown-spread-rate
-        crown-bulk-density
-        (- canopy-height canopy-base-height)
-        heat-of-combustion)
+  (/ (* ^double crown-spread-rate
+        ^double crown-bulk-density
+        (- ^double canopy-height ^double canopy-base-height)
+        ^double heat-of-combustion)
      60.0))
 
 (defn crown-fire-line-intensity-elmfire ;; kW/m
   [surface-fire-line-intensity crown-spread-rate crown-bulk-density
    canopy-height canopy-base-height]
   (let [heat-of-combustion 18000] ;; kJ/m^2
-    (+ surface-fire-line-intensity ;; kW/m
+    (+ ^double surface-fire-line-intensity ;; kW/m
        (/ (* 0.3048 ;; m/ft
-             crown-spread-rate ;; ft/min
-             crown-bulk-density ;; kg/m^3
-             (- canopy-height canopy-base-height) ;; m
+             ^double crown-spread-rate ;; ft/min
+             ^double crown-bulk-density ;; kg/m^3
+             (- ^double canopy-height ^double canopy-base-height) ;; m
              heat-of-combustion) ;; kJ/kg
           60.0)))) ;; s/min
 #+end_src
@@ -1559,7 +1620,8 @@ elliptical or circular respectively.\citep{Peterson2009}
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/crown_fire.clj :no-expand :comments link
 (defn crown-fire-eccentricity
   "mph"
-  [wind-speed-20ft ellipse-adjustment-factor]
+  ^double
+  [^double wind-speed-20ft ^double ellipse-adjustment-factor]
   (let [length-width-ratio (+ 1.0 (* 0.125
                                      wind-speed-20ft
                                      ellipse-adjustment-factor))]
@@ -1570,7 +1632,8 @@ elliptical or circular respectively.\citep{Peterson2009}
   "true/false mph int>0 ft/min
    Crown L/W = min(1.0 + 0.125*U20_mph, L/W_max)
    Surface L/W = 0.936*e^(0.2566*Ueff_mph) + 0.461*e^(-0.1548*Ueff_mph) - 0.397"
-  [crown-fire? wind-speed-20ft max-length-to-width-ratio effective-wind-speed]
+  ^double
+  [crown-fire? ^double wind-speed-20ft ^double max-length-to-width-ratio ^double effective-wind-speed]
   (if crown-fire?
     (min (+ 1.0 (* 0.125 wind-speed-20ft)) max-length-to-width-ratio)
     (min (+ (* 0.936 (Math/exp (/ (* 0.2566 effective-wind-speed 60.0) 5280.0)))
@@ -1816,17 +1879,33 @@ pseudo-code lays out the steps taken in this procedure:
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fire_spread.clj :padline no :no-expand :comments link
 (ns gridfire.fire-spread
   (:require [clojure.core.matrix           :as m]
-            [clojure.core.matrix.operators :as mop]
-            [gridfire.fuel-models          :refer [build-fuel-model moisturize]]
-            [gridfire.surface-fire         :refer [rothermel-surface-fire-spread-no-wind-no-slope
-                                                   rothermel-surface-fire-spread-max
-                                                   rothermel-surface-fire-spread-any
-                                                   anderson-flame-depth byram-fire-line-intensity
-                                                   byram-flame-length wind-adjustment-factor]]
-            [gridfire.crown-fire           :refer [van-wagner-crown-fire-initiation?
-                                                   cruz-crown-fire-spread
-                                                   crown-fire-line-intensity
-                                                   crown-fire-eccentricity]]))
+            [clojure.core.reducers         :as r]
+            [gridfire.common               :refer [burnable-fuel-model?
+                                                   burnable?
+                                                   get-fuel-moisture
+                                                   fuel-moisture-from-raster
+                                                   in-bounds?
+                                                   burnable-neighbors?
+                                                   get-neighbors
+                                                   get-value-at
+                                                   sample-at
+                                                   distance-3d]]
+            [gridfire.crown-fire          :refer [crown-fire-eccentricity
+                                                  crown-fire-line-intensity
+                                                  cruz-crown-fire-spread
+                                                  van-wagner-crown-fire-initiation?]]
+            [gridfire.fuel-models         :refer [build-fuel-model moisturize]]
+            [gridfire.perturbation        :as perturbation]
+            [gridfire.utils.primitive     :refer [double-reduce]]
+            [gridfire.spotting            :as spot]
+            [gridfire.surface-fire        :refer [anderson-flame-depth
+                                                  byram-fire-line-intensity
+                                                  byram-flame-length
+                                                  rothermel-surface-fire-spread-any
+                                                  rothermel-surface-fire-spread-max
+                                                  rothermel-surface-fire-spread-no-wind-no-slope
+                                                  wind-adjustment-factor]]
+            [gridfire.utils.random        :as random]))
 
 (m/set-current-implementation :vectorz)
 
@@ -1847,46 +1926,6 @@ pseudo-code lays out the steps taken in this procedure:
   [(rand-int num-rows)
    (rand-int num-cols)])
 
-(defn get-neighbors
-  "Returns the eight points adjacent to the passed-in point."
-  [[i j]]
-  (let [i- (- i 1)
-        i+ (+ i 1)
-        j- (- j 1)
-        j+ (+ j 1)]
-    (vector [i- j-] [i- j] [i- j+]
-            [i  j-]        [i  j+]
-            [i+ j-] [i+ j] [i+ j+])))
-
-(defn in-bounds?
-  "Returns true if the point lies within the bounds [0,rows) by [0,cols)."
-  [rows cols [i j]]
-  (and (>= i 0)
-       (>= j 0)
-       (< i rows)
-       (< j cols)))
-
-(defn burnable-fuel-model?
-  [^double number]
-  (and (pos? number)
-       (or (< number 91.0)
-           (> number 99.0))))
-
-(defn burnable?
-  "Returns true if cell [i j] has not yet been ignited (but could be)."
-  [fire-spread-matrix fuel-model-matrix [i j]]
-  (and (zero? (m/mget fire-spread-matrix i j))
-       (burnable-fuel-model? (m/mget fuel-model-matrix i j))))
-
-(defn distance-3d
-  "Returns the terrain distance between two points in feet."
-  [elevation-matrix cell-size [i1 j1] [i2 j2]]
-  (let [di (* cell-size (- i1 i2))
-        dj (* cell-size (- j1 j2))
-        dz (- (m/mget elevation-matrix i1 j1)
-              (m/mget elevation-matrix i2 j2))]
-    (Math/sqrt (+ (* di di) (* dj dj) (* dz dz)))))
-
 (def offset-to-degrees
   "Returns clockwise degrees from north."
   {[-1  0]   0.0   ; N
@@ -1898,59 +1937,74 @@ pseudo-code lays out the steps taken in this procedure:
    [ 0 -1] 270.0   ; W
    [-1 -1] 315.0}) ; NW
 
-(def rothermel-fast-wrapper
-  (memoize
-   (fn [fuel-model-number fuel-moisture]
-     (let [fuel-model      (-> (build-fuel-model (int fuel-model-number))
-                               (moisturize fuel-moisture))
-           spread-info-min (rothermel-surface-fire-spread-no-wind-no-slope fuel-model)]
-       [fuel-model spread-info-min]))))
+(defn rothermel-fast-wrapper
+  [fuel-model-number fuel-moisture]
+  (let [fuel-model      (-> (build-fuel-model (int fuel-model-number))
+                            (moisturize fuel-moisture))
+        spread-info-min (rothermel-surface-fire-spread-no-wind-no-slope fuel-model)]
+    [fuel-model spread-info-min]))
+
+(defrecord BurnTrajectory
+    [cell
+     source
+     trajectory
+     ^double terrain-distance
+     ^double spread-rate
+     ^double fire-line-intensity
+     ^double flame-length
+     fractional-distance
+     fire-type
+     crown-fire?])
 
 (defn compute-burn-trajectory
   [neighbor here spread-info-min spread-info-max fuel-model crown-bulk-density
    canopy-cover canopy-height canopy-base-height foliar-moisture crown-spread-max
-   crown-eccentricity landfire-rasters cell-size overflow-trajectory overflow-heat]
-  (let [trajectory          (mop/- neighbor here)
-        spread-direction    (offset-to-degrees trajectory)
-        surface-spread-rate (rothermel-surface-fire-spread-any spread-info-max
-                                                               spread-direction)
-        residence-time      (:residence-time spread-info-min)
-        reaction-intensity  (:reaction-intensity spread-info-min)
-        surface-intensity   (->> (anderson-flame-depth surface-spread-rate residence-time)
-                                 (byram-fire-line-intensity reaction-intensity))
-        crown-fire?         (van-wagner-crown-fire-initiation? canopy-cover
-                                                               canopy-base-height
-                                                               foliar-moisture
-                                                               surface-intensity)
-        crown-spread-rate   (if crown-fire?
-                              (rothermel-surface-fire-spread-any
-                               (assoc spread-info-max
-                                      :max-spread-rate crown-spread-max
-                                      :eccentricity crown-eccentricity)
-                               spread-direction))
-        crown-intensity     (if crown-fire?
-                              (crown-fire-line-intensity
-                               crown-spread-rate
-                               crown-bulk-density
-                               canopy-height
-                               canopy-base-height
-                               (-> fuel-model :h :dead :1hr)))
-        spread-rate         (if crown-fire?
-                              (max surface-spread-rate crown-spread-rate)
-                              surface-spread-rate)
-        fire-line-intensity (if crown-fire?
-                              (+ surface-intensity crown-intensity)
-                              surface-intensity)
-        flame-length        (byram-flame-length fire-line-intensity)]
-    {:cell                neighbor
-     :trajectory          trajectory
-     :terrain-distance    (distance-3d (:elevation landfire-rasters) cell-size here neighbor)
-     :spread-rate         spread-rate
-     :fire-line-intensity fire-line-intensity
-     :flame-length        flame-length
-     :fractional-distance (volatile! (if (= trajectory overflow-trajectory)
-                                       overflow-heat
-                                       0.0))}))
+   crown-eccentricity landfire-rasters cell-size overflow-trajectory overflow-heat
+   crown-type]
+  (let [trajectory                (mapv - neighbor here)
+        spread-direction          (offset-to-degrees trajectory)
+        surface-spread-rate       (rothermel-surface-fire-spread-any spread-info-max
+                                                                     spread-direction)
+        residence-time            (:residence-time spread-info-min)
+        reaction-intensity        (:reaction-intensity spread-info-min)
+        surface-intensity         (->> (anderson-flame-depth surface-spread-rate residence-time)
+                                       (byram-fire-line-intensity reaction-intensity))
+        crown-fire?               (van-wagner-crown-fire-initiation? canopy-cover
+                                                                     canopy-base-height
+                                                                     foliar-moisture
+                                                                     surface-intensity)
+        ^double crown-spread-rate (when crown-fire?
+                                    (rothermel-surface-fire-spread-any
+                                     (assoc spread-info-max
+                                            :max-spread-rate crown-spread-max
+                                            :eccentricity crown-eccentricity)
+                                     spread-direction))
+        ^double crown-intensity   (when crown-fire?
+                                    (crown-fire-line-intensity
+                                     crown-spread-rate
+                                     crown-bulk-density
+                                     canopy-height
+                                     canopy-base-height
+                                     (-> fuel-model :h :dead :1hr)))
+        spread-rate               (if crown-fire?
+                                    (max surface-spread-rate crown-spread-rate)
+                                    surface-spread-rate)
+        fire-line-intensity       (if crown-fire?
+                                    (+ surface-intensity crown-intensity)
+                                    surface-intensity)
+        flame-length              (byram-flame-length fire-line-intensity)]
+    (->BurnTrajectory neighbor
+                      here
+                      trajectory
+                      (distance-3d (:elevation landfire-rasters) cell-size here neighbor)
+                      spread-rate
+                      fire-line-intensity
+                      flame-length
+                      (volatile! (if (= trajectory overflow-trajectory)
+                                   overflow-heat
+                                   0.0))
+                      (if crown-fire? crown-type :surface)
+                      crown-fire?)))
 
 (defn compute-neighborhood-fire-spread-rates!
   "Returns a vector of entries of the form:
@@ -1961,139 +2015,302 @@ pseudo-code lays out the steps taken in this procedure:
    :fire-line-intensity Btu/ft/s,
    :flame-length ft,
    :fractional-distance [0-1]}, one for each cell adjacent to here."
-  [{:keys [landfire-rasters
-           wind-speed-20ft
-           wind-from-direction
-           fuel-moisture
-           foliar-moisture
-           ellipse-adjustment-factor
-           cell-size
-           num-rows
-           num-cols]}
+  [{:keys [landfire-rasters multiplier-lookup perturbations wind-speed-20ft wind-from-direction
+           temperature relative-humidity foliar-moisture ellipse-adjustment-factor
+           cell-size num-rows num-cols] :as constants}
    fire-spread-matrix
-   [i j :as here]
+   here
    overflow-trajectory
-   overflow-heat]
-  (let [fuel-model-number   (m/mget (:fuel-model         landfire-rasters) i j)
-        slope               (m/mget (:slope              landfire-rasters) i j)
-        aspect              (m/mget (:aspect             landfire-rasters) i j)
-        canopy-height       (m/mget (:canopy-height      landfire-rasters) i j)
-        canopy-base-height  (m/mget (:canopy-base-height landfire-rasters) i j)
-        crown-bulk-density  (m/mget (:crown-bulk-density landfire-rasters) i j)
-        canopy-cover        (m/mget (:canopy-cover       landfire-rasters) i j)
-        [fuel-model spread-info-min] (rothermel-fast-wrapper fuel-model-number fuel-moisture)
-        midflame-wind-speed (* wind-speed-20ft 88.0
-                               (wind-adjustment-factor (:delta fuel-model)
-                                                       canopy-height
-                                                       canopy-cover)) ; mi/hr -> ft/min
-        spread-info-max     (rothermel-surface-fire-spread-max
-                             spread-info-min midflame-wind-speed wind-from-direction
-                             slope aspect ellipse-adjustment-factor)
-        crown-spread-max    (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density
-                                                    (-> fuel-moisture :dead :1hr))
-        crown-eccentricity  (crown-fire-eccentricity wind-speed-20ft
-                                                     ellipse-adjustment-factor)]
+   overflow-heat
+   global-clock]
+  (let [^double aspect                (sample-at here
+                                                 global-clock
+                                                 (:aspect landfire-rasters)
+                                                 (:aspect multiplier-lookup)
+                                                 (:aspect perturbations))
+        ^double canopy-base-height    (sample-at here
+                                                 global-clock
+                                                 (:canopy-base-height landfire-rasters)
+                                                 (:canopy-base-height multiplier-lookup)
+                                                 (:canopy-base-height perturbations))
+        ^double canopy-cover          (sample-at here
+                                                 global-clock
+                                                 (:canopy-cover landfire-rasters)
+                                                 (:canopy-cover multiplier-lookup)
+                                                 (:canopy-cover perturbations))
+        ^double canopy-height         (sample-at here
+                                                 global-clock
+                                                 (:canopy-height landfire-rasters)
+                                                 (:canopy-height multiplier-lookup)
+                                                 (:canopy-height perturbations))
+        ^double crown-bulk-density    (sample-at here
+                                                 global-clock
+                                                 (:crown-bulk-density landfire-rasters)
+                                                 (:crown-bulk-density multiplier-lookup)
+                                                 (:crown-bulk-density perturbations))
+        ^long fuel-model              (sample-at here
+                                                 global-clock
+                                                 (:fuel-model landfire-rasters)
+                                                 (:fuel-model multiplier-lookup)
+                                                 (:fuel-model perturbations))
+        ^double slope                 (sample-at here
+                                                 global-clock
+                                                 (:slope landfire-rasters)
+                                                 (:slope multiplier-lookup)
+                                                 (:slope perturbations))
+        ^double relative-humidity     (get-value-at here
+                                                    global-clock
+                                                    relative-humidity
+                                                    (:relative-humidity multiplier-lookup)
+                                                    (:relative-humidity perturbations))
+        ^double temperature           (get-value-at here
+                                                    global-clock
+                                                    temperature
+                                                    (:temperature multiplier-lookup)
+                                                    (:temperature perturbations))
+        ^double wind-from-direction   (get-value-at here
+                                                    global-clock
+                                                    wind-from-direction
+                                                    (:wind-from-direction multiplier-lookup)
+                                                    (:wind-from-direction perturbations))
+        ^double wind-speed-20ft       (get-value-at here
+                                                    global-clock
+                                                    wind-speed-20ft
+                                                    (:wind-speed-20ft multiplier-lookup)
+                                                    (:wind-speed-20ft perturbations))
+        ^double fuel-moisture         (or (fuel-moisture-from-raster constants here global-clock)
+                                          (get-fuel-moisture relative-humidity temperature))
+        [fuel-model spread-info-min]  (rothermel-fast-wrapper fuel-model fuel-moisture)
+        midflame-wind-speed           (* wind-speed-20ft 88.0 (wind-adjustment-factor ^long (:delta fuel-model) canopy-height canopy-cover)) ; mi/hr -> ft/min
+        spread-info-max               (rothermel-surface-fire-spread-max spread-info-min
+                                                                         midflame-wind-speed
+                                                                         wind-from-direction
+                                                                         slope
+                                                                         aspect
+                                                                         ellipse-adjustment-factor)
+        [crown-type crown-spread-max] (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density
+                                                              (-> fuel-moisture :dead :1hr))
+        crown-eccentricity            (crown-fire-eccentricity wind-speed-20ft
+                                                               ellipse-adjustment-factor)]
     (into []
           (comp
            (filter #(and (in-bounds? num-rows num-cols %)
-                         (burnable? fire-spread-matrix (:fuel-model landfire-rasters) %)))
+                         (burnable? fire-spread-matrix (:fuel-model landfire-rasters) here %)))
            (map #(compute-burn-trajectory % here spread-info-min spread-info-max fuel-model
                                           crown-bulk-density canopy-cover canopy-height
                                           canopy-base-height foliar-moisture crown-spread-max
                                           crown-eccentricity landfire-rasters cell-size
-                                          overflow-trajectory overflow-heat)))
+                                          overflow-trajectory overflow-heat crown-type)))
           (get-neighbors here))))
 
-(defn burnable-neighbors?
-  [fire-spread-matrix fuel-model-matrix num-rows num-cols cell]
-  (some #(and (in-bounds? num-rows num-cols %)
-              (burnable? fire-spread-matrix fuel-model-matrix %))
-        (get-neighbors cell)))
-
-(defn select-random-ignition-site
-  [fuel-model-matrix]
-  (let [num-rows           (m/row-count    fuel-model-matrix)
-        num-cols           (m/column-count fuel-model-matrix)
-        fire-spread-matrix (m/zero-matrix num-rows num-cols)]
-    (loop [[i j :as ignition-site] (random-cell num-rows num-cols)]
-      (if (and (burnable-fuel-model? (m/mget fuel-model-matrix i j))
-               (burnable-neighbors? fire-spread-matrix fuel-model-matrix
-                                    num-rows num-cols ignition-site))
-        ignition-site
-        (recur (random-cell num-rows num-cols))))))
-
 (defn identify-ignition-events
-  [ignited-cells timestep]
-  (->> (for [[_ destinations] ignited-cells
-             {:keys [cell trajectory terrain-distance spread-rate flame-length
-                     fire-line-intensity fractional-distance]} destinations]
-         (let [new-spread-fraction (/ (* spread-rate timestep) terrain-distance)
-               new-total           (vreset! fractional-distance
-                                            (+ @fractional-distance new-spread-fraction))]
-           (if (>= new-total 1.0)
-             {:cell cell :trajectory trajectory :fractional-distance @fractional-distance
-              :flame-length flame-length :fire-line-intensity fire-line-intensity})))
-       (remove nil?)
-       (group-by :cell)
-       (map (fn [[_ trajectories]] (apply max-key :fractional-distance trajectories)))
-       (into [])))
+  [ignited-cells timestep fire-spread-matrix]
+  (let [timestep (double timestep)]
+   (->> ignited-cells
+        (reduce (fn [acc trajectory]
+                  (let [{:keys
+                         [source
+                          cell
+                          fractional-distance]} trajectory
+                        [i j]                   source
+                        terrain-distance        (double (:terrain-distance trajectory))
+                        spread-rate             (double (:spread-rate trajectory))
+                        new-spread-fraction     (/ (* spread-rate timestep)  terrain-distance)
+                        ^double old-total       @fractional-distance
+                        ^double new-total       (vreset! fractional-distance
+                                                         (+ old-total new-spread-fraction))]
+                    (if (and (>= new-total 1.0)
+                             (> new-total ^double (get-in acc [cell :fractional-distance] 0.0)))
+                      (assoc! acc cell (merge trajectory {:fractional-distance  @fractional-distance
+                                                          :dt-adjusted          (* (/ (- 1.0 old-total) (- new-total old-total))
+                                                                                   timestep)
+                                                          :ignition-probability (m/mget fire-spread-matrix i j)}))
+                      acc)))
+                (transient {}))
+        persistent!
+        vals)))
 
 (defn update-ignited-cells
-  [{:keys [landfire-rasters num-rows num-cols] :as constants}
+  [{:keys [landfire-rasters num-rows num-cols parallel-strategy] :as constants}
    ignited-cells
    ignition-events
-   fire-spread-matrix]
-  (let [newly-ignited-cells (into #{} (map :cell) ignition-events)
-        fuel-model-matrix   (:fuel-model landfire-rasters)]
-    (into {}
-          (concat
-           (for [[cell spread-info] ignited-cells
-                 :when (burnable-neighbors? fire-spread-matrix fuel-model-matrix
-                                            num-rows num-cols cell)]
-             [cell (remove #(contains? newly-ignited-cells (:cell %)) spread-info)])
-           (for [{:keys [cell trajectory fractional-distance]} ignition-events
-                 :when (burnable-neighbors? fire-spread-matrix fuel-model-matrix
-                                            num-rows num-cols cell)]
-             [cell (compute-neighborhood-fire-spread-rates!
-                    constants
-                    fire-spread-matrix
-                    cell
-                    trajectory
-                    (- fractional-distance 1.0))])))))
+   fire-spread-matrix
+   global-clock]
+  (let [fuel-model-matrix    (:fuel-model landfire-rasters)
+        parallel-bin-size    (max 1 (quot (count ignition-events) (.availableProcessors (Runtime/getRuntime))))
+        newly-ignited-cells  (into #{} (map :cell) ignition-events)
+        pruned-ignited-cells (into [] (remove #(contains? newly-ignited-cells (:cell %))) ignited-cells)
+        reducer-fn           (if (= parallel-strategy :within-fires)
+                               #(->> (r/fold parallel-bin-size r/cat r/append! %)
+                                     (reduce (fn [acc v] (into acc v)) pruned-ignited-cells))
+                               #(reduce (fn [acc v] (into acc v)) pruned-ignited-cells %))]
+    (->> ignition-events
+         (r/map (fn [{:keys [cell trajectory fractional-distance]}]
+                  (let [fractional-distance (double fractional-distance)]
+                   (when (burnable-neighbors? fire-spread-matrix
+                                              fuel-model-matrix
+                                              num-rows num-cols
+                                              cell)
+                     (compute-neighborhood-fire-spread-rates!
+                      constants
+                      fire-spread-matrix
+                      cell
+                      trajectory
+                      (- fractional-distance 1.0)
+                      global-clock)))))
+         (r/remove nil?)
+         (reducer-fn))))
+
+(defn generate-ignited-cells
+  [constants fire-spread-matrix cells]
+  (when (seq cells)
+    (reduce (fn [ignited-cells cell]
+              (into ignited-cells
+                    (compute-neighborhood-fire-spread-rates! constants
+                                                             fire-spread-matrix
+                                                             cell
+                                                             nil
+                                                             0.0
+                                                             0.0)))
+            []
+            cells)))
+
+(defn identify-spot-ignition-events
+  [global-clock spot-ignitions]
+  (let [to-ignite-now (group-by (fn [[_ [time _]]]
+                                  (let [time (double time)]
+                                    (>= ^double global-clock time)))
+                                spot-ignitions)
+        ignite-later  (into {} (get to-ignite-now false))
+        ignite-now    (into {} (get to-ignite-now true))]
+    [ignite-later ignite-now]))
+
+(defn spot-ignited-cells
+  "Updates matrices for spot ignited cells
+  Returns a map of ignited cells"
+  [constants
+   global-clock
+   {:keys [fire-spread-matrix burn-time-matrix spread-rate-matrix fire-type-matrix
+           flame-length-matrix fire-line-intensity-matrix]}
+   spot-ignite-now]
+  (let [ignited?        (fn [[k v]]
+                          (let [[i j] k
+                                [_ p] v]
+                            (> ^double (m/mget fire-spread-matrix i j) ^double p)))
+        spot-ignite-now (remove ignited? spot-ignite-now)
+        ignited-cells   (generate-ignited-cells constants
+                                                fire-spread-matrix
+                                                (keys spot-ignite-now))]
+    (doseq [cell spot-ignite-now
+            :let [[i j]                    (key cell)
+                  [_ ignition-probability] (val cell)]]
+      (m/mset! fire-spread-matrix i j ignition-probability)
+      (m/mset! burn-time-matrix i j global-clock)
+      (m/mset! flame-length-matrix i j 1.0)
+      (m/mset! fire-line-intensity-matrix i j 1.0)
+      (m/mset! spread-rate-matrix i j -1.0)
+      (m/mset! fire-type-matrix i j -1.0))
+    ignited-cells))
+
+(defn new-spot-ignitions
+  "Returns a map of [x y] locations to [t p] where:
+  t: time of ignition
+  p: ignition-probability"
+  [{:keys [spotting] :as inputs} matrices ignition-events]
+  (when spotting
+    (reduce (fn [acc ignition-event]
+              (merge-with (partial min-key first)
+                          acc
+                          (->> (spot/spread-firebrands
+                                inputs
+                                matrices
+                                ignition-event)
+                               (into {}))))
+            {}
+            ignition-events)))
+
+(def fire-type-to-value
+  {:surface       1.0
+   :passive-crown 2.0
+   :active-crown  3.0})
+
+(defn- reducer-fn ^double
+  [^double max-spread-rate ignited-cell]
+  (Math/max max-spread-rate (double (:spread-rate ignited-cell))))
 
 (defn run-loop
-  [{:keys [max-runtime cell-size] :as constants}
-   ignited-cells
-   fire-spread-matrix
-   flame-length-matrix
-   fire-line-intensity-matrix]
-  (loop [global-clock  0.0
-         ignited-cells ignited-cells]
-    (if (and (< global-clock max-runtime)
-             (seq ignited-cells))
-      (let [dt              (->> ignited-cells
-                                 (vals)
-                                 (apply concat)
-                                 (map :spread-rate)
-                                 (reduce max 0.0)
-                                 (/ cell-size))
-            timestep        (if (> (+ global-clock dt) max-runtime)
-                              (- max-runtime global-clock)
-                              dt)
-            ignition-events (identify-ignition-events ignited-cells timestep)]
-        ;; [{:cell :trajectory :fractional-distance
-        ;;   :flame-length :fire-line-intensity} ...]
-        (doseq [{:keys [cell flame-length fire-line-intensity]} ignition-events]
-          (let [[i j] cell]
-            (m/mset! fire-spread-matrix         i j 1.0)
-            (m/mset! flame-length-matrix        i j flame-length)
-            (m/mset! fire-line-intensity-matrix i j fire-line-intensity)))
-        (recur (+ global-clock timestep)
-               (update-ignited-cells constants ignited-cells ignition-events fire-spread-matrix)))
-      {:exit-condition             (if (seq ignited-cells) :max-runtime-reached :no-burnable-fuels)
-       :fire-spread-matrix         fire-spread-matrix
-       :flame-length-matrix        flame-length-matrix
-       :fire-line-intensity-matrix fire-line-intensity-matrix})))
+  [{:keys [max-runtime cell-size] :as inputs}
+   {:keys [fire-spread-matrix
+           flame-length-matrix
+           fire-line-intensity-matrix
+           burn-time-matrix
+           spread-rate-matrix
+           fire-type-matrix] :as matrices}
+   ignited-cells]
+  (let [max-runtime      (double max-runtime)
+        cell-size        (double cell-size)
+        crown-fire-count (atom 0)
+        spot-count       (atom 0)]
+   (loop [global-clock   0.0
+          ignited-cells  ignited-cells
+          spot-ignitions {}]
+     (if (and (< global-clock max-runtime)
+              (seq ignited-cells))
+       (let [dt                (->> ignited-cells
+                                    (double-reduce reducer-fn 0.0)
+                                    (/ cell-size)
+                                    double)
+             timestep          (if (> (+ global-clock dt) max-runtime)
+                                 (- max-runtime global-clock)
+                                 dt)
+             next-global-clock (+ global-clock timestep)
+             ignition-events   (identify-ignition-events ignited-cells timestep fire-spread-matrix)
+             inputs            (perturbation/update-global-vals inputs global-clock next-global-clock)]
+         ;; [{:cell :trajectory :fractional-distance
+         ;;   :flame-length :fire-line-intensity} ...]
+         (doseq [{:keys
+                  [cell flame-length fire-line-intensity
+                   ignition-probability spread-rate fire-type
+                   dt-adjusted crown-fire?]} ignition-events]
+           (let [[i j]       cell
+                 dt-adjusted (double dt-adjusted)]
+             (when crown-fire? (swap! crown-fire-count inc))
+             (m/mset! fire-spread-matrix         i j ignition-probability)
+             (m/mset! flame-length-matrix        i j flame-length)
+             (m/mset! fire-line-intensity-matrix i j fire-line-intensity)
+             (m/mset! burn-time-matrix           i j (+ global-clock dt-adjusted))
+             (m/mset! spread-rate-matrix         i j spread-rate)
+             (m/mset! fire-type-matrix           i j (fire-type fire-type-to-value))))
+         (let [new-spot-ignitions (new-spot-ignitions (assoc inputs :global-clock global-clock)
+                                                      matrices
+                                                      ignition-events)
+               [spot-ignite-later
+                spot-ignite-now]  (identify-spot-ignition-events global-clock
+                                                                 (merge-with (partial min-key first)
+                                                                             spot-ignitions
+                                                                             new-spot-ignitions))
+               spot-ignited-cells (spot-ignited-cells inputs
+                                                      global-clock
+                                                      matrices
+                                                      spot-ignite-now)]
+           (reset! spot-count (+ @spot-count (count spot-ignited-cells)))
+           (recur next-global-clock
+                  (update-ignited-cells inputs
+                                        (into spot-ignited-cells ignited-cells)
+                                        ignition-events
+                                        fire-spread-matrix
+                                        global-clock)
+                  spot-ignite-later)))
+       {:global-clock               global-clock
+        :exit-condition             (if (seq ignited-cells) :max-runtime-reached :no-burnable-fuels)
+        :fire-spread-matrix         fire-spread-matrix
+        :flame-length-matrix        flame-length-matrix
+        :fire-line-intensity-matrix fire-line-intensity-matrix
+        :burn-time-matrix           burn-time-matrix
+        :spread-rate-matrix         spread-rate-matrix
+        :fire-type-matrix           fire-type-matrix
+        :crown-fire-count           @crown-fire-count
+        :spot-count                 @spot-count}))))
 
 (defn- initialize-matrix
   [num-rows num-cols indices]
@@ -2139,18 +2356,23 @@ pseudo-code lays out the steps taken in this procedure:
       :random-ignition-point)))
 
 (defmethod run-fire-spread :random-ignition-point
-  [{:keys [landfire-rasters] :as constants}]
-  (run-fire-spread (assoc constants
+  [{:keys [ignitable-sites rand-gen] :as inputs}]
+  (.nextDouble rand-gen)
+  (run-fire-spread (assoc inputs
                           :initial-ignition-site
-                          (select-random-ignition-site (:fuel-model landfire-rasters)))))
+                          (random/my-rand-nth rand-gen ignitable-sites))))
 
 (defmethod run-fire-spread :ignition-point
-  [{:keys [landfire-rasters num-rows num-cols initial-ignition-site] :as constants}]
+  [{:keys [landfire-rasters num-rows num-cols initial-ignition-site spotting] :as inputs}]
   (let [[i j]                      initial-ignition-site
         fuel-model-matrix          (:fuel-model landfire-rasters)
         fire-spread-matrix         (m/zero-matrix num-rows num-cols)
         flame-length-matrix        (m/zero-matrix num-rows num-cols)
-        fire-line-intensity-matrix (m/zero-matrix num-rows num-cols)]
+        fire-line-intensity-matrix (m/zero-matrix num-rows num-cols)
+        burn-time-matrix           (m/zero-matrix num-rows num-cols)
+        firebrand-count-matrix     (when spotting (m/zero-matrix num-rows num-cols))
+        spread-rate-matrix         (m/zero-matrix num-rows num-cols)
+        fire-type-matrix           (m/zero-matrix num-rows num-cols)]
     (when (and (in-bounds? num-rows num-cols initial-ignition-site)
                (burnable-fuel-model? (m/mget fuel-model-matrix i j))
                (burnable-neighbors? fire-spread-matrix fuel-model-matrix
@@ -2159,51 +2381,500 @@ pseudo-code lays out the steps taken in this procedure:
       (m/mset! fire-spread-matrix i j 1.0)
       (m/mset! flame-length-matrix i j 1.0)
       (m/mset! fire-line-intensity-matrix i j 1.0)
-      (let [ignited-cells {initial-ignition-site
-                           (compute-neighborhood-fire-spread-rates!
-                            constants
-                            fire-spread-matrix
-                            initial-ignition-site
-                            nil
-                            0.0)}]
-        (run-loop constants
-                  ignited-cells
-                  fire-spread-matrix
-                  flame-length-matrix
-                  fire-line-intensity-matrix)))))
+      (m/mset! burn-time-matrix i j -1.0)
+      (m/mset! spread-rate-matrix i j -1.0)
+      (m/mset! fire-type-matrix i j -1.0)
+      (let [ignited-cells (compute-neighborhood-fire-spread-rates!
+                           inputs
+                           fire-spread-matrix
+                           initial-ignition-site
+                           nil
+                           0.0
+                           0.0)]
+        (run-loop inputs
+                  {:fire-spread-matrix         fire-spread-matrix
+                   :spread-rate-matrix         spread-rate-matrix
+                   :flame-length-matrix        flame-length-matrix
+                   :fire-line-intensity-matrix fire-line-intensity-matrix
+                   :firebrand-count-matrix     firebrand-count-matrix
+                   :burn-time-matrix           burn-time-matrix
+                   :fire-type-matrix           fire-type-matrix}
+                  ignited-cells)))))
 
 (defmethod run-fire-spread :ignition-perimeter
-  [{:keys [num-rows num-cols initial-ignition-site landfire-rasters] :as constants}]
-  (let [fire-spread-matrix         (first (:matrix initial-ignition-site))
+  [{:keys [num-rows num-cols initial-ignition-site landfire-rasters spotting] :as inputs}]
+  (let [fire-spread-matrix         (first (m/mutable (:matrix initial-ignition-site)))
         non-zero-indices           (get-non-zero-indices fire-spread-matrix)
-        flame-length-matrix        (initialize-matrix num-rows num-cols non-zero-indices)
-        fire-line-intensity-matrix (initialize-matrix num-rows num-cols non-zero-indices)
         perimeter-indices          (filter #(burnable-neighbors? fire-spread-matrix
                                                                  (:fuel-model landfire-rasters)
                                                                  num-rows
                                                                  num-cols
                                                                  %)
-                                           non-zero-indices)
-        ignited-cells              (into {}
-                                         (for [index perimeter-indices
-                                               :let  [ignition-trajectories
-                                                      (compute-neighborhood-fire-spread-rates!
-                                                       constants
-                                                       fire-spread-matrix
-                                                       index
-                                                       nil
-                                                       0.0)]]
-                                           [index ignition-trajectories]))]
-    (run-loop constants
-              ignited-cells
-              fire-spread-matrix
-              flame-length-matrix
-              fire-line-intensity-matrix)))
+                                           non-zero-indices)]
+    (when (seq perimeter-indices)
+      (let [flame-length-matrix        (initialize-matrix num-rows num-cols non-zero-indices)
+            fire-line-intensity-matrix (initialize-matrix num-rows num-cols non-zero-indices)
+            burn-time-matrix           (initialize-matrix num-rows num-cols non-zero-indices)
+            firebrand-count-matrix     (when spotting (m/zero-matrix num-rows num-cols))
+            spread-rate-matrix         (initialize-matrix num-rows num-cols non-zero-indices)
+            fire-type-matrix           (initialize-matrix num-rows num-cols non-zero-indices)
+            ignited-cells              (generate-ignited-cells inputs fire-spread-matrix perimeter-indices)]
+        (when (seq ignited-cells)
+          (run-loop inputs
+                    {:fire-spread-matrix         fire-spread-matrix
+                     :spread-rate-matrix         spread-rate-matrix
+                     :flame-length-matrix        flame-length-matrix
+                     :fire-line-intensity-matrix fire-line-intensity-matrix
+                     :firebrand-count-matrix     firebrand-count-matrix
+                     :burn-time-matrix           burn-time-matrix
+                     :fire-type-matrix           fire-type-matrix}
+                    ignited-cells))))))
 #+end_src
 
 This concludes our description of GridFire's raster-based fire spread
 algorithm.
 
+** Spotting Model Forumulas
+
+Gridfire can optionally include spot fires using a cellular automata model
+described in Perryman 2013. The model is broken up into four submodels:
+Surface Spread, Tree Torching, Firebrand Dispersal, and Spot Ignition. For
+Surface Spread and Tree Torching, the Perryman model uses Rothermal (1972) and
+Van Wagner 1977 respectively. Gridfire will use the same models described in
+the previous sections.
+
+The Firebrand Dispersal model describes the distributions of firebrands relative
+to the wind direction. The location of where the firebrand lands is determined
+by the probabilties of landing d meters in the direction parallel and
+perpendicular to the wind.
+
+For determining the distance a firebrands should land parallel to the wind a
+lognormal probability density function is used from Sardoy (2008). Instead
+of calculating the probability GridFire will sample using a log-normal
+distribution using the mean and standard deviations derived from the fireline
+intensity and wind speed (Sardoy 2008).
+
+Mean and spotting distance (/m/) and it's variance (/v/):
+
+\begin{align*}
+m = aQ^{b} * U^{c}
+\end{align*}
+
+\begin{align*}
+v = m * d
+\end{align*}
+
+The emperical parameters a,b,c, and d is specified directly (see
+section 8 in Confguration File)
+
+a = mean-distance
+
+b = flin-exp
+
+c = ws-exp
+
+d = normalized-distance-variance
+
+The normalized mean (\mu) and standard deviation (\sigma) of the
+lognormal distribution are then calculated from /m/ and /v/ as:
+
+\begin{align*}
+\mu = ln(\frac{m^2}{\sqrt{v + m^{2}}})
+\end{align*}
+
+\begin{align*}
+\sigma = \sqrt{ln(1 + \frac{v}{m^{2}})}
+\end{align*}
+
+The above values are used to plugged into the lognormal distribution
+function:
+
+\begin{align*}
+f(d) = \frac{1}{\sqrt{2 \pi \sigma x}} exp (-\frac{1}{2} \frac{ln(d) - \mu}{\sigma}^2)
+\end{align*}
+
+Instead of implementing this function Gridfire uses the log-normal
+function from kixi.stats (a Clojure/Clojurescript library of
+statistical sampling and transducing functions).
+
+For determining the distance a firebrands should land perpendicular to the wind
+a normal distribution with the mean of 0 and standard deviation of 0.92 is used,
+as described in Himoto and Tanaka (2005) (referenced in Perryman).
+
+Once we have the mean and standard deviation we can sample using log-normal
+distribution for the direction parallel to the wind and normal distribution for
+the direction perpendicular to the wind.
+
+#+name: sardoy-firebrand-dispersal
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting.clj :padline no :no-expand :comments link
+(ns gridfire.spotting
+  (:require [clojure.core.matrix :as m]
+            [gridfire.common :refer [distance-3d
+                                     get-fuel-moisture
+                                     get-value-at
+                                     in-bounds?
+                                     burnable?
+                                     fuel-moisture-from-raster]]
+            [gridfire.crown-fire :refer [ft->m]]
+            [gridfire.utils.random :refer [random-float my-rand-range]]
+            [gridfire.conversion :as convert]
+            [kixi.stats.distribution :as distribution]))
+
+;;-----------------------------------------------------------------------------
+;; Formulas
+;;-----------------------------------------------------------------------------
+
+(defn- sample-spotting-params
+  ^double
+  [param rand-gen]
+  (if (map? param)
+    (let [{:keys [lo hi]} param
+          l               (if (vector? lo) (my-rand-range rand-gen lo) lo)
+          h               (if (vector? hi) (my-rand-range rand-gen hi) hi)]
+      (my-rand-range rand-gen [l h]))
+    param))
+
+(defn- mean-variance
+  "Returns mean spotting distance and it's variance given:
+  fire-line-intensity: (kWm^-1)
+  wind-speed-20ft: (ms^-1)"
+  [{:keys [^double mean-distance ^double flin-exp ^double ws-exp ^double normalized-distance-variance]}
+   rand-gen ^double fire-line-intensity ^double wind-speed-20ft]
+  (let [a (sample-spotting-params mean-distance rand-gen)
+        b (sample-spotting-params flin-exp rand-gen)
+        c (sample-spotting-params ws-exp rand-gen)
+        m (* a (Math/pow fire-line-intensity b) (Math/pow wind-speed-20ft c))]
+    {:mean m :variance (* m (sample-spotting-params normalized-distance-variance rand-gen))}))
+
+(defn- standard-deviation
+  "Returns standard deviation for the lognormal distribution given:
+  mean spotting distance and it's variance"
+  ^double
+  [^double m ^double v]
+  (Math/sqrt (Math/log (+ 1 (/ v (Math/pow m 2))))))
+
+(defn- normalized-mean
+  "Returns normalized mean for the lognormal distribution given:
+  mean spotting distance and it's variance"
+  ^double
+  [^double m ^double v]
+  (Math/log (/ (Math/pow m 2)
+               (Math/sqrt (+ v (Math/pow m 2))))))
+
+(defn- sample-wind-dir-deltas
+  "Returns a sequence of [x y] distances (meters) that firebrands land away
+  from a torched cell at i j where:
+  x: parallel to the wind
+  y: perpendicular to the wind (positive values are to the right of wind direction)"
+  [{:keys [spotting rand-gen random-seed]}
+   fire-line-intensity-matrix
+   wind-speed-20ft [i j]]
+  (let [num-firebrands          (sample-spotting-params (:num-firebrands spotting) rand-gen)
+        intensity               (convert/Btu-ft-s->kW-m (m/mget fire-line-intensity-matrix i j))
+        {:keys [mean variance]} (mean-variance spotting rand-gen intensity wind-speed-20ft)
+        mu                      (normalized-mean mean variance)
+        sd                      (standard-deviation mean variance)
+        parallel                (distribution/log-normal {:mu mu :sd sd})
+        perpendicular           (distribution/normal {:mu 0 :sd 0.92})
+        parallel-values         (distribution/sample num-firebrands parallel {:seed random-seed})
+        perpendicular-values    (distribution/sample num-firebrands perpendicular {:seed random-seed})]
+    (mapv (fn [x y] [(convert/m->ft x) (convert/m->ft y)])
+          parallel-values
+          perpendicular-values)))
+#+end_src
+
+Since the results are distance deltas relative to the wind direction we must
+convert  this to deltas in our coordinate plane. We can convert
+these deltas by using trigonometric functions.
+
+#+name: convert-deltas
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting.clj :padline no :no-expand :comments link
+(defn- hypotenuse ^double
+  [x y]
+  (Math/sqrt (+ (Math/pow x 2) (Math/pow y 2))))
+
+(defn- deltas-wind->coord
+  "Converts deltas from the torched tree in the wind direction to deltas
+  in the coordinate plane"
+  [deltas ^double wind-direction]
+  (mapv (fn [[d-paral d-perp]]
+          (let [d-paral (double d-paral)
+                d-perp  (double d-perp)
+                H  (hypotenuse d-paral d-perp)
+                t1 wind-direction
+                t2 (convert/rad->deg (Math/atan (/ d-perp d-paral)))
+                t3 (+ t1 t2)]
+            [(* -1 H (Math/cos (convert/deg->rad t3)))
+             (* H (Math/sin (convert/deg->rad t3)))]))
+        deltas))
+
+(defn- firebrands
+  "Returns a sequence of cells that firebrands land in"
+  [deltas wind-towards-direction cell ^double cell-size]
+  (let [step         (/ cell-size 2)
+        [x y]        (mapv #(+ step (* ^double % step)) cell)
+        x            (double x)
+        y            (double y)
+        coord-deltas (deltas-wind->coord deltas wind-towards-direction)]
+    (mapv (fn [[dx dy]]
+            (let [dx (double dx)
+                  dy (double dy)]
+              [(int (Math/floor (/ (+ dx x) step)))
+               (int (Math/floor (/ (+ dy y) step)))]))
+          coord-deltas)))
+#+end_src
+
+The Spot Ignition model describes the probability of a spot ignition as well as
+when the spot ignition should occur. Perryman uses the method described in
+Schroeder (1969) but adjusts the result to take into account the distance a
+firebrand lands from the source tree (using Albini 1979) and the number of
+firebrands that land in a cell (using Stauffer 2008).
+
+
+\begin{align*}
+P(I)_d = P(I)exp(-\lambda_sd)
+P(I)_d^{FB} = 1 - (1 - P(I)_d)^b
+\end{align*}
+
+where \lambda is a positive number representing the decay constant, d is the
+firebrand's landing distance away from the source cell. $P(I)_d$ is the
+probability of spot ignition taking into consideration of d. $P(I)_d^{FB}$ is
+the probability of spot fire ignition taking into consideration b, the number of
+firebrands landing in a cell.
+
+#+name: firebrand-ignition-probability
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting.clj :padline no :no-expand :comments link
+(defn- specific-heat-dry-fuel
+  "Returns specific heat of dry fuel given:
+  initiial-temp: (Celcius)
+  ignition-temp: (Celcius)"
+  ^double
+  [^double initial-temp ^double ignition-temp]
+  (+ 0.266 (* 0.0016 (/ (+ ignition-temp initial-temp) 2))))
+
+(defn- heat-of-preignition
+  "Returns heat of preignition given:
+  init-temperature: (Celcius)
+  ignition-temperature: (Celcius)
+  moisture content: (Percent)"
+  ^double
+  [^double init-temperature ^double ignition-temperature ^double moisture]
+  (let [T_o init-temperature
+        T_i ignition-temperature
+        M   moisture
+        c_f (specific-heat-dry-fuel T_o T_i)
+
+        ;; heat required to reach ignition temperature
+        Q_a (* (- T_i T_o) c_f)
+
+        ;; heat required to raise moisture to reach boiling point
+        Q_b (* (- 100 T_o) M)
+
+        ;; Heat of desorption
+        Q_c (* 18.54 (- 1 (Math/exp (* -15.1 M))))
+
+        ;; Heat required to vaporize moisture
+        Q_d (* 540 M)]
+    (+ Q_a Q_b Q_c Q_d)))
+
+(defn- schroeder-ign-prob
+  "Returns the probability of ignition as described in Shroeder (1969) given:
+  relative-humidity: (%)
+  temperature: (Farenheit)"
+  ^double
+  [fuel-moisture temperature]
+  (let [ignition-temperature 320 ;;FIXME should this be a constant?
+        moisture             (-> fuel-moisture :dead :1hr)
+        Q_ig                 (heat-of-preignition (convert/F->C temperature) ignition-temperature moisture)
+        X                    (/ (- 400 Q_ig) 10)]
+    (/ (* 0.000048 (Math/pow X 4.3)) 50)))
+
+(defn- spot-ignition-probability
+  [{:keys [cell-size landfire-rasters]}
+   {:keys [decay-constant]}
+   fuel-moisture
+   temperature
+   firebrand-count
+   torched-origin
+   here]
+  (let [ignition-probability (schroeder-ign-prob fuel-moisture temperature)
+        distance             (ft->m (distance-3d (:elevation landfire-rasters)
+                                                 cell-size
+                                                 here
+                                                 torched-origin))
+        decay-factor         (Math/exp (* -1 ^double decay-constant distance))]
+    (- 1 (Math/pow (- 1 (* ignition-probability decay-factor)) firebrand-count))))
+#+end_src
+
+A firebrand will cause an unburened cell to transition to a burned state if the
+cell receives atleast one firebrand and the cell's probability of ignition as
+calculated by the above equations is greater than a randomly generated uniform number.
+Once a cell has been determined to ignite then the time until ignition is
+calculated. The time until ignition is a sum of three time intervals: the amount
+of time required for the firebrand to reach its maximum vertical height $t_v$,
+the amount of time required for the firebrand to descend from the maximum
+vertical height to the forest floor $t_g$, and the amount of time required for a
+spot fire to ignite and build up to the steady-state $t_I$. Perryman assumes $t_v$
+and $t_g$ to be equal and used the formula from Albini (1979) to calculate it.
+$t_I$ is also assumed to be 20 min as used in McAlpine and Wakimoto (1991).
+
+#+name: firebrands-time-of-ignition
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting.clj :padline no :no-expand :comments link
+(defn- spot-ignition?
+  [rand-gen ^double spot-ignition-probability]
+  (let [random-number (random-float 0 1 rand-gen)]
+    (> spot-ignition-probability random-number)))
+
+(defn- spot-ignition-time
+  "Returns the time of spot ignition in minutes given:
+  global-clock: (min)
+  flame-length: (m)
+  wind-speed-20ft: (ms^-1)"
+  [^double global-clock ^double flame-length ^double wind-speed-20ft]
+  (let [a              5.963
+        b              (- a 1.4)
+        D              0.003 ;firebrand diameter (m)
+        z-max          (* 0.39 D (Math/pow 10 5))
+        t-steady-state 20    ;period of building up to steady state from ignition (min)
+        t_o            1     ;period of steady burning of tree crowns (min)
+        t-max-height   (+ (/ t_o (/ (* 2 flame-length) wind-speed-20ft))
+                          1.2
+                          (* (/ a 3.0)
+                             (- (Math/pow (/ (+ b (/ z-max flame-length)) a) (/ 3.0 2.0)) 1)))]
+    (+ global-clock (* 2 t-max-height) t-steady-state)))
+#+end_src
+
+Once the locations, ignition probabilities, and time of ignition has been
+calculated for each of the firebrands a sequence of key value pairs are
+returned, to be processed in `gridfire.cli`. The key is [x y] location of the
+firebrand and the value [t p] where t is the time of igintion and p is the
+ignition probability.
+#+name: spread-firebrands
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting.clj :padline no :no-expand :comments link
+(defn- update-firebrand-counts!
+  [{:keys [num-rows num-cols landfire-rasters]}
+   firebrand-count-matrix
+   fire-spread-matrix
+   source
+   firebrands]
+  (doseq [[x y :as here] firebrands
+          :when          (and (in-bounds? num-rows num-cols [x y])
+                              (burnable? fire-spread-matrix
+                                         (:fuel-model landfire-rasters)
+                                         source
+                                         here))
+          :let           [new-count (inc ^double (m/mget firebrand-count-matrix x y))]]
+    (m/mset! firebrand-count-matrix x y new-count)))
+
+(defn- in-range?
+  [[min max] fuel-model-number]
+  (<= min fuel-model-number max))
+
+(defn- surface-spot-percent
+  ^double
+  [fuel-range-percents fuel-model-number rand-gen]
+  (reduce (fn [acc [fuel-range percent]]
+            (if (in-range? fuel-range fuel-model-number)
+              (if (vector? percent)
+                (my-rand-range rand-gen percent)
+                percent)
+              acc))
+          0.0
+          fuel-range-percents))
+
+(defn- surface-fire-spot-fire?
+  "Expects surface-fire-spotting config to be a sequence of tuples of
+  ranges [lo hi] and spottting percent. The range represents the range (inclusive)
+  of fuel model numbers that the spotting percent is set to.
+  [[[1 140] 0.0]
+  [[141 149] 1.0]
+  [[150 256] 1.0]]"
+  [{:keys [spotting rand-gen landfire-rasters]} [i j] ^double fire-line-intensity]
+  (let [{:keys [surface-fire-spotting]} spotting]
+    (when (and
+           surface-fire-spotting
+           (> fire-line-intensity ^double (:critical-fire-line-intensity surface-fire-spotting)))
+      (let [fuel-range-percents (:spotting-percent surface-fire-spotting)
+            fuel-model-raster   (:fuel-model landfire-rasters)
+            fuel-model-number   (int (m/mget fuel-model-raster i j))
+            spot-percent        (surface-spot-percent fuel-range-percents fuel-model-number rand-gen)]
+        (>= spot-percent (random-float 0.0 1.0 rand-gen))))))
+
+(defn- crown-spot-fire? [{:keys [spotting rand-gen]}]
+  (when-let [spot-percent (:crown-fire-spotting-percent spotting)]
+    (let [^double p (if (vector? spot-percent)
+                      (let [[lo hi] spot-percent]
+                        (random-float lo hi rand-gen))
+                      spot-percent)]
+      (>= p (random-float 0.0 1.0 rand-gen)))))
+
+(defn- spot-fire? [inputs crown-fire? here fire-line-intensity]
+  (if crown-fire?
+    (crown-spot-fire? inputs)
+    (surface-fire-spot-fire? inputs here fire-line-intensity)))
+
+(defn spread-firebrands
+  "Returns a sequence of key value pairs where
+  key: [x y] locations of the cell
+  val: [t p] where:
+  t: time of ignition
+  p: ignition-probability"
+  [{:keys
+    [num-rows num-cols cell-size landfire-rasters global-clock spotting rand-gen
+     multiplier-lookup perturbations temperature relative-humidity wind-speed-20ft
+     wind-from-direction] :as inputs}
+   {:keys [firebrand-count-matrix fire-spread-matrix fire-line-intensity-matrix flame-length-matrix]}
+   {:keys [cell fire-line-intensity crown-fire?]}]
+  (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
+    (let [tmp               (get-value-at cell
+                                          global-clock
+                                          temperature
+                                          (:temperature multiplier-lookup)
+                                          (:temperature perturbations))
+          rh                (get-value-at cell
+                                          global-clock
+                                          relative-humidity
+                                          (:relative-humidity multiplier-lookup)
+                                          (:relative-humidity perturbations))
+          ws                (get-value-at cell
+                                          global-clock
+                                          wind-speed-20ft
+                                          (:wind-speed-20ft multiplier-lookup)
+                                          (:wind-speed-20ft perturbations))
+          ^double
+          wd                (get-value-at cell
+                                          global-clock
+                                          wind-from-direction
+                                          (:wind-from-direction multiplier-lookup)
+                                          (:wind-from-direction perturbations))
+          fuel-moisture     (or (fuel-moisture-from-raster inputs cell global-clock)
+                                (get-fuel-moisture rh temperature))
+          deltas            (sample-wind-dir-deltas inputs
+                                                    fire-line-intensity-matrix
+                                                    (convert/mph->mps ws)
+                                                    cell)
+          wind-to-direction (mod (+ 180 wd) 360)
+          firebrands        (firebrands deltas wind-to-direction cell cell-size)]
+      (update-firebrand-counts! inputs firebrand-count-matrix fire-spread-matrix cell firebrands)
+      (->> (for [[x y] firebrands
+                 :when (and (in-bounds? num-rows num-cols [x y])
+                            (burnable? fire-spread-matrix (:fuel-model landfire-rasters) cell [x y]))
+                 :let  [firebrand-count (m/mget firebrand-count-matrix x y)
+                        spot-ignition-p (spot-ignition-probability inputs
+                                                                   spotting
+                                                                   fuel-moisture
+                                                                   tmp
+                                                                   firebrand-count
+                                                                   cell
+                                                                   [x y])]]
+             (when (spot-ignition? rand-gen spot-ignition-p)
+               (let [[i j] cell
+                     t     (spot-ignition-time global-clock
+                                               (ft->m (m/mget flame-length-matrix i j))
+                                               (convert/mph->mps ws))]
+                 [[x y] [t spot-ignition-p]])))
+           (remove nil?)))))
+#+end_src
 * User Interface
 
 The GridFire model described in the previous section may be called
@@ -2334,7 +3005,9 @@ described in the previous section.
 (ns gridfire.magellan-bridge
   (:require [clojure.core.matrix     :as m]
             [magellan.core           :refer [read-raster]]
-            [magellan.raster.inspect :as inspect]))
+            [magellan.raster.inspect :as inspect])
+  (:import org.geotools.coverage.grid.GridGeometry2D
+           org.geotools.referencing.operation.transform.AffineTransform2D))
 
 (defn geotiff-raster-to-matrix
   "Reads a raster from a file using the magellan.core library. Returns the
@@ -2354,18 +3027,19 @@ described in the previous section.
    :matrix #vectorz/matrix Large matrix with shape: [10,534,486]}"
   [file-path]
   (let [raster   (read-raster file-path)
-        grid     (:grid raster)
+        grid     ^GridGeometry2D (:grid raster)
         r-info   (inspect/describe-raster raster)
         matrix   (inspect/extract-matrix raster)
         image    (:image r-info)
-        envelope (:envelope r-info)]
+        envelope (:envelope r-info)
+        crs2d    ^AffineTransform2D (.getGridToCRS2D grid)]
     {:srid       (:srid r-info)
      :upperleftx (get-in envelope [:x :min])
-     :upperlefty (get-in envelope [:y :min])
+     :upperlefty (get-in envelope [:y :max])
      :width      (:width image)
      :height     (:height image)
-     :scalex     (.getScaleX (.getGridToCRS2D grid))
-     :scaley     (.getScaleY (.getGridToCRS2D grid))
+     :scalex     (.getScaleX crs2d)
+     :scaley     (.getScaleY crs2d)
      :skewx      0.0 ;FIXME not used?
      :skewy      0.0 ;FIXME not used?
      :numbands   (:bands image)
@@ -2420,51 +3094,36 @@ or false:
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/cli.clj :padline no :no-expand :comments link
 (ns gridfire.cli
   (:gen-class)
-  (:require [clojure.core.matrix  :as m]
-            [clojure.data.csv     :as csv]
-            [clojure.edn          :as edn]
-            [clojure.java.io      :as io]
-            [gridfire.fetch       :as fetch]
-            [gridfire.fire-spread :refer [run-fire-spread]]
-            [magellan.core        :refer [make-envelope
-                                          matrix-to-raster
-                                          register-new-crs-definitions-from-properties-file!
-                                          write-raster]]
-            [matrix-viz.core      :refer [save-matrix-as-png]])
+  (:require [clojure.core.matrix      :as m]
+            [clojure.core.reducers    :as r]
+            [clojure.data.csv         :as csv]
+            [clojure.edn              :as edn]
+            [clojure.java.io          :as io]
+            [clojure.spec.alpha       :as s]
+            [clojure.string           :as str]
+            [gridfire.binary-output   :as binary]
+            [gridfire.common          :refer [calc-emc get-neighbors in-bounds?]]
+            [gridfire.crown-fire      :refer [m->ft]]
+            [gridfire.fetch           :as fetch]
+            [gridfire.fire-spread     :refer [rothermel-fast-wrapper
+                                              run-fire-spread]]
+            [gridfire.perturbation    :as perturbation]
+            [gridfire.random-ignition :as random-ignition]
+            [gridfire.spec.config     :as spec]
+            [gridfire.utils.random    :refer [draw-samples]]
+            [magellan.core            :refer [make-envelope
+                                              matrix-to-raster
+                                              register-new-crs-definitions-from-properties-file!
+                                              write-raster]]
+            [matrix-viz.core          :refer [save-matrix-as-png]]
+            [taoensso.tufte           :as tufte]
+            [triangulum.logging       :refer [log-str log]])
   (:import java.util.Random))
 
 (m/set-current-implementation :vectorz)
 
 (register-new-crs-definitions-from-properties-file! "CUSTOM"
                                                     (io/resource "custom_projections.properties"))
-
-(defn my-rand
-  ([^Random rand-generator] (.nextDouble rand-generator))
-  ([^Random rand-generator n] (* n (my-rand rand-generator))))
-
-(defn my-rand-int
-  [rand-generator n]
-  (int (my-rand rand-generator n)))
-
-(defn my-rand-nth
-  [rand-generator coll]
-  (nth coll (my-rand-int rand-generator (count coll))))
-
-(defn sample-from-list
-  [rand-generator n xs]
-  (repeatedly n #(my-rand-nth rand-generator xs)))
-
-(defn sample-from-range
-  [rand-generator n [min max]]
-  (let [range (- max min)]
-    (repeatedly n #(+ min (my-rand-int rand-generator range)))))
-
-(defn draw-samples
-  [rand-generator n x]
-  (into []
-        (cond (list? x)   (sample-from-list rand-generator n x)
-              (vector? x) (sample-from-range rand-generator n x)
-              :else       (repeat n x))))
 
 (defn cells-to-acres
   [cell-size num-cells]
@@ -2477,6 +3136,7 @@ or false:
         fire-line-intensities      (filterv pos? (m/eseq (:fire-line-intensity-matrix fire-spread-results)))
         burned-cells               (count flame-lengths)
         fire-size                  (cells-to-acres cell-size burned-cells)
+        crown-fire-size            (cells-to-acres cell-size (:crown-fire-count fire-spread-results))
         flame-length-mean          (/ (m/esum flame-lengths) burned-cells)
         fire-line-intensity-mean   (/ (m/esum fire-line-intensities) burned-cells)
         flame-length-stddev        (->> flame-lengths
@@ -2490,19 +3150,12 @@ or false:
                                         (#(/ % burned-cells))
                                         (Math/sqrt))]
     {:fire-size                  fire-size
+     :crown-fire-size            crown-fire-size
      :flame-length-mean          flame-length-mean
      :flame-length-stddev        flame-length-stddev
      :fire-line-intensity-mean   fire-line-intensity-mean
-     :fire-line-intensity-stddev fire-line-intensity-stddev}))
-
-(defn calc-emc
-  "Computes the Equilibrium Moisture Content (EMC) from rh (relative
-   humidity in %) and temp (temperature in F)."
-  [rh temp]
-  (/ (cond (< rh 10)  (+ 0.03229 (* 0.281073 rh) (* -0.000578 rh temp))
-           (< rh 50)  (+ 2.22749 (* 0.160107 rh) (* -0.01478 temp))
-           :otherwise (+ 21.0606 (* 0.005565 rh rh) (* -0.00035 rh temp) (* -0.483199 rh)))
-     30))
+     :fire-line-intensity-stddev fire-line-intensity-stddev
+     :spot-count                 (:spot-count fire-spread-results)}))
 
 (defn calc-ffwi
   "Computes the Fosberg Fire Weather Index value from rh (relative
@@ -2519,104 +3172,180 @@ or false:
     (/ (* eta (Math/sqrt (+ 1 (Math/pow (* x wsp) 2))))
        0.3002)))
 
-(defn run-simulations
-  [simulations landfire-rasters envelope cell-size ignition-row
-   ignition-col max-runtime temperature relative-humidity wind-speed-20ft
-   wind-from-direction foliar-moisture ellipse-adjustment-factor
-   outfile-suffix output-geotiffs? output-pngs? output-csvs? ignition-layer]
-  (mapv
-   (fn [i]
-     (let [equilibrium-moisture  (calc-emc (relative-humidity i) (temperature i))
-           fuel-moisture         {:dead {:1hr   (+ equilibrium-moisture 0.002)
-                                         :10hr  (+ equilibrium-moisture 0.015)
-                                         :100hr (+ equilibrium-moisture 0.025)}
-                                  :live {:herbaceous (* equilibrium-moisture 2.0)
-                                         :woody      (* equilibrium-moisture 0.5)}}
-           initial-ignition-site (or ignition-layer
-                                     (and (ignition-row i)
-                                          (ignition-col i)
-                                          [(ignition-row i) (ignition-col i)]))]
-       (if-let [fire-spread-results (run-fire-spread
-                                     {:max-runtime               (max-runtime i)
-                                      :cell-size                 cell-size
-                                      :landfire-rasters          landfire-rasters
-                                      :wind-speed-20ft           (wind-speed-20ft i)
-                                      :wind-from-direction       (wind-from-direction i)
-                                      :fuel-moisture             fuel-moisture
-                                      :foliar-moisture           (* 0.01 (foliar-moisture i))
-                                      :ellipse-adjustment-factor (ellipse-adjustment-factor i)
-                                      :num-rows                  (m/row-count (:fuel-model landfire-rasters))
-                                      :num-cols                  (m/column-count (:fuel-model landfire-rasters))
-                                      :initial-ignition-site     initial-ignition-site})]
-         (do
-           (doseq [[name layer] [["fire_spread"         :fire-spread-matrix]
-                                 ["flame_length"        :flame-length-matrix]
-                                 ["fire_line_intensity" :fire-line-intensity-matrix]]]
-             (when output-geotiffs?
-               (-> (matrix-to-raster name (fire-spread-results layer) envelope)
-                   (write-raster (str name outfile-suffix "_" i ".tif"))))
-             (when output-pngs?
-               (save-matrix-as-png :color 4 -1.0
-                                   (fire-spread-results layer)
-                                   (str name outfile-suffix "_" i ".png"))))
-           (when output-csvs?
-             (merge
-              {:ignition-row              (ignition-row i)
-               :ignition-col              (ignition-col i)
-               :max-runtime               (max-runtime i)
-               :temperature               (temperature i)
-               :relative-humidity         (relative-humidity i)
-               :wind-speed-20ft           (wind-speed-20ft i)
-               :wind-from-direction       (wind-from-direction i)
-               :foliar-moisture           (foliar-moisture i)
-               :ellipse-adjustment-factor (ellipse-adjustment-factor i)
-               :exit-condition            (:exit-condition fire-spread-results)}
-              (summarize-fire-spread-results fire-spread-results cell-size))))
-         (when output-csvs?
-           {:ignition-row               (ignition-row i)
-            :ignition-col               (ignition-col i)
-            :max-runtime                (max-runtime i)
-            :temperature                (temperature i)
-            :relative-humidity          (relative-humidity i)
-            :wind-speed-20ft            (wind-speed-20ft i)
-            :wind-from-direction        (wind-from-direction i)
-            :foliar-moisture            (foliar-moisture i)
-            :ellipse-adjustment-factor  (ellipse-adjustment-factor i)
-            :fire-size                  0.0
-            :flame-length-mean          0.0
-            :flame-length-stddev        0.0
-            :fire-line-intensity-mean   0.0
-            :fire-line-intensity-stddev 0.0
-            :exit-condition             :no-fire-spread}))))
-   (range simulations)))
+(defn kebab->snake [s]
+  (str/replace s #"-" "_"))
 
-(defn write-csv-outputs
-  [output-csvs? output-filename results-table]
-  (when output-csvs?
-    (with-open [out-file (io/writer output-filename)]
-      (->> results-table
-           (sort-by #(vector (:ignition-row %) (:ignition-col %)))
-           (mapv (fn [{:keys [ignition-row ignition-col max-runtime temperature relative-humidity wind-speed-20ft
-                              wind-from-direction foliar-moisture ellipse-adjustment-factor fire-size flame-length-mean
-                              flame-length-stddev fire-line-intensity-mean fire-line-intensity-stddev]}]
-                   [ignition-row
-                    ignition-col
-                    max-runtime
-                    temperature
-                    relative-humidity
-                    wind-speed-20ft
-                    wind-from-direction
-                    foliar-moisture
-                    ellipse-adjustment-factor
-                    fire-size
-                    flame-length-mean
-                    flame-length-stddev
-                    fire-line-intensity-mean
-                    fire-line-intensity-stddev]))
-           (cons ["ignition-row" "ignition-col" "max-runtime" "temperature" "relative-humidity" "wind-speed-20ft"
-                  "wind-from-direction" "foliar-moisture" "ellipse-adjustment-factor" "fire-size" "flame-length-mean"
-                  "flame-length-stddev" "fire-line-intensity-mean" "fire-line-intensity-stddev"])
-           (csv/write-csv out-file)))))
+(defn snake->kebab [s]
+  (str/replace s #"_" "-"))
+
+(defn min->hour [t]
+  (int (quot t 60)))
+
+(defn previous-active-perimeter?
+  [[i j :as here] matrix]
+  (let [num-rows (m/row-count matrix)
+        num-cols (m/column-count matrix)]
+    (and
+     (= (m/mget matrix i j) -1.0)
+     (->> (get-neighbors here)
+          (filter #(in-bounds? num-rows num-cols %))
+          (map #(apply m/mget matrix %))
+          (some pos?)))))
+
+(defn to-color-map-values [burn-time-matrix current-clock]
+  (m/emap-indexed (fn [here burn-time]
+                    (let [delta-hours (->> (- current-clock burn-time)
+                                           min->hour)]
+                      (cond
+                        (previous-active-perimeter? here burn-time-matrix) 201
+                        (= burn-time -1.0)                                 200
+                        (< 0 delta-hours 5)                                delta-hours
+                        (>= delta-hours 5)                                 5
+                        :else                                              0)))
+                  burn-time-matrix))
+
+(defn layer-snapshot [burn-time-matrix layer-matrix t]
+  (m/emap (fn [layer-value burn-time]
+            (if (<= burn-time t)
+              layer-value
+              0))
+          layer-matrix
+          burn-time-matrix))
+
+(defn output-filename [name outfile-suffix simulation-id output-time ext]
+  (as-> [name outfile-suffix simulation-id (when output-time (str "t" output-time))] $
+    (remove str/blank? $)
+    (str/join "_" $)
+    (str $ ext)))
+
+(defn output-geotiff
+  ([config matrix name envelope]
+   (output-geotiff config matrix name envelope nil nil))
+
+  ([config matrix name envelope simulation-id]
+   (output-geotiff config matrix name envelope simulation-id nil))
+
+  ([{:keys [output-directory output-geotiffs? outfile-suffix] :as config}
+    matrix name envelope simulation-id output-time]
+   (when output-geotiffs?
+     (let [file-name (output-filename name
+                                      outfile-suffix
+                                      (str simulation-id)
+                                      output-time
+                                      ".tif")]
+       (-> (matrix-to-raster name matrix envelope)
+           (write-raster (if output-directory
+                           (str/join "/" [output-directory file-name])
+                           file-name)))))))
+
+(defn output-png
+  ([config matrix name envelope]
+   (output-png config matrix name envelope nil nil))
+
+  ([config matrix name envelope simulation-id]
+   (output-png config matrix name envelope simulation-id nil))
+
+  ([{:keys [output-directory output-png? outfile-suffix] :as config}
+    matrix name envelope simulation-id output-time]
+   (when output-png?
+     (let [file-name (output-filename name
+                                      outfile-suffix
+                                      (str simulation-id)
+                                      output-time
+                                      ".png")]
+       (save-matrix-as-png :color 4 -1.0
+                           matrix
+                           (if output-directory
+                             (str/join "/" [output-directory file-name])
+                             (file-name)))))))
+
+(def layer-name->matrix
+  [["fire_spread"         :fire-spread-matrix]
+   ["flame_length"        :flame-length-matrix]
+   ["fire_line_intensity" :fire-line-intensity-matrix]
+   ["burn_history"        :burn-time-matrix]
+   ["spread_rate"         :spread-rate-matrix]
+   ["fire_type"           :fire-type-matrix]])
+
+(defn filter-output-layers [output-layers]
+  (let [layers-to-filter (set (map (comp kebab->snake name) (keys output-layers)))]
+    (filter (fn [[name _]] (contains? layers-to-filter name)) layer-name->matrix)))
+
+(defn process-output-layers-timestepped
+  [{:keys [simulation-id] :as config}
+   {:keys [global-clock burn-time-matrix] :as fire-spread-results}
+   name layer timestep envelope]
+  (doseq [output-time (range 0 (inc global-clock) timestep)]
+    (let [matrix          (if (= layer "burn_history")
+                            (to-color-map-values layer output-time)
+                            (fire-spread-results layer))
+          filtered-matrix (layer-snapshot burn-time-matrix matrix output-time)]
+      (output-geotiff config filtered-matrix name envelope simulation-id output-time)
+      (output-png config filtered-matrix name envelope simulation-id output-time))))
+
+(defn process-output-layers!
+  [{:keys [output-layers] :as config}
+   {:keys [global-clock burn-time-matrix] :as fire-spread-results}
+   envelope
+   simulation-id]
+  (let [layers (if output-layers
+                 (filter-output-layers output-layers)
+                 layer-name->matrix)]
+    (doseq [[name layer] layers]
+      (let [kw       (keyword (snake->kebab name))
+            timestep (get output-layers kw)]
+        (if (int? timestep)
+          (process-output-layers-timestepped config
+                                             fire-spread-results
+                                             name
+                                             layer
+                                             timestep
+                                             envelope)
+          (let [matrix (if (= layer "burn_history")
+                         (to-color-map-values layer global-clock)
+                         (fire-spread-results layer))]
+            (output-geotiff config matrix name envelope simulation-id)
+            (output-png config matrix name envelope simulation-id)))))))
+
+(defn process-burn-count!
+  [{:keys [fire-spread-matrix burn-time-matrix global-clock]}
+   burn-count-matrix
+   timestep]
+  (if (int? timestep)
+    (doseq [clock (range 0 (inc global-clock) timestep)]
+      (let [filtered-fire-spread (m/emap (fn [layer-value burn-time]
+                                           (if (<= burn-time clock)
+                                             layer-value
+                                             0))
+                                         fire-spread-matrix
+                                         burn-time-matrix)
+            band                 (int (quot clock timestep))]
+        (m/add! (nth (seq burn-count-matrix) band) filtered-fire-spread)))
+    (m/add! burn-count-matrix fire-spread-matrix)))
+
+(defn initialize-burn-count-matrix
+  [output-burn-probability max-runtimes num-rows num-cols]
+  (when output-burn-probability
+    (if (int? output-burn-probability)
+      (let [num-bands (inc (quot (apply max max-runtimes) output-burn-probability))]
+        (m/zero-array [num-bands num-rows num-cols]))
+      (m/zero-array [num-rows num-cols]))))
+
+(defn process-binary-output!
+  [{:keys [output-binary? output-directory]}
+   {:keys [burn-time-matrix flame-length-matrix spread-rate-matrix fire-type-matrix]}
+   simulation]
+  (when output-binary?
+    (let [output-name (format "toa_0001_%05d.bin" (inc simulation))
+          output-path (if output-directory
+                        (.getPath (io/file output-directory output-name))
+                        output-name)]
+      (binary/write-matrices-as-binary output-path
+                                       [:float :float :float :int]
+                                       [(m/emap #(if (pos? %) (* 60 %) %) burn-time-matrix)
+                                        flame-length-matrix
+                                        spread-rate-matrix
+                                        fire-type-matrix]))))
 
 (defn get-envelope
   [config landfire-layers]
@@ -2627,52 +3356,305 @@ or false:
                    (* width scalex)
                    (* -1.0 height scaley))))
 
-(defn get-weather [{:keys [simulations] :as config} rand-generator weather-type]
-  (let [weather-spec (weather-type config)]
-    (if (map? weather-spec)
-      (fetch/weather config weather-spec)
-      (draw-samples rand-generator simulations weather-spec))))
+(defn fuel-moisture-multiplier-lookup
+  [cell-size fuel-moisture-layers]
+  (when fuel-moisture-layers
+    (letfn [(f [{:keys [scalex]}] (int (quot (m->ft scalex) cell-size)))]
+      (-> fuel-moisture-layers
+          (update-in [:dead :1hr] f)
+          (update-in [:dead :10hr] f)
+          (update-in [:dead :100hr] f)
+          (update-in [:live :herbaceous] f)
+          (update-in [:live :woody] f)))))
 
+(defn create-multiplier-lookup
+  [{:keys [cell-size weather-layers fuel-moisture-layers]}]
+  (merge
+   (reduce-kv (fn [acc k {:keys [scalex]}]
+                (assoc acc k (int (quot (m->ft scalex) cell-size))))
+              {}
+              weather-layers)
+   (fuel-moisture-multiplier-lookup cell-size fuel-moisture-layers)))
+
+(defn get-weather [config rand-generator weather-type weather-layers]
+  (if (contains? weather-layers weather-type)
+    (weather-type weather-layers)
+    (draw-samples rand-generator (:simulations config) (config weather-type))))
+
+;; FIXME: Use common raster vs layer terminology
+(defn add-input-layers
+  [config]
+  (let [landfire-layers (fetch/landfire-layers config)]
+    (assoc config
+           :envelope             (get-envelope config landfire-layers)
+           :landfire-rasters     (into {}
+                                       (map (fn [[layer info]] [layer (first (:matrix info))]))
+                                       landfire-layers)
+           :ignition-layer       (fetch/ignition-layer config)
+           :ignition-mask-layer  (fetch/ignition-mask-layer config)
+           :weather-layers       (fetch/weather-layers config)
+           :fuel-moisture-layers (fetch/fuel-moisture-layers config))))
+
+(defn add-misc-params
+  [{:keys [random-seed landfire-rasters] :as inputs}]
+  (assoc inputs
+         :num-rows          (m/row-count (:fuel-model landfire-rasters))
+         :num-cols          (m/column-count (:fuel-model landfire-rasters))
+         :multiplier-lookup (create-multiplier-lookup inputs)
+         :rand-gen          (if random-seed
+                              (Random. random-seed)
+                              (Random.))))
+
+(defn add-sampled-params
+  [{:keys [rand-gen simulations max-runtime ignition-row ignition-col
+           foliar-moisture ellipse-adjustment-factor perturbations]
+    :as inputs}]
+  (assoc inputs
+         :max-runtimes               (draw-samples rand-gen simulations max-runtime)
+         :ignition-rows              (draw-samples rand-gen simulations ignition-row)
+         :ignition-cols              (draw-samples rand-gen simulations ignition-col)
+         :foliar-moistures           (draw-samples rand-gen simulations foliar-moisture)
+         :ellipse-adjustment-factors (draw-samples rand-gen simulations ellipse-adjustment-factor)
+         :perturbations              (perturbation/draw-samples rand-gen simulations perturbations))) ; FIXME: shadowed
+
+(defn add-weather-params
+  [{:keys [rand-gen weather-layers] :as inputs}]
+  (assoc inputs
+         :temperatures         (get-weather inputs rand-gen :temperature weather-layers)
+         :relative-humidities  (get-weather inputs rand-gen :relative-humidity weather-layers)
+         :wind-speeds-20ft     (get-weather inputs rand-gen :wind-speed-20ft weather-layers)
+         :wind-from-directions (get-weather inputs rand-gen :wind-from-direction weather-layers)))
+
+(defn add-ignitable-sites
+  [{:keys [ignition-mask-layer num-rows num-cols] :as inputs}]
+  (let [ignition-mask-indices (some->> ignition-mask-layer
+                                       :matrix
+                                       first
+                                       m/non-zero-indices
+                                       (map-indexed (fn [i v] (when (pos? (count v)) [i v])))
+                                       (filterv identity))
+        ignitable-sites (if ignition-mask-indices
+                          (for [[row cols] ignition-mask-indices
+                                col        cols
+                                :when      (random-ignition/valid-ignition-site? inputs row col)]
+                            [row col])
+                          (for [row   (range num-rows)
+                                col   (range num-cols)
+                                :when (random-ignition/valid-ignition-site? inputs row col)]
+                            [row col]))]
+    (assoc inputs :ignitable-sites ignitable-sites)))
+
+(defn load-inputs
+  [config]
+  (-> config
+      (add-input-layers)
+      (add-misc-params)
+      (add-sampled-params)
+      (add-weather-params)
+      (add-ignitable-sites)))
+
+;; FIXME: Replace input-variations expression with add-sampled-params
+;;        and add-weather-params (and remove them from load-inputs).
+;;        This will require making these function return single
+;;        samples instead of sequences of samples. Also combine the
+;;        initial-ignition-site calculation into input-variations or
+;;        move it to run-fire-spread.
+(defn run-simulation!
+  [{:keys [output-csvs? output-burn-probability envelope ignition-layer cell-size
+           max-runtimes ignition-rows ignition-cols foliar-moistures ellipse-adjustment-factors perturbations
+           temperatures relative-humidities wind-speeds-20ft wind-from-directions
+           random-seed] :as inputs}
+   burn-count-matrix
+   i]
+  (tufte/profile
+   {:id :run-simulation}
+   (let [matrix-or-i           (fn [obj i] (:matrix obj (obj i)))
+         initial-ignition-site (or ignition-layer
+                                   (when (and (ignition-rows i) (ignition-cols i))
+                                     [(ignition-rows i) (ignition-cols i)]))
+         input-variations      {:rand-gen                  (if random-seed (Random. (+ random-seed i)) (Random.))
+                                :max-runtime               (max-runtimes i)
+                                :foliar-moisture           (* 0.01 (foliar-moistures i))
+                                :ellipse-adjustment-factor (ellipse-adjustment-factors i)
+                                :perturbations             (when perturbations (perturbations i))
+                                :temperature               (matrix-or-i temperatures i)
+                                :relative-humidity         (matrix-or-i relative-humidities i)
+                                :wind-speed-20ft           (matrix-or-i wind-speeds-20ft i)
+                                :wind-from-direction       (matrix-or-i wind-from-directions i)}
+         fire-spread-results   (tufte/p :run-fire-spread
+                                        (run-fire-spread
+                                         (merge inputs
+                                                input-variations
+                                                {:initial-ignition-site initial-ignition-site})))]
+     (when fire-spread-results
+       (process-output-layers! inputs fire-spread-results envelope i)
+       (when-let [timestep output-burn-probability]
+         (process-burn-count! fire-spread-results burn-count-matrix timestep))
+       (process-binary-output! inputs fire-spread-results i))
+     (when output-csvs?
+       (merge
+        input-variations
+        {:simulation       (inc i)
+         :ignition-row     (ignition-rows i)
+         :ignition-col     (ignition-cols i)
+         :foliar-moisture  (foliar-moistures i)
+         :exit-condition   (:exit-condition fire-spread-results :no-fire-spread)
+         :crown-fire-count (:crown-fire-count fire-spread-results)}
+        (if fire-spread-results
+          (tufte/p
+           :summarize-fire-spread-results
+           (summarize-fire-spread-results fire-spread-results cell-size))
+          {:fire-size                  0.0
+           :flame-length-mean          0.0
+           :flame-length-stddev        0.0
+           :fire-line-intensity-mean   0.0
+           :fire-line-intensity-stddev 0.0}))))))
+
+(defn run-simulations!
+  [{:keys [simulations max-runtimes output-burn-probability parallel-strategy num-rows num-cols] :as inputs}]
+  (log-str "Running simulations")
+  (let [stats-accumulator (do
+                            (tufte/remove-handler! :accumulating)
+                            (tufte/add-accumulating-handler! {:handler-id :accumulating}))
+        burn-count-matrix (initialize-burn-count-matrix output-burn-probability
+                                                        max-runtimes
+                                                        num-rows
+                                                        num-cols)
+        parallel-bin-size (max 1 (quot simulations (.availableProcessors (Runtime/getRuntime))))
+        reducer-fn        (if (= parallel-strategy :between-fires)
+                            #(into [] (r/fold parallel-bin-size r/cat r/append! %))
+                            #(into [] %))
+        summary-stats     (with-redefs [rothermel-fast-wrapper (memoize rothermel-fast-wrapper)]
+                           (->> (vec (range simulations))
+                                (r/map (partial run-simulation! inputs burn-count-matrix))
+                                (r/remove nil?)
+                                (reducer-fn)))]
+    (Thread/sleep 1000)
+    (log (tufte/format-grouped-pstats @stats-accumulator
+                                      {:format-pstats-opts {:columns [:n-calls :min :max :mean :mad :clock :total]}})
+         :truncate? false)
+    {:burn-count-matrix burn-count-matrix
+     :summary-stats     summary-stats}))
+
+(defn write-landfire-layers!
+  [{:keys [output-landfire-inputs? outfile-suffix landfire-rasters envelope]}]
+  (when output-landfire-inputs?
+    (doseq [[layer matrix] landfire-rasters]
+      (-> (matrix-to-raster (name layer) matrix envelope)
+          (write-raster (str (name layer) outfile-suffix ".tif"))))))
+
+(defn write-burn-probability-layer!
+  [{:keys [output-burn-probability simulations envelope] :as inputs} {:keys [burn-count-matrix]}]
+  (when-let [timestep output-burn-probability]
+    (let [output-name "burn_probability"]
+      (if (int? timestep)
+        (doseq [[band matrix] (map-indexed vector burn-count-matrix)]
+          (let [output-time        (* band timestep)
+                probability-matrix (m/emap #(/ % simulations) matrix)]
+            (output-geotiff inputs probability-matrix output-name envelope nil output-time)
+            (output-png inputs probability-matrix output-name envelope nil output-time)))
+        (let [probability-matrix (m/emap #(/ % simulations) burn-count-matrix)]
+          (output-geotiff inputs probability-matrix output-name envelope)
+          (output-png inputs probability-matrix output-name envelope))))))
+
+(defn write-csv-outputs!
+  [{:keys [output-csvs? output-directory outfile-suffix]} {:keys [summary-stats]}]
+  (when output-csvs?
+    (let [output-filename (str "summary_stats" outfile-suffix ".csv")]
+      (with-open [out-file (io/writer (if output-directory
+                                        (str/join "/" [output-directory output-filename])
+                                        output-filename))]
+        (->> summary-stats
+             (sort-by #(vector (:ignition-row %) (:ignition-col %)))
+             (mapv (fn [{:keys [ignition-row ignition-col max-runtime temperature relative-humidity
+                                wind-speed-20ft wind-from-direction foliar-moisture ellipse-adjustment-factor
+                                fire-size flame-length-mean flame-length-stddev fire-line-intensity-mean
+                                fire-line-intensity-stddev simulation crown-fire-size spot-count]}]
+                     [simulation
+                      ignition-row
+                      ignition-col
+                      max-runtime
+                      temperature
+                      relative-humidity
+                      wind-speed-20ft
+                      wind-from-direction
+                      foliar-moisture
+                      ellipse-adjustment-factor
+                      fire-size
+                      flame-length-mean
+                      flame-length-stddev
+                      fire-line-intensity-mean
+                      fire-line-intensity-stddev
+                      crown-fire-size
+                      spot-count]))
+             (cons ["simulation" "ignition-row" "ignition-col" "max-runtime" "temperature" "relative-humidity" "wind-speed-20ft"
+                    "wind-from-direction" "foliar-moisture" "ellipse-adjustment-factor" "fire-size" "flame-length-mean"
+                    "flame-length-stddev" "fire-line-intensity-mean" "fire-line-intensity-stddev" "crown-fire-size" "spot-count"])
+             (csv/write-csv out-file))))))
+
+;; FIXME: Add a program banner and better usage/error messages
 (defn -main
   [& config-files]
   (doseq [config-file config-files]
-    (let [config           (edn/read-string (slurp config-file))
-          landfire-layers  (fetch/landfire-layers config)
-          landfire-rasters (into {}
-                                 (map (fn [[layer info]] [layer (first (:matrix info))]))
-                                 landfire-layers)
-          ignition-layer   (fetch/ignition-layer config)
-          envelope         (get-envelope config landfire-layers)
-          simulations      (:simulations config)
-          rand-generator   (if-let [seed (:random-seed config)]
-                             (Random. seed)
-                             (Random.))]
-      (when (:output-landfire-inputs? config)
-        (doseq [[layer matrix] landfire-rasters]
-          (-> (matrix-to-raster (name layer) matrix envelope)
-              (write-raster (str (name layer) (:outfile-suffix config) ".tif")))))
-      (->> (run-simulations
-            simulations
-            landfire-rasters
-            envelope
-            (:cell-size config)
-            (draw-samples rand-generator simulations (:ignition-row config))
-            (draw-samples rand-generator simulations (:ignition-col config))
-            (draw-samples rand-generator simulations (:max-runtime config))
-            (get-weather config rand-generator :temperature)
-            (get-weather config rand-generator :relative-humidity)
-            (get-weather config rand-generator :wind-speed-20ft)
-            (get-weather config rand-generator :wind-from-direction)
-            (draw-samples rand-generator simulations (:foliar-moisture config))
-            (draw-samples rand-generator simulations (:ellipse-adjustment-factor config))
-            (:outfile-suffix config)
-            (:output-geotiffs? config)
-            (:output-pngs? config)
-            (:output-csvs? config)
-            ignition-layer)
-           (write-csv-outputs
-            (:output-csvs? config)
-            (str "summary_stats" (:outfile-suffix config) ".csv"))))))
+    (let [config (edn/read-string (slurp config-file))]
+      (if-not (s/valid? ::spec/config config)
+        (s/explain ::spec/config config)
+        (let [inputs  (load-inputs config)]
+          (if (seq (:ignitable-sites inputs))
+            (let [outputs (run-simulations! inputs)]
+              (write-landfire-layers! inputs)
+              (write-burn-probability-layer! inputs outputs)
+              (write-csv-outputs! inputs outputs))
+            (log-str "Could not run simulation. No valid ignition sites. Config:" config-file)))))))
+#+end_src
+
+#+name: utils-random
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/utils/random.clj :padline no :no-expand :comments link
+(ns gridfire.utils.random
+  (:import java.util.Random))
+
+(defn my-rand
+  ([^Random rand-generator] (.nextDouble rand-generator))
+  (^double [^Random rand-generator n] (* n (my-rand rand-generator))))
+
+(defn my-rand-int
+  ^long
+  [rand-generator n]
+  (int (my-rand rand-generator n)))
+
+(defn my-rand-nth
+  [rand-generator coll]
+  (nth coll (my-rand-int rand-generator (count coll))))
+
+;;TODO remove , we can just use my-rand-range
+(defn random-float
+  ^double
+  [min-val max-val rand-generator]
+  (let [range (- max-val min-val)]
+    (+ min-val (my-rand rand-generator range))))
+
+(defn my-rand-range
+  [rand-generator [min-val max-val]]
+  (let [range (- max-val min-val)]
+    (+ min-val (if (and (int? min-val) (int? max-val))
+                 (int (my-rand rand-generator range))
+                 (my-rand rand-generator range)))))
+
+(defn sample-from-list
+  [rand-generator n xs]
+  (repeatedly n #(my-rand-nth rand-generator xs)))
+
+(defn sample-from-range
+  [rand-generator n [min max]]
+  (let [range (- max min)]
+    (repeatedly n #(+ min (my-rand-int rand-generator range)))))
+
+(defn draw-samples
+  [rand-generator n x]
+  (into []
+        (cond (list? x)   (sample-from-list rand-generator n x)
+              (vector? x) (sample-from-range rand-generator n x)
+              :else       (repeat n x))))
 #+end_src
 
 * Configuration File
@@ -2758,6 +3740,36 @@ Here's an example of fetching LANDFIRE layers from files on disk.
                                         :source "test/gridfire/resources/slp.tif"}}}
 #+end_src
 
+Gridfire uses imperial units for its calculations. Gridfire optionally
+allows us to use LANDFIRE LAYERS in different units and scale.
+
+To specify the need for conversion from metric to imperial, include
+the following mapping in the fetch specifications:
+
+- *units*: keyword :metric
+
+#+begin_src clojure
+{:canopy-height {:type   :geotiff
+                 :source "test/gridfire/resources/weather-test/ch.tif"
+                 :units  :metric}}
+#+end_src
+
+To specify a scaling factor, include the following mapping in the
+fetch specifications:
+
+- *multiplier*: int or float
+
+#+begin_src clojure
+{:canopy-height {:type       :geotiff
+                 :source     "test/gridfire/resources/weather-test/ch.tif"
+                 :multiplier 0.1}}
+#+end_src
+
+In the example above the input raster's units, according to
+"https://landfire.gov/faqprint.php" is in meters * 10. Thus a value of
+5 on the canopy height grid layer is actually 0.5 meters. The
+mutipler factor needed to convert to meters is 0.1.
+
 Include the following required mapping on all configurations:
 
 #+begin_src clojure
@@ -2790,6 +3802,85 @@ For this method of ignition, values may be entered in one of three ways:
  :ignition-col [20 80]}
 #+end_src
 
+Another way we can ignite a single point is to omit the keys
+*ignition-row* and *ignition-col*. With this method, we can optionally
+constrain the ignition location by an ignition-mask raster and/or an
+edge-buffer. For specifiying these constraints include these optional
+mappings:
+
+- *ignition-mask*: a map of fetch specifications (see section 1)
+- *edge-buffer*: the thickness (feet) along the edge of the
+  computational domain where ignitions cannot occur
+
+*Note*: Nonzero values in the ignition mask are considered ignitable
+
+Here's an example of specifiying ignition points using an ignition
+mask from a geotiff file.
+
+#+begin_src clojure
+{:ignition-mask {:raster {:type :geotiff
+                          :source "test/gridfire/resources/weather-test/ignition-mask.tif"}
+                 :edge-buffer 98.4}}
+#+end_src
+
+*Note*: ignition-row and ignition-col must be omitted for this feature.
+
+Here's the namespace that implments this functionality.
+
+#+name: random_ignition.clj
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/random_ignition.clj :padline no :no-expand :comments link
+(ns gridfire.random-ignition
+  (:require [clojure.core.matrix    :as m]
+            [gridfire.utils.random :as random]
+            [gridfire.common :refer [burnable-fuel-model? get-neighbors]]))
+
+(defn- in-edge-buffer?
+  "Returns true if give [row col] is within the buffer region defined
+  by buffer-size. The buffer size is the thickness (pixel) of the edge
+  buffer region."
+  [num-rows num-cols buffer-size row col]
+  (or  (<= row buffer-size)
+       (> row (- num-rows buffer-size))
+       (<= col buffer-size)
+       (> col (- num-cols buffer-size))))
+
+(defn valid-ignition-site? [{:keys [num-rows num-cols random-ignition cell-size landfire-rasters]} row col]
+  (let [{:keys [edge-buffer]} random-ignition
+        {:keys [fuel-model]}  landfire-rasters]
+    (and (if edge-buffer
+           (let [buffer-size (int (Math/ceil (/ edge-buffer cell-size)))]
+             (not (in-edge-buffer? num-rows num-cols buffer-size row col)))
+           true)
+         (burnable-fuel-model? (m/mget fuel-model row col))
+         (some (fn [[row col]]
+                 (burnable-fuel-model? (m/mget fuel-model row col)))
+               (get-neighbors [row col])))))
+
+(defn select-ignition-site
+  "Returns [x y] coordinate that have been randomly sampled
+  from cells in in the computational domain. Ignitable cells can also
+  be constrained by ignition mask raster and/or edge-buffer."
+  [{:keys [rand-gen ignition-mask-layer num-rows num-cols] :as inputs}]
+  (if-let [indices (some->> ignition-mask-layer
+                            :matrix
+                            first
+                            m/non-zero-indices
+                            (map-indexed (fn [i v] (when (pos? (count v)) [i v])))
+                            (filterv identity))]
+    (loop [[row cols] (random/my-rand-nth rand-gen indices)]
+      (let [col (random/my-rand-nth rand-gen cols)]
+        (if (valid-ignition-site? inputs row col)
+          [row col]
+          (recur (random/my-rand-nth rand-gen indices)))))
+    (loop [row (random/my-rand-int rand-gen num-rows)
+           col (random/my-rand-int rand-gen num-cols)]
+      (if (valid-ignition-site? inputs row col)
+        [row col]
+        (recur (random/my-rand-int rand-gen num-rows)
+               (random/my-rand-int rand-gen num-cols))))))
+#+end_src
+
+
 To initialize an existing burn perimeter from a raster, we have two
 options. We can read rasters from a Postgresql database or a raster
 file on disk. This behavior is controlled as follows:
@@ -2806,9 +3897,9 @@ For the fetch specifications include the following mappings:
 Here's an example of fetching an intial burn perimeter from a
 Postgresql database.
 
-*Note*: be sure to include the map of database connection (*:db-spec*) as
+,*Note*: be sure to include the map of database connection (*:db-spec*) as
 described in section 1.
-#+begin_src clojure
+,#+begin_src clojure
 {:ignition-layer {:type   :postgis
                   :source "ignition.ign WHERE rid=1"}}
 #+end_src
@@ -2829,9 +3920,14 @@ this functionality.
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fetch.clj :padline no :no-expand :comments link
 (ns gridfire.fetch
   (:require [clojure.core.matrix      :as m]
+            [gridfire.conversion      :as convert]
             [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
             [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]
-            [gridfire.surface-fire    :refer [degrees-to-radians]]))
+            [gridfire.spec.config     :as spec]))
+
+
+;;TODO refactor multi-methods landfire-layer weather, ignition-layer, ignition-mask-layer
+;; to the same function
 
 ;;-----------------------------------------------------------------------------
 ;; LANDFIRE
@@ -2846,23 +3942,6 @@ this functionality.
    :elevation
    :fuel-model
    :slope])
-
-(defn convert-metrics
-  "Converting metrics in layers:
-  meters to feet
-  degrees to percent"
-  [landfire-layers]
-  (-> landfire-layers
-      (update-in [:elevation :matrix]
-                 (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
-      (update-in [:slope :matrix]
-                 (fn [matrix] (m/emap #(Math/tan (degrees-to-radians %)) matrix))) ; degrees -> %
-      (update-in [:canopy-height :matrix]
-                 (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
-      (update-in [:canopy-base-height :matrix]
-                 (fn [matrix] (m/emap #(* % 3.28) matrix))) ; m -> ft
-      (update-in [:crown-bulk-density :matrix]
-                 (fn [matrix] (m/emap #(* % 0.0624) matrix))))) ; kg/m^3 -> lb/ft^3
 
 (defmulti landfire-layer
   (fn [_ {:keys [type]}] type))
@@ -2886,32 +3965,46 @@ this functionality.
     :crown-bulk-density lb/ft^3
     :canopy-cover       % (0-100)}"
   [{:keys [db-spec] :as config}]
-  (convert-metrics
-   (let [layers (:landfire-layers config)]
-     (reduce (fn [amap layer-name]
-               (let [source (get layers layer-name)]
-                 (assoc amap
-                        layer-name
-                        (if (map? source)
-                          (landfire-layer db-spec source)
-                          (postgis-raster-to-matrix db-spec source)))))
-             {}
-             layer-names))))
+  (let [layers (:landfire-layers config)]
+    (reduce (fn [amap layer-name]
+              (let [source (get layers layer-name)]
+                (assoc amap
+                       layer-name
+                       (if (map? source)
+                         (-> (landfire-layer db-spec source)
+                             (convert/to-imperial source layer-name))
+                         (-> (postgis-raster-to-matrix db-spec source)
+                             (convert/to-imperial {:units :metric} layer-name))))))
+            {}
+            layer-names)))
 
 ;;-----------------------------------------------------------------------------
 ;; Initial Ignition
 ;;-----------------------------------------------------------------------------
+
+(defn convert-burn-values [matrix {:keys [burned unburned]}]
+  (m/emap #(condp = %
+             (double burned)   1.0
+             (double unburned) 0.0
+             -1.0)
+          matrix))
 
 (defmulti ignition-layer
   (fn [{:keys [ignition-layer]}] (:type ignition-layer)))
 
 (defmethod ignition-layer :postgis
   [{:keys [db-spec ignition-layer]}]
-  (postgis-raster-to-matrix db-spec (:source ignition-layer)))
+  (let [layer (postgis-raster-to-matrix db-spec (:source ignition-layer))]
+    (if-let [bv (:burn-values ignition-layer)]
+      (assoc layer :matrix (convert-burn-values (:matrix layer) bv))
+      layer)))
 
 (defmethod ignition-layer :geotiff
   [{:keys [ignition-layer]}]
-  (geotiff-raster-to-matrix (:source ignition-layer)))
+  (let [layer (geotiff-raster-to-matrix (:source ignition-layer))]
+    (if-let [bv (:burn-values ignition-layer)]
+      (assoc layer :matrix (convert-burn-values (:matrix layer) bv))
+      layer)))
 
 (defmethod ignition-layer :default
   [_]
@@ -2926,11 +4019,80 @@ this functionality.
 
 (defmethod weather :postgis
   [{:keys [db-spec]} {:keys [source]}]
-  (:matrix (postgis-raster-to-matrix db-spec source)))
+  (postgis-raster-to-matrix db-spec source))
 
 (defmethod weather :geotiff
   [_ {:keys [source]}]
-  (:matrix (geotiff-raster-to-matrix source)))
+  (geotiff-raster-to-matrix source))
+
+(defn weather-layers
+  "Returns a map of weather layers (represented as maps) with the following units:
+   {:temperature         farenheight
+    :relative-humidity   %
+    :wind-speed-20ft     mph
+    :wind-from-direction degrees clockwise from north}"
+  [config]
+  (reduce (fn [acc weather-name]
+            (let [weather-spec (weather-name config)]
+              (if (map? weather-spec)
+                (assoc acc weather-name (convert/to-imperial (weather config weather-spec)
+                                                             weather-spec
+                                                             weather-name))
+                acc)))
+          {}
+          spec/weather-names))
+
+;;-----------------------------------------------------------------------------
+;; Ignition Mask
+;;-----------------------------------------------------------------------------
+
+(defmulti ignition-mask-layer
+  (fn [{:keys [random-ignition]}]
+    (when (map? random-ignition)
+     (get-in random-ignition [:ignition-mask :type]))))
+
+(defmethod ignition-mask-layer :geotiff
+  [{:keys [random-ignition]}]
+  (geotiff-raster-to-matrix (get-in random-ignition [:ignition-mask :source])))
+
+(defmethod ignition-mask-layer :postgis
+  [{:keys [db-spec random-ignition]}]
+  (postgis-raster-to-matrix db-spec (get-in random-ignition [:ignition-mask :source])))
+
+(defmethod ignition-mask-layer :default [_] nil)
+
+;;-----------------------------------------------------------------------------
+;; Moisture Layers
+;;-----------------------------------------------------------------------------
+
+(defmulti fuel-moisture-layer
+  (fn [_ {:keys [type]}] type))
+
+(defmethod fuel-moisture-layer :geotiff
+  [_ {:keys [source]}]
+  (geotiff-raster-to-matrix source))
+
+(defmethod fuel-moisture-layer :postgis
+  [db-spec {:keys [source]}]
+  (postgis-raster-to-matrix db-spec source))
+
+(defn fuel-moisture-layers
+  "Returns a map of moisture rasters (represented as maps) with the following form:
+  {:dead {:1hr  #vectorz/matrix Large matrix with shape: [73 100 100]
+          :10hr #vectorz/matrix Large matrix with shape: [73 100 100]
+          :100hr #vectorz/matrix Large matrix with shape: [73 100 100]}
+   :live {:herbaceous  #vectorz/matrix Large matrix with shape: [100 100]
+          :woody #vectorz/matrix Large matrix with shape: [100 100]}}"
+  [{:keys [db-spec fuel-moisture-layers]}]
+  (when fuel-moisture-layers
+    (letfn [(f [spec] (-> (fuel-moisture-layer db-spec spec)
+                          (update :matrix (fn [m] (m/emap #(* % 0.01) m)))))]
+      (-> fuel-moisture-layers
+          (update-in [:dead :1hr] f)
+          (update-in [:dead :10hr] f)
+          (update-in [:dead :100hr] f)
+          (update-in [:live :herbaceous] (comp #(update % :matrix first) f))
+          (update-in [:live :woody] (comp #(update % :matrix first) f))))))
 #+end_src
 
 ** Section 3: Weather data from which to build simulation inputs
@@ -2987,6 +4149,29 @@ Here's an example of fetching weather rasters from files on disk.
                        :source "test/gridfire/resources/weather-test/d_to_sample.tif"}}
 #+end_src
 
+*NOTE:* Gridfire expects weather raster's resolution and the landfire's
+resolution as designated by the `:cell-size` must be exact multiples
+of one another. This means you may choose to use raster's of different
+cell sizes to improve preformance.
+
+Gridfire uses imperial units for its calculations. Gridfire optionally
+allows us to use weather in different units and scale.
+
+To specify the need for conversion from metric to imperial, include
+the following mapping in the fetch specifications:
+
+- *units*: keyword :metric
+
+To specify the need for conversion from absolute to imperial, include
+
+- *units*: keyword :absolute
+
+#+begin_src clojure
+{:temperture {:type   :geotiff
+                :source "test/gridfire/resources/weather-test/tmpf_to_sample.tif"
+                :units  :metric}}
+#+end_src
+
 ** Section 4: Number of simulations and (optional) random seed perimeter
 
 #+begin_src clojure
@@ -2996,17 +4181,246 @@ Here's an example of fetching weather rasters from files on disk.
  :random-seed 1234567890}                  ; long value (optional)
 #+end_src
 
-** Section 5: Types and names of outputs
+** Section 5: Outputs
+
+Currently supported Geotiff layers for output
+- fire-spread
+- flame-length
+- fire-line-intensity
+- burn-history
+
+To control the layers to output include the following mappings:
+- *output-layers*: map of layers-name to timestep (in minutes) or the keyword `:final`
+- *output-geotiff*: boolean
+
+#+begin_src clojure
+{:output-layers  {:fire-spread  10
+                  :burn-history :final}
+ :output-geotiff true}
+#+end_src
+
+The configuration above specify that we'd like to output one
+firespread geotiff every 10 minutes in the simulation. For the burn
+history we'd like to output the geotiff file at the final timestep of
+the simulation.
+
+*Note:* if entry for `:output-layers` is omitted but `:output-geotiff`
+is set to true then Gridfire will output all layers above at the final
+timestep.
+
+Gridfire also supports an output for the burn probability layer which
+is a matrix of the probability of a cell being burned across all
+simulations. To control the output of the burn probability layer
+include the following mapping:
+
+- *output-*burn-probability*: timestep (in minutes) or keyword `:final`
+
+#+begin_src clojure
+{:output-burn-probability 10
+ :output-geotiff          true}
+#+end_src
+
+Other output mappings:
 
 #+begin_src clojure
 {:outfile-suffix          "_tile_100"
  :output-landfire-inputs? true
- :output-geotiffs?        true
  :output-pngs?            true
  :output-csvs?            true}
 #+end_src
 
-* Configuration Examples
+** Section 6: Perturbations
+
+Gridfire supports puturbations of input rasters during simulations in
+order to account for inherent uncertainty in the data. A uniform
+random sampling of values within a given range is used to address
+these uncertanties.
+
+To specify this in the config file include the following mappings:
+
+- *perturbations:* a map of layer names to a map of perturbation configurations
+
+#+begin_src clojure
+{:perturbations {:canopy-height {:spatial-type :global
+                                 :range        [-1.0 1.0]}}}
+#+end_src
+
+The above config specify that a randomly selected value between -1.0
+and 1.0 should be added to the canopy height value. This perturbation
+will be applied globally to all cells. We could also, instead, specify
+that each cell should be perturbed individually by setting *:spatial-type*
+to *:pixel*.
+
+Gridfire expects perturbations to be in imperial units. If these perturbations
+are meant to be in metric, you must include an entry for the units:
+
+#+begin_src clojure
+{:perturbations {:canopy-height {:spatial-type :global
+                                 :range        [-1.0 1.0]
+                                 :units        :metric}}}
+#+end_src
+
+ #+name: perturbation
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/perturbation.clj :padline no :no-expand :comments link
+(ns gridfire.perturbation
+  (:require [gridfire.utils.random :refer [my-rand-range]]
+            [gridfire.conversion :refer [conversion-table]]))
+
+(defn add-rand-generator
+  [rand-generator config]
+  (into config
+        (map (fn [[layer spec]] [layer (assoc spec :rand-generator rand-generator)]))
+        config))
+
+(defn add-simulation-id
+  [id config]
+  (into config
+        (map (fn [[layer spec]] [layer (assoc spec :simulation-id id)]))
+        config))
+
+(defn convert-ranges
+  [config]
+  (into config
+        (map (fn [[layer {:keys [units range] :as spec}]]
+               (if (= units :metric)
+                 (let [convert-fn (conversion-table layer)]
+                   [layer (assoc spec :range (map convert-fn range))])
+                 [layer spec])))
+        config))
+
+(defn add-global-values
+  [config]
+  (into config
+        (map (fn [[layer {:keys [spatial-type rand-generator range] :as spec}]]
+               (if (= spatial-type :global)
+                 [layer (assoc spec :global-value (my-rand-range rand-generator range))]
+                 [layer spec])))
+        config))
+
+(defn- enrich-info
+  [perturbations rand-generator id]
+  (->> perturbations
+      (add-rand-generator rand-generator)
+      (add-simulation-id id)
+      (convert-ranges)
+      (add-global-values)))
+
+(defn draw-samples
+  [rand-generator n perturbations]
+  (when perturbations
+    (mapv #(enrich-info perturbations rand-generator %) (range n))))
+
+(defn value-at
+  (^double [perturb-info raster here]
+   (value-at perturb-info raster here nil))
+
+  (^double [{:keys [range spatial-type global-value rand-generator]} raster here frequency-band]
+   (if (= spatial-type :global)
+     global-value
+     (my-rand-range rand-generator range))))
+
+(defn- update?
+  [^double global-clock ^double next-clock ^long frequency]
+  (< (quot global-clock frequency)
+     (quot next-clock frequency)))
+
+(defn- global-temporal-perturbations
+  [perturbations]
+  (->> perturbations
+       (filter (fn [[_ v]] (and (:frequency v) (= (:spatial-type v) :global))))
+       keys))
+
+(defn update-global-vals
+  [{:keys [perturbations] :as constants} current-clock next-clock]
+  (let [layers-to-update (global-temporal-perturbations perturbations)]
+    (reduce
+     (fn [acc layer-name]
+       (let [{:keys [frequency
+                     range
+                     rand-generator]} (get-in acc [:perturbations layer-name])
+             new-global               (my-rand-range rand-generator range)]
+         (if (update? current-clock next-clock frequency)
+           (assoc-in acc [:perturbations layer-name :global-value] new-global)
+           acc)))
+     constants
+     layers-to-update)))
+#+end_src
+
+** Section 7: Spotting
+
+Gridfire supports spot fires.
+To turn on spot ignitions include the key *spotting* at the top level of the
+config file. The value is a map containg these required entries:
+
+- *num-firebrands*: number of firebrands each torched tree will produce
+- *decay-constant*: positive number
+- *crown-fire-spotting-percent*: probability a crown fire ignition will spot fires
+
+You may also choose to include surface fire spotting. This behavior is
+controlled by including the following mappings under the *:spotting*
+configuration:
+
+- *surface-fire-spotting*: a map containing these required entries:
+  - *spotting-percent*: a vector of fuel range and percent pairs where
+    the fuel range is a tuple of integers representing the fuel model
+    numbers and the percent is the percentage of surface fire igntion
+    events that will spot fires
+  - *critical-fire-line-intensity*: the fireline intensity below which
+    surface fire spotting does not occur
+
+#+begin_src clojure
+{:spotting {:num-firebrands              [10 50]
+            :decay-constant              0.005
+            :crown-fire-spotting-percent 0.
+            :surface-fires-spotting      {:spotting-percent             [[1 100] 1.0]
+                                          :critical-fire-line-intensity 2000}}} ;(kW/m)
+#+end_src
+
+** Section 8: Fuel moisture data from which to build simulation inputs
+
+GridFire allows us to optinally use fuel moisture from rasters instead
+of calculating it (by default) from temperature and relative humidity.
+To specifiy this feature include the following mappings at the top
+level of the config file:
+
+- *fuel-moisture-layers*: a map of fuel moisture specicfiations
+
+#+begin_src clojure
+{:fuel-moisture-layers {:dead {:1hr   {:type   :geotiff
+                                       :source "test/gridfire/resources/weather-test/m1_to_sample.tif"}
+                               :10hr  {:type   :geotiff
+                                       :source "test/gridfire/resources/weather-test/m10_to_sample.tif"}
+                               :100hr {:type   :geotiff
+                                       :source "test/gridfire/resources/weather-test/m100_to_sample.tif"}}
+                        :live {:woody      {:type   :geotiff
+                                            :source "test/gridfire/resources/weather-test/mlw_to_sample.tif"}
+                               :herbaceous {:type   :geotiff
+                                            :source "test/gridfire/resources/weather-test/mlh_to_sample.tif"}}}}
+#+end_src
+
+*Note*: Dead fuel moistures are expected to be multiband rasters and
+live fuel moistures are singleband.
+
+** Section 9: Optimization
+
+Gridifre allows us use multithread processing to improve performance of the
+simulation run. To specify the type of parallel strategy we'd like to use
+include the following mapping at the top level of the config file:
+
+- *parallel-strategy*: a keyword of the stratgey
+
+#+begin_src clojure
+{:parallel-strategy :within-fires}
+#+end_src
+
+Gridfire supports two types of paralleliztion. To prallelize:
+- between ensemble of simulations use the keyword *:between-fires*
+- within each ensemble member use the keyword *:within-fires*
+
+* Example Configuration files
+
+Here is a complete sample configuration for using landfire layers from our postigs enabled
+database and initializing burn points from a range of values.
 
 Here is a complete sample configuration for using LANDFIRE layers from
 our PostGIS-enabled database with ignition points randomly sampled
@@ -3146,7 +4560,7 @@ This concludes our discussion of GridFire's command line interface.
 #+LATEX: \bibliographystyle{plainnat}
 #+LATEX: \bibliography{GridFire}
 
-* Monte Carlo Simulation :noexport:
+* Monte Carlo Simulation                                           :noexport:
 
 #+name: monte-carlo-simulation
 #+begin_src clojure :results silent :exports none :tangle ../src/gridfire/monte_carlo.clj :padline no :no-expand :comments link

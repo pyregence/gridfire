@@ -2,7 +2,9 @@
 (ns gridfire.magellan-bridge
   (:require [clojure.core.matrix     :as m]
             [magellan.core           :refer [read-raster]]
-            [magellan.raster.inspect :as inspect]))
+            [magellan.raster.inspect :as inspect])
+  (:import org.geotools.coverage.grid.GridGeometry2D
+           org.geotools.referencing.operation.transform.AffineTransform2D))
 
 (defn geotiff-raster-to-matrix
   "Reads a raster from a file using the magellan.core library. Returns the
@@ -22,18 +24,19 @@
    :matrix #vectorz/matrix Large matrix with shape: [10,534,486]}"
   [file-path]
   (let [raster   (read-raster file-path)
-        grid     (:grid raster)
+        grid     ^GridGeometry2D (:grid raster)
         r-info   (inspect/describe-raster raster)
         matrix   (inspect/extract-matrix raster)
         image    (:image r-info)
-        envelope (:envelope r-info)]
+        envelope (:envelope r-info)
+        crs2d    ^AffineTransform2D (.getGridToCRS2D grid)]
     {:srid       (:srid r-info)
      :upperleftx (get-in envelope [:x :min])
-     :upperlefty (get-in envelope [:y :min])
+     :upperlefty (get-in envelope [:y :max])
      :width      (:width image)
      :height     (:height image)
-     :scalex     (.getScaleX (.getGridToCRS2D grid))
-     :scaley     (.getScaleY (.getGridToCRS2D grid))
+     :scalex     (.getScaleX crs2d)
+     :scaley     (.getScaleY crs2d)
      :skewx      0.0 ;FIXME not used?
      :skewy      0.0 ;FIXME not used?
      :numbands   (:bands image)
