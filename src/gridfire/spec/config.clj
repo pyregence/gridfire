@@ -4,6 +4,7 @@
             [gridfire.spec.fuel-moisture   :as fuel-moisture]
             [gridfire.spec.ignition        :as ignition]
             [gridfire.spec.output          :as output]
+            [gridfire.spec.optimization    :as optimization]
             [gridfire.spec.perturbations   :as perturbations]
             [gridfire.spec.random-ignition :as random-ignition]
             [gridfire.spec.spotting        :as spotting]))
@@ -73,5 +74,6 @@
              ::output/output-burn-probability
              ::spotting/spotting
              ::random-ignition/random-ignition
-             ::fuel-moisture/fuel-moisture-layers])
+             ::fuel-moisture/fuel-moisture-layers
+             ::optimization/parallel-strategy])
    ::weather-layers))

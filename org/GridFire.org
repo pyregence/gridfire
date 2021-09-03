@@ -4182,6 +4182,22 @@ level of the config file:
 *Note*: Dead fuel moistures are expected to be multiband rasters and
 live fuel moistures are singleband.
 
+** Section 9: Optimization
+
+Gridifre allows us use multithread processing to improve performance of the
+simulation run. To specify the type of parallel strategy we'd like to use
+include the following mapping at the top level of the config file:
+
+- *parallel-strategy*: a keyword of the stratgey
+
+#+begin_src clojure
+{:parallel-strategy :within-fires}
+#+end_src
+
+Gridfire supports two types of paralleliztion. To prallelize:
+- between ensemble of simulations use the keyword *:between-fires*
+- within each ensemble member use the keyword *:within-fires*
+
 * Example Configuration files
 
 Here is a complete sample configuration for using landfire layers from our postigs enabled
