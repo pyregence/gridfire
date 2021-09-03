@@ -193,10 +193,10 @@
 
 (defn firebrands
   "Returns a sequence of cells that firebrands land in"
-  [deltas wind-towards-dir cell cell-size]
+  [deltas wind-towards-direction cell cell-size]
   (let [step         (/ cell-size 2)
         cell-center  (mapv #(+ step (* % step)) cell)
-        coord-deltas (deltas-wind-dir->coord deltas wind-towards-dir)]
+        coord-deltas (deltas-wind-dir->coord deltas wind-towards-direction)]
     (map (comp
           (partial map int)
           (partial map #(quot % step))
@@ -207,11 +207,13 @@
   [{:keys [num-rows num-cols landfire-rasters]}
    firebrand-count-matrix
    fire-spread-matrix
+   source
    firebrands]
   (doseq [[x y :as here] firebrands
           :when          (and (in-bounds? num-rows num-cols [x y])
                               (burnable? fire-spread-matrix
                                          (:fuel-model landfire-rasters)
+                                         source
                                          here))
           :let           [new-count (inc (m/mget firebrand-count-matrix x y))]]
     (m/mset! firebrand-count-matrix x y new-count)))
@@ -243,10 +245,10 @@
                                                         cell)
           wind-to-direction     (mod (+ 180 wind-from-direction) 360)
           firebrands            (firebrands deltas wind-to-direction cell cell-size)]
-      (update-firebrand-counts! constants firebrand-count-matrix fire-spread-matrix firebrands)
+      (update-firebrand-counts! constants firebrand-count-matrix fire-spread-matrix cell firebrands)
       (->> (for [[x y] firebrands
                  :when (and (in-bounds? num-rows num-cols [x y])
-                            (burnable? fire-spread-matrix (:fuel-model landfire-rasters) [x y]))
+                            (burnable? fire-spread-matrix (:fuel-model landfire-rasters) cell [x y]))
                  :let  [firebrand-count (m/mget firebrand-count-matrix x y)
                         spot-ignition-p (spot-ignition-probability constants
                                                                    spotting

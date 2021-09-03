@@ -1,6 +1,5 @@
 (ns gridfire.spec.spotting
-  (:require [clojure.spec.alpha :as s]
-            [gridfire.spec.common :as common]))
+  (:require [clojure.spec.alpha :as s]))
 
 (s/def ::ambient-gas-density float?)
 (s/def ::specific-heat-gas float?)
