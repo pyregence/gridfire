@@ -4,9 +4,10 @@
 
 (defn my-rand
   ([^Random rand-generator] (.nextDouble rand-generator))
-  ([^Random rand-generator n] (* n (my-rand rand-generator))))
+  (^double [^Random rand-generator n] (* n (my-rand rand-generator))))
 
 (defn my-rand-int
+  ^long
   [rand-generator n]
   (int (my-rand rand-generator n)))
 

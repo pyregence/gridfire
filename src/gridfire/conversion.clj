@@ -3,32 +3,37 @@
 
 (defn F->K
   "Convert farenheight to kelvin."
-  [degrees]
+  ^double
+  [^double degrees]
   (->> (+ degrees 459.67)
        (* (/ 5.0 9.0))))
 
 (defn K->F
   "Convert kelvin to farenheight."
-  [degrees]
+  ^double
+  [^double degrees]
   (->> (- degrees 273.15)
        (* (/ 9.0 5.0))
        (+ 32.0)))
 
 (defn F->C
   "Convert farenheight to celcius."
-  [degrees]
+  ^double
+  [^double degrees]
   (->> (- degrees 32.0)
        (* (/ 5.0 9.0))))
 
 (defn C->F
   "Convert celsius to farenheight."
-  [degrees]
+  ^double
+  [^double degrees]
   (->> (* degrees (/ 9.0 5.0))
        (+ 32.0)))
 
 (defn deg->rad
   "Convert degrees to radians."
-  [d]
+  ^double
+  [^double d]
   (* d (/ Math/PI 180)))
 
 (defn rad->deg
@@ -39,30 +44,36 @@
 
 (defn m->ft
   "Convert meters to feet."
-  [m]
+  ^double
+  [^double m]
   (* m 3.281))
 
 (defn mph->mps
   "Convert miles per hour to meters per second."
-  [s]
+  ^double
+  [^double s]
   (* s 0.447))
 
 (defn Btu-ft-s->kW-m
   "Convert BTU per feet per second to kilowatt per meter."
-  [Btu-ft-s]
+  ^double
+  [^double Btu-ft-s]
   (/ Btu-ft-s 0.288894658272))
 
 (defn percent->dec
-  [p]
+  ^double
+  [^double p]
   (* p 0.001))
 
 (defn dec->percent
-  [d]
+  ^double
+  [^double d]
   (* d 100))
 
 (defn sec->min
   "Convert seconds to minutes."
-  [s]
+  ^double
+  [^double s]
   (/ s 60))
 
 (def conversion-table
@@ -70,61 +81,61 @@
    :slope              deg->rad
    :canopy-height      m->ft
    :canopy-base-height m->ft
-   :crown-bulk-density #(* % 0.0624) ; kg/m^3 -> lb/ft^3
-   :wind-speed-20ft    #(* % 2.237)  ; m/s -> mph
+   :crown-bulk-density #(* ^double % 0.0624) ; kg/m^3 -> lb/ft^3
+   :wind-speed-20ft    #(* ^double % 2.237)  ; m/s -> mph
    :temperature        {:metric   C->F
                         :absolute K->F}})
 
 (defmulti to-imperial (fn [_ _ layer-name] layer-name))
 
 (defmethod to-imperial :elevation
-  [layer {:keys [units multiplier]} layer-name]
+  [layer {:keys [units ^double multiplier]} layer-name]
   (if-let [xforms (seq (remove nil? [(when (= units :metric) (conversion-table layer-name))
-                                     (when-not (contains? #{1 1.0 nil} multiplier) #(* % multiplier))]))]
+                                     (when-not (contains? #{1 1.0 nil} multiplier) #(* ^double % multiplier))]))]
     (update layer :matrix (fn [matrix] (m/emap (apply comp xforms) matrix)))
     layer))
 
 (defmethod to-imperial :slope
-  [layer {:keys [multiplier]} layer-name]
+  [layer {:keys [^double multiplier]} layer-name]
   (if-let [xforms (seq (remove nil? [(conversion-table layer-name)
-                                     (when-not (contains? #{1 1.0 nil} multiplier) #(* % multiplier))]))]
+                                     (when-not (contains? #{1 1.0 nil} multiplier) #(* ^double % multiplier))]))]
     (update layer :matrix (fn [matrix] (m/emap (apply comp xforms) matrix)))
     layer))
 
 (defmethod to-imperial :canopy-height
-  [layer {:keys [units multiplier]} layer-name]
+  [layer {:keys [units ^double multiplier]} layer-name]
   (if-let [xforms (seq (remove nil? [(when (= units :metric) (conversion-table layer-name))
-                                     (when-not (contains? #{1 1.0 nil} multiplier) #(* % multiplier))]))]
+                                     (when-not (contains? #{1 1.0 nil} multiplier) #(* ^double % multiplier))]))]
     (update layer :matrix (fn [matrix] (m/emap (apply comp xforms) matrix)))
     layer))
 
 (defmethod to-imperial :canopy-base-height
-  [layer {:keys [units multiplier]} layer-name]
+  [layer {:keys [units ^double multiplier]} layer-name]
   (if-let [xforms (seq (remove nil? [(when (= units :metric) (conversion-table layer-name))
-                                     (when-not (contains? #{1 1.0 nil} multiplier) #(* % multiplier))]))]
+                                     (when-not (contains? #{1 1.0 nil} multiplier) #(* ^double % multiplier))]))]
     (update layer :matrix (fn [matrix] (m/emap (apply comp xforms) matrix)))
     layer))
 
 (defmethod to-imperial :crown-bulk-density
-  [layer {:keys [units multiplier]} layer-name]
+  [layer {:keys [units ^double multiplier]} layer-name]
   (if-let [xforms (seq (remove nil? [(when (= units :metric) (conversion-table layer-name))
-                                     (when-not (contains? #{1 1.0 nil} multiplier) #(* % multiplier))]))]
+                                     (when-not (contains? #{1 1.0 nil} multiplier) #(* ^double % multiplier))]))]
     (update layer :matrix (fn [matrix] (m/emap (apply comp xforms) matrix)))
     layer))
 
 (defmethod to-imperial :wind-speed-20ft
-  [layer {:keys [units multiplier]} layer-name]
+  [layer {:keys [units ^double multiplier]} layer-name]
   (if-let [xforms (seq (remove nil? [(when (= units :metric) (conversion-table layer-name))
-                                     (when-not (contains? #{1 1.0 nil} multiplier) #(* % multiplier))]))]
+                                     (when-not (contains? #{1 1.0 nil} multiplier) #(* ^double % multiplier))]))]
     (update layer :matrix (fn [matrix] (m/emap (apply comp xforms) matrix)))
     layer))
 
 (defmethod to-imperial :temperature
-  [layer {:keys [units multiplier]} layer-name]
+  [layer {:keys [units ^double multiplier]} layer-name]
   (if-let [xforms (seq (remove nil? [(cond
                                        (= units :metric)   (get-in conversion-table [layer-name units])
                                        (= units :absolute) (get-in conversion-table [layer-name units]))
-                                     (when-not (contains? #{1 1.0 nil} multiplier) #(* % multiplier))]))]
+                                     (when-not (contains? #{1 1.0 nil} multiplier) #(* ^double % multiplier))]))]
     (update layer :matrix (fn [matrix] (m/emap (apply comp xforms) matrix)))
     layer))
 
