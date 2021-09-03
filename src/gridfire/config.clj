@@ -330,14 +330,15 @@
      A_SRS FOLIAR_MOISTURE_CONTENT SEED] :as d}
    options]
   (let [data (into (sorted-map ) d)]
-    (->> {:cell-size                 (convert/m->ft COMPUTATIONAL_DOMAIN_CELLSIZE)
-          :srid                      (or A_SRS "EPSG:32610")
-          :max-runtime               (sec->min SIMULATION_TSTOP)
-          :simulations               10
-          :random-seed               SEED
-          :foliar-moisture           FOLIAR_MOISTURE_CONTENT
-          :ellipse-adjustment-factor 1.0
-          :parallel-strategy         :between-fires}
+    (->> {:cell-size                       (convert/m->ft COMPUTATIONAL_DOMAIN_CELLSIZE)
+          :srid                            (or A_SRS "EPSG:32610")
+          :max-runtime                     (sec->min SIMULATION_TSTOP)
+          :simulations                     10
+          :random-seed                     SEED
+          :foliar-moisture                 FOLIAR_MOISTURE_CONTENT
+          :ellipse-adjustment-factor       1.0
+          :parallel-strategy               :between-fires
+          :fractional-distance-combination :sum}
          (process-landfire-layers data options)
          (process-ignition data options)
          (process-weather data options)
