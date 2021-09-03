@@ -17,7 +17,6 @@
 
 ;; FIXME: This function is redundant with my-rand-range and can be removed.
 (defn random-float
-  ^double
   [min-val max-val rand-generator]
   (let [range (- max-val min-val)]
     (+ min-val (my-rand rand-generator range))))
