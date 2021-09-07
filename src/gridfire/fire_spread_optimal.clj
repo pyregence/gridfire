@@ -17,7 +17,7 @@
             [gridfire.surface-fire :refer [anderson-flame-depth
                                            byram-fire-line-intensity
                                            byram-flame-length
-                                           rothermel-surface-fire-spread-any
+                                           rothermel-surface-fire-spread-any-optimal
                                            rothermel-surface-fire-spread-max
                                            rothermel-surface-fire-spread-no-wind-no-slope
                                            wind-adjustment-factor]]
@@ -232,15 +232,17 @@
    [i j :as target]]
   (let [trajectory                (mapv - target source)
         spread-direction          (offset-to-degrees trajectory)
-        surface-spread-rate       (rothermel-surface-fire-spread-any surface-max-rate
-                                                                     surface-max-direction
-                                                                     surface-eccentricity
-                                                                     spread-direction)
+        surface-spread-rate       (rothermel-surface-fire-spread-any-optimal
+                                   surface-max-rate
+                                   surface-max-direction
+                                   surface-eccentricity
+                                   spread-direction)
         ^double crown-spread-rate (when crown-fire?
-                                    (rothermel-surface-fire-spread-any crown-max-rate
-                                                                       surface-max-direction
-                                                                       crown-eccentricity
-                                                                       spread-direction))
+                                    (rothermel-surface-fire-spread-any-optimal
+                                     crown-max-rate
+                                     surface-max-direction
+                                     crown-eccentricity
+                                     spread-direction))
         spread-rate               (if crown-fire?
                                     (max surface-spread-rate crown-spread-rate)
                                     surface-spread-rate)
