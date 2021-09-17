@@ -3700,6 +3700,67 @@ or false:
               :else       (repeat n x))))
 #+end_src
 
+** Server Interface
+
+The GridFire system is also available for use in server mode. The
+GridFire server will listen for requests to launch fire sparead
+simulations. Upon completion of the simulation a set of post
+processing scripts will run to process binary outputs into a directory
+structure containing geoTIFF files and then packed into a tarball.
+This tarball is sent over scp into another server for processing.
+
+*** Post processing dependencies
+
+The Post processing scripts require the following packages to work:
+
+- ssh
+- pigz
+- mpirun
+- gdal
+- elmfire_post_<elmfire_version> (for elmfire version see
+  `resources/elmfire_post.sh`)
+
+*** Server Configuration
+
+ The GridFire system is also available for use in server mode. The
+ server is confgured by and edn file containing the following contents:
+
+ ```
+ {:software-dir    "/gridfire/software"
+  :incoming-dir    "/gridfire/incoming"
+  :active-fire-dir "/gridfire/incoming/active_fires"
+  :data-dir        "/gridfire/data"
+  :log-dir         "/gridfire/log"}
+ ```
+
+ 1. software-dir: The directory the gridfire repo is cloned into.
+
+ 2. incoming-dir: The directory where the server will look for
+    match-drop input decks (which should be uploaded from the data
+    provisioning server on wx.pyregence.org). The server keeps the
+    latest 20 input decks. (see cleanup.sh in this directory)
+
+ 3. active-fire-dir: The directory where the server will look for
+    active-fire input decks (which are uploaded from the data
+    provisioning server on wx.pyregence.org). The server's file watcher
+    thread will automatically add a request onto the server's
+    `standby-queue` whenever a new input deck is uploaded. The server
+    keeps the latest 200 input decks. (see cleanup.sh in this
+    directory)
+
+ 4. data-dir: The directory into which input deck tarballs from
+    incoming-dir are unpacked. The server keeps the latest 20 unpacked
+    tarballs. (see cleanup.sh in this directory)
+
+ 5. log-dir: The directory into which log files are written. The server
+    keeps the last 10 days of logs.
+
+ The GridFire server is launched by user `gridfire` with this command:
+
+ #+begin_src sh
+clojure -M:run-server -c server.edn
+ #+end_src
+
 * Configuration File
 
 The configuration file for GridFire's command line interface is a text
