@@ -1,6 +1,6 @@
 #+TITLE: The GridFire Fire Behavior Model
-#+AUTHOR: Gary W. Johnson, Ph.D., David Saah, Ph.D., Max Moritz, Ph.D.
-#+DATE: Copyright 2011-2020 Spatial Informatics Group, LLC
+#+AUTHOR: Gary W. Johnson, Ph.D., David Saah, Ph.D., Max Moritz, Ph.D., Kenneth Cheung
+#+DATE: Copyright 2011-2021 Spatial Informatics Group, LLC
 #+OPTIONS: ^:{} toc:nil h:3
 #+LATEX_CLASS: article
 #+LATEX_CLASS_OPTIONS: [11pt]
@@ -48,14 +48,14 @@ minimum required versions and URLs from which they may be downloaded.
 #+NAME: tab:required-software
 #+CAPTION: Software necessary to evaluate the code in this document
 #+ATTR_LATEX: :align |l|r|l| :font \small
-|----------------------+-------------+--------------------------------------------|
-| Name                 |     Version | URL                                        |
-|----------------------+-------------+--------------------------------------------|
-| Java Development Kit |         11+ | https://jdk.java.net                       |
-| Clojure CLI Tools    | 1.10.1.561+ | https://clojure.org/guides/getting_started |
-| Postgresql           |         10+ | https://www.postgresql.org/download        |
-| PostGIS              |          3+ | https://postgis.net/install                |
-|----------------------+-------------+--------------------------------------------|
+|----------------------+---------+--------------------------------------------|
+| Name                 | Version | URL                                        |
+|----------------------+---------+--------------------------------------------|
+| Java Development Kit |     11+ | https://jdk.java.net                       |
+| Clojure CLI Tools    |   1.10+ | https://clojure.org/guides/getting_started |
+| Postgresql           |     10+ | https://www.postgresql.org/download        |
+| PostGIS              |      3+ | https://postgis.net/install                |
+|----------------------+---------+--------------------------------------------|
 
 GridFire is written in the Clojure programming language[fn::
 https://clojure.org], which is a modern dialect of Lisp hosted on the
@@ -75,11 +75,13 @@ See https://postgis.net for more information.
 
 *License Notice*: All code presented in this document is solely the
 work of the authors (Gary W. Johnson, Ph.D., David Saah, Ph.D., Max
-Moritz, Ph.D.) and is made available by Spatial Informatics Group,
-LLC. (SIG) under the Eclipse Public License version 2.0 (EPLv2)
-https://www.eclipse.org/legal/epl-2.0/. Please contact Gary Johnson
-(gjohnson@sig-gis.com), David Saah (dsaah@sig-gis.com), or Max Moritz
-(mmoritz@sig-gis.com) for further information about this software.
+Moritz, Ph.D., Kenneth Cheung) and is made available by Spatial
+Informatics Group, LLC (SIG) under the Eclipse Public License version
+2.0 (EPLv2) https://www.eclipse.org/legal/epl-2.0/. See LICENSE.txt in
+the top level directory of this repository for details. Please contact
+Gary Johnson (gjohnson@sig-gis.com), David Saah (dsaah@sig-gis.com),
+Max Moritz (mmoritz@sig-gis.com), or Kenneth Cheung
+(kcheung@sig-gis.com) for further information about this software.
 
 * Setting Up the Clojure Environment
 ** Build Configuration: deps.edn
@@ -150,11 +152,11 @@ these library dependencies and then run the built-in test suite to
 verify that GridFire compiles and runs as expected on our local
 computer.
 
-Before we run tests we'll need to setup a test database and import
+Before we run tests, we'll need to set up a test database and import
 rasters into it. We will be prompted for the postgres and
-gridfire_test user's password. Postgres user's password will be
-whatever it is when we setup Postgres. For gridfire_test user's
-password refer to ``src/sql/create_test_db.sql''
+gridfire_test user's password. The postgres user's password will be
+whatever it is when we set up Postgres. For the gridfire_test user's
+password refer to ``src/sql/create_test_db.sql''.
 
 #+name: clojure-test-db
 #+begin_src sh :results silent :exports code
@@ -191,7 +193,7 @@ clojure -Spom
 #+end_src
 
 Once this file is created, we need to modify the contents of its XML
-tags to add any additional information that was not availabe from
+tags to add any additional information that was not available from
 deps.edn, such as the project name, version, and description.
 
 #+name: pom.xml
