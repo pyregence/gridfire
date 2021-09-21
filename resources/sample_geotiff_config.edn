@@ -35,15 +35,15 @@
  ;; For a list of values, the list will be randomly sampled from in each simulation.
  ;; For a range of values, the range [inclusive exclusive] will be randomly sampled from in each simulation.
 
- :temperature                      {:type   :geotiff
-                                    :source "test/gridfire/resources/weather-test/tmpf_to_sample.tif"}  ; (degrees Fahrenheit)
- :relative-humidity                {:type   :geotiff
-                                    :source "test/gridfire/resources/weather-test/rh_to_sample.tif"}    ; (%)
- :wind-speed-20ft                  {:type   :geotiff
-                                    :source "test/gridfire/resources/weather-test/ws_to_sample.tif"}    ; (miles/hour)
- :wind-from-direction              {:type   :geotiff
-                                    :source "test/gridfire/resources/weather-test/wd_to_sample.tif"}    ; (degrees clockwise from north)
- :foliar-moisture                  90                                                                   ; (%)
+ :temperature         {:type   :geotiff
+                       :source "test/gridfire/resources/weather-test/tmpf_to_sample.tif"} ; (degrees Fahrenheit)
+ :relative-humidity   {:type   :geotiff
+                       :source "test/gridfire/resources/weather-test/rh_to_sample.tif"}   ; (%)
+ :wind-speed-20ft     {:type   :geotiff
+                       :source "test/gridfire/resources/weather-test/ws_to_sample.tif"}   ; (miles/hour)
+ :wind-from-direction {:type   :geotiff
+                       :source "test/gridfire/resources/weather-test/wd_to_sample.tif"}   ; (degrees cw from north)
+ :foliar-moisture     90                                                                  ; (%)
 
  ;; Section 4: Number of simulations and (optional) random seed parameter
  :max-runtime               60             ; (minutes)

@@ -323,7 +323,7 @@
          :ignition-cols              (draw-samples rand-gen simulations ignition-col)
          :foliar-moistures           (draw-samples rand-gen simulations foliar-moisture)
          :ellipse-adjustment-factors (draw-samples rand-gen simulations ellipse-adjustment-factor)
-         :perturbations              (perturbation/draw-samples rand-gen simulations perturbations))) ; FIXME: shadowed
+         :perturbations              (perturbation/draw-samples rand-gen simulations perturbations)));FIXME: shadowed
 
 ;; FIXME: Try using draw-sample within run-simulation instead of get-weather here.
 (defn add-weather-params
@@ -496,9 +496,10 @@
                       fire-line-intensity-stddev
                       crown-fire-size
                       spot-count]))
-             (cons ["simulation" "ignition-row" "ignition-col" "max-runtime" "temperature" "relative-humidity" "wind-speed-20ft"
-                    "wind-from-direction" "foliar-moisture" "ellipse-adjustment-factor" "fire-size" "flame-length-mean"
-                    "flame-length-stddev" "fire-line-intensity-mean" "fire-line-intensity-stddev" "crown-fire-size" "spot-count"])
+             (cons ["simulation" "ignition-row" "ignition-col" "max-runtime" "temperature" "relative-humidity"
+                    "wind-speed-20ft" "wind-from-direction" "foliar-moisture" "ellipse-adjustment-factor"
+                    "fire-size" "flame-length-mean" "flame-length-stddev" "fire-line-intensity-mean"
+                    "fire-line-intensity-stddev" "crown-fire-size" "spot-count"])
              (csv/write-csv out-file))))))
 
 ;; FIXME: Add a program banner and better usage/error messages

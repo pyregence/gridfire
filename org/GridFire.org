@@ -93,8 +93,8 @@ downloading and storing these libraries as well as making them
 available to the Clojure process at runtime. However, in order for
 Clojure to know which libraries are needed, we must first create its
 build configuration file, called ``deps.edn'', and place it in the
-directory from which we will call our Clojure program. A minimal but
-complete deps.edn is shown below.
+directory from which we will call our Clojure program. The complete
+deps.edn for the current GridFire version is shown below.
 
 #+name: deps.edn
 #+begin_src clojure :results silent :exports code :tangle ../deps.edn :padline no :no-expand :comments link
@@ -199,7 +199,9 @@ deps.edn, such as the project name, version, and description.
 #+name: pom.xml
 #+begin_src xml :results silent :exports code :tangle ../pom.xml :padline no :no-expand :comments link
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>sig-gis</groupId>
   <artifactId>gridfire</artifactId>
@@ -1189,7 +1191,7 @@ FlamMap, FSPro, and FPA according to Andrews
 2012\citep{Albini1979,Andrews2012}. This formula is shown below:
 
 \begin{displaymath}
-  WAF &= \left\{
+  WAF = \left\{
     \begin{array}{lr}
       \frac{1.83}{ \ln(\frac{20.0 + 0.36 FBD}{0.13 FBD}) } & CC = 0 \\
       \frac{0.555}{ \sqrt(CH (CC/300.0)) \ln(\frac{20 + 0.36 CH}{0.13 CH}) } & CC > 0
@@ -2081,7 +2083,10 @@ pseudo-code lays out the steps taken in this procedure:
         ^double fuel-moisture         (or (fuel-moisture-from-raster constants here global-clock)
                                           (get-fuel-moisture relative-humidity temperature))
         [fuel-model spread-info-min]  (rothermel-fast-wrapper fuel-model fuel-moisture)
-        midflame-wind-speed           (* wind-speed-20ft 88.0 (wind-adjustment-factor ^long (:delta fuel-model) canopy-height canopy-cover)) ; mi/hr -> ft/min
+        midflame-wind-speed           (* wind-speed-20ft
+                                         88.0
+                                         (wind-adjustment-factor ^long (:delta fuel-model)
+                                                                 canopy-height canopy-cover)) ; mi/hr -> ft/min
         spread-info-max               (rothermel-surface-fire-spread-max spread-info-min
                                                                          midflame-wind-speed
                                                                          wind-from-direction
@@ -2136,36 +2141,37 @@ pseudo-code lays out the steps taken in this procedure:
     (when (in-bounds? num-rows num-cols target)
      (m/mset! fractional-distance-matrix i j (- fractional-distance 1.0)))))
 
+(defn ignition-event-reducer
+  [acc trajectory]
+  (let [{:keys [source cell]} trajectory
+        [i j]                 source
+        [^double old-total
+         ^double new-total] (update-fractional-distance! inputs
+                                                         max-fractionals
+                                                         trajectory
+                                                         fractional-distance-matrix
+                                                         timestep
+                                                         cell)]
+    (if (and (>= new-total 1.0)
+             (> new-total ^double (get-in acc [cell :fractional-distance] 0.0)))
+      (do (when (and (= trajectory-combination :sum) (> new-total 1.0))
+            (update-overflow-heat inputs fractional-distance-matrix trajectory new-total))
+          (assoc! acc cell (merge trajectory {:fractional-distance  new-total
+                                              :dt-adjusted          (* (/ (- 1.0 old-total) (- new-total old-total))
+                                                                       timestep)
+                                              :ignition-probability (m/mget fire-spread-matrix i j)})))
+      acc)))
+
 (defn identify-ignition-events
   [{:keys [trajectory-combination] :as inputs} ignited-cells timestep fire-spread-matrix fractional-distance-matrix]
   (let [timestep        (double timestep)
         max-fractionals (atom {})
         ignition-events (->> ignited-cells
-                             (reduce (fn [acc trajectory]
-                                       (let [{:keys
-                                              [source
-                                               cell]}              trajectory
-                                             [i j]                 source
-                                             [^double old-total
-                                              ^double new-total] (update-fractional-distance! inputs
-                                                                                              max-fractionals
-                                                                                              trajectory
-                                                                                              fractional-distance-matrix
-                                                                                              timestep
-                                                                                              cell)]
-                                         (if (and (>= new-total 1.0)
-                                                  (> new-total ^double (get-in acc [cell :fractional-distance] 0.0)))
-                                           (do (when (and (= trajectory-combination :sum) (> new-total 1.0))
-                                                 (update-overflow-heat inputs fractional-distance-matrix trajectory new-total))
-                                               (assoc! acc cell (merge trajectory {:fractional-distance  new-total
-                                                                                   :dt-adjusted          (* (/ (- 1.0 old-total) (- new-total old-total))
-                                                                                                            timestep)
-                                                                                   :ignition-probability (m/mget fire-spread-matrix i j)})))
-                                           acc)))
-                                     (transient {}))
+                             (reduce ignition-event-reducer (transient {}))
                              persistent!
                              vals)]
-    (when (= trajectory-combination :sum) (update-fractional-distance-matrix! fractional-distance-matrix max-fractionals))
+    (when (= trajectory-combination :sum)
+      (update-fractional-distance-matrix! fractional-distance-matrix max-fractionals))
     ignition-events))
 
 (defn update-ignited-cells
@@ -2303,7 +2309,8 @@ pseudo-code lays out the steps taken in this procedure:
                                  (- max-runtime global-clock)
                                  dt)
              next-global-clock (+ global-clock timestep)
-             ignition-events   (identify-ignition-events inputs ignited-cells timestep fire-spread-matrix fractional-distance-matrix)
+             ignition-events   (identify-ignition-events inputs ignited-cells timestep
+                                                         fire-spread-matrix fractional-distance-matrix)
              inputs            (perturbation/update-global-vals inputs global-clock next-global-clock)]
          ;; [{:cell :trajectory :fractional-distance
          ;;   :flame-length :fire-line-intensity} ...]
@@ -2459,7 +2466,8 @@ pseudo-code lays out the steps taken in this procedure:
             firebrand-count-matrix     (when spotting (m/zero-matrix num-rows num-cols))
             spread-rate-matrix         (initialize-matrix num-rows num-cols non-zero-indices)
             fire-type-matrix           (initialize-matrix num-rows num-cols non-zero-indices)
-            fractional-distance-matrix (when (= trajectory-combination :sum) (initialize-matrix num-rows num-cols non-zero-indices))
+            fractional-distance-matrix (when (= trajectory-combination :sum)
+                                         (initialize-matrix num-rows num-cols non-zero-indices))
             ignited-cells              (generate-ignited-cells inputs fire-spread-matrix perimeter-indices)]
         (when (seq ignited-cells)
           (run-loop inputs
@@ -3459,7 +3467,7 @@ or false:
          :ignition-cols              (draw-samples rand-gen simulations ignition-col)
          :foliar-moistures           (draw-samples rand-gen simulations foliar-moisture)
          :ellipse-adjustment-factors (draw-samples rand-gen simulations ellipse-adjustment-factor)
-         :perturbations              (perturbation/draw-samples rand-gen simulations perturbations))) ; FIXME: shadowed
+         :perturbations              (perturbation/draw-samples rand-gen simulations perturbations)));FIXME: shadowed
 
 ;; FIXME: Try using draw-sample within run-simulation instead of get-weather here.
 (defn add-weather-params
@@ -3632,9 +3640,10 @@ or false:
                       fire-line-intensity-stddev
                       crown-fire-size
                       spot-count]))
-             (cons ["simulation" "ignition-row" "ignition-col" "max-runtime" "temperature" "relative-humidity" "wind-speed-20ft"
-                    "wind-from-direction" "foliar-moisture" "ellipse-adjustment-factor" "fire-size" "flame-length-mean"
-                    "flame-length-stddev" "fire-line-intensity-mean" "fire-line-intensity-stddev" "crown-fire-size" "spot-count"])
+             (cons ["simulation" "ignition-row" "ignition-col" "max-runtime" "temperature" "relative-humidity"
+                    "wind-speed-20ft" "wind-from-direction" "foliar-moisture" "ellipse-adjustment-factor"
+                    "fire-size" "flame-length-mean" "flame-length-stddev" "fire-line-intensity-mean"
+                    "fire-line-intensity-stddev" "crown-fire-size" "spot-count"])
              (csv/write-csv out-file))))))
 
 ;; FIXME: Add a program banner and better usage/error messages
@@ -3728,44 +3737,44 @@ The Post processing scripts require the following packages to work:
 
 *** Server Configuration
 
- The GridFire system is also available for use in server mode. The
- server is confgured by and edn file containing the following contents:
+The GridFire system is also available for use in server mode. The
+server is confgured by and edn file containing the following contents:
 
- ```
- {:software-dir    "/gridfire/software"
-  :incoming-dir    "/gridfire/incoming"
-  :active-fire-dir "/gridfire/incoming/active_fires"
-  :data-dir        "/gridfire/data"
-  :log-dir         "/gridfire/log"}
- ```
+#+begin_src clojure :results silent :exports code
+{:software-dir    "/gridfire/software"
+ :incoming-dir    "/gridfire/incoming"
+ :active-fire-dir "/gridfire/incoming/active_fires"
+ :data-dir        "/gridfire/data"
+ :log-dir         "/gridfire/log"}
+#+end_src
 
- 1. software-dir: The directory the gridfire repo is cloned into.
+- software-dir :: The directory the gridfire repo is cloned into.
 
- 2. incoming-dir: The directory where the server will look for
-    match-drop input decks (which should be uploaded from the data
-    provisioning server on wx.pyregence.org). The server keeps the
-    latest 20 input decks. (see cleanup.sh in this directory)
+- incoming-dir :: The directory where the server will look for
+  match-drop input decks (which should be uploaded from the data
+  provisioning server on wx.pyregence.org). The server keeps the
+  latest 20 input decks. (see cleanup.sh in this directory)
 
- 3. active-fire-dir: The directory where the server will look for
-    active-fire input decks (which are uploaded from the data
-    provisioning server on wx.pyregence.org). The server's file watcher
-    thread will automatically add a request onto the server's
-    `standby-queue` whenever a new input deck is uploaded. The server
-    keeps the latest 200 input decks. (see cleanup.sh in this
-    directory)
+- active-fire-dir :: The directory where the server will look for
+  active-fire input decks (which are uploaded from the data
+  provisioning server on wx.pyregence.org). The server's file watcher
+  thread will automatically add a request onto the server's
+  `standby-queue` whenever a new input deck is uploaded. The server
+  keeps the latest 200 input decks. (see cleanup.sh in this
+  directory)
 
- 4. data-dir: The directory into which input deck tarballs from
-    incoming-dir are unpacked. The server keeps the latest 20 unpacked
-    tarballs. (see cleanup.sh in this directory)
+- data-dir :: The directory into which input deck tarballs from
+  incoming-dir are unpacked. The server keeps the latest 20 unpacked
+  tarballs. (see cleanup.sh in this directory)
 
- 5. log-dir: The directory into which log files are written. The server
-    keeps the last 10 days of logs.
+- log-dir :: The directory into which log files are written. The server
+  keeps the last 10 days of logs.
 
- The GridFire server is launched by user `gridfire` with this command:
+The GridFire server is launched by user `gridfire` with this command:
 
- #+begin_src sh
+#+begin_src sh
 clojure -M:run-server -c server.edn
- #+end_src
+#+end_src
 
 * Configuration File
 
@@ -3962,7 +3971,6 @@ Here's the namespace that implments this functionality.
            true)
          (burnable-fuel-model? (m/mget fuel-model row col)))))
 #+end_src
-
 
 To initialize an existing burn perimeter from a raster, we have two
 options. We can read rasters from a Postgresql database or a raster
@@ -4626,15 +4634,15 @@ files on disk.
  ;; For a list of values, the list will be randomly sampled from in each simulation.
  ;; For a range of values, the range [inclusive exclusive] will be randomly sampled from in each simulation.
 
- :temperature                      {:type   :geotiff
-                                    :source "test/gridfire/resources/weather-test/tmpf_to_sample.tif"}  ; (degrees Fahrenheit)
- :relative-humidity                {:type   :geotiff
-                                    :source "test/gridfire/resources/weather-test/rh_to_sample.tif"}    ; (%)
- :wind-speed-20ft                  {:type   :geotiff
-                                    :source "test/gridfire/resources/weather-test/ws_to_sample.tif"}    ; (miles/hour)
- :wind-from-direction              {:type   :geotiff
-                                    :source "test/gridfire/resources/weather-test/wd_to_sample.tif"}    ; (degrees clockwise from north)
- :foliar-moisture                  90                                                                   ; (%)
+ :temperature         {:type   :geotiff
+                       :source "test/gridfire/resources/weather-test/tmpf_to_sample.tif"} ; (degrees Fahrenheit)
+ :relative-humidity   {:type   :geotiff
+                       :source "test/gridfire/resources/weather-test/rh_to_sample.tif"}   ; (%)
+ :wind-speed-20ft     {:type   :geotiff
+                       :source "test/gridfire/resources/weather-test/ws_to_sample.tif"}   ; (miles/hour)
+ :wind-from-direction {:type   :geotiff
+                       :source "test/gridfire/resources/weather-test/wd_to_sample.tif"}   ; (degrees cw from north)
+ :foliar-moisture     90                                                                  ; (%)
 
  ;; Section 4: Number of simulations and (optional) random seed parameter
  :max-runtime               60             ; (minutes)
