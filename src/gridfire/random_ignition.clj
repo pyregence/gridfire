@@ -21,3 +21,4 @@
              (not (in-edge-buffer? num-rows num-cols buffer-size row col)))
            true)
          (burnable-fuel-model? (m/mget fuel-model row col)))))
+;; random_ignition.clj ends here
