@@ -8,7 +8,7 @@
 #+LATEX_HEADER: \usepackage{amsfonts}
 #+LATEX_HEADER: \usepackage{amssymb}
 #+LATEX_HEADER: \usepackage{fancyhdr}
-#+LATEX_HEADER: \usepackage[left=0.75in]{geometry}
+#+LATEX_HEADER: \usepackage[top=1in,bottom=1in,left=0.75in,right=0.75in]{geometry}
 #+LATEX_HEADER: \usepackage{geometry}
 #+LATEX_HEADER: \pagestyle{fancyplain}
 #+LATEX_HEADER: \usepackage{wrapfig}
