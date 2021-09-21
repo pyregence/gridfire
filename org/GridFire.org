@@ -100,30 +100,30 @@ complete deps.edn is shown below.
 #+begin_src clojure :results silent :exports code :tangle ../deps.edn :padline no :no-expand :comments link
 {:paths ["src" "resources"]
 
- :deps {org.clojure/clojure                 {:mvn/version "1.10.1"}
-        org.clojure/data.csv                {:mvn/version "1.0.0"}
-        org.clojure/java.jdbc               {:mvn/version "0.7.11"}
-        org.clojure/spec.alpha              {:mvn/version "0.2.187"}
-        org.clojure/core.specs.alpha        {:mvn/version "0.2.44"}
-        org.postgresql/postgresql           {:mvn/version "42.2.16"}
+ :deps {com.nextjournal/beholder            {:mvn/version "1.0.0"}
+        com.taoensso/tufte                  {:mvn/version "2.2.0"}
+        kixi/stats                          {:mvn/version "0.5.4"}
         net.mikera/core.matrix              {:mvn/version "0.62.0"}
         net.mikera/vectorz-clj              {:mvn/version "0.48.0"}
-        sig-gis/magellan                    {:mvn/version "20210401"}
         org.clojars.lambdatronic/matrix-viz {:mvn/version "0.1.7"}
-        org.clojure/tools.cli               {:mvn/version "1.0.194"}
-        kixi/stats                          {:mvn/version "0.5.4"}
-        org.clojure/data.json               {:mvn/version "1.1.0"}
-        sig-gis/triangulum                  {:git/url "https://github.com/sig-gis/triangulum"
-                                             :sha     "3feea51ad546828cecc2bf96256534d4c0aad066"}
+        org.clojure/clojure                 {:mvn/version "1.10.1"}
         org.clojure/core.async              {:mvn/version "1.3.610"}
-        com.taoensso/tufte                  {:mvn/version "2.2.0"}}
+        org.clojure/data.csv                {:mvn/version "1.0.0"}
+        org.clojure/data.json               {:mvn/version "1.1.0"}
+        org.clojure/java.jdbc               {:mvn/version "0.7.11"}
+        org.clojure/tools.cli               {:mvn/version "1.0.194"}
+        org.postgresql/postgresql           {:mvn/version "42.2.16"}
+        sig-gis/magellan                    {:mvn/version "20210401"}
+        sig-gis/triangulum                  {:git/url "https://github.com/sig-gis/triangulum"
+                                             :sha     "3feea51ad546828cecc2bf96256534d4c0aad066"}}
 
  :mvn/repos {"osgeo" {:url "https://repo.osgeo.org/repository/release/"}}
 
  :aliases {:build-test-db     {:extra-paths ["test"]
                                :main-opts   ["-m" "gridfire.build-test-db"]}
            :run               {:main-opts ["-m" "gridfire.cli"]}
-           :run-server        {:main-opts ["-m" "gridfire.server"]}
+           :run-server        {:main-opts ["-m" "gridfire.server"]
+                               :jvm-opts ["-Xmx200g"]}
            :repl              {:main-opts ["-e" "(require,'gridfire.cli)"
                                            "-e" "(in-ns,'gridfire.cli)"
                                            "-r"]}
