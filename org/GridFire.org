@@ -8,7 +8,7 @@
 #+LATEX_HEADER: \usepackage{amsfonts}
 #+LATEX_HEADER: \usepackage{amssymb}
 #+LATEX_HEADER: \usepackage{fancyhdr}
-#+LATEX_HEADER: \usepackage[left=1in]{geometry}
+#+LATEX_HEADER: \usepackage[left=0.75in]{geometry}
 #+LATEX_HEADER: \usepackage{geometry}
 #+LATEX_HEADER: \pagestyle{fancyplain}
 #+LATEX_HEADER: \usepackage{wrapfig}
@@ -69,15 +69,15 @@ enter the code making up this fire model.
 
 Postgresql (along with the PostGIS spatial extensions) will be used to
 load and serve raster-formatted GIS layers to the GridFire program.
-Although it is beyond the scope of this document, PostGIS provides a
-rich API for manipulating both raster and vector layers through SQL.
-See https://postgis.net for more information.
+Although it is beyond the scope of this document,
+PostGIS[fn::https://postgis.net] provides a rich API for manipulating
+both raster and vector layers through SQL.
 
 *License Notice*: All code presented in this document is solely the
 work of the authors (Gary W. Johnson, Ph.D., David Saah, Ph.D., Max
 Moritz, Ph.D., Kenneth Cheung) and is made available by Spatial
 Informatics Group, LLC (SIG) under the Eclipse Public License version
-2.0 (EPLv2) https://www.eclipse.org/legal/epl-2.0/. See LICENSE.txt in
+2.0 (EPLv2)[fn::https://www.eclipse.org/legal/epl-2.0/]. See LICENSE.txt in
 the top level directory of this repository for details. Please contact
 Gary Johnson (gjohnson@sig-gis.com), David Saah (dsaah@sig-gis.com),
 Max Moritz (mmoritz@sig-gis.com), or Kenneth Cheung
@@ -154,9 +154,9 @@ computer.
 
 Before we run tests, we'll need to set up a test database and import
 rasters into it. We will be prompted for the postgres and
-gridfire_test user's password. The postgres user's password will be
+gridfire_test users' passwords. The postgres user's password will be
 whatever it is when we set up Postgres. For the gridfire_test user's
-password refer to ``src/sql/create_test_db.sql''.
+password, refer to ``src/sql/create_test_db.sql''.
 
 #+name: clojure-test-db
 #+begin_src sh :results silent :exports code
