@@ -157,18 +157,19 @@ Before we run tests, we'll need to set up a test database and import
 rasters into it. We will be prompted for the postgres and
 gridfire_test users' passwords. The postgres user's password will be
 whatever it is when we set up Postgres. For the gridfire_test user's
-password, refer to ``src/sql/create_test_db.sql''.
+password, refer to ``src/sql/create_test_db.sql''. The default value
+is simply ``gridfire_test''.
 
 #+name: clojure-test-db
 #+begin_src sh :results silent :exports code
-clojure -A:build-test-db
+clojure -M:build-test-db
 #+end_src
 
 To run tests
 
 #+name: clojure-test
 #+begin_src sh :results silent :exports code
-clojure -A:test
+clojure -M:test
 #+end_src
 
 ** Project Metadata: pom.xml
@@ -291,7 +292,7 @@ target/gridfire-<version>.jar) by running the following command:
 
 #+name: clojure-make-uberjar
 #+begin_src sh :results silent :exports code
-clojure -A:make-uberjar
+clojure -M:make-uberjar
 #+end_src
 
 * Setting Up the PostGIS Database
@@ -3113,7 +3114,7 @@ The executable may be created using the Clojure CLI tools as follows:
 
 #+name: build-jar
 #+begin_src sh :results silent :exports code
-clojure -A:make-uberjar
+clojure -M:make-uberjar
 #+end_src
 
 This command will generate a Java Archive (JAR) file in
