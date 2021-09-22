@@ -18,7 +18,6 @@
                                                   van-wagner-crown-fire-initiation?]]
             [gridfire.fuel-models         :refer [build-fuel-model moisturize]]
             [gridfire.perturbation        :as perturbation]
-            [gridfire.utils.primitive     :refer [double-reduce]]
             [gridfire.spotting            :as spot]
             [gridfire.surface-fire        :refer [anderson-flame-depth
                                                   byram-fire-line-intensity
@@ -422,7 +421,7 @@
      (if (and (< global-clock max-runtime)
               (seq ignited-cells))
        (let [dt                (->> ignited-cells
-                                    (double-reduce reducer-fn 0.0)
+                                    (reduce reducer-fn 0.0)
                                     (/ cell-size)
                                     double)
              timestep          (if (> (+ global-clock dt) max-runtime)
