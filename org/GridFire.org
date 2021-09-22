@@ -107,16 +107,16 @@ deps.edn for the current GridFire version is shown below.
         net.mikera/core.matrix              {:mvn/version "0.62.0"}
         net.mikera/vectorz-clj              {:mvn/version "0.48.0"}
         org.clojars.lambdatronic/matrix-viz {:mvn/version "0.1.7"}
-        org.clojure/clojure                 {:mvn/version "1.10.1"}
-        org.clojure/core.async              {:mvn/version "1.3.610"}
+        org.clojure/clojure                 {:mvn/version "1.10.3"}
+        org.clojure/core.async              {:mvn/version "1.3.622"}
         org.clojure/data.csv                {:mvn/version "1.0.0"}
-        org.clojure/data.json               {:mvn/version "1.1.0"}
-        org.clojure/java.jdbc               {:mvn/version "0.7.11"}
-        org.clojure/tools.cli               {:mvn/version "1.0.194"}
-        org.postgresql/postgresql           {:mvn/version "42.2.16"}
+        org.clojure/data.json               {:mvn/version "2.4.0"}
+        org.clojure/java.jdbc               {:mvn/version "0.7.12"}
+        org.clojure/tools.cli               {:mvn/version "1.0.206"}
+        org.postgresql/postgresql           {:mvn/version "42.2.23"}
         sig-gis/magellan                    {:mvn/version "20210401"}
         sig-gis/triangulum                  {:git/url "https://github.com/sig-gis/triangulum"
-                                             :sha     "3feea51ad546828cecc2bf96256534d4c0aad066"}}
+                                             :sha     "5b179a97ebd8fbcbff51776db06d9770cb649b9d"}}
 
  :mvn/repos {"osgeo" {:url "https://repo.osgeo.org/repository/release/"}}
 
@@ -128,13 +128,13 @@ deps.edn for the current GridFire version is shown below.
                                            "-e" "(in-ns,'gridfire.cli)"
                                            "-r"]}
            :make-config       {:main-opts ["-m" "gridfire.config"]}
-           :make-uberjar      {:extra-deps {seancorfield/depstar {:mvn/version "1.0.97"}}
+           :make-uberjar      {:extra-deps {seancorfield/depstar {:mvn/version "2.0.216"}}
                                :main-opts  ["-m" "hf.depstar.uberjar" "target/gridfire-20200909.105353.jar"
                                             "-C" "-m" "gridfire.cli"]}
            :test              {:extra-paths ["test"]
                                :extra-deps  {com.cognitect/test-runner
                                              {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                                              :sha     "209b64504cb3bd3b99ecfec7937b358a879f55c1"}}
+                                              :sha     "dd6da11611eeb87f08780a30ac8ea6012d4c05ce"}}
                                :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
                                              "-m" "cognitect.test-runner"]}
            :check-reflections {:extra-paths ["test"]
@@ -143,7 +143,7 @@ deps.edn for the current GridFire version is shown below.
                                              "-e" "(require,'gridfire.server)"
                                              "-e" "(require,'gridfire.config)"
                                              "-e" "(require,'gridfire.build-test-db)"]}
-           :check-deps        {:extra-deps {olical/depot {:mvn/version "1.8.4"}}
+           :check-deps        {:extra-deps {olical/depot {:mvn/version "2.3.0"}}
                                :main-opts  ["-m" "depot.outdated.main"]}}}
 #+end_src
 
@@ -237,22 +237,22 @@ deps.edn, such as the project name, version, and description.
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>data.json</artifactId>
-      <version>1.1.0</version>
+      <version>2.4.0</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>clojure</artifactId>
-      <version>1.10.1</version>
+      <version>1.10.3</version>
     </dependency>
     <dependency>
       <groupId>criterium</groupId>
       <artifactId>criterium</artifactId>
-      <version>0.4.4</version>
+      <version>0.4.6</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>tools.cli</artifactId>
-      <version>1.0.194</version>
+      <version>1.0.206</version>
     </dependency>
     <dependency>
       <groupId>com.taoensso</groupId>
@@ -267,7 +267,7 @@ deps.edn, such as the project name, version, and description.
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
-      <version>42.2.16</version>
+      <version>42.2.23</version>
     </dependency>
     <dependency>
       <groupId>org.clojars.lambdatronic</groupId>
@@ -282,7 +282,7 @@ deps.edn, such as the project name, version, and description.
     <dependency>
       <groupId>clj-http</groupId>
       <artifactId>clj-http</artifactId>
-      <version>3.12.1</version>
+      <version>3.12.3</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
@@ -292,7 +292,7 @@ deps.edn, such as the project name, version, and description.
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>java.jdbc</artifactId>
-      <version>0.7.11</version>
+      <version>0.7.12</version>
     </dependency>
     <dependency>
       <groupId>kixi</groupId>
@@ -317,7 +317,7 @@ deps.edn, such as the project name, version, and description.
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.async</artifactId>
-      <version>1.3.610</version>
+      <version>1.3.622</version>
     </dependency>
   </dependencies>
   <repositories>
