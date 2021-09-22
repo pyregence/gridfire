@@ -23,8 +23,7 @@
  :aliases {:build-test-db     {:extra-paths ["test"]
                                :main-opts   ["-m" "gridfire.build-test-db"]}
            :run               {:main-opts ["-m" "gridfire.cli"]}
-           :run-server        {:main-opts ["-m" "gridfire.server"]
-                               :jvm-opts ["-Xmx200g"]}
+           :run-server        {:main-opts ["-m" "gridfire.server"]}
            :repl              {:main-opts ["-e" "(require,'gridfire.cli)"
                                            "-e" "(in-ns,'gridfire.cli)"
                                            "-r"]}

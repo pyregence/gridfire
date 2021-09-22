@@ -123,8 +123,7 @@ deps.edn for the current GridFire version is shown below.
  :aliases {:build-test-db     {:extra-paths ["test"]
                                :main-opts   ["-m" "gridfire.build-test-db"]}
            :run               {:main-opts ["-m" "gridfire.cli"]}
-           :run-server        {:main-opts ["-m" "gridfire.server"]
-                               :jvm-opts ["-Xmx200g"]}
+           :run-server        {:main-opts ["-m" "gridfire.server"]}
            :repl              {:main-opts ["-e" "(require,'gridfire.cli)"
                                            "-e" "(in-ns,'gridfire.cli)"
                                            "-r"]}
@@ -153,19 +152,22 @@ these library dependencies and then run the built-in test suite to
 verify that GridFire compiles and runs as expected on our local
 computer.
 
-Before we run tests, we'll need to set up a test database and import
-rasters into it. We will be prompted for the postgres and
+Before we run the tests, we'll need to set up a test database and
+import some rasters into it. We will be prompted for the postgres and
 gridfire_test users' passwords. The postgres user's password will be
-whatever it is when we set up Postgres. For the gridfire_test user's
+whatever it is when we set up Postgresql. For the gridfire_test user's
 password, refer to ``src/sql/create_test_db.sql''. The default value
 is simply ``gridfire_test''.
+
+The following command builds the test database:
 
 #+name: clojure-test-db
 #+begin_src sh :results silent :exports code
 clojure -M:build-test-db
 #+end_src
 
-To run tests
+Once that has completed, you can run the following command to launch
+the test suite:
 
 #+name: clojure-test
 #+begin_src sh :results silent :exports code
