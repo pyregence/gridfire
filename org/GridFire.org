@@ -29,15 +29,15 @@
 
 * Preface
 
-This document is a Literate Program[fn::
-https://en.wikipedia.org/wiki/Literate_programming], containing both
-the source code of the software it describes as well as the rationale
-used in each step of its design and implementation. The purpose of
-this approach is to enable anyone sufficiently experienced in
-programming to easily retrace the author's footsteps as they read
-through the text and code. By the time they have reached the end of
-this document, the reader should have just as strong a grasp of the
-system as the original programmer.
+This document is a Literate
+Program[fn::https://en.wikipedia.org/wiki/Literate_programming],
+containing both the source code of the software it describes as well
+as the rationale used in each step of its design and implementation.
+The purpose of this approach is to enable anyone sufficiently
+experienced in programming to easily retrace the author's footsteps as
+they read through the text and code. By the time they have reached the
+end of this document, the reader should have just as strong a grasp of
+the system as the original programmer.
 
 To execute the code illustrated within this document, you will need to
 install several pieces of software, all of which are open source
@@ -57,10 +57,10 @@ minimum required versions and URLs from which they may be downloaded.
 | PostGIS              |      3+ | https://postgis.net/install                |
 |----------------------+---------+--------------------------------------------|
 
-GridFire is written in the Clojure programming language[fn::
-https://clojure.org], which is a modern dialect of Lisp hosted on the
-Java Virtual Machine.\citep{Hickey2008} As a result, a Java
-Development Kit is required to compile and run the code shown
+GridFire is written in the Clojure programming
+language[fn::https://clojure.org], which is a modern dialect of Lisp
+hosted on the Java Virtual Machine.\citep{Hickey2008} As a result, a
+Java Development Kit is required to compile and run the code shown
 throughout this document.
 
 The Clojure CLI tools are used to download required libraries and
@@ -77,11 +77,12 @@ both raster and vector layers through SQL.
 work of the authors (Gary W. Johnson, Ph.D., David Saah, Ph.D., Max
 Moritz, Ph.D., Kenneth Cheung) and is made available by Spatial
 Informatics Group, LLC (SIG) under the Eclipse Public License version
-2.0 (EPLv2)[fn::https://www.eclipse.org/legal/epl-2.0/]. See LICENSE.txt in
-the top level directory of this repository for details. Please contact
-Gary Johnson (gjohnson@sig-gis.com), David Saah (dsaah@sig-gis.com),
-Max Moritz (mmoritz@sig-gis.com), or Kenneth Cheung
-(kcheung@sig-gis.com) for further information about this software.
+2.0 (EPLv2).[fn::https://www.eclipse.org/legal/epl-2.0/] See
+LICENSE.txt in the top level directory of this repository for details.
+Please contact Gary Johnson (gjohnson@sig-gis.com), David Saah
+(dsaah@sig-gis.com), Max Moritz (mmoritz@sig-gis.com), or Kenneth
+Cheung (kcheung@sig-gis.com) for further information about this
+software.
 
 * Setting Up the Clojure Environment
 ** Build Configuration: deps.edn
@@ -3779,16 +3780,16 @@ clojure -M:run-server -c server.edn
 * Configuration File
 
 The configuration file for GridFire's command line interface is a text
-file in Extensible Data Notation (EDN) format.[fn::
-https://github.com/edn-format/edn] A sample configuration file is
-provided below and in ``resources/sample_config.edn''. The format
-should be self-evident at a glance, but it is worth noting that EDN is
-case-sensitive but whitespace-insensitive. Comments are anything
-following two semi-colons (;;). Strings are contained in double-quotes
-(``''). Keywords are prefixed with a colon (:). Vectors are delimited
-with square brackets ([]). Associative lookup tables (a.k.a. maps) are
-delimited with curly braces ({}) and are used to express key-value
-relationships.
+file in Extensible Data Notation (EDN)
+format.[fn::https://github.com/edn-format/edn] A sample configuration
+file is provided below and in ``resources/sample_config.edn''. The
+format should be self-evident at a glance, but it is worth noting that
+EDN is case-sensitive but whitespace-insensitive. Comments are
+anything following two semi-colons (;;). Strings are contained in
+double-quotes (``''). Keywords are prefixed with a colon (:). Vectors
+are delimited with square brackets ([]). Associative lookup tables
+(a.k.a. maps) are delimited with curly braces ({}) and are used to
+express key-value relationships.
 
 The configuration file can be broken up into 5 sections as described
 below:
@@ -3884,10 +3885,10 @@ fetch specifications:
                  :multiplier 0.1}}
 #+end_src
 
-In the example above the input raster's units, according to
-"https://landfire.gov/faqprint.php" is in meters * 10. Thus a value of
-5 on the canopy height grid layer is actually 0.5 meters. The
-mutipler factor needed to convert to meters is 0.1.
+In the example above the input raster's units are meters *
+10.[fn::https://landfire.gov/faqprint.php] Thus a value of 5 on the
+canopy height grid layer is actually 0.5 meters. The mutipler factor
+needed to convert to meters is 0.1.
 
 Include the following required mapping on all configurations:
 
