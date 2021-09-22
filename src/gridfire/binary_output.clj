@@ -27,33 +27,35 @@
      (m/non-zero-indices matrix))))
 
 ;;FIXME max-row max-col is not correct. Need dimensions in binary file.
-(defn indices-to-matrix
-  ([indices]
-   (indices-to-matrix indices nil))
-
-  ([indices ttype]
-   (let [rows    (indices :y)
-         cols    (indices :x)
-         values  (indices :v)
-         max-row (apply max rows)
-         max-col (apply max cols)
-         matrix  (if (= ttype :int)
-                   (make-array Integer/TYPE max-row max-col)
-                   (make-array Float/TYPE max-row max-col))]
-     (dotimes [i (count values)]
-       (let [true-row (- max-row (aget rows i))
-             true-col (dec (aget cols i))]
-         (aset matrix true-row true-col (aget values i))))
-     (m/matrix matrix))))
+(defn indices-to-matrix [indices ttype]
+  (let [^ints rows (indices :y)
+        ^ints cols (indices :x)
+        max-row    (apply max rows)
+        max-col    (apply max cols)]
+    (if (= ttype :int)
+      (let [^ints values (indices :v)
+            matrix       (make-array Integer/TYPE max-row max-col)]
+        (dotimes [i (count values)]
+          (let [true-row (- max-row (aget rows i))
+                true-col (dec (aget cols i))]
+            (aset matrix true-row true-col (aget values i))))
+        (m/matrix matrix))
+      (let [^floats values (indices :v)
+            matrix         (make-array Float/TYPE max-row max-col)]
+        (dotimes [i (count values)]
+          (let [true-row (- max-row (aget rows i))
+                true-col (dec (aget cols i))]
+            (aset matrix true-row true-col (aget values i))))
+        (m/matrix matrix)))))
 
 ;;FIXME optimize
 (defn write-matrix-as-binary [matrix file-name]
   (let [num-burned-cells (m/non-zero-count matrix)
         burned-data      (non-zero-data matrix)]
     (with-open [out (DataOutputStream. (io/output-stream file-name))]
-      (.writeInt out (int num-burned-cells))                          ; Int32
-      (doseq [x (burned-data :x)] (.writeInt out (int x)))            ; Int32
-      (doseq [y (burned-data :y)] (.writeInt out (int y)))            ; Int32
+      (.writeInt out (int num-burned-cells))               ; Int32
+      (doseq [x (burned-data :x)] (.writeInt out (int x))) ; Int32
+      (doseq [y (burned-data :y)] (.writeInt out (int y))) ; Int32
       (doseq [v (burned-data :v)] (.writeFloat out (float v)))))) ; Float32
 
 (defn ints-to-bytes [int-coll]
@@ -75,7 +77,7 @@
    (let [num-burned-cells (m/non-zero-count (first matrices))
          data             (mapv non-zero-data matrices)]
      (with-open [out (DataOutputStream. (io/output-stream file-name))]
-       (.writeInt out (int num-burned-cells))                   ; Int32
+       (.writeInt out (int num-burned-cells)) ; Int32
        (let [xs (:x (first data))
              ys (:y (first data))]
          (.write out (ints-to-bytes xs) 0 (* 4 (count xs)))  ; Int32
@@ -91,11 +93,12 @@
 ;;FIXME optimize
 (defn read-matrix-as-binary [file-name]
   (with-open [in (DataInputStream. (io/input-stream file-name))]
-    (let [num-burned-cells (.readInt in)]                                ; Int32
+    (let [num-burned-cells (.readInt in)] ; Int32
       (indices-to-matrix
-       {:x (into-array Integer/TYPE (repeatedly num-burned-cells #(.readInt in))) ; Int32
-        :y (into-array Integer/TYPE (repeatedly num-burned-cells #(.readInt in))) ; Int32
-        :v (into-array Float/TYPE (repeatedly num-burned-cells #(.readFloat in)))})))) ; Float32
+       {:x (into-array Integer/TYPE (repeatedly num-burned-cells #(.readInt in)))  ; Int32
+        :y (into-array Integer/TYPE (repeatedly num-burned-cells #(.readInt in)))  ; Int32
+        :v (into-array Float/TYPE (repeatedly num-burned-cells #(.readFloat in)))} ; Float32
+       :float))))
 
 (defn read-matrices-as-binary [file-name ttypes]
   (with-open [in (DataInputStream. (io/input-stream file-name))]
