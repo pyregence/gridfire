@@ -7,5 +7,6 @@ org/GridFire.tex
 org/_minted-GridFire/
 org/auto/
 org/missfont.log
+pom.xml
 target/
 server.edn
