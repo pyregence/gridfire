@@ -75,11 +75,11 @@
           perpendicular-values)))
 ;; sardoy-firebrand-dispersal ends here
 ;; [[file:../../org/GridFire.org::convert-deltas][convert-deltas]]
-(defn- hypotenuse ^double
+(defn hypotenuse ^double
   [x y]
   (Math/sqrt (+ (Math/pow x 2) (Math/pow y 2))))
 
-(defn- deltas-wind->coord
+(defn deltas-wind->coord
   "Converts deltas from the torched tree in the wind direction to deltas
   in the coordinate plane"
   [deltas ^double wind-direction]
@@ -215,7 +215,7 @@
   [[min max] fuel-model-number]
   (<= min fuel-model-number max))
 
-(defn- surface-spot-percent
+(defn surface-spot-percent
   ^double
   [fuel-range-percents fuel-model-number rand-gen]
   (reduce (fn [acc [fuel-range percent]]

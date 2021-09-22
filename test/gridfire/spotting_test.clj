@@ -3,7 +3,7 @@
             [clojure.test :refer [deftest is testing]]))
 
 (defn close-to-zero [d]
-  (< (Math/abs d) 0.000001))
+  (< -0.000001 d 0.000001))
 
 (deftest deltas-axis-test
   (testing "x-axis"
