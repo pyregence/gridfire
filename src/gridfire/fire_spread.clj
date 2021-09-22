@@ -26,7 +26,8 @@
                                                   rothermel-surface-fire-spread-max
                                                   rothermel-surface-fire-spread-no-wind-no-slope
                                                   wind-adjustment-factor]]
-            [gridfire.utils.random        :as random]))
+            [gridfire.utils.random        :as random])
+  (:import java.util.Random))
 
 (m/set-current-implementation :vectorz)
 
@@ -261,16 +262,16 @@
      (m/mset! fractional-distance-matrix i j (- fractional-distance 1.0)))))
 
 (defn ignition-event-reducer
-  [acc trajectory]
+  [inputs max-fractionals fractional-distance-matrix timestep trajectory-combination fire-spread-matrix
+   acc trajectory]
   (let [{:keys [source cell]} trajectory
         [i j]                 source
-        [^double old-total
-         ^double new-total] (update-fractional-distance! inputs
-                                                         max-fractionals
-                                                         trajectory
-                                                         fractional-distance-matrix
-                                                         timestep
-                                                         cell)]
+        [^double old-total ^double new-total] (update-fractional-distance! inputs
+                                                                           max-fractionals
+                                                                           trajectory
+                                                                           fractional-distance-matrix
+                                                                           timestep
+                                                                           cell)]
     (if (and (>= new-total 1.0)
              (> new-total ^double (get-in acc [cell :fractional-distance] 0.0)))
       (do (when (and (= trajectory-combination :sum) (> new-total 1.0))
@@ -285,8 +286,12 @@
   [{:keys [trajectory-combination] :as inputs} ignited-cells timestep fire-spread-matrix fractional-distance-matrix]
   (let [timestep        (double timestep)
         max-fractionals (atom {})
+        reducer-fn      (fn [acc trajectory]
+                          (ignition-event-reducer inputs max-fractionals fractional-distance-matrix
+                                                  timestep trajectory-combination fire-spread-matrix
+                                                  acc trajectory))
         ignition-events (->> ignited-cells
-                             (reduce ignition-event-reducer (transient {}))
+                             (reduce reducer-fn (transient {}))
                              persistent!
                              vals)]
     (when (= trajectory-combination :sum)
@@ -521,7 +526,7 @@
       :random-ignition-point)))
 
 (defmethod run-fire-spread :random-ignition-point
-  [{:keys [ignitable-sites rand-gen] :as inputs}]
+  [{:keys [ignitable-sites ^Random rand-gen] :as inputs}]
   (.nextDouble rand-gen)
   (run-fire-spread (assoc inputs
                           :initial-ignition-site
