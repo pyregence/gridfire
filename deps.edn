@@ -28,9 +28,22 @@
                                            "-e" "(in-ns,'gridfire.cli)"
                                            "-r"]}
            :make-config       {:main-opts ["-m" "gridfire.config"]}
-           :make-uberjar      {:extra-deps {seancorfield/depstar {:mvn/version "2.0.216"}}
-                               :main-opts  ["-m" "hf.depstar.uberjar" "target/gridfire-20200909.105353.jar"
-                                            "-C" "-m" "gridfire.cli"]}
+           :make-uberjar      {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
+                               :exec-fn      hf.depstar/uberjar
+                               :exec-args    {:jar         target/gridfire.jar
+                                              :main-class  gridfire.cli
+                                              :aot         true
+                                              :sync-pom    true
+                                              :group-id    sig-gis
+                                              :artifact-id gridfire
+                                              :version     "2021.09.22"
+                                              :manifest
+                                              {:specification-title    "Java Advanced Imaging Image I/O Tools"
+                                               :specification-version  "1.1"
+                                               :specification-vendor   "Sun Microsystems, Inc."
+                                               :implementation-title   "com.sun.media.imageio"
+                                               :implementation-version "1.1"
+                                               :implementation-vendor  "Sun Microsystems, Inc."}}}
            :test              {:extra-paths ["test"]
                                :extra-deps  {com.cognitect/test-runner
                                              {:git/url "https://github.com/cognitect-labs/test-runner.git"

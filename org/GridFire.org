@@ -85,7 +85,6 @@ Cheung (kcheung@sig-gis.com) for further information about this
 software.
 
 * Setting Up the Clojure Environment
-** Build Configuration: deps.edn
 
 Because Clojure is implemented on the Java Virtual Machine (JVM), we
 must explicitly list all of the libraries used by our program on the
@@ -128,9 +127,22 @@ deps.edn for the current GridFire version is shown below.
                                            "-e" "(in-ns,'gridfire.cli)"
                                            "-r"]}
            :make-config       {:main-opts ["-m" "gridfire.config"]}
-           :make-uberjar      {:extra-deps {seancorfield/depstar {:mvn/version "2.0.216"}}
-                               :main-opts  ["-m" "hf.depstar.uberjar" "target/gridfire-20200909.105353.jar"
-                                            "-C" "-m" "gridfire.cli"]}
+           :make-uberjar      {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
+                               :exec-fn      hf.depstar/uberjar
+                               :exec-args    {:jar         target/gridfire.jar
+                                              :main-class  gridfire.cli
+                                              :aot         true
+                                              :sync-pom    true
+                                              :group-id    sig-gis
+                                              :artifact-id gridfire
+                                              :version     "2021.09.22"
+                                              :manifest
+                                              {:specification-title    "Java Advanced Imaging Image I/O Tools"
+                                               :specification-version  "1.1"
+                                               :specification-vendor   "Sun Microsystems, Inc."
+                                               :implementation-title   "com.sun.media.imageio"
+                                               :implementation-version "1.1"
+                                               :implementation-vendor  "Sun Microsystems, Inc."}}}
            :test              {:extra-paths ["test"]
                                :extra-deps  {com.cognitect/test-runner
                                              {:git/url "https://github.com/cognitect-labs/test-runner.git"
@@ -172,174 +184,6 @@ the test suite:
 #+name: clojure-test
 #+begin_src sh :results silent :exports code
 clojure -M:test
-#+end_src
-
-** Project Metadata: pom.xml
-
-POM is an acronym for Project Object Model and is a necessary
-component of any redistributable project built to run on the Java
-Virtual Machine. The pom.xml file contains project metadata, such as
-the application name and version, its dependencies and the URLs of
-code repositories from which to download them, and any additional
-information that is necessary to package GridFire as an ``uberjar``.
-The advantage of the uberjar format (e.g., gridfire-<version>.jar) is
-that the single uberjar file can be shared easily between computers
-and can be run by anyone with a recent version of Java installed,
-without needing to install Clojure, Git, or any of the dependency
-libraries that GridFire uses.
-
-The following command will create an initial pom.xml for our project
-based on the contents of our deps.edn from the previous section.
-
-#+name: clojure-pom
-#+begin_src sh :results silent :exports code
-clojure -Spom
-#+end_src
-
-Once this file is created, we need to modify the contents of its XML
-tags to add any additional information that was not available from
-deps.edn, such as the project name, version, and description.
-
-#+name: pom.xml
-#+begin_src xml :results silent :exports code :tangle ../pom.xml :padline no :no-expand
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-  <modelVersion>4.0.0</modelVersion>
-  <groupId>sig-gis</groupId>
-  <artifactId>gridfire</artifactId>
-  <version>20200909.105353</version>
-  <name>gridfire</name>
-  <description>
-    SIG's Raster-based Fire Behavior Model
-  </description>
-  <build>
-    <plugins>
-      <plugin>
-        <configuration>
-          <archive>
-            <manifestEntries>
-              <Specification-Title>Java Advanced Imaging Image I/O Tools</Specification-Title>
-              <Specification-Version>1.1</Specification-Version>
-              <Specification-Vendor>Sun Microsystems, Inc.</Specification-Vendor>
-              <Implementation-Title>com.sun.media.imageio</Implementation-Title>
-              <Implementation-Version>1.1</Implementation-Version>
-              <Implementation-Vendor>Sun Microsystems, Inc.</Implementation-Vendor>
-            </manifestEntries>
-          </archive>
-        </configuration>
-      </plugin>
-    </plugins>
-    <sourceDirectory>src</sourceDirectory>
-  </build>
-  <dependencies>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>data.json</artifactId>
-      <version>2.4.0</version>
-    </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>clojure</artifactId>
-      <version>1.10.3</version>
-    </dependency>
-    <dependency>
-      <groupId>criterium</groupId>
-      <artifactId>criterium</artifactId>
-      <version>0.4.6</version>
-    </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>tools.cli</artifactId>
-      <version>1.0.206</version>
-    </dependency>
-    <dependency>
-      <groupId>com.taoensso</groupId>
-      <artifactId>tufte</artifactId>
-      <version>2.2.0</version>
-    </dependency>
-    <dependency>
-      <groupId>sig-gis</groupId>
-      <artifactId>magellan</artifactId>
-      <version>20210401</version>
-    </dependency>
-    <dependency>
-      <groupId>org.postgresql</groupId>
-      <artifactId>postgresql</artifactId>
-      <version>42.2.23</version>
-    </dependency>
-    <dependency>
-      <groupId>org.clojars.lambdatronic</groupId>
-      <artifactId>matrix-viz</artifactId>
-      <version>0.1.7</version>
-    </dependency>
-    <dependency>
-      <groupId>com.nextjournal</groupId>
-      <artifactId>beholder</artifactId>
-      <version>1.0.0</version>
-    </dependency>
-    <dependency>
-      <groupId>clj-http</groupId>
-      <artifactId>clj-http</artifactId>
-      <version>3.12.3</version>
-    </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>data.csv</artifactId>
-      <version>1.0.0</version>
-    </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>java.jdbc</artifactId>
-      <version>0.7.12</version>
-    </dependency>
-    <dependency>
-      <groupId>kixi</groupId>
-      <artifactId>stats</artifactId>
-      <version>0.5.4</version>
-    </dependency>
-    <dependency>
-      <groupId>net.mikera</groupId>
-      <artifactId>vectorz-clj</artifactId>
-      <version>0.48.0</version>
-    </dependency>
-    <dependency>
-      <groupId>net.mikera</groupId>
-      <artifactId>core.matrix</artifactId>
-      <version>0.62.0</version>
-    </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>core.match</artifactId>
-      <version>1.0.0</version>
-    </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>core.async</artifactId>
-      <version>1.3.622</version>
-    </dependency>
-  </dependencies>
-  <repositories>
-    <repository>
-      <id>clojars</id>
-      <url>https://repo.clojars.org/</url>
-    </repository>
-    <repository>
-      <id>osgeo</id>
-      <url>https://repo.osgeo.org/repository/release/</url>
-    </repository>
-  </repositories>
-</project>
-#+end_src
-
-Once the pom.xml has been configured correctly, we can compile
-GridFire and package it up as an uberjar (under
-target/gridfire-<version>.jar) by running the following command:
-
-#+name: clojure-make-uberjar
-#+begin_src sh :results silent :exports code
-clojure -M:make-uberjar
 #+end_src
 
 * Setting Up the PostGIS Database
@@ -3161,20 +3005,26 @@ that can be parameterized by a single configuration file, specifying
 the ignition location, burn duration, weather values, and the location
 of the PostGIS raster layers to use for topography and fuels.
 
-The executable may be created using the Clojure CLI tools as follows:
+GridFire's command line interface can be built as an uberjar using the
+following command:
 
 #+name: build-jar
 #+begin_src sh :results silent :exports code
-clojure -M:make-uberjar
+clojure -X:make-uberjar
 #+end_src
 
-This command will generate a Java Archive (JAR) file in
-the *target* directory that may be run from the command line as
+The advantage of the uberjar format is that the single uberjar file
+can be shared easily between computers and can be run by anyone with a
+recent version of Java installed, without needing to install Clojure,
+Git, or any of the dependency libraries that GridFire uses.
+
+The command above will output the uberjar into this repository's top
+level ``target'' directory. It can be run from the command line as
 follows:
 
 #+name: run-gridfire-jar
 #+begin_src sh :results silent :exports code
-java -jar gridfire-<version>.jar myconfig.edn
+java -jar gridfire.jar myconfig.edn
 #+end_src
 
 When run, the executable connects to the PostGIS database specified in
