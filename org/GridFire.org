@@ -3699,20 +3699,25 @@ or false:
                     "fire-line-intensity-stddev" "crown-fire-size" "spot-count"])
              (csv/write-csv out-file))))))
 
+(defn process-config-file!
+  [config-file]
+  (let [config (edn/read-string (slurp config-file))]
+    (if-not (s/valid? ::spec/config config)
+      (s/explain ::spec/config config)
+      (let [inputs (load-inputs config)]
+        (if (seq (:ignitable-sites inputs))
+          (let [outputs (run-simulations! inputs)]
+            (write-landfire-layers! inputs)
+            (write-burn-probability-layer! inputs outputs)
+            (write-csv-outputs! inputs outputs))
+          (log-str "Could not run simulation. No valid ignition sites. Config:" config-file))))))
+
 ;; FIXME: Add a program banner and better usage/error messages
 (defn -main
   [& config-files]
   (doseq [config-file config-files]
-    (let [config (edn/read-string (slurp config-file))]
-      (if-not (s/valid? ::spec/config config)
-        (s/explain ::spec/config config)
-        (let [inputs  (load-inputs config)]
-          (if (seq (:ignitable-sites inputs))
-            (let [outputs (run-simulations! inputs)]
-              (write-landfire-layers! inputs)
-              (write-burn-probability-layer! inputs outputs)
-              (write-csv-outputs! inputs outputs))
-            (log-str "Could not run simulation. No valid ignition sites. Config:" config-file)))))))
+    (process-config-file! config-file))
+  (shutdown-agents))
 #+end_src
 
 #+name: utils-random

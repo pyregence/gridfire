@@ -150,7 +150,7 @@
                                     (let [input-deck-path (unzip-tar config request)]
                                       (config/convert-config! "-c" (str input-deck-path "/elmfire.data"))
                                       (respond-with 2 "Running Simulation")
-                                      (cli/-main (str input-deck-path "/gridfire.edn"))
+                                      (cli/process-config-file! (str input-deck-path "/gridfire.edn"))
                                       (copy-post-process-script (:software-dir config) input-deck-path)
                                       (post-process-script respond-with (str input-deck-path "/outputs"))
                                       [0 "Successful Run! Results uploaded to Geoserver!"])
@@ -215,7 +215,8 @@
         (when (seq errors)
           (run! println errors)
           (newline))
-        (println (str "Usage:\n" summary)))
+        (println (str "Usage:\n" summary))
+        (shutdown-agents))
       (let [{:keys [host port]}          options
             {:keys [log-dir] :as config} (edn/read-string (slurp (:config options)))]
         (when log-dir (set-log-path! log-dir))

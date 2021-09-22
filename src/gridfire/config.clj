@@ -375,4 +375,6 @@
       (binding [elmfire-file-path (str/replace (:config-file options) #"/elmfire.data" "")]
         (write-config (process-options options))))))
 
-(def -main convert-config!)
+(defn -main [& args]
+  (apply convert-config! args)
+  (shutdown-agents))
