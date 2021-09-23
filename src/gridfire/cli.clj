@@ -85,7 +85,7 @@
         (println config-params)
         (println (str "Usage:\n" summary)))
 
-      (:server-config config-params)
+      (:server-config options)
       (server/start-server! config-params)
 
       :else
