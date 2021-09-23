@@ -1,7 +1,7 @@
 (ns gridfire.perturbation-test
-  (:require [clojure.test :refer [deftest is testing]]
-            [gridfire.perturbation :as perturbation]
-            [gridfire.conversion :as convert])
+  (:require [clojure.test          :refer [deftest is testing]]
+            [gridfire.conversion   :as convert]
+            [gridfire.perturbation :as perturbation])
   (:import java.util.Random))
 
 (deftest enrich-info-test
@@ -35,34 +35,6 @@
           converted-range (get-in p-info [:canopy-height :range])]
 
       (is (= (map convert/m->ft [-1 1]) converted-range)))))
-
-(deftest value-at-test
-  (testing "memoization of value-at"
-    (let [perturb-info {:rand-generator (Random.)
-                        :spatial-type   :pixel
-                        :range          [-1 1]}
-          matrix       [[0 0] [0 0]]]
-      (testing "different cells"
-        (let [v1 (perturbation/value-at perturb-info matrix [0 0])
-              v2 (perturbation/value-at perturb-info matrix [0 0])
-              v3 (perturbation/value-at perturb-info matrix [0 1])]
-
-          (is (= v1 v2)
-              "should have the same pertubation if accessing the same cell")
-
-          (is (not= v1 v3)
-              "should have a different perturbation if accessing a different cell")))
-
-      (testing "different frequency bands"
-        (let [v1 (perturbation/value-at perturb-info matrix [0 0] 0)
-              v2 (perturbation/value-at perturb-info matrix [0 0] 0)
-              v3 (perturbation/value-at perturb-info matrix [0 0] 1)]
-
-          (is (= v1 v2)
-              "should have the same pertubation if accessing the same cell in the same band")
-
-          (is (not= v1 v3)
-              "should have a different perturbation if accessing same cell in different band"))))))
 
 (deftest update-global-vals-test
   (let [old-value     3.0

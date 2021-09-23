@@ -1,6 +1,7 @@
 (ns gridfire.spotting-test
   (:require [gridfire.spotting :as spotting]
-            [clojure.test :refer [deftest is testing]]))
+            [clojure.test :refer [deftest is testing]])
+  (:import java.util.Random))
 
 (defn close-to-zero [d]
   (< -0.000001 d 0.000001))
@@ -69,20 +70,21 @@
           (is (= H dx)))))))
 
 (deftest surface-spot-percents
-  (testing "expected ranges"
-    (let [spot-percents [[[1 140] 1.0]
-                         [[141 149] 2.0]
-                         [[150 256] 3.0]]]
+  (let [rand-gen (Random.)]
+    (testing "expected ranges"
+      (let [spot-percents [[[1 140] 1.0]
+                           [[141 149] 2.0]
+                           [[150 256] 3.0]]]
 
-      (is (= 1.0 (spotting/surface-spot-percent spot-percents 5)))
+        (is (= 1.0 (spotting/surface-spot-percent spot-percents 5 rand-gen)))
 
-      (is (= 2.0 (spotting/surface-spot-percent spot-percents 143)))
+        (is (= 2.0 (spotting/surface-spot-percent spot-percents 143 rand-gen)))
 
-      (is (= 3.0 (spotting/surface-spot-percent spot-percents 155)))))
+        (is (= 3.0 (spotting/surface-spot-percent spot-percents 155 rand-gen)))))
 
-  (testing "overlapping ranges"
-    (let [spot-percents [[[1 140] 1.0]
-                         [[130 149] 2.0]]]
+    (testing "overlapping ranges"
+      (let [spot-percents [[[1 140] 1.0]
+                           [[130 149] 2.0]]]
 
-      (is (= 2.0 (spotting/surface-spot-percent spot-percents 133))
-          "should overwite percents of previous range in the sequence"))))
+        (is (= 2.0 (spotting/surface-spot-percent spot-percents 133 rand-gen))
+            "should overwite percents of previous range in the sequence")))))

@@ -271,7 +271,9 @@
 (defn create-multiplier-lookup
   [{:keys [cell-size weather-layers fuel-moisture-layers]}]
   (let [layers (merge weather-layers fuel-moisture-layers)]
-    (reduce (fn [acc ks] (assoc-in acc ks (cell-size-multiplier cell-size (get-in layers ks))))
+    (reduce (fn [acc ks] (if-let [layer (get-in layers ks)]
+                           (assoc-in acc ks (cell-size-multiplier cell-size layer))
+                           acc))
             {}
             [[:temperature]
              [:relative-humidity]
@@ -294,9 +296,9 @@
   (let [landfire-layers (fetch/landfire-layers config)]
     (assoc config
            :envelope             (get-envelope config landfire-layers)
-           :landfire-matrices    (into {}
-                                       (map (fn [[layer-name layer-info]] [layer-name (first (:matrix layer-info))]))
-                                       landfire-layers)
+           :landfire-rasters    (into {}
+                                      (map (fn [[layer-name layer-info]] [layer-name (first (:matrix layer-info))]))
+                                      landfire-layers)
            :ignition-layer       (fetch/ignition-layer config)
            :ignition-mask-layer  (fetch/ignition-mask-layer config)
            :weather-layers       (fetch/weather-layers config)

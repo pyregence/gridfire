@@ -1,6 +1,6 @@
 (ns gridfire.spec.spotting-test
-  (:require [clojure.spec.alpha :as s]
-            [clojure.test :refer [deftest is testing]]
+  (:require [clojure.spec.alpha     :as s]
+            [clojure.test           :refer [deftest is testing]]
             [gridfire.spec.spotting :as spotting]))
 
 (deftest spotting-test
