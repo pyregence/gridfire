@@ -1,10 +1,9 @@
 (ns gridfire.config
-  (:require [clojure.pprint :as pprint]
-            [clojure.string :as str]
-            [clojure.tools.cli :refer [parse-opts]]
-            [clojure.java.io :as io]
+  (:require [clojure.java.io     :as io]
+            [clojure.pprint      :as pprint]
+            [clojure.string      :as str]
             [gridfire.conversion :as convert]
-            [triangulum.logging :refer [log-str]]))
+            [triangulum.logging  :refer [log-str]]))
 
 ;;-----------------------------------------------------------------------------
 ;; Util
@@ -69,9 +68,9 @@
                                                    :source     (file-path dir CH_FILENAME)
                                                    :units      :metric
                                                    :multiplier 0.1}
-                              :crown-bulk-density {:type   :geotiff
-                                                   :source (file-path dir CBD_FILENAME)
-                                                   :units  :metric
+                              :crown-bulk-density {:type       :geotiff
+                                                   :source     (file-path dir CBD_FILENAME)
+                                                   :units      :metric
                                                    :multiplier 0.01}
                               :elevation          {:type   :geotiff
                                                    :source (file-path dir DEM_FILENAME)
@@ -353,28 +352,10 @@
     (spit (str/join "/" [elmfire-file-path file-name])
           (with-out-str (pprint/pprint config-params)))))
 
-(defn process-options
-  [{:keys [config-file verbose] :as options}]
-  (let [data (parse (slurp config-file))]
-    (build-edn data options)))
-
-(def cli-options
-  [["-c" "--config-file FILE" "Path to an data file containing a map of simulation configs"]
-   ["-v" "--verbose" "Flag for controlling outputs"]])
-
-(defn convert-config!
-  [& args]
+(defn convert-config! [{:keys [elmfire-data] :as options}]
   (log-str "Converting configuration file to one that Gridfire accepts.")
-  (let [{:keys [options summary errors]} (parse-opts args cli-options)]
-    (if (or (seq errors) (empty? options))
-      (do
-        (when (seq errors)
-          (run! println errors)
-          (newline))
-        (println (str "Usage:\n" summary)))
-      (binding [elmfire-file-path (str/replace (:config-file options) #"/elmfire.data" "")]
-        (write-config (process-options options))))))
-
-(defn -main [& args]
-  (apply convert-config! args)
-  (shutdown-agents))
+  (binding [elmfire-file-path (str/replace elmfire-data #"/[\w-]+.data" "")]
+    (let [elmfire-data (parse (slurp elmfire-data))
+          gridfire-config (build-edn elmfire-data options)]
+      (write-config gridfire-config))
+    (shutdown-agents)))

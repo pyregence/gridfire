@@ -122,11 +122,9 @@ deps.edn for the current GridFire version is shown below.
  :aliases {:build-test-db     {:extra-paths ["test"]
                                :main-opts   ["-m" "gridfire.build-test-db"]}
            :run               {:main-opts ["-m" "gridfire.cli"]}
-           :run-server        {:main-opts ["-m" "gridfire.server"]}
            :repl              {:main-opts ["-e" "(require,'gridfire.cli)"
                                            "-e" "(in-ns,'gridfire.cli)"
                                            "-r"]}
-           :make-config       {:main-opts ["-m" "gridfire.config"]}
            :make-uberjar      {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
                                :exec-fn      hf.depstar/uberjar
                                :exec-args    {:jar         target/gridfire.jar
@@ -3044,9 +3042,9 @@ or false:
 2. :output-geotiffs?
 3. :output-pngs?
 
-#+name: command-line-interface
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/cli.clj :padline no :no-expand :comments link
-(ns gridfire.cli
+#+name: gridfire-core
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/core.clj :padline no :no-expand :comments link
+(ns gridfire.core
   (:gen-class)
   (:require [clojure.core.matrix      :as m]
             [clojure.core.reducers    :as r]
@@ -3059,8 +3057,7 @@ or false:
             [gridfire.common          :refer [calc-emc get-neighbors in-bounds?]]
             [gridfire.crown-fire      :refer [m->ft]]
             [gridfire.fetch           :as fetch]
-            [gridfire.fire-spread     :refer [rothermel-fast-wrapper
-                                              run-fire-spread]]
+            [gridfire.fire-spread     :refer [rothermel-fast-wrapper run-fire-spread]]
             [gridfire.perturbation    :as perturbation]
             [gridfire.random-ignition :as random-ignition]
             [gridfire.spec.config     :as spec]
@@ -3071,7 +3068,7 @@ or false:
                                               write-raster]]
             [matrix-viz.core          :refer [save-matrix-as-png]]
             [taoensso.tufte           :as tufte]
-            [triangulum.logging       :refer [log-str log]])
+            [triangulum.logging       :refer [log log-str]])
   (:import java.util.Random))
 
 (m/set-current-implementation :vectorz)
@@ -3495,9 +3492,9 @@ or false:
      :summary-stats     summary-stats}))
 
 (defn write-landfire-layers!
-  [{:keys [output-landfire-inputs? outfile-suffix landfire-matrices envelope]}]
+  [{:keys [output-landfire-inputs? outfile-suffix landfire-rasters envelope]}]
   (when output-landfire-inputs?
-    (doseq [[layer matrix] landfire-matrices]
+    (doseq [[layer matrix] landfire-rasters]
       (-> (matrix-to-raster (name layer) matrix envelope)
           (write-raster (str (name layer) outfile-suffix ".tif"))))))
 
@@ -3562,14 +3559,104 @@ or false:
             (write-landfire-layers! inputs)
             (write-burn-probability-layer! inputs outputs)
             (write-csv-outputs! inputs outputs))
-          (log-str "Could not run simulation. No valid ignition sites. Config:" config-file))))))
+          (log-str "Could not run simulation. No valid ignition sites. Config:" config-file))))
+    (shutdown-agents)))
+#+end_src
 
-;; FIXME: Add a program banner and better usage/error messages
+#+name: command-line-interface
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/cli.clj :padline no :no-expand :comments link
+(ns gridfire.cli
+  (:gen-class)
+  (:require [clojure.edn           :as edn]
+            [clojure.java.io       :as io]
+            [clojure.tools.cli     :refer [parse-opts]]
+            [gridfire.utils.server :refer [hostname?
+                                           throw-message]]
+            [gridfire.config       :as config]
+            [gridfire.core         :as gridfire]
+            [gridfire.server       :as server]))
+
+;;===========================================================
+;; Argument Processing
+;;===========================================================
+
+(defn all-required-keys? [arguments config-params]
+  (or (seq arguments)
+      (every? config-params [:server-config :host :port])
+      (:elmfire-data config-params)))
+
+(defn process-options [arguments {:keys [server-config] :as options}]
+  (cond (not (all-required-keys? arguments options))
+        (throw-message (str "For gridfire server mode, please include:\n"
+                            "--server-config --host --port\n"
+                            "For converting elmfire.data to gridfire.edn, please include:\n"
+                            "--elmfire-data"))
+        server-config
+        (let [config-file-params  (edn/read-string (slurp server-config))
+              command-line-params (dissoc options :server-config)]
+          (merge config-file-params command-line-params))
+
+        :else
+        options))
+
+;;===========================================================
+;; User Interface
+;;===========================================================
+
+(def cli-options
+  [["-c" "--server-config CONFIG" "Server config file"
+    :validate [#(.exists  (io/file %)) "The provided --server-config does not exist."
+               #(.canRead (io/file %)) "The provided --server-config is not readable."]]
+   ["-h" "--host HOST" "Host domain name"
+    :validate [hostname? "The provided --host is invalid."]]
+
+   ["-p" "--port PORT" "Port number"
+    :parse-fn #(if (int? %) % (Integer/parseInt %))
+    :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
+
+   ["-e" "--elmfire-data FILE" "Path to an elmfire.data file."
+    :validate [#(.exists  (io/file %)) "The provided --elmfire-data does not exist."
+               #(.canRead (io/file %)) "The provided --elmfire-data is not readable."]]
+
+   ["-v" "--verbose" "Flag for controlling elmfire.data conversion output params"]])
+
+(def program-banner
+  (str "gridfire: Launch fire spread simulations via config files or in server mode.\n"
+       "Copyright © 2020-2021 Spatial Informatics Group, LLC.\n"))
+
 (defn -main
-  [& config-files]
-  (doseq [config-file config-files]
-    (process-config-file! config-file))
-  (shutdown-agents))
+  [& args]
+  (println program-banner)
+  (let [{:keys [options arguments summary errors]} (parse-opts args cli-options)
+        ;; {:options   The options map, keyed by :id, mapped to the parsed value
+        ;;  :arguments A vector of unprocessed arguments
+        ;;  :summary   A string containing a minimal options summary
+        ;;  :errors    A vector of error message strings thrown during parsing; nil when no errors exist
+        config-params (try
+                        (process-options arguments options)
+                        (catch Exception e
+                          (ex-message e)))]
+    (cond
+      (or (seq errors) (and (empty? options) (empty? arguments)))
+      (do
+        (run! println errors)
+        (println (str "\nUsage:\n" summary)))
+
+      (seq arguments)
+      (doseq [config-file arguments]
+        (gridfire/process-config-file! config-file))
+
+      (string? config-params)
+      (do
+        (println config-params)
+        (println (str "Usage:\n" summary)))
+
+      (:server-config config-params)
+      (server/start-server! config-params)
+
+      :else
+      (config/convert-config! config-params))
+    (shutdown-agents)))
 #+end_src
 
 #+name: utils-random

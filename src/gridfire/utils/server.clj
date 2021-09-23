@@ -37,3 +37,7 @@
 (defn time?
   [x]
   (some? (re-matches time-regex x)))
+
+(defn throw-message
+  [msg]
+  (throw (ex-info msg {})))

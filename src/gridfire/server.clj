@@ -1,20 +1,17 @@
 (ns gridfire.server
-  (:require [clojure.core.async           :refer [>! chan go alts!]]
+  (:require [clojure.core.async           :refer [>! alts! chan go]]
             [clojure.data.json            :as json]
-            [clojure.edn                  :as edn]
             [clojure.java.shell           :as sh]
+            [clojure.spec.alpha           :as spec]
             [clojure.string               :as str]
-            [clojure.tools.cli            :refer [parse-opts]]
             [gridfire.active-fire-watcher :as active-fire-watcher]
-            [gridfire.simple-sockets      :as sockets]
-            [gridfire.cli                 :as cli]
             [gridfire.config              :as config]
-            [gridfire.utils.server        :refer [nil-on-error]]
+            [gridfire.core                :as gridfire]
+            [gridfire.simple-sockets      :as sockets]
             [gridfire.spec.server         :as spec-server]
-            [triangulum.logging           :refer [log-str set-log-path! log]]
-            [triangulum.utils             :refer [parse-as-sh-cmd]]
-            [clojure.spec.alpha           :as spec])
-
+            [gridfire.utils.server        :refer [nil-on-error]]
+            [triangulum.logging           :refer [log log-str set-log-path!]]
+            [triangulum.utils             :refer [parse-as-sh-cmd]])
   (:import java.util.TimeZone))
 
 ;;-----------------------------------------------------------------------------
@@ -148,9 +145,9 @@
               respond-with        (partial send-response! request options)
               [status status-msg] (try
                                     (let [input-deck-path (unzip-tar config request)]
-                                      (config/convert-config! "-c" (str input-deck-path "/elmfire.data"))
+                                      (config/convert-config! {:elmfire-data-file (str input-deck-path "/elmfire.data")})
                                       (respond-with 2 "Running Simulation")
-                                      (cli/process-config-file! (str input-deck-path "/gridfire.edn"))
+                                      (gridfire/process-config-file! (str input-deck-path "/gridfire.edn"))
                                       (copy-post-process-script (:software-dir config) input-deck-path)
                                       (post-process-script respond-with (str input-deck-path "/outputs"))
                                       [0 "Successful Run! Results uploaded to Geoserver!"])
@@ -193,36 +190,13 @@
                                                    :key-fn (comp kebab->camel name)))))
       (log-str "-> Invalid JSON"))))
 
-(def cli-options
-  [["-p" "--port PORT" "Port number"
-    :default 31337
-    :parse-fn #(if (int? %) % (Integer/parseInt %))
-    :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
-
-   ["-h" "--host HOST" "Host domain name"
-    :default "gridfire.pyregence.org"]
-
-   ["-c" "--config CONFIG" "Server config file"
-    :missing "You must provide a server config edn"]])
-
 (defn stop-server! []
   (sockets/stop-server!))
 
-(defn start-server! [& args]
-  (let [{:keys [options summary errors]} (parse-opts args cli-options)]
-    (if (or (seq errors) (empty? options))
-      (do
-        (when (seq errors)
-          (run! println errors)
-          (newline))
-        (println (str "Usage:\n" summary))
-        (shutdown-agents))
-      (let [{:keys [host port]}          options
-            {:keys [log-dir] :as config} (edn/read-string (slurp (:config options)))]
-        (when log-dir (set-log-path! log-dir))
-        (log-str (format "Running server on port %s" port))
-        (active-fire-watcher/start! config stand-by-queue)
-        (sockets/start-server! port (partial handler host port))
-        (process-requests! config options)))))
+(defn start-server! [{:keys [host port log-dir] :as config}]
+  (when log-dir (set-log-path! log-dir))
+  (log-str (format "Running server on port %s" port))
+  (active-fire-watcher/start! config stand-by-queue)
+  (sockets/start-server! port (partial handler host port))
+  (process-requests! config config))
 
-(def -main start-server!)

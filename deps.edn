@@ -23,11 +23,9 @@
  :aliases {:build-test-db     {:extra-paths ["test"]
                                :main-opts   ["-m" "gridfire.build-test-db"]}
            :run               {:main-opts ["-m" "gridfire.cli"]}
-           :run-server        {:main-opts ["-m" "gridfire.server"]}
            :repl              {:main-opts ["-e" "(require,'gridfire.cli)"
                                            "-e" "(in-ns,'gridfire.cli)"
                                            "-r"]}
-           :make-config       {:main-opts ["-m" "gridfire.config"]}
            :make-uberjar      {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
                                :exec-fn      hf.depstar/uberjar
                                :exec-args    {:jar         target/gridfire.jar
