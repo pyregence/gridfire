@@ -1,11 +1,10 @@
 (ns gridfire.fetch-weather-test
   (:require [clojure.core.matrix :as m]
-            [clojure.java.jdbc :as jdbc]
-            [clojure.test :refer [deftest is]]
-            [gridfire.cli :as cli]
-            [gridfire.fetch :as fetch]
-            [magellan.core :refer [read-raster]]
-            [mikera.vectorz.core :as v])
+            [clojure.java.jdbc   :as jdbc]
+            [clojure.test        :refer [deftest is]]
+            [gridfire.core       :as gridfire]
+            [gridfire.fetch      :as fetch]
+            [magellan.core       :refer [read-raster]])
   (:import java.util.Random))
 
 ;;-----------------------------------------------------------------------------
@@ -146,7 +145,7 @@
                               {:temperature [0 100]
                                :simulations 10})
         rand-generator (Random. (:random-seed config))
-        results        (cli/get-weather config rand-generator :temperature {})]
+        results        (gridfire/get-weather config rand-generator :temperature {})]
 
     (is (vector results))
 
@@ -158,7 +157,7 @@
                               {:temperature tmp-list
                                :simulations 10})
         rand-generator (Random. (:random-seed config))
-        results        (cli/get-weather config rand-generator :temperature {})]
+        results        (gridfire/get-weather config rand-generator :temperature {})]
 
     (is (vector results))
 
@@ -171,7 +170,7 @@
                               {:temperature 42
                                :simulations 10})
         rand-generator (Random. (:random-seed config))
-        results        (cli/get-weather config rand-generator :temperature {})]
+        results        (gridfire/get-weather config rand-generator :temperature {})]
 
     (is (vector results))
 

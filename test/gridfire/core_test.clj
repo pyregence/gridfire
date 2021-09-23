@@ -1,8 +1,8 @@
-(ns gridfire.cli-test
+(ns gridfire.core-test
   (:require [clojure.string         :as str]
             [clojure.test           :refer [deftest is testing use-fixtures]]
             [gridfire.binary-output :as binary]
-            [gridfire.cli           :as cli]
+            [gridfire.core          :as gridfire]
             [gridfire.crown-fire    :refer [m->ft]]
             [gridfire.fetch         :as fetch]
             [gridfire.utils.test    :as utils]))
@@ -52,9 +52,9 @@
   (str/join "/" [resources-path filename]))
 
 (defn run-test-simulation! [config]
-  (let [inputs (cli/load-inputs config)]
+  (let [inputs (gridfire/load-inputs config)]
     (map #(dissoc % :rand-gen)
-         (:summary-stats (cli/run-simulations! inputs)))))
+         (:summary-stats (gridfire/run-simulations! inputs)))))
 
 (defn valid-exits? [results]
   (when (seq results)
@@ -288,7 +288,7 @@
     (let [config         {:cell-size   (m->ft 30)
                           :temperature {:type   :geotiff
                                         :source (in-file-path "weather-test/tmpf_to_sample_lower_res.tif")}}
-          lookup         (cli/create-multiplier-lookup (assoc config :weather-layers (fetch/weather-layers config)))]
+          lookup         (gridfire/create-multiplier-lookup (assoc config :weather-layers (fetch/weather-layers config)))]
 
       (is (= {:temperature 10} lookup)))))
 

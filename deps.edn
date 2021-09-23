@@ -23,8 +23,8 @@
  :aliases {:build-test-db     {:extra-paths ["test"]
                                :main-opts   ["-m" "gridfire.build-test-db"]}
            :run               {:main-opts ["-m" "gridfire.cli"]}
-           :repl              {:main-opts ["-e" "(require,'gridfire.cli)"
-                                           "-e" "(in-ns,'gridfire.cli)"
+           :repl              {:main-opts ["-e" "(require,'gridfire.core)"
+                                           "-e" "(in-ns,'gridfire.core)"
                                            "-r"]}
            :make-uberjar      {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
                                :exec-fn      hf.depstar/uberjar
@@ -50,7 +50,7 @@
                                              "-m" "cognitect.test-runner"]}
            :check-reflections {:extra-paths ["test"]
                                :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
-                                             "-e" "(require,'gridfire.cli)"
+                                             "-e" "(require,'gridfire.core)"
                                              "-e" "(require,'gridfire.server)"
                                              "-e" "(require,'gridfire.config)"
                                              "-e" "(require,'gridfire.build-test-db)"]}
