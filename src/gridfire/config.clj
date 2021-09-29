@@ -354,7 +354,7 @@
 
 (defn convert-config! [{:keys [elmfire-data] :as options}]
   (log-str "Converting configuration file to one that Gridfire accepts.")
-  (binding [elmfire-file-path (str/replace elmfire-data #"/[\w-]+.data" "")]
+  (binding [elmfire-file-path (str/replace elmfire-data #"/[\w-]+.data$" "")]
     (let [elmfire-data (parse (slurp elmfire-data))
           gridfire-config (build-edn elmfire-data options)]
       (write-config gridfire-config))
