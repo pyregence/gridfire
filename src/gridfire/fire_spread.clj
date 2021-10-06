@@ -407,7 +407,7 @@
   (Math/max max-spread-rate (double (:spread-rate ignited-cell))))
 
 (defn run-loop
-  [{:keys [max-runtime cell-size] :as inputs}
+  [{:keys [max-runtime cell-size ignition-start-time] :as inputs}
    {:keys [fire-spread-matrix
            flame-length-matrix
            fire-line-intensity-matrix
@@ -420,7 +420,7 @@
         cell-size        (double cell-size)
         crown-fire-count (atom 0)
         spot-count       (atom 0)]
-   (loop [global-clock   0.0
+    (loop [global-clock  (or ignition-start-time 0.0)
           ignited-cells  ignited-cells
           spot-ignitions {}]
      (if (and (< global-clock max-runtime)

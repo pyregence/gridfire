@@ -359,3 +359,24 @@
                                                      :herbaceous {:type   :geotiff
                                                                   :source (in-file-path "weather-test/mlh_to_sample.tif")}}}})]
     (is (valid-exits? (run-test-simulation! config)))))
+
+
+;;-----------------------------------------------------------------------------
+;; Ignitions csv
+;;-----------------------------------------------------------------------------
+
+(deftest ignition-csv-test
+  (let [config (gridfire/load-inputs (assoc test-config-base
+                                            :ignitions-csv (in-file-path "sample_ignitions.csv")))
+        results (run-test-simulation! config)]
+
+    (is (valid-exits? results))
+
+    (is (= 3 (count results))
+        "Should have the same number of simulations as ignition rows in sample_ignitions.csv")
+
+    (is (= 10.0 (:global-clock (first results)))
+        "Max runtime should set by tstop in sample_ignitions.csv")
+
+    (is (= 20.0 (:global-clock (second results)))
+        "Max runtime should set by tstop in sample_ignitions.csv")))

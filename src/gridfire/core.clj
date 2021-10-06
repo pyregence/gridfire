@@ -313,15 +313,29 @@
                               (Random. random-seed)
                               (Random.))))
 
+(defn add-ignitions-csv
+  [{:keys [ignitions-csv] :as inputs}]
+  (if ignitions-csv
+    (let [extract-fn (fn [col] (comp #(Integer/parseInt %) #(nth % col)))
+          ignitions  (->> ignitions-csv io/reader csv/read-csv rest)]
+      (assoc inputs
+             :ignition-start-times (mapv (extract-fn 0) ignitions)
+             :ignition-cols        (mapv (extract-fn 1) ignitions)
+             :ignition-rows        (mapv (extract-fn 2) ignitions)
+             :max-runtimes         (mapv (extract-fn 3) ignitions)
+             :simulations          (count ignitions)))
+    inputs))
+
 ;; FIXME: Try using draw-sample within run-simulation instead of draw-samples here.
 (defn add-sampled-params
   [{:keys [rand-gen simulations max-runtime ignition-row ignition-col
-           foliar-moisture ellipse-adjustment-factor perturbations]
+           foliar-moisture ellipse-adjustment-factor perturbations ignition-rows
+           ignition-cols max-runtimes]
     :as inputs}]
   (assoc inputs
-         :max-runtimes               (draw-samples rand-gen simulations max-runtime)
-         :ignition-rows              (draw-samples rand-gen simulations ignition-row)
-         :ignition-cols              (draw-samples rand-gen simulations ignition-col)
+         :max-runtimes               (or max-runtimes (draw-samples rand-gen simulations max-runtime))
+         :ignition-rows              (or ignition-rows (draw-samples rand-gen simulations ignition-row))
+         :ignition-cols              (or ignition-cols (draw-samples rand-gen simulations ignition-col))
          :foliar-moistures           (draw-samples rand-gen simulations foliar-moisture)
          :ellipse-adjustment-factors (draw-samples rand-gen simulations ellipse-adjustment-factor)
          :perturbations              (perturbation/draw-samples rand-gen simulations perturbations)));FIXME: shadowed
@@ -359,6 +373,7 @@
   (-> config
       (add-input-layers)
       (add-misc-params)
+      (add-ignitions-csv)
       (add-sampled-params)
       (add-weather-params)
       (add-ignitable-sites)))
@@ -373,7 +388,7 @@
   [{:keys [output-csvs? output-burn-probability envelope ignition-layer cell-size
            max-runtimes ignition-rows ignition-cols foliar-moistures ellipse-adjustment-factors perturbations
            temperatures relative-humidities wind-speeds-20ft wind-from-directions
-           random-seed] :as inputs}
+           random-seed ignition-start-times] :as inputs}
    burn-count-matrix
    i]
   (tufte/profile
@@ -390,7 +405,8 @@
                                 :temperature               (matrix-or-i temperatures i)
                                 :relative-humidity         (matrix-or-i relative-humidities i)
                                 :wind-speed-20ft           (matrix-or-i wind-speeds-20ft i)
-                                :wind-from-direction       (matrix-or-i wind-from-directions i)}
+                                :wind-from-direction       (matrix-or-i wind-from-directions i)
+                                :ignition-start-time       (when ignition-start-times (ignition-start-times i))}
          fire-spread-results   (tufte/p :run-fire-spread
                                         (run-fire-spread
                                          (merge inputs
@@ -408,6 +424,7 @@
          :ignition-row     (ignition-rows i)
          :ignition-col     (ignition-cols i)
          :foliar-moisture  (foliar-moistures i)
+         :global-clock     (:global-clock fire-spread-results)
          :exit-condition   (:exit-condition fire-spread-results :no-fire-spread)
          :crown-fire-count (:crown-fire-count fire-spread-results)}
         (if fire-spread-results
