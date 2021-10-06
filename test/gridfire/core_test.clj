@@ -366,9 +366,8 @@
 ;;-----------------------------------------------------------------------------
 
 (deftest ignition-csv-test
-  (let [config (gridfire/load-inputs (assoc test-config-base
-                                            :ignitions-csv (in-file-path "sample_ignitions.csv")))
-        results (run-test-simulation! config)]
+  (let [results (run-test-simulation! (assoc test-config-base
+                                             :ignitions-csv (in-file-path "sample_ignitions.csv")))]
 
     (is (valid-exits? results))
 
