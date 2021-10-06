@@ -3566,8 +3566,8 @@ or false:
              (csv/write-csv out-file))))))
 
 (defn process-config-file!
-  [config-file]
-  (let [config (edn/read-string (slurp config-file))]
+  [{:keys [ignitions-csv]} config-file]
+  (let [config (assoc (edn/read-string (slurp config-file)) :ignitions-csv ignitions-csv)]
     (if-not (s/valid? ::spec/config config)
       (s/explain ::spec/config config)
       (let [inputs (load-inputs config)]
@@ -3665,9 +3665,7 @@ or false:
 
       (seq arguments)
       (doseq [config-file arguments]
-        (if-let [ignitions-csv (:ignitions-csv config-params)]
-          (gridfire/process-config-file! (assoc config-file :ignitions-csv ignitions-csv))
-          (gridfire/process-config-file! config-file)))
+        (gridfire/process-config-file! config-params config-file))
 
       (string? config-params)
       (do

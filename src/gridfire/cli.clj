@@ -82,9 +82,7 @@
 
       (seq arguments)
       (doseq [config-file arguments]
-        (if-let [ignitions-csv (:ignitions-csv config-params)]
-          (gridfire/process-config-file! (assoc config-file :ignitions-csv ignitions-csv))
-          (gridfire/process-config-file! config-file)))
+        (gridfire/process-config-file! config-params config-file))
 
       (string? config-params)
       (do
