@@ -4102,7 +4102,7 @@ this functionality.
                           (update :matrix (fn [m] (m/emap #(* % 0.01) m))))
 
                       :else
-                      #(* spec 0.01))))]
+                      (* spec 0.01))))]
       (-> fuel-moisture-layers
           (update-in [:dead :1hr] (f :dead))
           (update-in [:dead :10hr] (f :dead))
