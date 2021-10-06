@@ -127,7 +127,7 @@
 (defmulti ignition-mask-layer
   (fn [{:keys [random-ignition]}]
     (when (map? random-ignition)
-     (get-in random-ignition [:ignition-mask :type]))))
+      (get-in random-ignition [:ignition-mask :type]))))
 
 (defmethod ignition-mask-layer :geotiff
   [{:keys [random-ignition]}]
@@ -163,12 +163,22 @@
           :woody      %"
   [{:keys [db-spec fuel-moisture-layers]}]
   (when fuel-moisture-layers
-    (letfn [(f [spec] (-> (fuel-moisture-layer db-spec spec)
-                          (update :matrix (fn [m] (m/emap #(* % 0.01) m)))))]
+    (letfn [(f [fuel-class]
+              (fn [spec]
+                (cond (and (map? spec) (= fuel-class :live))
+                      (-> (fuel-moisture-layer db-spec spec)
+                          (update :matrix (comp first (fn [m] (m/emap #(* % 0.01) m)))))
+
+                      (map? spec)
+                      (-> (fuel-moisture-layer db-spec spec)
+                          (update :matrix (fn [m] (m/emap #(* % 0.01) m))))
+
+                      :else
+                      spec)))]
       (-> fuel-moisture-layers
-          (update-in [:dead :1hr] f)
-          (update-in [:dead :10hr] f)
-          (update-in [:dead :100hr] f)
-          (update-in [:live :herbaceous] (comp #(update % :matrix first) f))
-          (update-in [:live :woody] (comp #(update % :matrix first) f))))))
+          (update-in [:dead :1hr] (f :dead))
+          (update-in [:dead :10hr] (f :dead))
+          (update-in [:dead :100hr] (f :dead))
+          (update-in [:live :herbaceous] (f :live))
+          (update-in [:live :woody] (f :live))))))
 ;; fetch.clj ends here

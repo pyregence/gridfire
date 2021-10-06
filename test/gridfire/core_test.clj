@@ -360,6 +360,39 @@
                                                                   :source (in-file-path "weather-test/mlh_to_sample.tif")}}}})]
     (is (valid-exits? (run-test-simulation! config)))))
 
+(deftest moisture-scalars-only-test
+  (let [config (merge test-config-base
+                      {:landfire-layers      landfire-layers-weather-test
+                       :ignition-row         nil
+                       :ignition-col         nil
+                       :random-ignition      {:ignition-mask {:type   :geotiff
+                                                              :source (in-file-path "weather-test/ignition_mask.tif")}
+                                              :edge-buffer   9843.0}
+                       :fuel-moisture-layers {:dead {:1hr   10.0
+                                                     :10hr  10.0
+                                                     :100hr 10.0}
+                                              :live {:woody      80.0
+                                                     :herbaceous 30.0}}})]
+    (is (valid-exits? (run-test-simulation! config)))))
+
+(deftest moisture-mix-raster-scalars-test
+  (let [config (merge test-config-base
+                      {:landfire-layers      landfire-layers-weather-test
+                       :ignition-row         nil
+                       :ignition-col         nil
+                       :random-ignition      {:ignition-mask {:type   :geotiff
+                                                              :source (in-file-path "weather-test/ignition_mask.tif")}
+                                              :edge-buffer   9843.0}
+                       :fuel-moisture-layers {:dead {:1hr   {:type   :geotiff
+                                                             :source (in-file-path "weather-test/m1_to_sample.tif")}
+                                                     :10hr  {:type   :geotiff
+                                                             :source (in-file-path "weather-test/m10_to_sample.tif")}
+                                                     :100hr {:type   :geotiff
+                                                             :source (in-file-path "weather-test/m100_to_sample.tif")}}
+                                              :live {:woody      80.0
+                                                     :herbaceous 30.0}}})]
+    (is (valid-exits? (run-test-simulation! config)))))
+
 
 ;;-----------------------------------------------------------------------------
 ;; Ignitions csv

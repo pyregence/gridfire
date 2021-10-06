@@ -224,8 +224,8 @@
     (is (= {:dead {:1hr   {:type :geotiff :source "/weather/m1.tif"}
                    :10hr  {:type :geotiff :source "/weather/m10.tif"}
                    :100hr {:type :geotiff :source "/weather/m100.tif"}}
-            :live {:woody      {:type :geotiff :source "/weather/mlw.tif"}
-                   :herbaceous {:type :geotiff :source "/weather/mlh.tif"}}}
+            :live {:woody      80.0
+                   :herbaceous 30.0}}
            results))))
 
 

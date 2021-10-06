@@ -12,9 +12,13 @@
 (s/def ::dead
   (s/keys :req-un [::1hr ::10hr ::100hr]))
 
-(s/def ::woody ::common/postgis-or-geotiff)
+(s/def ::woody (s/or
+                :scalar float?
+                :raster ::common/postgis-or-geotiff))
 
-(s/def ::herbaceous ::common/postgis-or-geotiff)
+(s/def ::herbaceous (s/or
+                     :scalar float?
+                     :raster ::common/postgis-or-geotiff))
 
 (s/def ::live
   (s/keys :req-un [::woody ::herbaceous]))

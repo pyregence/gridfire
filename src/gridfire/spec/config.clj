@@ -28,7 +28,8 @@
 
 (s/def ::weather-layers
   (s/keys
-   :req-un [::temperature ::relative-humidity ::wind-speed-20ft ::wind-from-direction]))
+   :req-un [::temperature ::wind-speed-20ft ::wind-from-direction]
+   :opt-un [::relative-humidity]))
 
 ;;-----------------------------------------------------------------------------
 ;; Landfire Layers ;;TODO move into own namespace
@@ -67,6 +68,8 @@
 ;; Config
 ;;-----------------------------------------------------------------------------
 
+(s/def ::rh-or-fuel-moisture (fn [{:keys [relative-humidity fuel-moisture-layers]}]
+                                   (or relative-humidity fuel-moisture-layers)))
 
 (s/def ::config
   (s/and
@@ -74,6 +77,7 @@
     :req-un [::cell-size
              ::landfire-layers]
     :opt-un [::fuel-moisture/fuel-moisture-layers
+             ::fuel-moisture/fuel-moisture-layers
              ::ignition/ignition-layer
              ::ignition/ignitions-csv
              ::optimization/parallel-strategy
@@ -81,6 +85,6 @@
              ::output/output-burn-probability
              ::output/output-layers
              ::perturbations/perturbations
-             ::random-ignition/random-ignition
-             ::spotting/spotting])
-   ::weather-layers))
+             ::random-ignition/random-ignition])
+   ::weather-layers
+   ::rh-or-fuel-moisture))

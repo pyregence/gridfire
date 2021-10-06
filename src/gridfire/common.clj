@@ -53,10 +53,13 @@
 (defn extract-fuel-moisture
   [fuel-moisture-layers multiplier-lookup here global-clock]
   (let [f (fn [path]
-            (fn [raster] (sample-at here
-                                    global-clock
-                                    (:matrix raster)
-                                    (get-in multiplier-lookup path))))]
+            (fn [spec]
+              (if (map? spec)
+                (sample-at here
+                           global-clock
+                           (:matrix spec)
+                           (get-in multiplier-lookup path))
+                spec)))]
     (-> fuel-moisture-layers
         (update-in [:dead :1hr] (f [:dead :1hr]))
         (update-in [:dead :10hr] (f [:dead :10hr]))

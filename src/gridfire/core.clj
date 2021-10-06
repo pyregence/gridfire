@@ -270,9 +270,10 @@
 (defn create-multiplier-lookup
   [{:keys [cell-size weather-layers fuel-moisture-layers]}]
   (let [layers (merge weather-layers fuel-moisture-layers)]
-    (reduce (fn [acc ks] (if-let [layer (get-in layers ks)]
-                           (assoc-in acc ks (cell-size-multiplier cell-size layer))
-                           acc))
+    (reduce (fn [acc ks] (let [layer (get-in layers ks)]
+                           (if (map? layer)
+                             (assoc-in acc ks (cell-size-multiplier cell-size layer))
+                             acc)))
             {}
             [[:temperature]
              [:relative-humidity]
