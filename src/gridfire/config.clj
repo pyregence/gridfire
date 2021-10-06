@@ -24,6 +24,7 @@
     (re-matches #".TRUE." s)               true
     (re-matches #".FALSE." s)              false
     (re-matches #"'[0-9a-zA-Z_.//]*'" s)   (subs s 1 (dec (count s)))
+    (str/includes? "proj" s)               s
     :else                                  nil))
 
 (defn convert-key [s]
@@ -34,7 +35,7 @@
 (defn parse [s]
   (->> (str/split s #"\n")
        (filter #(str/includes? % "="))
-       (mapcat #(str/split % #"="))
+       (mapcat #(str/split % #" = "))
        (map str/trim)
        (apply hash-map)
        (reduce-kv (fn [m k v]
@@ -304,7 +305,9 @@
 ;;-----------------------------------------------------------------------------
 
 (defn process-fuel-moisture-layers
-  [{:strs [M1_FILENAME M10_FILENAME M100_FILENAME WEATHER_DIRECTORY]} _ config]
+  [{:strs [M1_FILENAME M10_FILENAME M100_FILENAME WEATHER_DIRECTORY
+           USE_CONSTANT_LH LH_MOISTURE_CONTENT USE_CONSTANT_LW
+           LW_MOISTURE_CONTENT]} _ config]
   (let [dir                  WEATHER_DIRECTORY
         fuel-moisture-layers {:fuel-moisture-layers
                               {:dead {:1hr   {:type   :geotiff
@@ -313,10 +316,14 @@
                                               :source (file-path dir M10_FILENAME)}
                                       :100hr {:type   :geotiff
                                               :source (file-path dir M100_FILENAME)}}
-                               :live {:woody      {:type   :geotiff
-                                                   :source (file-path dir "mlw")}
-                                      :herbaceous {:type   :geotiff
-                                                   :source (file-path dir "mlh")}}}}]
+                               :live {:woody      (if USE_CONSTANT_LW
+                                                    LW_MOISTURE_CONTENT
+                                                    {:type   :geotiff
+                                                     :source (file-path dir "mlw")})
+                                      :herbaceous (if USE_CONSTANT_LH
+                                                    LH_MOISTURE_CONTENT
+                                                    {:type   :geotiff
+                                                     :source (file-path dir "mlh")})}}}]
     (merge config fuel-moisture-layers)))
 
 ;;-----------------------------------------------------------------------------
