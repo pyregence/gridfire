@@ -316,7 +316,7 @@
 (defn add-ignitions-csv
   [{:keys [ignitions-csv] :as inputs}]
   (if ignitions-csv
-    (let [extract-fn (fn [col] (comp #(Integer/parseInt %) #(nth % col)))
+    (let [extract-fn (fn [col] (comp int #(Integer/parseFloat %) #(nth % col)))
           ignitions  (->> ignitions-csv io/reader csv/read-csv rest)]
       (assoc inputs
              :ignition-start-times (mapv (extract-fn 0) ignitions)
