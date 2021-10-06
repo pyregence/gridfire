@@ -534,4 +534,3 @@
           (log-str "Could not run simulation. No valid ignition sites. Config:" config-file))))
     (shutdown-agents)))
 ;; gridfire-core ends here
-
