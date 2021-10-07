@@ -317,7 +317,7 @@
   [{:keys [ignitions-csv] :as inputs}]
   (if ignitions-csv
     (let [ignitions (with-open [reader (io/reader ignitions-csv)]
-                      (rest (csv/read-csv reader)))]
+                      (doall (rest (csv/read-csv reader))))]
       (assoc inputs
              :ignition-rows        (mapv #(Integer/parseInt (get % 0)) ignitions)
              :ignition-cols        (mapv #(Integer/parseInt (get % 1)) ignitions)

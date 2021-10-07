@@ -55,12 +55,12 @@
    ["-v" "--verbose" "Flag for controlling elmfire.data conversion output params"]
 
    ["-i" "--ignitions-csv IGNITIONS" "Ignitions csv file specifiying: start-time, X, Y, end-time"
-    :validate [#(.exists  (io/file %)) "The provided --igntioins-csv does not exist."
+    :validate [#(.exists  (io/file %)) "The provided --ignitions-csv does not exist."
                #(.canRead (io/file %)) "The provided --ignitions-csv is not readable."]]])
 
 (def program-banner
   (str "gridfire: Launch fire spread simulations via config files or in server mode.\n"
-       "Copyright © 2020-2021 Spatial Informatics Group, LLC.\n"))
+       "Copyright © 2011-2021 Spatial Informatics Group, LLC.\n"))
 
 (defn -main
   [& args]
