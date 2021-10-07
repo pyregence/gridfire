@@ -406,7 +406,7 @@
                                 :relative-humidity         (matrix-or-i relative-humidities i)
                                 :wind-speed-20ft           (matrix-or-i wind-speeds-20ft i)
                                 :wind-from-direction       (matrix-or-i wind-from-directions i)
-                                :ignition-start-time       (ignition-start-times i 0.0)}
+                                :ignition-start-time       (get ignition-start-times i 0.0)}
          fire-spread-results   (tufte/p :run-fire-spread
                                         (run-fire-spread
                                          (merge inputs
