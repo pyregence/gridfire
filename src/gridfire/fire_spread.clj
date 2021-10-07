@@ -416,22 +416,21 @@
            fire-type-matrix
            fractional-distance-matrix] :as matrices}
    ignited-cells]
-  (let [max-runtime      (double max-runtime)
-        cell-size        (double cell-size)
-        crown-fire-count (atom 0)
-        spot-count       (atom 0)]
-    (loop [global-clock  (or ignition-start-time 0.0)
+  (let [max-runtime        (double max-runtime)
+        cell-size          (double cell-size)
+        crown-fire-count   (atom 0)
+        spot-count         (atom 0)
+        ignition-stop-time (+ ignition-start-time max-runtime)]
+    (loop [global-clock  ignition-start-time
           ignited-cells  ignited-cells
           spot-ignitions {}]
-     (if (and (< global-clock max-runtime)
+      (if (and (< global-clock ignition-stop-time)
               (seq ignited-cells))
        (let [dt                (->> ignited-cells
                                     (reduce reducer-fn 0.0)
                                     (/ cell-size)
                                     double)
-             timestep          (if (> (+ global-clock dt) max-runtime)
-                                 (- max-runtime global-clock)
-                                 dt)
+             timestep          (min dt (- ignition-stop-time global-clock))
              next-global-clock (+ global-clock timestep)
              ignition-events   (identify-ignition-events inputs ignited-cells timestep
                                                          fire-spread-matrix fractional-distance-matrix)

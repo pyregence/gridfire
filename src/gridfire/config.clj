@@ -20,7 +20,7 @@
 (defn convert-val [s]
   (cond
     (re-matches #"^-?[0-9]\d*\.(\d+)?$" s) (Double/parseDouble s)
-    (re-matches #"^\d+$" s)                (Integer/parseInt s)
+    (re-matches #"^-?\d+$" s)              (Integer/parseInt s)
     (re-matches #".TRUE." s)               true
     (re-matches #".FALSE." s)              false
     (re-matches #"'[0-9a-zA-Z_.//]*'" s)   (subs s 1 (dec (count s)))
@@ -28,7 +28,7 @@
 
 (defn convert-key [s]
   (if (re-matches regex-for-array-item s)
-    (str/join "-" (str/split s #"[\(-\)]"))
+    (str/join "-" (str/split s #"[\(\)]"))
     s))
 
 (defn parse [s]

@@ -316,13 +316,13 @@
 (defn add-ignitions-csv
   [{:keys [ignitions-csv] :as inputs}]
   (if ignitions-csv
-    (let [extract-fn (fn [col] (comp int #(Float/parseFloat %) #(nth % col)))
-          ignitions  (->> ignitions-csv io/reader csv/read-csv rest)]
+    (let [ignitions (with-open [reader (io/reader ignitions-csv)]
+                      (rest (csv/read-csv reader)))]
       (assoc inputs
-             :ignition-start-times (mapv (extract-fn 0) ignitions)
-             :ignition-cols        (mapv (extract-fn 1) ignitions)
-             :ignition-rows        (mapv (extract-fn 2) ignitions)
-             :max-runtimes         (mapv (extract-fn 3) ignitions)
+             :ignition-rows        (mapv #(Integer/parseInt (get % 0)) ignitions)
+             :ignition-cols        (mapv #(Integer/parseInt (get % 1)) ignitions)
+             :ignition-start-times (mapv #(Double/parseDouble (get % 2)) ignitions)
+             :max-runtimes         (mapv #(Double/parseDouble (get % 3)) ignitions)
              :simulations          (count ignitions)))
     inputs))
 
@@ -406,7 +406,7 @@
                                 :relative-humidity         (matrix-or-i relative-humidities i)
                                 :wind-speed-20ft           (matrix-or-i wind-speeds-20ft i)
                                 :wind-from-direction       (matrix-or-i wind-from-directions i)
-                                :ignition-start-time       (when ignition-start-times (ignition-start-times i))}
+                                :ignition-start-time       (ignition-start-times i 0.0)}
          fire-spread-results   (tufte/p :run-fire-spread
                                         (run-fire-spread
                                          (merge inputs
