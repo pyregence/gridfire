@@ -1,5 +1,6 @@
 (ns gridfire.config
-  (:require [clojure.java.io     :as io]
+  (:require [clojure.edn         :as edn]
+            [clojure.java.io     :as io]
             [clojure.pprint      :as pprint]
             [clojure.string      :as str]
             [gridfire.conversion :as convert]
@@ -359,10 +360,12 @@
     (spit (str/join "/" [elmfire-file-path file-name])
           (with-out-str (pprint/pprint config-params)))))
 
-(defn convert-config! [{:keys [elmfire-data] :as options}]
+(defn convert-config! [{:keys [elmfire-data override-config] :as options}]
   (log-str "Converting configuration file to one that Gridfire accepts.")
   (binding [elmfire-file-path (str/replace elmfire-data #"/[\w-]+.data$" "")]
     (let [elmfire-data (parse (slurp elmfire-data))
-          gridfire-config (build-edn elmfire-data options)]
+          override     (edn/read-string (slurp override-config))
+          gridfire-config (merge (build-edn elmfire-data options)
+                                 override)]
       (write-config gridfire-config))
     (shutdown-agents)))
