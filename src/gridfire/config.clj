@@ -364,7 +364,7 @@
   (log-str "Converting configuration file to one that Gridfire accepts.")
   (binding [elmfire-file-path (str/replace elmfire-data #"/[\w-]+.data$" "")]
     (let [elmfire-data (parse (slurp elmfire-data))
-          override     (edn/read-string (slurp override-config))
+          override     (when override-config (edn/read-string (slurp override-config)))
           gridfire-config (merge (build-edn elmfire-data options)
                                  override)]
       (write-config gridfire-config))
