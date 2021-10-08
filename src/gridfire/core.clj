@@ -521,8 +521,8 @@
              (csv/write-csv out-file))))))
 
 (defn process-config-file!
-  [{:keys [ignitions-csv]} config-file]
-  (let [config (assoc (edn/read-string (slurp config-file)) :ignitions-csv ignitions-csv)]
+  [config-file]
+  (let [config (edn/read-string (slurp config-file))]
     (if-not (s/valid? ::spec/config config)
       (s/explain ::spec/config config)
       (let [inputs (load-inputs config)]

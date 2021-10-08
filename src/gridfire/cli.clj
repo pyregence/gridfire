@@ -52,11 +52,7 @@
     :validate [#(.exists  (io/file %)) "The provided --elmfire-data does not exist."
                #(.canRead (io/file %)) "The provided --elmfire-data is not readable."]]
 
-   ["-v" "--verbose" "Flag for controlling elmfire.data conversion output params"]
-
-   ["-i" "--ignitions-csv IGNITIONS" "Ignitions csv file specifiying: start-time, X, Y, end-time"
-    :validate [#(.exists  (io/file %)) "The provided --ignitions-csv does not exist."
-               #(.canRead (io/file %)) "The provided --ignitions-csv is not readable."]]])
+   ["-v" "--verbose" "Flag for controlling elmfire.data conversion output params"]])
 
 (def program-banner
   (str "gridfire: Launch fire spread simulations via config files or in server mode.\n"
@@ -82,7 +78,7 @@
 
       (seq arguments)
       (doseq [config-file arguments]
-        (gridfire/process-config-file! config-params config-file))
+        (gridfire/process-config-file! config-file))
 
       (string? config-params)
       (do

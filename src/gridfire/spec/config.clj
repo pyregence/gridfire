@@ -73,13 +73,14 @@
    (s/keys
     :req-un [::cell-size
              ::landfire-layers]
-    :opt-un [::perturbations/perturbations
+    :opt-un [::fuel-moisture/fuel-moisture-layers
              ::ignition/ignition-layer
+             ::ignition/ignitions-csv
+             ::optimization/parallel-strategy
              ::output/output-binary?
-             ::output/output-layers
              ::output/output-burn-probability
-             ::spotting/spotting
+             ::output/output-layers
+             ::perturbations/perturbations
              ::random-ignition/random-ignition
-             ::fuel-moisture/fuel-moisture-layers
-             ::optimization/parallel-strategy])
+             ::spotting/spotting])
    ::weather-layers))
