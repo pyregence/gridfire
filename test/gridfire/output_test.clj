@@ -60,17 +60,15 @@
 ;;-----------------------------------------------------------------------------
 
 (deftest output_burn_probability_test
-  (testing "Running simulation with different ways to fetch LANDFIRE layers"
-    (let [config (merge test-config-base
-                        {:output-burn-probability :final})
-          _      (process-config-file! config)]
+  (let [config (merge test-config-base
+                      {:output-burn-probability :final})
+        _      (process-config-file! config)]
 
-      (is (.exists (io/file "test/output/burn_probability.tif"))))))
+    (is (.exists (io/file "test/output/burn_probability.tif")))))
 
 (deftest output_flame_length_sum_test
-  (testing "Running simulation with different ways to fetch LANDFIRE layers"
-    (let [config (merge test-config-base
-                        {:output-flame-length-sum true})
-          _      (process-config-file! config)]
+  (let [config (merge test-config-base
+                      {:output-flame-length-sum true})
+        _      (process-config-file! config)]
 
-      (is (.exists (io/file "test/output/flame_length_sum.tif"))))))
+    (is (.exists (io/file "test/output/flame_length_sum.tif")))))
