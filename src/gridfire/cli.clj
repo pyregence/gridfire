@@ -82,7 +82,7 @@
 
       (seq arguments)
       (doseq [config-file arguments]
-        (gridfire/process-config-file! config-file))
+        (gridfire/process-config-file! (edn/read-string (slurp config-file))))
 
       (string? config-params)
       (do

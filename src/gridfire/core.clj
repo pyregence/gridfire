@@ -4,7 +4,6 @@
   (:require [clojure.core.matrix      :as m]
             [clojure.core.reducers    :as r]
             [clojure.data.csv         :as csv]
-            [clojure.edn              :as edn]
             [clojure.java.io          :as io]
             [clojure.spec.alpha       :as s]
             [clojure.string           :as str]
@@ -131,18 +130,17 @@
   ([config matrix name envelope simulation-id]
    (output-geotiff config matrix name envelope simulation-id nil))
 
-  ([{:keys [output-directory output-geotiffs? outfile-suffix] :as config}
+  ([{:keys [output-directory outfile-suffix] :as config}
     matrix name envelope simulation-id output-time]
-   (when output-geotiffs?
-     (let [file-name (output-filename name
-                                      outfile-suffix
-                                      (str simulation-id)
-                                      output-time
-                                      ".tif")]
-       (-> (matrix-to-raster name matrix envelope)
-           (write-raster (if output-directory
-                           (str/join "/" [output-directory file-name])
-                           file-name)))))))
+   (let [file-name (output-filename name
+                                    outfile-suffix
+                                    (str simulation-id)
+                                    output-time
+                                    ".tif")]
+     (-> (matrix-to-raster name matrix envelope)
+         (write-raster (if output-directory
+                         (str/join "/" [output-directory file-name])
+                         file-name))))))
 
 (defn output-png
   ([config matrix name envelope]
@@ -151,19 +149,18 @@
   ([config matrix name envelope simulation-id]
    (output-png config matrix name envelope simulation-id nil))
 
-  ([{:keys [output-directory output-png? outfile-suffix] :as config}
+  ([{:keys [output-directory outfile-suffix]}
     matrix name envelope simulation-id output-time]
-   (when output-png?
-     (let [file-name (output-filename name
-                                      outfile-suffix
-                                      (str simulation-id)
-                                      output-time
-                                      ".png")]
-       (save-matrix-as-png :color 4 -1.0
-                           matrix
-                           (if output-directory
-                             (str/join "/" [output-directory file-name])
-                             (file-name)))))))
+   (let [file-name (output-filename name
+                                    outfile-suffix
+                                    (str simulation-id)
+                                    output-time
+                                    ".png")]
+     (save-matrix-as-png :color 4 -1.0
+                         matrix
+                         (if output-directory
+                           (str/join "/" [output-directory file-name])
+                           (file-name))))))
 
 (def layer-name->matrix
   [["fire_spread"         :fire-spread-matrix]
@@ -190,7 +187,7 @@
       (output-png config filtered-matrix name envelope simulation-id output-time))))
 
 (defn process-output-layers!
-  [{:keys [output-layers] :as config}
+  [{:keys [output-layers ouput-geotiffs? output-pngs?] :as config}
    {:keys [global-clock burn-time-matrix] :as fire-spread-results}
    envelope
    simulation-id]
@@ -210,8 +207,10 @@
           (let [matrix (if (= layer "burn_history")
                          (to-color-map-values layer global-clock)
                          (fire-spread-results layer))]
-            (output-geotiff config matrix name envelope simulation-id)
-            (output-png config matrix name envelope simulation-id)))))))
+            (when ouput-geotiffs?
+             (output-geotiff config matrix name envelope simulation-id))
+            (when output-pngs?
+             (output-png config matrix name envelope simulation-id))))))))
 
 (defn process-burn-count!
   [{:keys [fire-spread-matrix burn-time-matrix global-clock]}
@@ -369,6 +368,15 @@
                             [row col]))]
     (assoc inputs :ignitable-sites ignitable-sites)))
 
+(defn initialize-aggregate-matrices
+  [{:keys [max-runtimes num-rows num-cols output-burn-probability output-flame-length-sum]}]
+  {:burn-count-matrix       (initialize-burn-count-matrix output-burn-probability max-runtimes num-rows num-cols)
+   :flame-length-sum-matrix (when output-flame-length-sum (m/zero-array [num-rows num-cols]))})
+
+(defn add-aggregate-matrices
+  [inputs]
+  (merge inputs (initialize-aggregate-matrices inputs)))
+
 (defn load-inputs
   [config]
   (-> config
@@ -377,7 +385,8 @@
       (add-ignitions-csv)
       (add-sampled-params)
       (add-weather-params)
-      (add-ignitable-sites)))
+      (add-ignitable-sites)
+      (add-aggregate-matrices)))
 
 ;; FIXME: Replace input-variations expression with add-sampled-params
 ;;        and add-weather-params (and remove them from load-inputs).
@@ -389,8 +398,7 @@
   [{:keys [output-csvs? output-burn-probability envelope ignition-layer cell-size
            max-runtimes ignition-rows ignition-cols foliar-moistures ellipse-adjustment-factors perturbations
            temperatures relative-humidities wind-speeds-20ft wind-from-directions
-           random-seed ignition-start-times] :as inputs}
-   burn-count-matrix
+           random-seed ignition-start-times flame-length-sum-matrix burn-count-matrix] :as inputs}
    i]
   (tufte/profile
    {:id :run-simulation}
@@ -417,6 +425,8 @@
        (process-output-layers! inputs fire-spread-results envelope i)
        (when-let [timestep output-burn-probability]
          (process-burn-count! fire-spread-results burn-count-matrix timestep))
+       (when flame-length-sum-matrix
+        (m/add! flame-length-sum-matrix (:flame-length-matrix fire-spread-results)))
        (process-binary-output! inputs fire-spread-results i))
      (when output-csvs?
        (merge
@@ -439,30 +449,31 @@
            :fire-line-intensity-stddev 0.0}))))))
 
 (defn run-simulations!
-  [{:keys [simulations max-runtimes output-burn-probability parallel-strategy num-rows num-cols] :as inputs}]
+  [{:keys [simulations parallel-strategy] :as inputs}]
   (log-str "Running simulations")
-  (let [stats-accumulator (do
-                            (tufte/remove-handler! :accumulating)
-                            (tufte/add-accumulating-handler! {:handler-id :accumulating}))
-        burn-count-matrix (initialize-burn-count-matrix output-burn-probability
-                                                        max-runtimes
-                                                        num-rows
-                                                        num-cols)
-        parallel-bin-size (max 1 (quot simulations (.availableProcessors (Runtime/getRuntime))))
-        reducer-fn        (if (= parallel-strategy :between-fires)
-                            #(into [] (r/fold parallel-bin-size r/cat r/append! %))
-                            #(into [] %))
-        summary-stats     (with-redefs [rothermel-fast-wrapper (memoize rothermel-fast-wrapper)]
-                           (->> (vec (range simulations))
-                                (r/map (partial run-simulation! inputs burn-count-matrix))
-                                (r/remove nil?)
-                                (reducer-fn)))]
+  (let [stats-accumulator       (do
+                                  (tufte/remove-handler! :accumulating)
+                                  (tufte/add-accumulating-handler! {:handler-id :accumulating}))
+        parallel-bin-size       (max 1 (quot simulations (.availableProcessors (Runtime/getRuntime))))
+        reducer-fn              (if (= parallel-strategy :between-fires)
+                                  #(into [] (r/fold parallel-bin-size r/cat r/append! %))
+                                  #(into [] %))
+        summary-stats           (with-redefs [rothermel-fast-wrapper (memoize rothermel-fast-wrapper)]
+                                  (->> (vec (range simulations))
+                                       (r/map (partial run-simulation! inputs))
+                                       (r/remove nil?)
+                                       (reducer-fn)))]
     (Thread/sleep 1000)
     (log (tufte/format-grouped-pstats @stats-accumulator
                                       {:format-pstats-opts {:columns [:n-calls :min :max :mean :mad :clock :total]}})
          :truncate? false)
-    {:burn-count-matrix burn-count-matrix
-     :summary-stats     summary-stats}))
+    {:burn-count-matrix       (:burn-count-matrix inputs)
+     :flame-length-sum-matrix (:flame-length-sum-matrix inputs)
+     :summary-stats           summary-stats}))
+
+;;-----------------------------------------------------------------------------
+;; Outputs ;TODO move section to it's own ns
+;;-----------------------------------------------------------------------------
 
 (defn write-landfire-layers!
   [{:keys [output-landfire-inputs? outfile-suffix landfire-rasters envelope]}]
@@ -472,7 +483,7 @@
           (write-raster (str (name layer) outfile-suffix ".tif"))))))
 
 (defn write-burn-probability-layer!
-  [{:keys [output-burn-probability simulations envelope] :as inputs} {:keys [burn-count-matrix]}]
+  [{:keys [output-burn-probability simulations envelope ouptut-png?] :as inputs} {:keys [burn-count-matrix]}]
   (when-let [timestep output-burn-probability]
     (let [output-name "burn_probability"]
       (if (int? timestep)
@@ -483,7 +494,14 @@
             (output-png inputs probability-matrix output-name envelope nil output-time)))
         (let [probability-matrix (m/emap #(/ % simulations) burn-count-matrix)]
           (output-geotiff inputs probability-matrix output-name envelope)
-          (output-png inputs probability-matrix output-name envelope))))))
+          (when ouptut-png?
+           (output-png inputs probability-matrix output-name envelope)))))))
+
+(defn write-flame-length-sum-layer!
+  [{:keys [envelope output-flame-length-sum] :as inputs}
+   {:keys [flame-length-sum-matrix]}]
+  (when output-flame-length-sum
+    (output-geotiff inputs flame-length-sum-matrix "flame_length_sum" envelope)))
 
 (defn write-csv-outputs!
   [{:keys [output-csvs? output-directory outfile-suffix]} {:keys [summary-stats]}]
@@ -522,16 +540,15 @@
              (csv/write-csv out-file))))))
 
 (defn process-config-file!
-  [config-file]
-  (let [config (edn/read-string (slurp config-file))]
-    (if-not (s/valid? ::spec/config config)
-      (s/explain ::spec/config config)
-      (let [inputs (load-inputs config)]
-        (if (seq (:ignitable-sites inputs))
-          (let [outputs (run-simulations! inputs)]
-            (write-landfire-layers! inputs)
-            (write-burn-probability-layer! inputs outputs)
-            (write-csv-outputs! inputs outputs))
-          (log-str "Could not run simulation. No valid ignition sites. Config:" config-file))))
-    (shutdown-agents)))
+  [config]
+  (if-not (s/valid? ::spec/config config)
+    (s/explain ::spec/config config)
+    (let [inputs (load-inputs config)]
+      (if (seq (:ignitable-sites inputs))
+        (let [outputs (run-simulations! inputs)]
+          (write-landfire-layers! inputs)
+          (write-burn-probability-layer! inputs outputs)
+          (write-flame-length-sum-layer! inputs outputs)
+          (write-csv-outputs! inputs outputs))
+        (log-str "Could not run simulation. No valid ignition sites")))))
 ;; gridfire-core ends here
