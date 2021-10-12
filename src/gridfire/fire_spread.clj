@@ -359,7 +359,7 @@
   [constants
    global-clock
    {:keys [fire-spread-matrix burn-time-matrix spread-rate-matrix fire-type-matrix
-           flame-length-matrix fire-line-intensity-matrix]}
+           flame-length-matrix fire-line-intensity-matrix spot-matrix]}
    spot-ignite-now]
   (let [ignited?        (fn [[k v]]
                           (let [[i j] k
@@ -377,7 +377,8 @@
       (m/mset! flame-length-matrix i j 1.0)
       (m/mset! fire-line-intensity-matrix i j 1.0)
       (m/mset! spread-rate-matrix i j -1.0)
-      (m/mset! fire-type-matrix i j -1.0))
+      (m/mset! fire-type-matrix i j -1.0)
+      (m/mset! spot-matrix i j 1.0))
     ignited-cells))
 
 (defn new-spot-ignitions
@@ -414,7 +415,8 @@
            burn-time-matrix
            spread-rate-matrix
            fire-type-matrix
-           fractional-distance-matrix] :as matrices}
+           fractional-distance-matrix
+           spot-matrix] :as matrices}
    ignited-cells]
   (let [max-runtime        (double max-runtime)
         cell-size          (double cell-size)
@@ -476,6 +478,7 @@
         :flame-length-matrix        flame-length-matrix
         :fire-line-intensity-matrix fire-line-intensity-matrix
         :burn-time-matrix           burn-time-matrix
+        :spot-matrix                spot-matrix
         :spread-rate-matrix         spread-rate-matrix
         :fire-type-matrix           fire-type-matrix
         :crown-fire-count           @crown-fire-count
@@ -542,6 +545,7 @@
         firebrand-count-matrix     (when spotting (m/zero-matrix num-rows num-cols))
         spread-rate-matrix         (m/zero-matrix num-rows num-cols)
         fire-type-matrix           (m/zero-matrix num-rows num-cols)
+        spot-matrix                (m/zero-matrix num-rows num-cols)
         fractional-distance-matrix (when (= trajectory-combination :sum) (m/zero-matrix num-rows num-cols))]
     (when (and (in-bounds? num-rows num-cols initial-ignition-site)
                (burnable-fuel-model? (m/mget fuel-model-matrix i j))
@@ -569,7 +573,8 @@
                    :firebrand-count-matrix     firebrand-count-matrix
                    :burn-time-matrix           burn-time-matrix
                    :fire-type-matrix           fire-type-matrix
-                   :fractional-distance-matrix fractional-distance-matrix}
+                   :fractional-distance-matrix fractional-distance-matrix
+                   :spot-matrix                spot-matrix}
                   ignited-cells)))))
 
 (defmethod run-fire-spread :ignition-perimeter
@@ -591,6 +596,7 @@
             fire-type-matrix           (initialize-matrix num-rows num-cols non-zero-indices)
             fractional-distance-matrix (when (= trajectory-combination :sum)
                                          (initialize-matrix num-rows num-cols non-zero-indices))
+            spot-matrix                (m/zero-matrix num-rows num-cols)
             ignited-cells              (generate-ignited-cells inputs fire-spread-matrix perimeter-indices)]
         (when (seq ignited-cells)
           (run-loop inputs
@@ -601,6 +607,7 @@
                      :firebrand-count-matrix     firebrand-count-matrix
                      :burn-time-matrix           burn-time-matrix
                      :fire-type-matrix           fire-type-matrix
-                     :fractional-distance-matrix fractional-distance-matrix}
+                     :fractional-distance-matrix fractional-distance-matrix
+                     :spot-matrix                spot-matrix}
                     ignited-cells))))))
 ;; fire-spread-algorithm ends here

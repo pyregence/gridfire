@@ -86,3 +86,10 @@
         _      (process-config-file! config)]
 
     (is (.exists (io/file "test/output/burn_count.tif")))))
+
+(deftest output_spot_count_test
+  (let [config (merge test-config-base
+                      {:output-spot-count true})
+        _      (process-config-file! config)]
+
+    (is (.exists (io/file "test/output/spot_count.tif")))))
