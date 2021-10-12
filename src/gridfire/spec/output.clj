@@ -16,6 +16,7 @@
 (s/def ::burn-history ::type)
 (s/def ::spread-rate ::type)
 (s/def ::output-burn-probability ::type)
+(s/def ::output-flame-length-sum boolean?)
 (s/def ::output-directory ::file-path)
 (s/def ::output-binary? boolean?)
 
