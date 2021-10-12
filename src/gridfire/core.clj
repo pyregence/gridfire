@@ -229,14 +229,16 @@
     (m/add! burn-count-matrix fire-spread-matrix)))
 
 (defn process-aggregate-output-layers!
-  [{:keys [output-burn-probability burn-count-matrix flame-length-sum-matrix
-           flame-length-max-matrix]} fire-spread-results]
+  [{:keys [burn-count-matrix flame-length-max-matrix flame-length-sum-matrix
+           output-burn-probability spot-count-matrix]} fire-spread-results]
   (when-let [timestep output-burn-probability]
     (process-burn-count! fire-spread-results burn-count-matrix timestep))
   (when flame-length-sum-matrix
     (m/add! flame-length-sum-matrix (:flame-length-matrix fire-spread-results)))
   (when flame-length-max-matrix
-    (m/emap! #(max %1 %2) flame-length-max-matrix (:flame-length-matrix fire-spread-results))))
+    (m/emap! #(max %1 %2) flame-length-max-matrix (:flame-length-matrix fire-spread-results)))
+  (when spot-count-matrix
+    (m/add! spot-count-matrix (:spot-matrix fire-spread-results))))
 
 (defn initialize-burn-count-matrix
   [{:keys [output-burn-probability output-burn-count max-runtimes num-rows num-cols]}]
@@ -380,10 +382,11 @@
 
 (defn initialize-aggregate-matrices
   [{:keys [num-rows num-cols output-flame-length-sum
-           output-flame-length-max] :as inputs}]
+           output-flame-length-max output-spot-count] :as inputs}]
   {:burn-count-matrix       (initialize-burn-count-matrix inputs)
    :flame-length-sum-matrix (when output-flame-length-sum (m/zero-array [num-rows num-cols]))
-   :flame-length-max-matrix (when output-flame-length-max (m/zero-array [num-rows num-cols]))})
+   :flame-length-max-matrix (when output-flame-length-max (m/zero-array [num-rows num-cols]))
+   :spot-count-matrix       (when output-spot-count (m/zero-array [num-rows num-cols]))})
 
 (defn add-aggregate-matrices
   [inputs]
@@ -479,6 +482,7 @@
     {:burn-count-matrix       (:burn-count-matrix inputs)
      :flame-length-sum-matrix (:flame-length-sum-matrix inputs)
      :flame-length-max-matrix (:flame-length-max-matrix inputs)
+     :spot-count-matrix       (:spot-count-matrix inputs)
      :summary-stats           summary-stats}))
 
 ;;-----------------------------------------------------------------------------
@@ -525,12 +529,19 @@
   (when output-burn-count
     (output-geotiff inputs burn-count-matrix "burn_count" envelope)))
 
+(defn write-spot-count-layer!
+  [{:keys [envelope output-spot-count] :as inputs}
+   {:keys [spot-count-matrix]}]
+  (when output-spot-count
+    (output-geotiff inputs spot-count-matrix "spot_count" envelope)))
+
 (defn write-aggregate-layers!
   [inputs outputs]
   (write-burn-probability-layer! inputs outputs)
   (write-flame-length-sum-layer! inputs outputs)
   (write-flame-length-max-layer! inputs outputs)
-  (write-burn-count-layer! inputs outputs))
+  (write-burn-count-layer! inputs outputs)
+  (write-spot-count-layer! inputs outputs))
 
 (defn write-csv-outputs!
   [{:keys [output-csvs? output-directory outfile-suffix]} {:keys [summary-stats]}]

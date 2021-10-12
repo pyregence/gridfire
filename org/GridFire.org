@@ -2130,7 +2130,7 @@ pseudo-code lays out the steps taken in this procedure:
   [constants
    global-clock
    {:keys [fire-spread-matrix burn-time-matrix spread-rate-matrix fire-type-matrix
-           flame-length-matrix fire-line-intensity-matrix]}
+           flame-length-matrix fire-line-intensity-matrix spot-matrix]}
    spot-ignite-now]
   (let [ignited?        (fn [[k v]]
                           (let [[i j] k
@@ -2148,7 +2148,8 @@ pseudo-code lays out the steps taken in this procedure:
       (m/mset! flame-length-matrix i j 1.0)
       (m/mset! fire-line-intensity-matrix i j 1.0)
       (m/mset! spread-rate-matrix i j -1.0)
-      (m/mset! fire-type-matrix i j -1.0))
+      (m/mset! fire-type-matrix i j -1.0)
+      (m/mset! spot-matrix i j 1.0))
     ignited-cells))
 
 (defn new-spot-ignitions
@@ -2185,7 +2186,8 @@ pseudo-code lays out the steps taken in this procedure:
            burn-time-matrix
            spread-rate-matrix
            fire-type-matrix
-           fractional-distance-matrix] :as matrices}
+           fractional-distance-matrix
+           spot-matrix] :as matrices}
    ignited-cells]
   (let [max-runtime        (double max-runtime)
         cell-size          (double cell-size)
@@ -2247,6 +2249,7 @@ pseudo-code lays out the steps taken in this procedure:
         :flame-length-matrix        flame-length-matrix
         :fire-line-intensity-matrix fire-line-intensity-matrix
         :burn-time-matrix           burn-time-matrix
+        :spot-matrix                spot-matrix
         :spread-rate-matrix         spread-rate-matrix
         :fire-type-matrix           fire-type-matrix
         :crown-fire-count           @crown-fire-count
@@ -2313,6 +2316,7 @@ pseudo-code lays out the steps taken in this procedure:
         firebrand-count-matrix     (when spotting (m/zero-matrix num-rows num-cols))
         spread-rate-matrix         (m/zero-matrix num-rows num-cols)
         fire-type-matrix           (m/zero-matrix num-rows num-cols)
+        spot-matrix                (m/zero-matrix num-rows num-cols)
         fractional-distance-matrix (when (= trajectory-combination :sum) (m/zero-matrix num-rows num-cols))]
     (when (and (in-bounds? num-rows num-cols initial-ignition-site)
                (burnable-fuel-model? (m/mget fuel-model-matrix i j))
@@ -2340,7 +2344,8 @@ pseudo-code lays out the steps taken in this procedure:
                    :firebrand-count-matrix     firebrand-count-matrix
                    :burn-time-matrix           burn-time-matrix
                    :fire-type-matrix           fire-type-matrix
-                   :fractional-distance-matrix fractional-distance-matrix}
+                   :fractional-distance-matrix fractional-distance-matrix
+                   :spot-matrix                spot-matrix}
                   ignited-cells)))))
 
 (defmethod run-fire-spread :ignition-perimeter
@@ -2362,6 +2367,7 @@ pseudo-code lays out the steps taken in this procedure:
             fire-type-matrix           (initialize-matrix num-rows num-cols non-zero-indices)
             fractional-distance-matrix (when (= trajectory-combination :sum)
                                          (initialize-matrix num-rows num-cols non-zero-indices))
+            spot-matrix                (m/zero-matrix num-rows num-cols)
             ignited-cells              (generate-ignited-cells inputs fire-spread-matrix perimeter-indices)]
         (when (seq ignited-cells)
           (run-loop inputs
@@ -2372,7 +2378,8 @@ pseudo-code lays out the steps taken in this procedure:
                      :firebrand-count-matrix     firebrand-count-matrix
                      :burn-time-matrix           burn-time-matrix
                      :fire-type-matrix           fire-type-matrix
-                     :fractional-distance-matrix fractional-distance-matrix}
+                     :fractional-distance-matrix fractional-distance-matrix
+                     :spot-matrix                spot-matrix}
                     ignited-cells))))))
 #+end_src
 
@@ -3273,14 +3280,16 @@ or false:
     (m/add! burn-count-matrix fire-spread-matrix)))
 
 (defn process-aggregate-output-layers!
-  [{:keys [output-burn-probability burn-count-matrix flame-length-sum-matrix
-           flame-length-max-matrix]} fire-spread-results]
+  [{:keys [burn-count-matrix flame-length-max-matrix flame-length-sum-matrix
+           output-burn-probability spot-count-matrix]} fire-spread-results]
   (when-let [timestep output-burn-probability]
     (process-burn-count! fire-spread-results burn-count-matrix timestep))
   (when flame-length-sum-matrix
     (m/add! flame-length-sum-matrix (:flame-length-matrix fire-spread-results)))
   (when flame-length-max-matrix
-    (m/emap! #(max %1 %2) flame-length-max-matrix (:flame-length-matrix fire-spread-results))))
+    (m/emap! #(max %1 %2) flame-length-max-matrix (:flame-length-matrix fire-spread-results)))
+  (when spot-count-matrix
+    (m/add! spot-count-matrix (:spot-matrix fire-spread-results))))
 
 (defn initialize-burn-count-matrix
   [{:keys [output-burn-probability output-burn-count max-runtimes num-rows num-cols]}]
@@ -3424,10 +3433,11 @@ or false:
 
 (defn initialize-aggregate-matrices
   [{:keys [num-rows num-cols output-flame-length-sum
-           output-flame-length-max] :as inputs}]
+           output-flame-length-max output-spot-count] :as inputs}]
   {:burn-count-matrix       (initialize-burn-count-matrix inputs)
    :flame-length-sum-matrix (when output-flame-length-sum (m/zero-array [num-rows num-cols]))
-   :flame-length-max-matrix (when output-flame-length-max (m/zero-array [num-rows num-cols]))})
+   :flame-length-max-matrix (when output-flame-length-max (m/zero-array [num-rows num-cols]))
+   :spot-count-matrix       (when output-spot-count (m/zero-array [num-rows num-cols]))})
 
 (defn add-aggregate-matrices
   [inputs]
@@ -3523,6 +3533,7 @@ or false:
     {:burn-count-matrix       (:burn-count-matrix inputs)
      :flame-length-sum-matrix (:flame-length-sum-matrix inputs)
      :flame-length-max-matrix (:flame-length-max-matrix inputs)
+     :spot-count-matrix       (:spot-count-matrix inputs)
      :summary-stats           summary-stats}))
 
 ;;-----------------------------------------------------------------------------
@@ -3569,12 +3580,19 @@ or false:
   (when output-burn-count
     (output-geotiff inputs burn-count-matrix "burn_count" envelope)))
 
+(defn write-spot-count-layer!
+  [{:keys [envelope output-spot-count] :as inputs}
+   {:keys [spot-count-matrix]}]
+  (when output-spot-count
+    (output-geotiff inputs spot-count-matrix "spot_count" envelope)))
+
 (defn write-aggregate-layers!
   [inputs outputs]
   (write-burn-probability-layer! inputs outputs)
   (write-flame-length-sum-layer! inputs outputs)
   (write-flame-length-max-layer! inputs outputs)
-  (write-burn-count-layer! inputs outputs))
+  (write-burn-count-layer! inputs outputs)
+  (write-spot-count-layer! inputs outputs))
 
 (defn write-csv-outputs!
   [{:keys [output-csvs? output-directory outfile-suffix]} {:keys [summary-stats]}]
@@ -4310,6 +4328,17 @@ mapping:
 
 #+begin_src clojure
 {:output-burn-count true}
+#+end_src
+
+
+To specify the output of the spot count layer, which is the number of
+times a spot ignition occured in a cell, include the following
+mapping:
+
+- *output-*spot-count*: bolean
+
+#+begin_src clojure
+{:output-spot-count true}
 #+end_src
 
 Other output mappings:
