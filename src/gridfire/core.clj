@@ -239,8 +239,8 @@
     (m/emap! #(max %1 %2) flame-length-max-matrix (:flame-length-matrix fire-spread-results))))
 
 (defn initialize-burn-count-matrix
-  [output-burn-probability max-runtimes num-rows num-cols]
-  (when output-burn-probability
+  [{:keys [output-burn-probability output-burn-count max-runtimes num-rows num-cols]}]
+  (when (or output-burn-count output-burn-probability)
     (if (int? output-burn-probability)
       (let [num-bands (inc (quot (apply max max-runtimes) output-burn-probability))]
         (m/zero-array [num-bands num-rows num-cols]))
@@ -379,9 +379,9 @@
     (assoc inputs :ignitable-sites ignitable-sites)))
 
 (defn initialize-aggregate-matrices
-  [{:keys [max-runtimes num-rows num-cols output-burn-probability output-flame-length-sum
-           output-flame-length-max]}]
-  {:burn-count-matrix       (initialize-burn-count-matrix output-burn-probability max-runtimes num-rows num-cols)
+  [{:keys [num-rows num-cols output-flame-length-sum
+           output-flame-length-max] :as inputs}]
+  {:burn-count-matrix       (initialize-burn-count-matrix inputs)
    :flame-length-sum-matrix (when output-flame-length-sum (m/zero-array [num-rows num-cols]))
    :flame-length-max-matrix (when output-flame-length-max (m/zero-array [num-rows num-cols]))})
 
@@ -519,11 +519,18 @@
   (when output-flame-length-max
     (output-geotiff inputs flame-length-max-matrix "flame_length_max" envelope)))
 
+(defn write-burn-count-layer!
+  [{:keys [envelope output-burn-count] :as inputs}
+   {:keys [burn-count-matrix]}]
+  (when output-burn-count
+    (output-geotiff inputs burn-count-matrix "burn_count" envelope)))
+
 (defn write-aggregate-layers!
   [inputs outputs]
   (write-burn-probability-layer! inputs outputs)
   (write-flame-length-sum-layer! inputs outputs)
-  (write-flame-length-max-layer! inputs outputs))
+  (write-flame-length-max-layer! inputs outputs)
+  (write-burn-count-layer! inputs outputs))
 
 (defn write-csv-outputs!
   [{:keys [output-csvs? output-directory outfile-suffix]} {:keys [summary-stats]}]
