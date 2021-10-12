@@ -4251,8 +4251,7 @@ of simulations, include the following mapping:
 - *output-*burn-probability*: timestep (in minutes) or keyword `:final`
 
 #+begin_src clojure
-{:output-burn-probability 10
- :output-geotiff          true}
+{:output-burn-probability 10}
 #+end_src
 
 To specify the output of the flame length sum layers, 
