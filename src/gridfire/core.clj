@@ -228,6 +228,16 @@
         (m/add! (nth (seq burn-count-matrix) band) filtered-fire-spread)))
     (m/add! burn-count-matrix fire-spread-matrix)))
 
+(defn process-aggregate-output-layers!
+  [{:keys [output-burn-probability burn-count-matrix flame-length-sum-matrix
+           flame-length-max-matrix]} fire-spread-results]
+  (when-let [timestep output-burn-probability]
+    (process-burn-count! fire-spread-results burn-count-matrix timestep))
+  (when flame-length-sum-matrix
+    (m/add! flame-length-sum-matrix (:flame-length-matrix fire-spread-results)))
+  (when flame-length-max-matrix
+    (m/emap! #(max %1 %2) flame-length-max-matrix (:flame-length-matrix fire-spread-results))))
+
 (defn initialize-burn-count-matrix
   [output-burn-probability max-runtimes num-rows num-cols]
   (when output-burn-probability
@@ -369,9 +379,11 @@
     (assoc inputs :ignitable-sites ignitable-sites)))
 
 (defn initialize-aggregate-matrices
-  [{:keys [max-runtimes num-rows num-cols output-burn-probability output-flame-length-sum]}]
+  [{:keys [max-runtimes num-rows num-cols output-burn-probability output-flame-length-sum
+           output-flame-length-max]}]
   {:burn-count-matrix       (initialize-burn-count-matrix output-burn-probability max-runtimes num-rows num-cols)
-   :flame-length-sum-matrix (when output-flame-length-sum (m/zero-array [num-rows num-cols]))})
+   :flame-length-sum-matrix (when output-flame-length-sum (m/zero-array [num-rows num-cols]))
+   :flame-length-max-matrix (when output-flame-length-max (m/zero-array [num-rows num-cols]))})
 
 (defn add-aggregate-matrices
   [inputs]
@@ -395,10 +407,10 @@
 ;;        initial-ignition-site calculation into input-variations or
 ;;        move it to run-fire-spread.
 (defn run-simulation!
-  [{:keys [output-csvs? output-burn-probability envelope ignition-layer cell-size
+  [{:keys [output-csvs? envelope ignition-layer cell-size
            max-runtimes ignition-rows ignition-cols foliar-moistures ellipse-adjustment-factors perturbations
            temperatures relative-humidities wind-speeds-20ft wind-from-directions
-           random-seed ignition-start-times flame-length-sum-matrix burn-count-matrix] :as inputs}
+           random-seed ignition-start-times] :as inputs}
    i]
   (tufte/profile
    {:id :run-simulation}
@@ -423,10 +435,7 @@
                                                 {:initial-ignition-site initial-ignition-site})))]
      (when fire-spread-results
        (process-output-layers! inputs fire-spread-results envelope i)
-       (when-let [timestep output-burn-probability]
-         (process-burn-count! fire-spread-results burn-count-matrix timestep))
-       (when flame-length-sum-matrix
-        (m/add! flame-length-sum-matrix (:flame-length-matrix fire-spread-results)))
+       (process-aggregate-output-layers! inputs fire-spread-results)
        (process-binary-output! inputs fire-spread-results i))
      (when output-csvs?
        (merge
@@ -469,6 +478,7 @@
          :truncate? false)
     {:burn-count-matrix       (:burn-count-matrix inputs)
      :flame-length-sum-matrix (:flame-length-sum-matrix inputs)
+     :flame-length-max-matrix (:flame-length-max-matrix inputs)
      :summary-stats           summary-stats}))
 
 ;;-----------------------------------------------------------------------------
@@ -502,6 +512,18 @@
    {:keys [flame-length-sum-matrix]}]
   (when output-flame-length-sum
     (output-geotiff inputs flame-length-sum-matrix "flame_length_sum" envelope)))
+
+(defn write-flame-length-max-layer!
+  [{:keys [envelope output-flame-length-max] :as inputs}
+   {:keys [flame-length-max-matrix]}]
+  (when output-flame-length-max
+    (output-geotiff inputs flame-length-max-matrix "flame_length_max" envelope)))
+
+(defn write-aggregate-layers!
+  [inputs outputs]
+  (write-burn-probability-layer! inputs outputs)
+  (write-flame-length-sum-layer! inputs outputs)
+  (write-flame-length-max-layer! inputs outputs))
 
 (defn write-csv-outputs!
   [{:keys [output-csvs? output-directory outfile-suffix]} {:keys [summary-stats]}]
@@ -547,8 +569,7 @@
       (if (seq (:ignitable-sites inputs))
         (let [outputs (run-simulations! inputs)]
           (write-landfire-layers! inputs)
-          (write-burn-probability-layer! inputs outputs)
-          (write-flame-length-sum-layer! inputs outputs)
+          (write-aggregate-layers! inputs outputs)
           (write-csv-outputs! inputs outputs))
         (log-str "Could not run simulation. No valid ignition sites")))))
 ;; gridfire-core ends here

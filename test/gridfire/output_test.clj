@@ -72,3 +72,10 @@
         _      (process-config-file! config)]
 
     (is (.exists (io/file "test/output/flame_length_sum.tif")))))
+
+(deftest output_flame_length_max_test
+  (let [config (merge test-config-base
+                      {:output-flame-length-max true})
+        _      (process-config-file! config)]
+
+    (is (.exists (io/file "test/output/flame_length_max.tif")))))
