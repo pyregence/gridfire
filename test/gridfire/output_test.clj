@@ -79,3 +79,10 @@
         _      (process-config-file! config)]
 
     (is (.exists (io/file "test/output/flame_length_max.tif")))))
+
+(deftest output_burn_count_test
+  (let [config (merge test-config-base
+                      {:output-burn-count true})
+        _      (process-config-file! config)]
+
+    (is (.exists (io/file "test/output/burn_count.tif")))))
