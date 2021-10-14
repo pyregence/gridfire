@@ -52,11 +52,11 @@
     :validate [#(.exists  (io/file %)) "The provided --elmfire-data does not exist."
                #(.canRead (io/file %)) "The provided --elmfire-data is not readable."]]
 
-   ["-v" "--verbose" "Flag for controlling elmfire.data conversion output params"]])
+   ["-v" "--verbose" "Flag for controlling elmfire.data conversion output params"]
 
    ["-o" "--override-config OVERRIDE" "Path to overide.edn file"
     :validate [#(.exists  (io/file %)) "The provided --override-config does not exist."
-               #(.canRead (io/file %)) "The provided --override-config is not readable."]]
+               #(.canRead (io/file %)) "The provided --override-config is not readable."]]])
 
 (def program-banner
   (str "gridfire: Launch fire spread simulations via config files or in server mode.\n"
