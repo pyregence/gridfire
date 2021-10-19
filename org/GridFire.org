@@ -257,7 +257,7 @@ rasters reside. The filenames of these rasters should match the
 elements in the for loop (i.e. asp.tif, cbd.tif etc)
 #+name: raster2pgsql-import-example-all
 #+begin_src sh :results silent :exports code :tangle ../resources/import_landfire_rasters.sh :padline no :no-expand :comments link
-#!/bin/sh
+#!/usr/bin/env bash
 
 USERNAME=$1
 SCHEMA=$2
@@ -324,7 +324,7 @@ assigned to the LAYER variable (i.e., ign) plus a .tif extension.
 
 #+name: raster2pgsql-import-ignition-raster
 #+begin_src sh :results silent :exports code :tangle ../resources/import_ignition_rasters.sh :padline no :no-expand :comments link
-#!/bin/sh
+#!/usr/bin/env bash
 
 USERNAME=$1
 SCHEMA=$2
@@ -359,7 +359,7 @@ elements in the for loop (i.e. tmpf_to_sample.tif)
 
 #+name: raster2pgsql-import-weather-rasters
 #+begin_src sh :results silent :exports code :tangle ../resources/import_weather_rasters.sh :padline no :no-expand :comments link
-#!/bin/sh
+#!/usr/bin/env bash
 
 USERNAME=$1
 SCHEMA=$2
