@@ -28,13 +28,13 @@
                                            "-r"]}
            :make-uberjar      {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
                                :exec-fn      hf.depstar/uberjar
-                               :exec-args    {:jar         target/gridfire.jar
+                               :exec-args    {:jar         target/gridfire-2021.10.19.jar
                                               :main-class  gridfire.cli
                                               :aot         true
                                               :sync-pom    true
                                               :group-id    sig-gis
                                               :artifact-id gridfire
-                                              :version     "2021.09.22"
+                                              :version     "2021.10.19"
                                               :manifest
                                               {:specification-title    "Java Advanced Imaging Image I/O Tools"
                                                :specification-version  "1.1"
