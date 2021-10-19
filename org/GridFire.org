@@ -1,6 +1,6 @@
 #+TITLE: The GridFire Fire Behavior Model
 #+AUTHOR: Gary W. Johnson, Ph.D., David Saah, Ph.D., Max Moritz, Ph.D., Kenneth Cheung
-#+DATE: Copyright 2011-2021 Spatial Informatics Group, LLC
+#+DATE: Copyright © 2014-2021 Spatial Informatics Group, LLC
 #+OPTIONS: ^:{} toc:nil h:3
 #+LATEX_CLASS: article
 #+LATEX_CLASS_OPTIONS: [11pt]
@@ -3620,7 +3620,7 @@ or false:
 
 (def program-banner
   (str "gridfire: Launch fire spread simulations via config files or in server mode.\n"
-       "Copyright © 2020-2021 Spatial Informatics Group, LLC.\n"))
+       "Copyright © 2014-2021 Spatial Informatics Group, LLC.\n"))
 
 (defn -main
   [& args]
