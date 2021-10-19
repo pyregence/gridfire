@@ -48,7 +48,7 @@
     :parse-fn #(if (int? %) % (Integer/parseInt %))
     :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
 
-   ["-e" "--elmfire-data FILE" "Path to an elmfire.data file."
+   ["-e" "--elmfire-data FILE" "Path to an elmfire.data file"
     :validate [#(.exists  (io/file %)) "The provided --elmfire-data does not exist."
                #(.canRead (io/file %)) "The provided --elmfire-data is not readable."]]
 
