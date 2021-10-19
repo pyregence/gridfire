@@ -3735,7 +3735,7 @@ The Post processing scripts require the following packages to work:
 The GridFire system is also available for use in server mode. The
 server is confgured by and edn file containing the following contents:
 
-#+begin_src clojure :results silent :exports code
+#+begin_src clojure :results silent :exports code :tangle ../resources/sample_server.edn :padline no :no-expand :comments link
 {:software-dir    "/gridfire/software"
  :incoming-dir    "/gridfire/incoming"
  :active-fire-dir "/gridfire/incoming/active_fires"
