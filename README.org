@@ -1,99 +1,44 @@
 * GridFire
 
-GridFire is a raster-based fire spread and severity model that may be
-used for both static and dynamic calculations of various standard fire
-behavior metrics across a landscape. For inputs, it requires a stack
-of co-registered raster maps for your area of interest as well as a
-set of scalar values which may be input via a configuration file.
-These inputs are listed in the following table:
-
-|---------------------------+-------------------------------------+------------------------------------|
-| Value                     | Units                               | Type                               |
-|---------------------------+-------------------------------------+------------------------------------|
-| max-runtime               | minutes                             | double                             |
-| cell-size                 | feet                                | double                             |
-| elevation-matrix          | feet                                | core.matrix 2D double array        |
-| slope-matrix              | vertical feet/horizontal feet       | core.matrix 2D double array        |
-| aspect-matrix             | degrees clockwise from north        | core.matrix 2D double array        |
-| fuel-model-matrix         | fuel model numbers 1-256            | core.matrix 2D double array        |
-| canopy-height-matrix      | feet                                | core.matrix 2D double array        |
-| canopy-base-height-matrix | feet                                | core.matrix 2D double array        |
-| crown-bulk-density-matrix | lb/ft^{3}                           | core.matrix 2D double array        |
-| canopy-cover-matrix       | 0-100                               | core.matrix 2D double array        |
-| wind-speed-20ft           | miles/hour                          | double                             |
-| wind-from-direction       | degrees clockwise from North        | double                             |
-| fuel-moisture             | %                                   | map of doubles per fuel size class |
-| foliar-moisture           | %                                   | double                             |
-| ellipse-adjustment-factor | $< 1.0 =$ circle, $> 1.0 =$ ellipse | double                             |
-| initial-ignition-site     | point represented as [row col]      | vector                             |
-|---------------------------+-------------------------------------+------------------------------------|
-
-** Static Calculations
-
-In this mode, GridFire can be used to calculate full coverage maps of
-the following fire behavior metrics given a fixed set of weather
-conditions:
-
-|-------------------------+--------------------------+-----------------------------|
-| Value                   | Units                    | Type                        |
-|-------------------------+--------------------------+-----------------------------|
-| max-rate-of-spread      | feet/min                 | core.matrix 2D double array |
-| max-direction-of-spread | feet/min                 | core.matrix 2D double array |
-| fire-type               | category 0-3 (see below) | core.matrix 2D double array |
-| flame-length            | feet                     | core.matrix 2D double array |
-| fire-line-intensity     | Btu/ft/s                 | core.matrix 2D double array |
-| wind-adjustment-factor  | percentage (0-1)         | core.matrix 2D double array |
-|-------------------------+--------------------------+-----------------------------|
-
-The Fire Type categories are as follows:
-
-0. Non-burnable
-1. Surface Fire
-2. Passive Crown Fire
-3. Active Crown Fire
-
-** Dynamic Simulation
-
-In this mode, GridFire may be asked to simulate individual ignition
-events and calculate their size and severity after a fixed amount of
-time (e.g., a 1 hour fire event). These simulation outputs are listed
-in the following table.
-
-|----------------------------+----------------------------------------+-----------------------------|
-| Value                      | Units                                  | Type                        |
-|----------------------------+----------------------------------------+-----------------------------|
-| global-clock               | minutes                                | double                      |
-| initial-ignition-site      | point represented as [row col]         | vector                      |
-| ignited-cells              | set of points represented as [row col] | set                         |
-| fire-spread-matrix         | percent heated (0-1)                   | core.matrix 2D double array |
-| flame-length-matrix        | feet                                   | core.matrix 2D double array |
-| fire-line-intensity-matrix | Btu/ft/s                               | core.matrix 2D double array |
-|----------------------------+----------------------------------------+-----------------------------|
+GridFire is a raster-based fire behavior model that may be used to
+simulate the spread of wildland fires across a landscape, either
+individually or in monte carlo simulations over space and time. For
+inputs, it requires a stack of co-registered raster maps for your area
+of interest as well as a text configuration file that specifies
+various parameters necessary for the simulation.
 
 * Usage
 
 GridFire has been coded as a literate program
 (https://en.wikipedia.org/wiki/Literate_programming) using Emacs'
 org-mode (http://orgmode.org/worg/org-contrib/babel/). Full
-documentation of the current system can always be found in
-*org/GridFire.org* and *org/GridFire.pdf* in this repository.
+documentation of the current system can always be found in the *org*
+directory within this repository:
+
+- org/GridFire.org :: Literate Program Source Code
+- org/GridFire.pdf :: Woven Documentation
+
+All source code files within this repository are generated directly
+from *org/GridFire.org*.
 
 * Contact
+** Authors
 
-*Authors:*
-- Gary W. Johnson
-- David S. Saah
-- Max Moritz
+- Gary W. Johnson, Ph.D.
+- David S. Saah, Ph.D.
+- Max Moritz, Ph.D.
+- Kenneth Cheung
 
-*Emails:*
+** Emails
 
 - gjohnson@sig-gis.com
 - dsaah@sig-gis.com
 - mmoritz@sig-gis.com
+- kcheung@sig-gis.com
 
 * License
 
-Copyright © 2011-2021 Spatial Informatics Group, LLC.
+Copyright © 2014-2021 Spatial Informatics Group, LLC.
 
 GridFire is distributed by Spatial Informatics Group, LLC. under the
 terms of the Eclipse Public License version 2.0 (EPLv2). See
