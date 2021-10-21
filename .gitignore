@@ -1,3 +1,4 @@
+.clj-kondo/
 .cpcache/
 .nrepl-history
 .nrepl-port
