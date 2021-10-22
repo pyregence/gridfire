@@ -1,6 +1,5 @@
 ;; [[file:../../org/GridFire.org::gridfire-core][gridfire-core]]
 (ns gridfire.core
-  (:gen-class)
   (:require [clojure.core.matrix      :as m]
             [clojure.core.reducers    :as r]
             [clojure.data.csv         :as csv]

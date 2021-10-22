@@ -3043,7 +3043,6 @@ or false:
 #+name: gridfire-core
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/core.clj :padline no :no-expand :comments link
 (ns gridfire.core
-  (:gen-class)
   (:require [clojure.core.matrix      :as m]
             [clojure.core.reducers    :as r]
             [clojure.data.csv         :as csv]
