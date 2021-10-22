@@ -3568,27 +3568,29 @@ or false:
   (:require [clojure.edn           :as edn]
             [clojure.java.io       :as io]
             [clojure.tools.cli     :refer [parse-opts]]
-            [gridfire.utils.server :refer [hostname?
-                                           throw-message]]
             [gridfire.config       :as config]
             [gridfire.core         :as gridfire]
-            [gridfire.server       :as server]))
+            [gridfire.server       :as server]
+            [gridfire.utils.server :refer [hostname? throw-message]]))
 
 ;;===========================================================
 ;; Argument Processing
 ;;===========================================================
 
-(defn all-required-keys? [arguments config-params]
+(defn all-required-keys? [arguments options]
   (or (seq arguments)
-      (every? config-params [:server-config :host :port])
-      (:elmfire-data config-params)))
+      (every? options [:server-config :host :port])
+      (:elmfire-data options)))
 
 (defn process-options [arguments {:keys [server-config] :as options}]
   (cond (not (all-required-keys? arguments options))
-        (throw-message (str "For gridfire server mode, please include:\n"
+        (throw-message (str "For gridfire cli mode, include "
+                            "one or more gridfire.edn files.\n"
+                            "For gridfire server mode, include these args: "
                             "--server-config --host --port\n"
-                            "For converting elmfire.data to gridfire.edn, please include:\n"
+                            "For converting elmfire.data to gridfire.edn, include this arg: "
                             "--elmfire-data"))
+
         server-config
         (let [config-file-params  (edn/read-string (slurp server-config))
               command-line-params (dissoc options :server-config)]
@@ -3605,6 +3607,7 @@ or false:
   [["-c" "--server-config CONFIG" "Server config file"
     :validate [#(.exists  (io/file %)) "The provided --server-config does not exist."
                #(.canRead (io/file %)) "The provided --server-config is not readable."]]
+
    ["-h" "--host HOST" "Host domain name"
     :validate [hostname? "The provided --host is invalid."]]
 
@@ -3635,25 +3638,25 @@ or false:
                         (catch Exception e
                           (ex-message e)))]
     (cond
-      (or (seq errors) (and (empty? options) (empty? arguments)))
+      (seq errors)
       (do
         (run! println errors)
         (println (str "\nUsage:\n" summary)))
 
-      (seq arguments)
-      (doseq [config-file arguments]
-        (gridfire/process-config-file! config-file))
-
       (string? config-params)
       (do
         (println config-params)
-        (println (str "Usage:\n" summary)))
+        (println (str "\nUsage:\n" summary)))
+
+      (:elmfire-data options)
+      (config/convert-config! config-params)
 
       (:server-config options)
       (server/start-server! config-params)
 
       :else
-      (config/convert-config! config-params))
+      (doseq [config-file arguments]
+        (gridfire/process-config-file! config-file)))
     (shutdown-agents)))
 #+end_src
 
