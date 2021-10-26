@@ -1375,11 +1375,8 @@ crown fire initiation occurs.
 
 #+name: van-wagner-crown-fire-initiation
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/crown_fire.clj :padline no :no-expand :comments link
-(ns gridfire.crown-fire)
-
-(defn ft->m ^double [^double ft] (* 0.3048 ft))
-
-(defn kW-m->Btu-ft-s ^double [^double kW-m] (* 0.288894658272 kW-m))
+(ns gridfire.crown-fire
+  (:require [gridfire.conversion :refer [ft->m kW-m->Btu-ft-s]]))
 
 (defn van-wagner-crown-fire-initiation?
   "- canopy-cover (0-100 %)

@@ -1,46 +1,52 @@
 (ns gridfire.conversion
   (:require [clojure.core.matrix :as m]))
 
+;; TODO: Use definline and unchecked arithmetic
+;; TODO: Make sure no functions in this namespace are redefined elsewhere.
+
 (defn F->K
-  "Convert farenheight to kelvin."
+  "Convert fahrenheit to kelvin."
   ^double
   [^double degrees]
-  (->> (+ degrees 459.67)
-       (* (/ 5.0 9.0))))
+  (-> degrees
+      (+ 459.67)
+      (* 0.5555555555555556)))
 
 (defn K->F
-  "Convert kelvin to farenheight."
+  "Convert kelvin to fahrenheit."
   ^double
   [^double degrees]
-  (->> (- degrees 273.15)
-       (* (/ 9.0 5.0))
-       (+ 32.0)))
+  (-> degrees
+      (* 1.8)
+      (- 459.67)))
 
 (defn F->C
-  "Convert farenheight to celcius."
+  "Convert fahrenheit to celsius."
   ^double
   [^double degrees]
-  (->> (- degrees 32.0)
-       (* (/ 5.0 9.0))))
+  (-> degrees
+      (- 32.0)
+      (* 0.5555555555555556)))
 
 (defn C->F
-  "Convert celsius to farenheight."
+  "Convert celsius to fahrenheit."
   ^double
   [^double degrees]
-  (->> (* degrees (/ 9.0 5.0))
-       (+ 32.0)))
+  (-> degrees
+      (* 1.8)
+      (+ 32.0)))
 
 (defn deg->rad
   "Convert degrees to radians."
   ^double
-  [^double d]
-  (* d (/ Math/PI 180)))
+  [^double degrees]
+  (* degrees 0.017453292519943295)) ; (/ Math/PI 180.0) = 0.017453292519943295
 
 (defn rad->deg
   "Convert radians to degrees."
   ^double
-  [^double d]
-  (* d (/ 180 Math/PI)))
+  [^double radians]
+  (* radians 57.29577951308232)) ; (/ 180.0 Math/PI) = 57.29577951308232
 
 (defn m->ft
   "Convert meters to feet."
@@ -48,50 +54,83 @@
   [^double m]
   (* m 3.281))
 
+(defn ft->m
+  "Convert feet to meters."
+  ^double
+  [^double ft]
+  (* ft 0.30478512648582745))
+
 (defn mph->mps
   "Convert miles per hour to meters per second."
   ^double
-  [^double s]
-  (* s 0.447))
+  [^double mph]
+  (* mph 0.44701818551254696))
+
+(defn mps->mph
+  "Convert meters per second to miles per hour."
+  ^double
+  [^double mps]
+  (* mps 2.237045454545455))
 
 (defn Btu-ft-s->kW-m
   "Convert BTU per feet per second to kilowatt per meter."
   ^double
   [^double Btu-ft-s]
-  (/ Btu-ft-s 0.288894658272))
+  (* Btu-ft-s 3.46165186))
 
 (defn kW-m->Btu-ft-s
-  "Convert kilowatt per meter to BTU per feet per second"
+  "Convert kilowatt per meter to BTU per feet per second."
   ^double
   [^double kW-m]
-  (* kW-m 0.288894658272))
+  (* kW-m 0.28887942532730604))
+
+(defn kg-m3->lb-ft3
+  "Convert kilogram per cubic meter to pound per cubic foot."
+  ^double
+  [^double kg-m3]
+  (* kg-m3 0.0624))
+
+(defn lb-ft3->kg-m3
+  "Convert pound per cubic foot to kilogram per cubic meter."
+  ^double
+  [^double lb-ft3]
+  (* lb-ft3 16.025641025641026))
 
 (defn percent->dec
+  "Convert percent to decimal."
   ^double
-  [^double p]
-  (* p 0.001))
+  [^double percent]
+  (* percent 0.01))
 
 (defn dec->percent
+  "Convert decimal to percent."
   ^double
-  [^double d]
-  (* d 100))
+  [^double decimal]
+  (* decimal 100.0))
 
 (defn sec->min
   "Convert seconds to minutes."
   ^double
-  [^double s]
-  (/ s 60))
+  [^double seconds]
+  (* seconds 0.016666666666666666))
+
+(defn min->sec
+  "Convert minutes to seconds."
+  ^double
+  [^double minutes]
+  (* minutes 60.0))
 
 (def conversion-table
   {:elevation          m->ft
    :slope              deg->rad
    :canopy-height      m->ft
    :canopy-base-height m->ft
-   :crown-bulk-density #(* ^double % 0.0624) ; kg/m^3 -> lb/ft^3
-   :wind-speed-20ft    #(* ^double % 2.237)  ; m/s -> mph
+   :crown-bulk-density kg-m3->lb-ft3
+   :wind-speed-20ft    mps->mph
    :temperature        {:metric   C->F
                         :absolute K->F}})
 
+;; FIXME: This looks really inefficient. Speed me up!
 (defmulti to-imperial (fn [_ _ layer-name] layer-name))
 
 (defmethod to-imperial :elevation

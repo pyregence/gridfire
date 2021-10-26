@@ -1,9 +1,6 @@
 ;; [[file:../../org/GridFire.org::van-wagner-crown-fire-initiation][van-wagner-crown-fire-initiation]]
-(ns gridfire.crown-fire)
-
-(defn ft->m ^double [^double ft] (* 0.3048 ft))
-
-(defn kW-m->Btu-ft-s ^double [^double kW-m] (* 0.288894658272 kW-m))
+(ns gridfire.crown-fire
+  (:require [gridfire.conversion :refer [ft->m kW-m->Btu-ft-s]]))
 
 (defn van-wagner-crown-fire-initiation?
   "- canopy-cover (0-100 %)
