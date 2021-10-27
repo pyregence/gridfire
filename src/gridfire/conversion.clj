@@ -121,69 +121,31 @@
   (* minutes 60.0))
 
 (def conversion-table
-  {:elevation          m->ft
-   :slope              deg->rad
-   :canopy-height      m->ft
-   :canopy-base-height m->ft
-   :crown-bulk-density kg-m3->lb-ft3
-   :wind-speed-20ft    mps->mph
-   :temperature        {:metric   C->F
+  {:elevation          {:metric m->ft}
+   :slope              {nil deg->rad}
+   :canopy-height      {:metric m->ft}
+   :canopy-base-height {:metric m->ft}
+   :crown-bulk-density {:metric kg-m3->lb-ft3}
+   :wind-speed-20ft    {:metric mps->mph}
+   :temperature        {:metric C->F
                         :absolute K->F}})
 
-;; FIXME: This looks really inefficient. Speed me up!
-(defmulti to-imperial (fn [_ _ layer-name] layer-name))
+(defn valid-multiplier?
+  [x]
+  (and (number? x) (not= x 1) (not= x 1.0)))
 
-(defmethod to-imperial :elevation
-  [layer {:keys [units ^double multiplier]} layer-name]
-  (if-let [xforms (seq (remove nil? [(when (= units :metric) (conversion-table layer-name))
-                                     (when-not (contains? #{1 1.0 nil} multiplier) #(* ^double % multiplier))]))]
-    (update layer :matrix (fn [matrix] (m/emap (apply comp xforms) matrix)))
+(defn get-units-converter
+  [layer-name units multiplier]
+  (if-let [converter (get-in conversion-table [layer-name units])]
+    (if (valid-multiplier? multiplier)
+      #(converter (* % multiplier))
+      converter)
+    (if (valid-multiplier? multiplier)
+      #(* % multiplier)
+      nil)))
+
+(defn to-imperial!
+  [layer {:keys [units multiplier]} layer-name]
+  (if-let [converter (get-units-converter layer-name units multiplier)]
+    (update layer :matrix #(m/emap! converter %))
     layer))
-
-(defmethod to-imperial :slope
-  [layer {:keys [^double multiplier]} layer-name]
-  (if-let [xforms (seq (remove nil? [(conversion-table layer-name)
-                                     (when-not (contains? #{1 1.0 nil} multiplier) #(* ^double % multiplier))]))]
-    (update layer :matrix (fn [matrix] (m/emap (apply comp xforms) matrix)))
-    layer))
-
-(defmethod to-imperial :canopy-height
-  [layer {:keys [units ^double multiplier]} layer-name]
-  (if-let [xforms (seq (remove nil? [(when (= units :metric) (conversion-table layer-name))
-                                     (when-not (contains? #{1 1.0 nil} multiplier) #(* ^double % multiplier))]))]
-    (update layer :matrix (fn [matrix] (m/emap (apply comp xforms) matrix)))
-    layer))
-
-(defmethod to-imperial :canopy-base-height
-  [layer {:keys [units ^double multiplier]} layer-name]
-  (if-let [xforms (seq (remove nil? [(when (= units :metric) (conversion-table layer-name))
-                                     (when-not (contains? #{1 1.0 nil} multiplier) #(* ^double % multiplier))]))]
-    (update layer :matrix (fn [matrix] (m/emap (apply comp xforms) matrix)))
-    layer))
-
-(defmethod to-imperial :crown-bulk-density
-  [layer {:keys [units ^double multiplier]} layer-name]
-  (if-let [xforms (seq (remove nil? [(when (= units :metric) (conversion-table layer-name))
-                                     (when-not (contains? #{1 1.0 nil} multiplier) #(* ^double % multiplier))]))]
-    (update layer :matrix (fn [matrix] (m/emap (apply comp xforms) matrix)))
-    layer))
-
-(defmethod to-imperial :wind-speed-20ft
-  [layer {:keys [units ^double multiplier]} layer-name]
-  (if-let [xforms (seq (remove nil? [(when (= units :metric) (conversion-table layer-name))
-                                     (when-not (contains? #{1 1.0 nil} multiplier) #(* ^double % multiplier))]))]
-    (update layer :matrix (fn [matrix] (m/emap (apply comp xforms) matrix)))
-    layer))
-
-(defmethod to-imperial :temperature
-  [layer {:keys [units ^double multiplier]} layer-name]
-  (if-let [xforms (seq (remove nil? [(cond
-                                       (= units :metric)   (get-in conversion-table [layer-name units])
-                                       (= units :absolute) (get-in conversion-table [layer-name units]))
-                                     (when-not (contains? #{1 1.0 nil} multiplier) #(* ^double % multiplier))]))]
-    (update layer :matrix (fn [matrix] (m/emap (apply comp xforms) matrix)))
-    layer))
-
-(defmethod to-imperial :default
-  [layer _ _]
-  layer)
