@@ -6,6 +6,8 @@
   (:import org.geotools.coverage.grid.GridGeometry2D
            org.geotools.referencing.operation.transform.AffineTransform2D))
 
+(m/set-current-implementation :vectorz)
+
 (defn geotiff-raster-to-matrix
   "Reads a raster from a file using the magellan.core library. Returns the
    post-processed raster values as a Clojure matrix using the core.matrix API
@@ -37,8 +39,8 @@
      :height     (:height image)
      :scalex     (.getScaleX crs2d)
      :scaley     (.getScaleY crs2d)
-     :skewx      0.0 ;FIXME not used?
-     :skewy      0.0 ;FIXME not used?
+     :skewx      0.0                    ;FIXME not used?
+     :skewy      0.0                    ;FIXME not used?
      :numbands   (:bands image)
      :matrix     (m/matrix matrix)}))
 ;; Magellan:1 ends here

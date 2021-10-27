@@ -12,6 +12,8 @@
             [gridfire.conversion :as convert]
             [kixi.stats.distribution :as distribution]))
 
+(m/set-current-implementation :vectorz)
+
 ;;-----------------------------------------------------------------------------
 ;; Formulas
 ;;-----------------------------------------------------------------------------

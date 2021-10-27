@@ -5,6 +5,8 @@
             [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
             [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]))
 
+(m/set-current-implementation :vectorz)
+
 ;;TODO refactor multi-methods landfire-layer weather, ignition-layer, ignition-mask-layer
 ;; to the same function
 

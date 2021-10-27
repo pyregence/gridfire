@@ -2461,6 +2461,8 @@ the direction perpendicular to the wind.
             [gridfire.conversion :as convert]
             [kixi.stats.distribution :as distribution]))
 
+(m/set-current-implementation :vectorz)
+
 ;;-----------------------------------------------------------------------------
 ;; Formulas
 ;;-----------------------------------------------------------------------------
@@ -2950,6 +2952,8 @@ described in the previous section.
   (:import org.geotools.coverage.grid.GridGeometry2D
            org.geotools.referencing.operation.transform.AffineTransform2D))
 
+(m/set-current-implementation :vectorz)
+
 (defn geotiff-raster-to-matrix
   "Reads a raster from a file using the magellan.core library. Returns the
    post-processed raster values as a Clojure matrix using the core.matrix API
@@ -2981,8 +2985,8 @@ described in the previous section.
      :height     (:height image)
      :scalex     (.getScaleX crs2d)
      :scaley     (.getScaleY crs2d)
-     :skewx      0.0 ;FIXME not used?
-     :skewy      0.0 ;FIXME not used?
+     :skewx      0.0                    ;FIXME not used?
+     :skewy      0.0                    ;FIXME not used?
      :numbands   (:bands image)
      :matrix     (m/matrix matrix)}))
 #+end_src
@@ -3946,6 +3950,8 @@ Here's the namespace that implments this functionality.
   (:require [clojure.core.matrix :as m]
             [gridfire.common     :refer [burnable-fuel-model?]]))
 
+(m/set-current-implementation :vectorz)
+
 (defn- in-edge-buffer?
   "Returns true if give [row col] is within the buffer region defined
   by buffer-size. The buffer size is the thickness (pixel) of the edge
@@ -4008,6 +4014,8 @@ this functionality.
             [gridfire.conversion      :as convert]
             [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
             [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]))
+
+(m/set-current-implementation :vectorz)
 
 ;;TODO refactor multi-methods landfire-layer weather, ignition-layer, ignition-mask-layer
 ;; to the same function

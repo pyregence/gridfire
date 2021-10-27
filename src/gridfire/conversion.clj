@@ -1,8 +1,11 @@
 (ns gridfire.conversion
   (:require [clojure.core.matrix :as m]))
 
+(m/set-current-implementation :vectorz)
+
 ;; TODO: Use definline and unchecked arithmetic
 ;; TODO: Make sure no functions in this namespace are redefined elsewhere.
+#_(set! *unchecked-math* :warn-on-boxed)
 
 (defn F->K
   "Convert fahrenheit to kelvin."
