@@ -29,21 +29,18 @@
               ""
               commands))))
 
-;;-----------------------------------------------------------------------------
+;;=============================================================================
 ;; Server and Handler Functions
-;;-----------------------------------------------------------------------------
+;;=============================================================================
 
-(defonce job-queue-size (atom 0))
-(defonce stand-by-queue-size (atom 0))
-(defonce job-queue (chan 10 (map (fn [x]
-                                   (swap! job-queue-size inc)
-                                   (delay (swap! job-queue-size dec) x)))))
-(defonce stand-by-queue (chan 10 (map (fn [x]
-                                        (swap! stand-by-queue-size inc)
-                                        (delay (swap! stand-by-queue-size dec) x)))))
+;; RESUME HERE: Need to review: send-response! unzip-tar
+;; copy-post-process-script post-process-script build-geosync-request
+
+(def date-from-format "yyyy-MM-dd HH:mm zzz")
+(def date-to-format   "yyyyMMdd_HHmmss")
 
 (defn- build-file-name [fire-name ignition-time]
-  (str/join "_" [fire-name (convert-date-string ignition-time) "001"]))
+  (str/join "_" [fire-name (convert-date-string ignition-time date-from-format date-to-format) "001"]))
 
 (defn- unzip-tar
   "Unzips tar file and returns file path to the extracted folder"
@@ -101,39 +98,56 @@
    {"action"             "add"
     "dataDir"            (format "/var/www/html/fire_spread_forecast/%s/%s"
                                  fire-name
-                                 (convert-date-string ignition-time))
+                                 (convert-date-string ignition-time date-from-format date-to-format))
     "geoserverWorkspace" (format "fire-spread-forecast_%s_%s"
                                  fire-name
-                                 (convert-date-string ignition-time))
+                                 (convert-date-string ignition-time date-from-format date-to-format))
     "responseHost"       "gridfire.pyregence.org"
     "responsePort"       31340}))
 
-(defn- process-requests! [config options]
-  (go (loop [[val _] (alts! [job-queue stand-by-queue]
-                            :priority true)]
-        (let [request             @val
-              _                   (log-str "Processing Request: " request)
-              respond-with        (partial send-response! request options)
+;;=============================================================================
+;; Job Queue Management
+;;=============================================================================
+
+(defonce job-queue-size      (atom 0))
+(defonce stand-by-queue-size (atom 0))
+
+(defonce job-queue      (chan 10 (map (fn [x]
+                                        (swap! job-queue-size inc)
+                                        (delay (swap! job-queue-size dec) x)))))
+
+(defonce stand-by-queue (chan 10 (map (fn [x]
+                                        (swap! stand-by-queue-size inc)
+                                        (delay (swap! stand-by-queue-size dec) x)))))
+
+(def active-fire-response-host "data.pyregence.org")
+(def active-fire-response-port 31337)
+
+;; FIXME: Should this be in a go block? Check if gridfire.cli terminates early from shutdown-agents.
+(defn- process-requests! [config]
+  (go (loop [request @(first (alts! [job-queue stand-by-queue] :priority true))]
+        (log-str "Processing Request: " request)
+        (let [respond-with        (partial send-response! request config)
               [status status-msg] (try
                                     (let [input-deck-path (unzip-tar config request)]
-                                      (config/convert-config! {:elmfire-data-file (str input-deck-path "/elmfire.data")})
+                                      (config/convert-config!
+                                       {:elmfire-data-file (str input-deck-path "/elmfire.data")})
                                       (respond-with 2 "Running Simulation")
                                       (gridfire/process-config-file! (str input-deck-path "/gridfire.edn"))
                                       (copy-post-process-script (:software-dir config) input-deck-path)
                                       (post-process-script respond-with (str input-deck-path "/outputs"))
-                                      [0 "Successful Run! Results uploaded to Geoserver!"])
+                                      [0 "Successful Run! Results uploaded to GeoServer!"])
                                     (catch Exception e
-                                      [1 (str "Processing Error " (ex-message e))]))]
+                                      [1 (str "Processing Error: " (ex-message e))]))]
           (log-str "-> " status-msg)
           (if (= (:type request) :active-fire)
             (let [geosync-request (build-geosync-request request)]
-              (log-str "Sending Geosync Request:" geosync-request)
-              (sockets/send-to-server! "data.pyregence.org"
-                                       31337
+              (log-str "Sending GeoSync Request: " geosync-request)
+              (sockets/send-to-server! active-fire-response-host
+                                       active-fire-response-port
                                        geosync-request))
             (respond-with status status-msg)))
-        (recur (alts! [job-queue stand-by-queue]
-                      :priority true)))))
+        (recur @(first (alts! [job-queue stand-by-queue] :priority true))))))
 
 (defn- handler [host port request-msg]
   (go
@@ -144,7 +158,8 @@
                                          (do (>! job-queue request)
                                              [2 (format "Added to Job Queue. You are number %d in line."
                                                         @job-queue-size)])
-                                         [1 (str "Invalid Request: " (spec/explain-str ::spec-server/gridfire-server-request request))])
+                                         [1 (str "Invalid Request: "
+                                                 (spec/explain-str ::spec-server/gridfire-server-request request))])
                                        (catch AssertionError _
                                          [1 "Job Queue Limit Exceeded! Dropping Request!"])
                                        (catch Exception e
@@ -166,8 +181,7 @@
 
 (defn start-server! [{:keys [host port log-dir] :as config}]
   (when log-dir (set-log-path! log-dir))
-  (log-str (format "Running server on port %s" port))
+  (log-str "Running server on port " port)
   (active-fire-watcher/start! config stand-by-queue)
   (sockets/start-server! port (partial handler host port))
-  (process-requests! config config))
-
+  (process-requests! config))
