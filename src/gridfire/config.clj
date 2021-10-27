@@ -5,6 +5,8 @@
             [gridfire.conversion :as convert]
             [triangulum.logging  :refer [log-str]]))
 
+(set! *unchecked-math* :warn-on-boxed)
+
 ;;=============================================================================
 ;; Utilities
 ;;=============================================================================
@@ -165,7 +167,7 @@
        (get elmfire->gridfire)))
 
 (defn extract-perturbations
-  [{:strs [NUM_RASTERS_TO_PERTURB] :as config}]
+  [{:strs [^int NUM_RASTERS_TO_PERTURB] :as config}]
   (when (and NUM_RASTERS_TO_PERTURB (pos? NUM_RASTERS_TO_PERTURB))
     (into {}
           (keep (fn [index]
@@ -203,9 +205,9 @@
 ;; FIXME: Is this logic (and return format) right?
 (defn extract-global-surface-spotting-percents
   [{:strs
-    [GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN
-     GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MAX
-     GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT
+    [^double GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN
+     ^double GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MAX
+     ^double GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT
      ENABLE_SPOTTING] :as data}]
   (if (or GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN)
     (if ENABLE_SPOTTING
@@ -224,8 +226,10 @@
 
 ;; FIXME: Is this logic (and return format) right?
 (defn extract-crown-fire-spotting-percent
-  [{:strs [CROWN_FIRE_SPOTTING_PERCENT_MIN CROWN_FIRE_SPOTTING_PERCENT_MAX
-           CROWN_FIRE_SPOTTING_PERCENT ENABLE_SPOTTING]}]
+  [{:strs [^double CROWN_FIRE_SPOTTING_PERCENT_MIN
+           ^double CROWN_FIRE_SPOTTING_PERCENT_MAX
+           ^double CROWN_FIRE_SPOTTING_PERCENT
+           ENABLE_SPOTTING]}]
   (if ENABLE_SPOTTING
     [(* 0.01 CROWN_FIRE_SPOTTING_PERCENT_MIN) (* 0.01 CROWN_FIRE_SPOTTING_PERCENT_MAX)]
     (* 0.01 CROWN_FIRE_SPOTTING_PERCENT)))

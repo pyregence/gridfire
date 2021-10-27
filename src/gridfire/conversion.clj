@@ -3,7 +3,6 @@
 
 (m/set-current-implementation :vectorz)
 
-;; TODO: Make sure no functions in this namespace are redefined elsewhere.
 (set! *unchecked-math* :warn-on-boxed)
 
 (defn F->K

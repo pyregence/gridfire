@@ -9,6 +9,8 @@
             [gridfire.server       :as server]
             [gridfire.utils.server :refer [hostname? throw-message]]))
 
+(set! *unchecked-math* :warn-on-boxed)
+
 ;;===========================================================
 ;; Argument Processing
 ;;===========================================================
