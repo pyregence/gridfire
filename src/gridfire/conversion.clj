@@ -3,9 +3,8 @@
 
 (m/set-current-implementation :vectorz)
 
-;; TODO: Use definline and unchecked arithmetic
 ;; TODO: Make sure no functions in this namespace are redefined elsewhere.
-#_(set! *unchecked-math* :warn-on-boxed)
+(set! *unchecked-math* :warn-on-boxed)
 
 (defn F->K
   "Convert fahrenheit to kelvin."
@@ -138,13 +137,13 @@
   (and (number? x) (not= x 1) (not= x 1.0)))
 
 (defn get-units-converter
-  [layer-name units multiplier]
+  [layer-name units ^double multiplier]
   (if-let [converter (get-in conversion-table [layer-name units])]
     (if (valid-multiplier? multiplier)
-      #(converter (* % multiplier))
+      (fn ^double [^double x] (converter (* x multiplier)))
       converter)
     (if (valid-multiplier? multiplier)
-      #(* % multiplier)
+      (fn ^double [^double x] (* x multiplier))
       nil)))
 
 (defn to-imperial!
