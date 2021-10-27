@@ -7,7 +7,6 @@
                                      in-bounds?
                                      burnable?
                                      fuel-moisture-from-raster]]
-            [gridfire.crown-fire :refer [ft->m]]
             [gridfire.utils.random :refer [random-float my-rand-range]]
             [gridfire.conversion :as convert]
             [kixi.stats.distribution :as distribution]))
@@ -166,10 +165,10 @@
    torched-origin
    here]
   (let [ignition-probability (schroeder-ign-prob fuel-moisture temperature)
-        distance             (ft->m (distance-3d (:elevation landfire-rasters)
-                                                 cell-size
-                                                 here
-                                                 torched-origin))
+        distance             (convert/ft->m (distance-3d (:elevation landfire-rasters)
+                                                         cell-size
+                                                         here
+                                                         torched-origin))
         decay-factor         (Math/exp (* -1 ^double decay-constant distance))]
     (- 1 (Math/pow (- 1 (* ignition-probability decay-factor)) firebrand-count))))
 ;; firebrand-ignition-probability ends here
@@ -317,7 +316,7 @@
              (when (spot-ignition? rand-gen spot-ignition-p)
                (let [[i j] cell
                      t     (spot-ignition-time global-clock
-                                               (ft->m (m/mget flame-length-matrix i j))
+                                               (convert/ft->m (m/mget flame-length-matrix i j))
                                                (convert/mph->mps ws))]
                  [[x y] [t spot-ignition-p]])))
            (remove nil?)))))

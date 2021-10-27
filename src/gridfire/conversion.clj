@@ -74,6 +74,18 @@
   [^double mps]
   (* mps 2.237045454545455))
 
+(defn mph->km-hr
+  "Convert miles per hour to kilometers per hour."
+  ^double
+  [^double mph]
+  (* mph 1.609344))
+
+(defn km-hr->mph
+  "Convert kilometers per hour to miles per hour."
+  ^double
+  [^double km-hr]
+  (* km-hr 0.621371192237334))
+
 (defn Btu-ft-s->kW-m
   "Convert BTU per feet per second to kilowatt per meter."
   ^double

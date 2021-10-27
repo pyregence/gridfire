@@ -1,6 +1,6 @@
 ;; [[file:../../org/GridFire.org::van-wagner-crown-fire-initiation][van-wagner-crown-fire-initiation]]
 (ns gridfire.crown-fire
-  (:require [gridfire.conversion :refer [ft->m kW-m->Btu-ft-s]]))
+  (:require [gridfire.conversion :as convert]))
 
 (defn van-wagner-crown-fire-initiation?
   "- canopy-cover (0-100 %)
@@ -10,27 +10,21 @@
   [^double canopy-cover ^double canopy-base-height ^double foliar-moisture ^double fire-line-intensity]
   (and (> canopy-cover 40.0)
        (-> (+ 460.0 (* 2600.0 foliar-moisture)) ;; heat-of-ignition = kJ/kg
-           (* 0.01 (ft->m canopy-base-height))
+           (* 0.01 (convert/ft->m canopy-base-height))
            (Math/pow 1.5) ;; critical-intensity = kW/m
-           (kW-m->Btu-ft-s)
+           (convert/kW-m->Btu-ft-s)
            (< fire-line-intensity))))
 ;; van-wagner-crown-fire-initiation ends here
 
 ;; [[file:../../org/GridFire.org::cruz-crown-fire-spread][cruz-crown-fire-spread]]
-(defn mph->km-hr ^double [^double mph] (* 1.609344 mph))
-
-(defn lb-ft3->kg-m3 ^double [^double lb-ft3] (* 16.01846 lb-ft3))
-
-(defn m->ft ^double [^double m] (* 3.281 m))
-
 (defn cruz-crown-fire-spread
   "Returns spread-rate in ft/min given:
    - wind-speed-20ft (mph)
    - crown-bulk-density (lb/ft^3)
    - estimated-fine-fuel-moisture (-> M_f :dead :1hr) (0-1)"
   [wind-speed-20ft ^double crown-bulk-density ^double estimated-fine-fuel-moisture]
-  (let [wind-speed-10m               (/ (mph->km-hr wind-speed-20ft) 0.87) ;; km/hr
-        crown-bulk-density           (lb-ft3->kg-m3 crown-bulk-density) ;; kg/m^3
+  (let [wind-speed-10m               (/ (convert/mph->km-hr wind-speed-20ft) 0.87) ;; km/hr
+        crown-bulk-density           (convert/lb-ft3->kg-m3 crown-bulk-density) ;; kg/m^3
         estimated-fine-fuel-moisture (* 100.0 estimated-fine-fuel-moisture)
         active-spread-rate           (* 11.02
                                         (Math/pow wind-speed-10m 0.90)
@@ -40,8 +34,8 @@
         critical-spread-rate         (/ 3.0 crown-bulk-density) ;; m/min
         criteria-for-active-crowning (/ active-spread-rate critical-spread-rate)]
     (if (> active-spread-rate critical-spread-rate)
-      [:active-crown (m->ft active-spread-rate)]
-      [:passive-crown (m->ft (* active-spread-rate (Math/exp (- criteria-for-active-crowning))))])))
+      [:active-crown (convert/m->ft active-spread-rate)]
+      [:passive-crown (convert/m->ft (* active-spread-rate (Math/exp (- criteria-for-active-crowning))))])))
 ;; cruz-crown-fire-spread ends here
 
 ;; [[file:../../org/GridFire.org::crown-fire-line-intensity][crown-fire-line-intensity]]

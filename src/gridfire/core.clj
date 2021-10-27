@@ -9,7 +9,7 @@
             [clojure.string           :as str]
             [gridfire.binary-output   :as binary]
             [gridfire.common          :refer [calc-emc get-neighbors in-bounds?]]
-            [gridfire.crown-fire      :refer [m->ft]]
+            [gridfire.conversion      :refer [m->ft]]
             [gridfire.fetch           :as fetch]
             [gridfire.fire-spread     :refer [rothermel-fast-wrapper run-fire-spread]]
             [gridfire.perturbation    :as perturbation]
