@@ -1,10 +1,9 @@
 (ns gridfire.active-fire-watcher
-  (:require [clojure.core.async :refer [<! >! go-loop timeout]]
+  (:require [clojure.core.async   :refer [<! >! go-loop timeout]]
+            [gridfire.conversion  :refer [convert-date-string]]
             [nextjournal.beholder :as beholder]
-            [triangulum.logging :refer [log-str]])
-  (:import java.text.SimpleDateFormat
-           java.util.Date
-           java.util.TimeZone))
+            [triangulum.logging   :refer [log-str]])
+  (:import java.util.Date))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -17,15 +16,6 @@
 (def fire-name-regex #"[a-zA-Z]*[-[a-zA-Z2-9]]*")
 
 (def ignition-time-regex #"\d{8}_\d{6}")
-
-(defn- convert-date-string [date-str from-format to-format]
-  (let [in-format  (doto (SimpleDateFormat. from-format)
-                     (.setTimeZone (TimeZone/getTimeZone "UTC")))
-        out-format (doto (SimpleDateFormat. to-format)
-                     (.setTimeZone (TimeZone/getTimeZone "UTC")))]
-    (->> date-str
-         (.parse in-format)
-         (.format out-format))))
 
 (defn- build-job [path-str]
   (let [file-name     (re-find file-name-regex path-str)

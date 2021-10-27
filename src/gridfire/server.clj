@@ -6,48 +6,19 @@
             [clojure.string               :as str]
             [gridfire.active-fire-watcher :as active-fire-watcher]
             [gridfire.config              :as config]
+            [gridfire.conversion          :refer [convert-date-string camel->kebab kebab->camel]]
             [gridfire.core                :as gridfire]
             [gridfire.simple-sockets      :as sockets]
             [gridfire.spec.server         :as spec-server]
             [gridfire.utils.server        :refer [nil-on-error]]
             [triangulum.logging           :refer [log log-str set-log-path!]]
-            [triangulum.utils             :refer [parse-as-sh-cmd]])
-  (:import java.util.TimeZone))
+            [triangulum.utils             :refer [parse-as-sh-cmd]]))
 
-;;-----------------------------------------------------------------------------
-;; Utils
-;;-----------------------------------------------------------------------------
+;;=============================================================================
+;; Shell Commands
+;;=============================================================================
 
-;; TODO remove when code is in triangulum
-(defn camel->kebab
-  "Converts camelString to kebab-string"
-  [camel-string]
-  (as-> camel-string s
-    (str/split s #"(?<=[a-z])(?=[A-Z])")
-    (map str/lower-case s)
-    (str/join "-" s)))
-
-;; TODO remove when code is in triangulum
-(defn kebab->camel
-  "Converts kebab-string to camelString."
-  [kebab-string]
-  (let [words (-> kebab-string
-                  (str/lower-case)
-                  (str/replace #"^[^a-z_$]|[^\w-]" "")
-                  (str/split #"-"))]
-    (->> (map str/capitalize (rest words))
-         (cons (first words))
-         (str/join ""))))
-
-(defn convert-date-string [date-str]
-  (let [in-format  (java.text.SimpleDateFormat. "yyyy-MM-dd HH:mm zzz")
-        out-format (doto (java.text.SimpleDateFormat. "yyyyMMdd_HHmmss")
-                     (.setTimeZone (TimeZone/getTimeZone "UTC")))]
-    (->> date-str
-         (.parse in-format)
-         (.format out-format))))
-
-(def ^:private path-env (System/getenv "PATH"))
+(def path-env (System/getenv "PATH"))
 
 (defn- sh-wrapper [dir env verbose & commands]
   (sh/with-sh-dir dir

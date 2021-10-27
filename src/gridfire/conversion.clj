@@ -1,5 +1,8 @@
 (ns gridfire.conversion
-  (:require [clojure.core.matrix :as m]))
+  (:require [clojure.core.matrix :as m]
+            [clojure.string      :as str])
+  (:import java.text.SimpleDateFormat
+           java.util.TimeZone))
 
 (m/set-current-implementation :vectorz)
 
@@ -132,6 +135,38 @@
   ^double
   [^double minutes]
   (* minutes 60.0))
+
+(defn convert-date-string
+  "Convert a date string between two formats."
+  [date-str from-format to-format]
+  (let [in-format  (doto (SimpleDateFormat. from-format)
+                     (.setTimeZone (TimeZone/getTimeZone "UTC")))
+        out-format (doto (SimpleDateFormat. to-format)
+                     (.setTimeZone (TimeZone/getTimeZone "UTC")))]
+    (->> date-str
+         (.parse in-format)
+         (.format out-format))))
+
+;; TODO remove when code is in triangulum
+(defn camel->kebab
+  "Converts camelString to kebab-string."
+  [camel-string]
+  (as-> camel-string s
+    (str/split s #"(?<=[a-z])(?=[A-Z])")
+    (map str/lower-case s)
+    (str/join "-" s)))
+
+;; TODO remove when code is in triangulum
+(defn kebab->camel
+  "Converts kebab-string to camelString."
+  [kebab-string]
+  (let [words (-> kebab-string
+                  (str/lower-case)
+                  (str/replace #"^[^a-z_$]|[^\w-]" "")
+                  (str/split #"-"))]
+    (->> (map str/capitalize (rest words))
+         (cons (first words))
+         (str/join ""))))
 
 (def conversion-table
   {:elevation          {:metric m->ft}
