@@ -1,7 +1,8 @@
 ;; [[file:../../org/GridFire.org::command-line-interface][command-line-interface]]
 (ns gridfire.cli
   (:gen-class)
-  (:require [clojure.edn           :as edn]
+  (:require [clojure.core.async    :refer [<!!]]
+            [clojure.edn           :as edn]
             [clojure.java.io       :as io]
             [clojure.tools.cli     :refer [parse-opts]]
             [gridfire.config       :as config]
@@ -90,10 +91,10 @@
       (config/convert-config! config-params)
 
       (:server-config options)
-      (server/start-server! config-params)
+      (<!! (server/start-server! config-params))
 
       :else
       (doseq [config-file arguments]
         (gridfire/process-config-file! config-file)))
-    (shutdown-agents)))
+    (System/exit 0)))
 ;; command-line-interface ends here

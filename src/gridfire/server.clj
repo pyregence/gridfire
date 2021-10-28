@@ -142,7 +142,6 @@
 
 (defonce server-running? (atom false))
 
-;; FIXME: Check if gridfire.cli terminates early from shutdown-agents.
 (defn- process-requests! [config]
   (reset! server-running? true)
   (go
