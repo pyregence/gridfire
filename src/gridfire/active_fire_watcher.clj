@@ -58,6 +58,14 @@
         :modify (swap! download-in-progress assoc path-str (now)) ; reset counter
         nil))))
 
+(defonce directory-watcher (atom nil))
+
 (defn start! [{:keys [active-fire-dir]} job-queue]
-  (when active-fire-dir
-    (beholder/watch (handler job-queue) active-fire-dir)))
+  (when (and active-fire-dir (nil? @directory-watcher))
+    (reset! directory-watcher
+            (beholder/watch (handler job-queue) active-fire-dir))))
+
+(defn stop! []
+  (when @directory-watcher
+    (beholder/stop @directory-watcher)
+    (reset! directory-watcher nil)))
