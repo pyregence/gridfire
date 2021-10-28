@@ -88,7 +88,7 @@
         (println (str "\nUsage:\n" summary)))
 
       (:elmfire-data options)
-      (config/convert-config! config-params)
+      (config/convert-config! (:elmfire-data options))
 
       (:server-config options)
       (<!! (server/start-server! config-params))

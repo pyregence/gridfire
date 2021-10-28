@@ -116,7 +116,7 @@
           elmfire-data-file   (.getPath (io/file input-deck-path "elmfire.data"))
           gridfire-edn-file   (.getPath (io/file input-deck-path "gridfire.edn"))
           gridfire-output-dir (.getPath (io/file input-deck-path "outputs"))]
-      (config/convert-config! {:elmfire-data elmfire-data-file})
+      (config/convert-config! elmfire-data-file)
       (send-gridfire-response! request config 2 "Running simulation.")
       (gridfire/process-config-file! gridfire-edn-file)
       (copy-post-process-scripts! software-dir gridfire-output-dir)

@@ -11,16 +11,16 @@
 ;; Utilities
 ;;=============================================================================
 
-(def ^:dynamic *elmfire-file-path* "")
+(def ^:dynamic *elmfire-directory-path* "")
 
 (defn file-path
   ([file-or-directory]
-   (-> (io/file *elmfire-file-path* file-or-directory)
+   (-> (io/file *elmfire-directory-path* file-or-directory)
        (.toPath)
        (.normalize)
        (.toString)))
   ([directory tif-file-prefix]
-   (-> (io/file *elmfire-file-path* directory (str tif-file-prefix ".tif"))
+   (-> (io/file *elmfire-directory-path* directory (str tif-file-prefix ".tif"))
        (.toPath)
        (.normalize)
        (.toString))))
@@ -42,7 +42,6 @@
 (defn process-landfire-layers
   [{:strs [ASP_FILENAME CBH_FILENAME CC_FILENAME CH_FILENAME CBD_FILENAME
            FBFM_FILENAME SLP_FILENAME DEM_FILENAME FUELS_AND_TOPOGRAPHY_DIRECTORY]}
-   _
    config]
   (assoc config
          :landfire-layers
@@ -77,7 +76,6 @@
 (defn process-ignition
   [{:strs [PHI_FILENAME FUELS_AND_TOPOGRAPHY_DIRECTORY RANDOM_IGNITIONS
            USE_IGNITION_MASK EDGEBUFFER IGNITION_MASK_FILENAME]}
-   _
    config]
   (if RANDOM_IGNITIONS
     (let [ignition-mask-file-path (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY IGNITION_MASK_FILENAME)]
@@ -101,9 +99,7 @@
 
 ;; FIXME: Since tmpf.tif and rh.tif aren't provided in elmfire.data, where are these files on disk?
 (defn process-weather
-  [{:strs [WS_FILENAME WD_FILENAME WEATHER_DIRECTORY]}
-   _
-   config]
+  [{:strs [WS_FILENAME WD_FILENAME WEATHER_DIRECTORY]} config]
   (assoc config
          :temperature         {:type   :geotiff
                                :source (file-path WEATHER_DIRECTORY "tmpf")}
@@ -119,9 +115,7 @@
 ;;=============================================================================
 
 (defn process-output
-  [{:strs [OUTPUTS_DIRECTORY DUMP_BURN_PROBABILITY_AT_DTDUMP DTDUMP]}
-   _
-   config]
+  [{:strs [OUTPUTS_DIRECTORY DUMP_BURN_PROBABILITY_AT_DTDUMP DTDUMP]} config]
   (cond-> (assoc config
                  :output-directory        (file-path OUTPUTS_DIRECTORY)
                  :outfile-suffix          ""
@@ -177,7 +171,7 @@
           (range 1 (inc NUM_RASTERS_TO_PERTURB)))))
 
 (defn process-perturbations
-  [data _ config]
+  [data config]
   (if-let [perturbations (extract-perturbations data)]
     (assoc config :perturbations perturbations)
     config))
@@ -261,7 +255,7 @@
        :hi MEAN_SPOTTING_DIST_MAX}))
 
 (defn process-spotting
-  [{:strs [ENABLE_SPOTTING ENABLE_SURFACE_FIRE_SPOTTING CRITICAL_SPOTTING_FIRELINE_INTENSITY] :as data} _ config]
+  [{:strs [ENABLE_SPOTTING ENABLE_SURFACE_FIRE_SPOTTING CRITICAL_SPOTTING_FIRELINE_INTENSITY] :as data} config]
   (cond-> config
     ENABLE_SPOTTING
     (assoc :spotting
@@ -284,7 +278,7 @@
 
 ;; FIXME: Since mlw.tif and mlh.tif aren't provided in elmfire.data, where are these files on disk?
 (defn process-fuel-moisture-layers
-  [{:strs [M1_FILENAME M10_FILENAME M100_FILENAME WEATHER_DIRECTORY]} _ config]
+  [{:strs [M1_FILENAME M10_FILENAME M100_FILENAME WEATHER_DIRECTORY]} config]
   (assoc config
          :fuel-moisture-layers
          {:dead {:1hr   {:type   :geotiff
@@ -303,7 +297,7 @@
 ;;=============================================================================
 
 (defn build-edn
-  [{:strs [COMPUTATIONAL_DOMAIN_CELLSIZE A_SRS SIMULATION_TSTOP SEED FOLIAR_MOISTURE_CONTENT] :as data} options]
+  [{:strs [COMPUTATIONAL_DOMAIN_CELLSIZE A_SRS SIMULATION_TSTOP SEED FOLIAR_MOISTURE_CONTENT] :as data}]
   (->> {:cell-size                       (convert/m->ft COMPUTATIONAL_DOMAIN_CELLSIZE)
         :srid                            (or A_SRS "EPSG:32610")
         :max-runtime                     (convert/sec->min SIMULATION_TSTOP)
@@ -313,13 +307,13 @@
         :ellipse-adjustment-factor       1.0
         :parallel-strategy               :between-fires
         :fractional-distance-combination :sum}
-       (process-landfire-layers data options)
-       (process-ignition data options)
-       (process-weather data options)
-       (process-output data options)
-       (process-perturbations data options)
-       (process-spotting data options)
-       (process-fuel-moisture-layers data options)))
+       (process-landfire-layers data)
+       (process-ignition data)
+       (process-weather data)
+       (process-output data)
+       (process-perturbations data)
+       (process-spotting data)
+       (process-fuel-moisture-layers data)))
 
 ;;=============================================================================
 ;; Parse elmfire.data
@@ -357,11 +351,11 @@
 ;; Main
 ;;=============================================================================
 
-(defn convert-config! [{:keys [elmfire-data] :as options}]
+(defn convert-config! [elmfire-data-file-path]
   (log-str "Converting configuration file to one that GridFire accepts.")
-  (binding [*elmfire-file-path* (.getParent (io/file elmfire-data))]
-    (-> elmfire-data
+  (binding [*elmfire-directory-path* (.getParent (io/file elmfire-data-file-path))]
+    (-> elmfire-data-file-path
         (slurp)
         (parse-elmfire)
-        (build-edn options)
+        (build-edn)
         (write-config))))
