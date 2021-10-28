@@ -78,7 +78,23 @@
       (-> (sh-wrapper dir {} true cmd)
           (#(log % :truncate? false :newline? false))))))
 
-(defn- build-response [request {:keys [host port]} status status-msg]
+(defn- build-geosync-request [{:keys [fire-name ignition-time]} {:keys [host port]}]
+  (let [timestamp (convert-date-string ignition-time date-from-format date-to-format)]
+    (json/write-str
+     {"action"             "add"
+      "dataDir"            (format "/var/www/html/fire_spread_forecast/%s/%s" fire-name timestamp)
+      "geoserverWorkspace" (format "fire-spread-forecast_%s_%s" fire-name timestamp)
+      "responseHost"       host
+      "responsePort"       port})))
+
+(defn- send-geosync-request!
+  [{:keys [response-host response-port] :as geosync-server-config} request config]
+  (when (spec/valid? ::spec-server/gridfire-server-response-minimal geosync-server-config)
+    (sockets/send-to-server! response-host
+                             response-port
+                             (build-geosync-request request config))))
+
+(defn- build-gridfire-response [request {:keys [host port]} status status-msg]
   (json/write-str (merge request
                          {:status        status
                           :message       status-msg
@@ -86,24 +102,12 @@
                           :response-port port})
                   :key-fn (comp kebab->camel name)))
 
-(defn- send-response!
-  [{:keys [response-host response-port] :as request} options status status-msg]
-  (when (and response-host response-port)
+(defn- send-gridfire-response!
+  [{:keys [response-host response-port] :as request} config status status-msg]
+  (when (spec/valid? ::spec-server/gridfire-server-response-minimal request)
     (sockets/send-to-server! response-host
                              response-port
-                             (build-response request options status status-msg))))
-
-(defn- build-geosync-request [{:keys [fire-name ignition-time]}]
-  (json/write-str
-   {"action"             "add"
-    "dataDir"            (format "/var/www/html/fire_spread_forecast/%s/%s"
-                                 fire-name
-                                 (convert-date-string ignition-time date-from-format date-to-format))
-    "geoserverWorkspace" (format "fire-spread-forecast_%s_%s"
-                                 fire-name
-                                 (convert-date-string ignition-time date-from-format date-to-format))
-    "responseHost"       "gridfire.pyregence.org"
-    "responsePort"       31340}))
+                             (build-gridfire-response request config status status-msg))))
 
 ;;=============================================================================
 ;; Job Queue Management
@@ -120,14 +124,14 @@
                                         (swap! stand-by-queue-size inc)
                                         (delay (swap! stand-by-queue-size dec) x)))))
 
-(def active-fire-response-host "data.pyregence.org")
-(def active-fire-response-port 31337)
+;; FIXME: Pass these values in through gridfire.cli rather than hardcoding them.
+(def geosync-server-config {:response-host "data.pyregence.org" :response-port 31337})
 
 ;; FIXME: Should this be in a go block? Check if gridfire.cli terminates early from shutdown-agents.
 (defn- process-requests! [config]
   (go (loop [request @(first (alts! [job-queue stand-by-queue] :priority true))]
         (log-str "Processing Request: " request)
-        (let [respond-with        (partial send-response! request config)
+        (let [respond-with        (partial send-gridfire-response! request config)
               [status status-msg] (try
                                     (let [input-deck-path (unzip-tar config request)]
                                       (config/convert-config!
@@ -141,15 +145,13 @@
                                       [1 (str "Processing Error: " (ex-message e))]))]
           (log-str "-> " status-msg)
           (if (= (:type request) :active-fire)
-            (let [geosync-request (build-geosync-request request)]
-              (log-str "Sending GeoSync Request: " geosync-request)
-              (sockets/send-to-server! active-fire-response-host
-                                       active-fire-response-port
-                                       geosync-request))
+            (do
+              (log-str "Sending GeoSync Request.")
+              (send-geosync-request! geosync-server-config request config))
             (respond-with status status-msg)))
         (recur @(first (alts! [job-queue stand-by-queue] :priority true))))))
 
-(defn- handler [host port request-msg]
+(defn- handler [config request-msg]
   (go
     (log-str "Request: " request-msg)
     (if-let [request (nil-on-error (json/read-str request-msg :key-fn (comp keyword camel->kebab)))]
@@ -165,23 +167,15 @@
                                        (catch Exception e
                                          [1 (str "Validation Error: " (ex-message e))]))]
         (log-str "-> " status-msg)
-        (when (spec/valid? ::spec-server/gridfire-server-response-minimal request)
-          (sockets/send-to-server! (:response-host request)
-                                   (:response-port request)
-                                   (json/write-str (merge request
-                                                          {:status        status
-                                                           :message       status-msg
-                                                           :response-host host
-                                                           :response-port port})
-                                                   :key-fn (comp kebab->camel name)))))
+        (send-gridfire-response! request config status status-msg))
       (log-str "-> Invalid JSON"))))
 
 (defn stop-server! []
   (sockets/stop-server!))
 
-(defn start-server! [{:keys [host port log-dir] :as config}]
+(defn start-server! [{:keys [log-dir port] :as config}]
   (when log-dir (set-log-path! log-dir))
   (log-str "Running server on port " port)
   (active-fire-watcher/start! config stand-by-queue)
-  (sockets/start-server! port (partial handler host port))
+  (sockets/start-server! port (partial handler config))
   (process-requests! config))
