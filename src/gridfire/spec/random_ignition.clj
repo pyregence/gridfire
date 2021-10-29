@@ -9,4 +9,4 @@
 (s/def ::random-ignition
   (s/or
    :boolean boolean?
-   :map     (s/keys :req-opt [::ignition-mask ::edge-buffer])))
+   :map     (s/keys :req-un [::ignition-mask ::edge-buffer])))
