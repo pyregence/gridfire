@@ -3,48 +3,49 @@
             [gridfire.spec.common          :as common]
             [gridfire.spec.fuel-moisture   :as fuel-moisture]
             [gridfire.spec.ignition        :as ignition]
-            [gridfire.spec.output          :as output]
             [gridfire.spec.optimization    :as optimization]
+            [gridfire.spec.output          :as output]
             [gridfire.spec.perturbations   :as perturbations]
             [gridfire.spec.random-ignition :as random-ignition]
             [gridfire.spec.spotting        :as spotting]))
 
-;;-----------------------------------------------------------------------------
-;; Weather Layers ;;TODO move into own namespace
-;;-----------------------------------------------------------------------------
+;;=============================================================================
+;; Required Keys
+;;=============================================================================
+
+(s/def ::max-runtime     number?)
+(s/def ::simulations     integer?)
+(s/def ::srid            string?)
+(s/def ::cell-size       number?)
+(s/def ::foliar-moisture number?)
+
+;; Weather
 
 (s/def ::weather
-  (s/or :vector (s/coll-of int? :kind vector? :count 2)
-        :list (s/coll-of int? :kind list?)
-        :string string?
-        :scalar (s/or :int int?
-                      :float float?)
-        :map ::common/postgis-or-geotiff))
+  (s/or :string string?
+        :scalar number?
+        :list   (s/coll-of number? :kind list?)
+        :vector (s/coll-of number? :kind vector? :count 2)
+        :map    ::common/postgis-or-geotiff))
 
-(s/def ::temperature ::weather)
-(s/def ::relative-humidity ::weather)
-(s/def ::wind-speed-20ft ::weather)
+(s/def ::temperature         ::weather)
+(s/def ::relative-humidity   ::weather)
+(s/def ::wind-speed-20ft     ::weather)
 (s/def ::wind-from-direction ::weather)
 
-(s/def ::weather-layers
-  (s/keys
-   :req-un [::temperature ::relative-humidity ::wind-speed-20ft ::wind-from-direction]))
-
-;;-----------------------------------------------------------------------------
-;; Landfire Layers ;;TODO move into own namespace
-;;-----------------------------------------------------------------------------
+;; LANDFIRE
 
 (s/def ::path-or-map (s/or :path ::common/path
                            :map  ::common/postgis-or-geotiff))
-(s/def ::aspect ::path-or-map)
+
+(s/def ::aspect             ::path-or-map)
 (s/def ::canopy-base-height ::path-or-map)
-(s/def ::canopy-cover ::path-or-map)
-(s/def ::canopy-height ::path-or-map)
+(s/def ::canopy-cover       ::path-or-map)
+(s/def ::canopy-height      ::path-or-map)
 (s/def ::crown-bulk-density ::path-or-map)
-(s/def ::elevation ::path-or-map)
-(s/def ::fuel-model ::path-or-map)
-(s/def ::slope ::path-or-map)
-(s/def ::cell-size float?)
+(s/def ::elevation          ::path-or-map)
+(s/def ::fuel-model         ::path-or-map)
+(s/def ::slope              ::path-or-map)
 
 (s/def ::landfire-layers
   (s/keys
@@ -57,29 +58,81 @@
             ::fuel-model
             ::slope]))
 
-;;-----------------------------------------------------------------------------
-;; Fractional Distance Algorithm
-;;-----------------------------------------------------------------------------
+;;=============================================================================
+;; Optional Keys
+;;=============================================================================
 
-(s/def ::fractional-distance-combination #{:sum})
+(s/def ::random-seed                     integer?)
+(s/def ::ellipse-adjustment-factor       number?)
+(s/def ::fractional-distance-combination #{:sum}) ; FIXME Is this the only option?
 
-;;-----------------------------------------------------------------------------
-;; Config
-;;-----------------------------------------------------------------------------
+;; DB Specification
 
+(s/def ::classname   string?)
+(s/def ::subprotocol string?)
+(s/def ::subname     string?)
+(s/def ::user        string?)
+(s/def ::password    string?)
+
+(s/def ::db-spec
+  (s/keys
+   :req-un [::classname
+            ::subprotocol
+            ::subname
+            ::user
+            ::password]))
+
+;; Ignitions
+
+(s/def ::sample-value
+  (s/or :scalar integer?
+        :list   (s/coll-of integer? :kind list?)
+        :vector (s/coll-of integer? :kind vector? :count 2)))
+
+(s/def ::ignition-row ::sample-value)
+(s/def ::ignition-col ::sample-value)
+
+;; Outputs
+
+(s/def ::outfile-suffix          string?)
+(s/def ::output-landfire-inputs? boolean?)
+(s/def ::output-geotiffs?        boolean?)
+(s/def ::output-pngs?            boolean?)
+(s/def ::output-csvs?            boolean?)
+
+;;=============================================================================
+;; Config Map
+;;=============================================================================
 
 (s/def ::config
-  (s/and
-   (s/keys
-    :req-un [::cell-size
-             ::landfire-layers]
-    :opt-un [::perturbations/perturbations
-             ::ignition/ignition-layer
-             ::output/output-binary?
-             ::output/output-layers
-             ::output/output-burn-probability
-             ::spotting/spotting
-             ::random-ignition/random-ignition
-             ::fuel-moisture/fuel-moisture-layers
-             ::optimization/parallel-strategy])
-   ::weather-layers))
+  (s/keys
+   :req-un [::max-runtime
+            ::simulations
+            ::srid
+            ::cell-size
+            ::foliar-moisture
+            ::temperature
+            ::relative-humidity
+            ::wind-speed-20ft
+            ::wind-from-direction
+            ::landfire-layers]
+   :opt-un [::random-seed
+            ::ellipse-adjustment-factor
+            ::fractional-distance-combination
+            ::db-spec
+            ::ignition-row
+            ::ignition-col
+            ::ignition/ignition-layer
+            ::outfile-suffix
+            ::output-landfire-inputs?
+            ::output-geotiffs?
+            ::output-pngs?
+            ::output-csvs?
+            ::output/output-binary?
+            ::output/output-layers
+            ::output/output-burn-probability
+            ::perturbations/perturbations
+            ::random-ignition/random-ignition
+            ::fuel-moisture/fuel-moisture-layers
+            ::optimization/parallel-strategy
+            ::spotting/spotting]))
