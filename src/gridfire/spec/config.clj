@@ -1,10 +1,7 @@
 (ns gridfire.spec.config
-  (:require [clojure.spec.alpha            :as s]
-            [gridfire.spec.common          :as common]
-            [gridfire.spec.optimization    :as optimization]
-            [gridfire.spec.perturbations   :as perturbations]
-            [gridfire.spec.random-ignition :as random-ignition]
-            [gridfire.spec.spotting        :as spotting]))
+  (:require [clojure.spec.alpha     :as s]
+            [gridfire.spec.common   :as common]
+            [gridfire.spec.spotting :as spotting]))
 
 ;;=============================================================================
 ;; Required Keys
@@ -55,7 +52,8 @@
 
 (s/def ::random-seed                     integer?)
 (s/def ::ellipse-adjustment-factor       number?)
-(s/def ::fractional-distance-combination #{:sum}) ; FIXME Is this the only option?
+(s/def ::fractional-distance-combination #{:sum}) ; FIXME This is currently unused.
+(s/def ::parallel-strategy               #{:within-fires :between-fires})
 
 ;; DB Specification
 
@@ -75,19 +73,28 @@
 
 ;; Ignitions
 
+(s/def ::ignition-row ::common/integer-sample)
+(s/def ::ignition-col ::common/integer-sample)
+
 (s/def ::burned   float?)
 (s/def ::unburned float?)
 
 (s/def ::burn-values
   (s/keys :req-un [::burned ::unburned]))
 
-(s/def ::ignition-row ::common/integer-sample)
-(s/def ::ignition-col ::common/integer-sample)
-
 (s/def ::ignition-layer
   (s/and
    ::common/postgis-or-geotiff
    (s/keys :opt-un [::burn-values])))
+
+(s/def ::ignition-mask ::common/postgis-or-geotiff)
+
+(s/def ::edge-buffer number?)
+
+(s/def ::random-ignition
+  (s/or
+   :boolean boolean?
+   :map     (s/keys :req-un [::ignition-mask ::edge-buffer])))
 
 ;; Fuel Moisture
 
@@ -154,10 +161,12 @@
    :opt-un [::random-seed
             ::ellipse-adjustment-factor
             ::fractional-distance-combination
+            ::parallel-strategy
             ::db-spec
             ::ignition-row
             ::ignition-col
             ::ignition-layer
+            ::random-ignition
             ::fuel-moisture-layers
             ::output-directory
             ::outfile-suffix
@@ -168,7 +177,4 @@
             ::output-binary?
             ::output-burn-probability
             ::output-layers
-            ::perturbations/perturbations
-            ::random-ignition/random-ignition
-            ::optimization/parallel-strategy
             ::spotting/spotting]))

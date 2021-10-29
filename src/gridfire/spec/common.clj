@@ -43,9 +43,20 @@
 
 (s/def ::multiplier number?)
 
+(s/def ::spatial-type #{:global :pixel})
+
+(s/def ::range (s/and (s/coll-of number? :kind vector? :count 2)
+                      (fn [[min-val max-val]] (< min-val max-val))))
+
+(s/def ::frequency integer?)
+
+(s/def ::perturbation
+  (s/keys :req-un [::spatial-type ::range]
+          :opt-un [::frequency]))
+
 (s/def ::postgis-or-geotiff
   (s/keys :req-un [::source ::type]
-          :opt-un [::cell-size ::unit ::multiplier]))
+          :opt-un [::cell-size ::unit ::multiplier ::perturbation]))
 
 (s/def ::layer-coords (s/or :sql ::sql
                             :map ::postgis-or-geotiff))
