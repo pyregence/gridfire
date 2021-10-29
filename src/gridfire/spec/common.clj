@@ -5,20 +5,32 @@
 ;; Numeric Samples
 ;;=============================================================================
 
+(s/def ::number-range
+  (s/and (s/coll-of number? :kind vector? :count 2)
+         (fn [[min-val max-val]] (< min-val max-val))))
+
+(s/def ::integer-range
+  (s/and (s/coll-of integer? :kind vector? :count 2)
+         (fn [[min-val max-val]] (< min-val max-val))))
+
+(s/def ::float-range
+  (s/and (s/coll-of float? :kind vector? :count 2)
+         (fn [[min-val max-val]] (< min-val max-val))))
+
 (s/def ::number-sample
   (s/or :scalar number?
         :list   (s/coll-of number? :kind list?)
-        :vector (s/coll-of number? :kind vector? :count 2)))
+        :range  ::number-range))
 
 (s/def ::integer-sample
   (s/or :scalar integer?
         :list   (s/coll-of integer? :kind list?)
-        :vector (s/coll-of integer? :kind vector? :count 2)))
+        :range  ::integer-range))
 
 (s/def ::float-sample
   (s/or :scalar float?
         :list   (s/coll-of float? :kind list?)
-        :vector (s/coll-of float? :kind vector? :count 2)))
+        :range  ::float-range))
 
 ;;=============================================================================
 ;; Layer Coords
@@ -45,8 +57,7 @@
 
 (s/def ::spatial-type #{:global :pixel})
 
-(s/def ::range (s/and (s/coll-of number? :kind vector? :count 2)
-                      (fn [[min-val max-val]] (< min-val max-val))))
+(s/def ::range ::number-range)
 
 (s/def ::frequency integer?)
 
