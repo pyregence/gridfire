@@ -5,32 +5,70 @@
 ;; Numeric Samples
 ;;=============================================================================
 
-(s/def ::number-range
-  (s/and (s/coll-of number? :kind vector? :count 2)
-         (fn [[min-val max-val]] (< min-val max-val))))
+(s/def ::ordered-pair (fn [[a b]] (< a b)))
+
+(s/def ::percent (s/and float? #(<= 0.0 % 1.0)))
+
+(s/def ::percent-range
+  (s/and (s/coll-of ::percent :kind vector? :count 2)
+         ::ordered-pair))
 
 (s/def ::integer-range
   (s/and (s/coll-of integer? :kind vector? :count 2)
-         (fn [[min-val max-val]] (< min-val max-val))))
+         ::ordered-pair))
 
 (s/def ::float-range
   (s/and (s/coll-of float? :kind vector? :count 2)
-         (fn [[min-val max-val]] (< min-val max-val))))
+         ::ordered-pair))
 
-(s/def ::number-sample
-  (s/or :scalar number?
-        :list   (s/coll-of number? :kind list?)
-        :range  ::number-range))
+(s/def ::number-range
+  (s/and (s/coll-of number? :kind vector? :count 2)
+         ::ordered-pair))
 
-(s/def ::integer-sample
-  (s/or :scalar integer?
-        :list   (s/coll-of integer? :kind list?)
+(s/def ::percent-or-range
+  (s/or :percent ::percent
+        :range   ::percent-range))
+
+(s/def ::integer-or-range
+  (s/or :integer integer?
         :range  ::integer-range))
 
-(s/def ::float-sample
-  (s/or :scalar float?
-        :list   (s/coll-of float? :kind list?)
+(s/def ::float-or-range
+  (s/or :float float?
         :range  ::float-range))
+
+(s/def ::number-or-range
+  (s/or :number number?
+        :range  ::number-range))
+
+(s/def ::percent-sample
+  (s/or :percent ::percent
+        :range   ::percent-range
+        :list    (s/coll-of ::percent :kind list?)))
+
+(s/def ::integer-sample
+  (s/or :integer integer?
+        :range   ::integer-range
+        :list    (s/coll-of integer? :kind list?)))
+
+(s/def ::float-sample
+  (s/or :float float?
+        :range ::float-range
+        :list  (s/coll-of float? :kind list?)))
+
+(s/def ::number-sample
+  (s/or :number number?
+        :range  ::number-range
+        :list   (s/coll-of number? :kind list?)))
+
+(s/def ::lo ::number-or-range)
+(s/def ::hi ::number-or-range)
+
+(s/def ::number-or-range-map
+  (s/or :number    number?
+        :range-map (s/and (s/keys :req-un [::lo ::hi])
+                          (fn [{:keys [lo hi]}]
+                            (apply < (flatten [lo hi]))))))
 
 ;;=============================================================================
 ;; Layer Coords
