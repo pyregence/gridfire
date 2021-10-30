@@ -10,7 +10,7 @@
             [gridfire.conversion          :refer [convert-date-string camel->kebab kebab->camel]]
             [gridfire.core                :as gridfire]
             [gridfire.simple-sockets      :as sockets]
-            [gridfire.spec.server         :as spec-server]
+            [gridfire.spec.server         :as server-spec]
             [gridfire.utils.server        :refer [nil-on-error]]
             [triangulum.logging           :refer [log log-str set-log-path!]]
             [triangulum.utils             :refer [parse-as-sh-cmd]]))
@@ -34,7 +34,7 @@
 ;; FIXME: Pass the geosync-server-config values in through gridfire.cli rather than hardcoding them.
 (defn- send-geosync-request! [request config]
   (let [geosync-server-config {:response-host "data.pyregence.org" :response-port 31337}]
-    (when (spec/valid? ::spec-server/gridfire-server-response-minimal geosync-server-config)
+    (when (spec/valid? ::server-spec/gridfire-server-response-minimal geosync-server-config)
       (sockets/send-to-server! (:response-host geosync-server-config)
                                (:response-port geosync-server-config)
                                (build-geosync-request request config)))))
@@ -48,7 +48,7 @@
                   :key-fn (comp kebab->camel name)))
 
 (defn- send-gridfire-response! [{:keys [response-host response-port] :as request} config status status-msg]
-  (when (spec/valid? ::spec-server/gridfire-server-response-minimal request)
+  (when (spec/valid? ::server-spec/gridfire-server-response-minimal request)
     (sockets/send-to-server! response-host
                              response-port
                              (build-gridfire-response request config status status-msg))))
@@ -157,10 +157,10 @@
 
 (defn- maybe-add-to-queue! [request]
   (try
-    (if (spec/valid? ::spec-server/gridfire-server-request request)
+    (if (spec/valid? ::server-spec/gridfire-server-request request)
       (do (>! job-queue request)
           [2 (format "Added to job queue. You are number %d in line." @job-queue-size)])
-      [1 (str "Invalid request: " (spec/explain-str ::spec-server/gridfire-server-request request))])
+      [1 (str "Invalid request: " (spec/explain-str ::server-spec/gridfire-server-request request))])
     (catch AssertionError _
       [1 "Job queue limit exceeded! Dropping request!"])
     (catch Exception e

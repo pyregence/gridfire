@@ -5,7 +5,7 @@
             [clojure.data.csv         :as csv]
             [clojure.edn              :as edn]
             [clojure.java.io          :as io]
-            [clojure.spec.alpha       :as s]
+            [clojure.spec.alpha       :as spec]
             [clojure.string           :as str]
             [gridfire.binary-output   :as binary]
             [gridfire.common          :refer [calc-emc get-neighbors in-bounds?]]
@@ -14,7 +14,7 @@
             [gridfire.fire-spread     :refer [rothermel-fast-wrapper run-fire-spread]]
             [gridfire.perturbation    :as perturbation]
             [gridfire.random-ignition :as random-ignition]
-            [gridfire.spec.config     :as spec]
+            [gridfire.spec.config     :as config-spec]
             [gridfire.utils.random    :refer [draw-samples]]
             [magellan.core            :refer [make-envelope
                                               matrix-to-raster
@@ -505,8 +505,8 @@
 (defn process-config-file!
   [config-file]
   (let [config (edn/read-string (slurp config-file))]
-    (if-not (s/valid? ::spec/config config)
-      (s/explain ::spec/config config)
+    (if-not (spec/valid? ::config-spec/config config)
+      (spec/explain ::config-spec/config config)
       (let [inputs (load-inputs config)]
         (if (seq (:ignitable-sites inputs))
           (let [outputs (run-simulations! inputs)]
