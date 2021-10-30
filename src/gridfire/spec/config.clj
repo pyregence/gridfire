@@ -1,7 +1,6 @@
 (ns gridfire.spec.config
-  (:require [clojure.spec.alpha     :as s]
-            [gridfire.spec.common   :as common]
-            [gridfire.spec.spotting :as spotting]))
+  (:require [clojure.spec.alpha   :as s]
+            [gridfire.spec.common :as common]))
 
 ;;=============================================================================
 ;; Required Keys
@@ -55,7 +54,7 @@
 (s/def ::fractional-distance-combination #{:sum}) ; FIXME This is currently unused.
 (s/def ::parallel-strategy               #{:within-fires :between-fires})
 
-;; DB Specification
+;; DB Connection
 
 (s/def ::classname   string?)
 (s/def ::subprotocol string?)
@@ -113,6 +112,34 @@
 (s/def ::fuel-moisture-layers
   (s/keys :req-un [::dead ::live]))
 
+;; Spotting
+
+(s/def ::num-firebrands               ::common/number-or-range-map)
+(s/def ::mean-distance                ::common/number-or-range-map)
+(s/def ::flin-exp                     ::common/number-or-range-map)
+(s/def ::ws-exp                       ::common/number-or-range-map)
+(s/def ::normalized-distance-variance ::common/number-or-range-map)
+(s/def ::crown-fire-spotting-percent  ::common/percent-or-range)
+
+(s/def ::valid-fuel-range             (fn [[lo hi]] (< 0 lo hi 205)))
+(s/def ::fuel-number-range            (s/and ::common/integer-range ::valid-fuel-range))
+(s/def ::fuel-percent-pair            (s/tuple ::fuel-number-range ::common/float-or-range))
+(s/def ::spotting-percent             (s/coll-of ::fuel-percent-pair :kind vector?))
+(s/def ::critical-fire-line-intensity number?)
+
+(s/def ::surface-fire-spotting
+  (s/keys :req-un [::spotting-percent
+                   ::critical-fire-line-intensity]))
+
+(s/def ::spotting
+  (s/keys :req-un [::num-firebrands
+                   ::mean-distance
+                   ::flin-exp
+                   ::ws-exp
+                   ::normalized-distance-variance
+                   ::crown-fire-spotting-percent]
+          :opt-un [::surface-fire-spotting]))
+
 ;; Outputs
 
 (s/def ::output-directory        ::common/file-path)
@@ -124,7 +151,7 @@
 (s/def ::output-binary?          boolean?)
 
 (s/def ::burn-probability-type
-  (s/or :scalar number?
+  (s/or :number number?
         :key    #{:final}))
 
 (s/def ::output-burn-probability ::burn-probability-type) ; FIXME: Why isn't this in :output-layers?
@@ -168,6 +195,7 @@
             ::ignition-layer
             ::random-ignition
             ::fuel-moisture-layers
+            ::spotting
             ::output-directory
             ::outfile-suffix
             ::output-landfire-inputs?
@@ -176,5 +204,4 @@
             ::output-csvs?
             ::output-binary?
             ::output-burn-probability
-            ::output-layers
-            ::spotting/spotting]))
+            ::output-layers]))
