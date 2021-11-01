@@ -1,5 +1,7 @@
-{:data-dir        "/gridfire/data"
+;; [[file:../org/GridFire.org::*Server Configuration][Server Configuration:1]]
+{:software-dir    "/gridfire/software"
  :incoming-dir    "/gridfire/incoming"
- :software-dir    "/gridfire/software"
- :log-dir         "/gridfire/log"
- :active-fire-dir "/gridfire/incoming/active_fires"}
+ :active-fire-dir "/gridfire/incoming/active_fires"
+ :data-dir        "/gridfire/data"
+ :log-dir         "/gridfire/log"}
+;; Server Configuration:1 ends here

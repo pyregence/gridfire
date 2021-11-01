@@ -1,13 +1,15 @@
 (ns gridfire.active-fire-watcher
-  (:require [clojure.core.async :refer [<! >! go-loop timeout]]
+  (:require [clojure.core.async   :refer [<! >! go-loop timeout]]
+            [gridfire.conversion  :refer [convert-date-string]]
             [nextjournal.beholder :as beholder]
-            [triangulum.logging :refer [log-str]])
-  (:import java.util.TimeZone))
+            [triangulum.logging   :refer [log-str]])
+  (:import java.util.Date))
 
+(set! *unchecked-math* :warn-on-boxed)
 
-;;-----------------------------------------------------------------------------
-;; Regex
-;;-----------------------------------------------------------------------------
+;;=============================================================================
+;; File Path -> Job
+;;=============================================================================
 
 (def file-name-regex #"[^/]*(?=[.][a-zA-Z]+$)")
 
@@ -15,60 +17,55 @@
 
 (def ignition-time-regex #"\d{8}_\d{6}")
 
-;;-----------------------------------------------------------------------------
-;; Utils
-;;-----------------------------------------------------------------------------
+(defn- build-job [path-str]
+  (let [file-name     (re-find file-name-regex path-str)
+        fire-name     (re-find fire-name-regex file-name)
+        ignition-time (re-find ignition-time-regex file-name)]
+    {:fire-name     fire-name
+     :type          :active-fire
+     :ignition-time (convert-date-string ignition-time
+                                         "yyyyMMdd_HHmmss"
+                                         "yyyy-MM-dd HH:mm zzz")}))
+
+;;=============================================================================
+;; Server
+;;=============================================================================
 
 (defonce download-in-progress (atom {}))
 
-(defn- convert-date-string
-  [date-str from-format to-format]
-  (let [in-format  (doto (java.text.SimpleDateFormat. from-format)
-                     (.setTimeZone (TimeZone/getTimeZone "UTC")))
-        out-format (doto (java.text.SimpleDateFormat. to-format)
-                     (.setTimeZone (TimeZone/getTimeZone "UTC")))]
-    (->> date-str
-         (.parse in-format)
-         (.format out-format))))
+(defn- now ^long []
+  (inst-ms (Date.)))
 
-(defn- parse-tar [path]
-  (let [file-name     (re-find file-name-regex path)
-        fire-name     (re-find fire-name-regex file-name)
-        ignition-time (re-find ignition-time-regex file-name)]
-    [fire-name (convert-date-string ignition-time
-                                    "yyyyMMdd_HHmmss"
-                                    "yyyy-MM-dd HH:mm zzz")]))
+(defn- still-waiting? [^long last-mod-time]
+  (< (- (now) last-mod-time) 5000)) ; wait up to 5 seconds
 
-(defn build-job [path]
-  (let [[fire-name ignition-time] (parse-tar path)]
-    {:fire-name     fire-name
-     :ignition-time ignition-time
-     :type          :active-fire}))
-
-(defn count-down [job-queue tar]
-  (go-loop [seconds (get @download-in-progress tar)]
-    (if (> @seconds 0)
+(defn- count-down [job-queue path-str]
+  (go-loop [^long last-mod-time (get @download-in-progress path-str)]
+    (if (still-waiting? last-mod-time)
       (do (<! (timeout 1000))
-          (swap! seconds dec)
-          (recur (get @download-in-progress tar)))
-      (do (log-str "SCP Complete:" tar)
-          (swap! download-in-progress dissoc tar)
-          (>! job-queue (build-job tar))))))
-
-;;-----------------------------------------------------------------------------
-;; Main
-;;-----------------------------------------------------------------------------
+          (recur (get @download-in-progress path-str)))
+      (do (log-str "SCP Complete: " path-str)
+          (swap! download-in-progress dissoc path-str)
+          (>! job-queue (build-job path-str))))))
 
 (defn- handler [job-queue]
   (fn [{:keys [type path]}]
-    (let [path-str  (.toString path)]
+    (let [path-str (.toString path)]
       (case type
-        :create (do (log-str "Active Fire input deck detected:" path-str)
-                    (swap! download-in-progress assoc path-str (atom 5))
+        :create (do (log-str "Active Fire input deck detected: " path-str)
+                    (swap! download-in-progress assoc path-str (now))
                     (count-down job-queue path-str))
-        :modify (swap! download-in-progress assoc path-str (atom 5)) ;reset counter
+        :modify (swap! download-in-progress assoc path-str (now)) ; reset counter
         nil))))
 
+(defonce directory-watcher (atom nil))
+
 (defn start! [{:keys [active-fire-dir]} job-queue]
-  (when active-fire-dir
-    (beholder/watch (handler job-queue) active-fire-dir)))
+  (when (and active-fire-dir (nil? @directory-watcher))
+    (reset! directory-watcher
+            (beholder/watch (handler job-queue) active-fire-dir))))
+
+(defn stop! []
+  (when @directory-watcher
+    (beholder/stop @directory-watcher)
+    (reset! directory-watcher nil)))
