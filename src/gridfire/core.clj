@@ -312,10 +312,10 @@
                               (Random. random-seed)
                               (Random.))))
 
-(defn add-ignitions-csv
-  [{:keys [ignitions-csv] :as inputs}]
-  (if ignitions-csv
-    (let [ignitions (with-open [reader (io/reader ignitions-csv)]
+(defn add-ignition-csv
+  [{:keys [ignition-csv] :as inputs}]
+  (if ignition-csv
+    (let [ignitions (with-open [reader (io/reader ignition-csv)]
                       (doall (rest (csv/read-csv reader))))]
       (assoc inputs
              :ignition-rows        (mapv #(Integer/parseInt (get % 0)) ignitions)
@@ -372,7 +372,7 @@
   (-> config
       (add-input-layers)
       (add-misc-params)
-      (add-ignitions-csv)
+      (add-ignition-csv)
       (add-sampled-params)
       (add-weather-params)
       (add-ignitable-sites)))
