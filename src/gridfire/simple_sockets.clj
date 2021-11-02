@@ -1,8 +1,8 @@
 (ns gridfire.simple-sockets
   (:import (java.io BufferedReader)
            (java.net ConnectException Socket ServerSocket))
-  (:require [clojure.java.io :as io]
-            [clojure.string  :as s]
+  (:require [clojure.java.io    :as io]
+            [clojure.string     :as s]
             [triangulum.logging :refer [log log-str]]))
 
 ;;=================================

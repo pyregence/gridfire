@@ -1,6 +1,8 @@
 (ns gridfire.utils.server
   (:require [clojure.string :as s]))
 
+(set! *unchecked-math* :warn-on-boxed)
+
 ;; TODO extend to more timezones
 (def time-regex
   "regex for timestamp with the form YYYY-MM-DD HH:MM ZZZ

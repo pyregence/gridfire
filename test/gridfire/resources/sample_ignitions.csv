@@ -1,4 +1,4 @@
-ignition time (min),X,Y,tstop (min)
+row,col,start_time(min),max_runtime(min)
 4,1,0,10
 5,2,0,20
 6,3,0,30

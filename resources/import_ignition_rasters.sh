@@ -1,5 +1,5 @@
 # [[file:../org/GridFire.org::raster2pgsql-import-ignition-raster][raster2pgsql-import-ignition-raster]]
-#!/bin/sh
+#!/usr/bin/env bash
 
 USERNAME=$1
 SCHEMA=$2
