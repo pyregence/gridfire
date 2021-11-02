@@ -187,7 +187,7 @@
       (output-png config filtered-matrix name envelope simulation-id output-time))))
 
 (defn process-output-layers!
-  [{:keys [output-layers ouput-geotiffs? output-pngs?] :as config}
+  [{:keys [output-layers output-geotiffs? output-pngs?] :as config}
    {:keys [global-clock burn-time-matrix] :as fire-spread-results}
    envelope
    simulation-id]
@@ -207,7 +207,7 @@
           (let [matrix (if (= layer "burn_history")
                          (to-color-map-values layer global-clock)
                          (fire-spread-results layer))]
-            (when ouput-geotiffs?
+            (when output-geotiffs?
              (output-geotiff config matrix name envelope simulation-id))
             (when output-pngs?
              (output-png config matrix name envelope simulation-id))))))))
@@ -483,7 +483,7 @@
           (write-raster (str (name layer) outfile-suffix ".tif"))))))
 
 (defn write-burn-probability-layer!
-  [{:keys [output-burn-probability simulations envelope ouptut-png?] :as inputs} {:keys [burn-count-matrix]}]
+  [{:keys [output-burn-probability simulations envelope output-pngs?] :as inputs} {:keys [burn-count-matrix]}]
   (when-let [timestep output-burn-probability]
     (let [output-name "burn_probability"]
       (if (int? timestep)
@@ -494,7 +494,7 @@
             (output-png inputs probability-matrix output-name envelope nil output-time)))
         (let [probability-matrix (m/emap #(/ % simulations) burn-count-matrix)]
           (output-geotiff inputs probability-matrix output-name envelope)
-          (when ouptut-png?
+          (when output-pngs?
            (output-png inputs probability-matrix output-name envelope)))))))
 
 (defn write-flame-length-sum-layer!
