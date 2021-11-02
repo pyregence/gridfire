@@ -1,5 +1,5 @@
 # [[file:../org/GridFire.org::raster2pgsql-import-example-all][raster2pgsql-import-example-all]]
-#!/bin/sh
+#!/usr/bin/env bash
 
 USERNAME=$1
 SCHEMA=$2
