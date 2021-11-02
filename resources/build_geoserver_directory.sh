@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 NP=`grep processor /proc/cpuinfo | wc -l`
 MODEL=gridfire

@@ -5,6 +5,8 @@
             [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
             [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]))
 
+(m/set-current-implementation :vectorz)
+
 ;;TODO refactor multi-methods landfire-layer weather, ignition-layer, ignition-mask-layer
 ;; to the same function
 
@@ -50,9 +52,9 @@
                  [layer-name
                   (if (map? source)
                     (-> (landfire-layer db-spec source)
-                        (convert/to-imperial source layer-name))
+                        (convert/to-imperial! source layer-name))
                     (-> (postgis-raster-to-matrix db-spec source)
-                        (convert/to-imperial {:units :metric} layer-name)))])))
+                        (convert/to-imperial! {:units :metric} layer-name)))])))
         layer-names))
 
 ;;-----------------------------------------------------------------------------
@@ -117,7 +119,7 @@
                (let [weather-spec (get config weather-name)]
                  (when (map? weather-spec)
                    [weather-name (-> (weather config weather-spec)
-                                     (convert/to-imperial weather-spec weather-name))]))))
+                                     (convert/to-imperial! weather-spec weather-name))]))))
         weather-names))
 
 ;;-----------------------------------------------------------------------------
