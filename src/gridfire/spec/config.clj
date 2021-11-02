@@ -156,17 +156,15 @@
 (s/def ::output-csvs?            boolean?)
 (s/def ::output-binary?          boolean?)
 
-(s/def ::burn-probability-type
+(s/def ::output-frequency
   (s/or :number number?
         :key    #{:final}))
 
-(s/def ::output-flame-length-sum boolean?)
-(s/def ::output-burn-probability ::burn-probability-type) ; FIXME: Why isn't this in :output-layers?
-(s/def ::fire-spread             ::burn-probability-type)
-(s/def ::flame-length            ::burn-probability-type)
-(s/def ::fire-line-intensity     ::burn-probability-type)
-(s/def ::spread-rate             ::burn-probability-type)
-(s/def ::burn-history            ::burn-probability-type)
+(s/def ::fire-spread         ::output-frequency)
+(s/def ::flame-length        ::output-frequency)
+(s/def ::fire-line-intensity ::output-frequency)
+(s/def ::spread-rate         ::output-frequency)
+(s/def ::burn-history        ::output-frequency)
 
 (s/def ::output-layers
   (common/one-or-more-keys
@@ -175,6 +173,12 @@
     ::fire-line-intensity
     ::spread-rate
     ::burn-history]))
+
+(s/def ::output-burn-probability  ::output-frequency) ; FIXME: Why isn't this also just boolean?
+(s/def ::output-burn-count?       boolean?)
+(s/def ::output-spot-count?       boolean?)
+(s/def ::output-flame-length-max? boolean?)
+(s/def ::output-flame-length-sum? boolean?)
 
 ;;=============================================================================
 ;; Config Map
@@ -212,7 +216,10 @@
              ::output-pngs?
              ::output-csvs?
              ::output-binary?
-             ::output-flame-length-sum
+             ::output-layers
              ::output-burn-probability
-             ::output-layers])
+             ::output-burn-count?
+             ::output-spot-count?
+             ::output-flame-length-max?
+             ::output-flame-length-sum?])
    ::rh-or-fuel-moisture))
