@@ -5,6 +5,8 @@
             [clojure.core.matrix :as m]
             [taoensso.tufte      :as tufte]))
 
+(m/set-current-implementation :vectorz)
+
 ;; We assume that matrix[0,0] is the upper left corner.
 (defn non-zero-data [matrix]
   (let [row-count (m/row-count matrix)]

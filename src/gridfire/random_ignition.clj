@@ -3,6 +3,8 @@
   (:require [clojure.core.matrix :as m]
             [gridfire.common     :refer [burnable-fuel-model?]]))
 
+(m/set-current-implementation :vectorz)
+
 (defn- in-edge-buffer?
   "Returns true if give [row col] is within the buffer region defined
   by buffer-size. The buffer size is the thickness (pixel) of the edge

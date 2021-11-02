@@ -1,6 +1,8 @@
+.clj-kondo/
 .cpcache/
 .nrepl-history
 .nrepl-port
+classes/
 org/GridFire.bbl
 org/GridFire.blg
 org/GridFire.tex

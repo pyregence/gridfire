@@ -393,14 +393,12 @@
                                                      :herbaceous 30.0}}})]
     (is (valid-exits? (run-test-simulation! config)))))
 
-
 ;;-----------------------------------------------------------------------------
-;; Ignitions csv
+;; Ignition CSV
 ;;-----------------------------------------------------------------------------
 
 (deftest ignition-csv-test
-  (let [results (run-test-simulation! (assoc test-config-base
-                                             :ignitions-csv (in-file-path "sample_ignitions.csv")))]
+  (let [results (run-test-simulation! (assoc test-config-base :ignition-csv (in-file-path "sample_ignitions.csv")))]
 
     (is (valid-exits? results))
 
@@ -408,7 +406,7 @@
         "Should have the same number of simulations as ignition rows in sample_ignitions.csv")
 
     (is (= 10.0 (:global-clock (first results)))
-        "Max runtime should set by tstop in sample_ignitions.csv")
+        "Global clock should end at start_time + max_runtime in sample_ignitions.csv")
 
     (is (= 20.0 (:global-clock (second results)))
-        "Max runtime should set by tstop in sample_ignitions.csv")))
+        "Global clock should end at start_time + max_runtime in sample_ignitions.csv")))
