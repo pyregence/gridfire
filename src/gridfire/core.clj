@@ -241,8 +241,8 @@
     (m/add! spot-count-matrix (:spot-matrix fire-spread-results))))
 
 (defn initialize-burn-count-matrix
-  [{:keys [output-burn-probability output-burn-count max-runtimes num-rows num-cols]}]
-  (when (or output-burn-count output-burn-probability)
+  [{:keys [output-burn-probability output-burn-count? max-runtimes num-rows num-cols]}]
+  (when (or output-burn-count? output-burn-probability)
     (if (int? output-burn-probability)
       (let [num-bands (inc (quot (apply max max-runtimes) output-burn-probability))]
         (m/zero-array [num-bands num-rows num-cols]))
@@ -381,12 +381,12 @@
     (assoc inputs :ignitable-sites ignitable-sites)))
 
 (defn initialize-aggregate-matrices
-  [{:keys [num-rows num-cols output-flame-length-sum
-           output-flame-length-max output-spot-count] :as inputs}]
+  [{:keys [num-rows num-cols output-flame-length-sum?
+           output-flame-length-max? output-spot-count?] :as inputs}]
   {:burn-count-matrix       (initialize-burn-count-matrix inputs)
-   :flame-length-sum-matrix (when output-flame-length-sum (m/zero-array [num-rows num-cols]))
-   :flame-length-max-matrix (when output-flame-length-max (m/zero-array [num-rows num-cols]))
-   :spot-count-matrix       (when output-spot-count (m/zero-array [num-rows num-cols]))})
+   :flame-length-sum-matrix (when output-flame-length-sum? (m/zero-array [num-rows num-cols]))
+   :flame-length-max-matrix (when output-flame-length-max? (m/zero-array [num-rows num-cols]))
+   :spot-count-matrix       (when output-spot-count? (m/zero-array [num-rows num-cols]))})
 
 (defn add-aggregate-matrices
   [inputs]
@@ -512,27 +512,27 @@
            (output-png inputs probability-matrix output-name envelope)))))))
 
 (defn write-flame-length-sum-layer!
-  [{:keys [envelope output-flame-length-sum] :as inputs}
+  [{:keys [envelope output-flame-length-sum?] :as inputs}
    {:keys [flame-length-sum-matrix]}]
-  (when output-flame-length-sum
+  (when output-flame-length-sum?
     (output-geotiff inputs flame-length-sum-matrix "flame_length_sum" envelope)))
 
 (defn write-flame-length-max-layer!
-  [{:keys [envelope output-flame-length-max] :as inputs}
+  [{:keys [envelope output-flame-length-max?] :as inputs}
    {:keys [flame-length-max-matrix]}]
-  (when output-flame-length-max
+  (when output-flame-length-max?
     (output-geotiff inputs flame-length-max-matrix "flame_length_max" envelope)))
 
 (defn write-burn-count-layer!
-  [{:keys [envelope output-burn-count] :as inputs}
+  [{:keys [envelope output-burn-count?] :as inputs}
    {:keys [burn-count-matrix]}]
-  (when output-burn-count
+  (when output-burn-count?
     (output-geotiff inputs burn-count-matrix "burn_count" envelope)))
 
 (defn write-spot-count-layer!
-  [{:keys [envelope output-spot-count] :as inputs}
+  [{:keys [envelope output-spot-count?] :as inputs}
    {:keys [spot-count-matrix]}]
-  (when output-spot-count
+  (when output-spot-count?
     (output-geotiff inputs spot-count-matrix "spot_count" envelope)))
 
 (defn write-aggregate-layers!
