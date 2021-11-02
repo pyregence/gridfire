@@ -1,6 +1,6 @@
 #+TITLE: The GridFire Fire Behavior Model
 #+AUTHOR: Gary W. Johnson, Ph.D., David Saah, Ph.D., Max Moritz, Ph.D., Kenneth Cheung
-#+DATE: Copyright 2011-2021 Spatial Informatics Group, LLC
+#+DATE: Copyright © 2014-2021 Spatial Informatics Group, LLC
 #+OPTIONS: ^:{} toc:nil h:3
 #+LATEX_CLASS: article
 #+LATEX_CLASS_OPTIONS: [11pt]
@@ -127,13 +127,13 @@ deps.edn for the current GridFire version is shown below.
                                            "-r"]}
            :make-uberjar      {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
                                :exec-fn      hf.depstar/uberjar
-                               :exec-args    {:jar         target/gridfire.jar
+                               :exec-args    {:jar         target/gridfire-2021.10.19.jar
                                               :main-class  gridfire.cli
                                               :aot         true
                                               :sync-pom    true
                                               :group-id    sig-gis
                                               :artifact-id gridfire
-                                              :version     "2021.09.22"
+                                              :version     "2021.10.19"
                                               :manifest
                                               {:specification-title    "Java Advanced Imaging Image I/O Tools"
                                                :specification-version  "1.1"
@@ -149,9 +149,7 @@ deps.edn for the current GridFire version is shown below.
                                              "-m" "cognitect.test-runner"]}
            :check-reflections {:extra-paths ["test"]
                                :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
-                                             "-e" "(require,'gridfire.core)"
-                                             "-e" "(require,'gridfire.server)"
-                                             "-e" "(require,'gridfire.config)"
+                                             "-e" "(require,'gridfire.cli)"
                                              "-e" "(require,'gridfire.build-test-db)"]}
            :check-deps        {:extra-deps {olical/depot {:mvn/version "2.3.0"}}
                                :main-opts  ["-m" "depot.outdated.main"]}}}
@@ -257,7 +255,7 @@ rasters reside. The filenames of these rasters should match the
 elements in the for loop (i.e. asp.tif, cbd.tif etc)
 #+name: raster2pgsql-import-example-all
 #+begin_src sh :results silent :exports code :tangle ../resources/import_landfire_rasters.sh :padline no :no-expand :comments link
-#!/bin/sh
+#!/usr/bin/env bash
 
 USERNAME=$1
 SCHEMA=$2
@@ -324,7 +322,7 @@ assigned to the LAYER variable (i.e., ign) plus a .tif extension.
 
 #+name: raster2pgsql-import-ignition-raster
 #+begin_src sh :results silent :exports code :tangle ../resources/import_ignition_rasters.sh :padline no :no-expand :comments link
-#!/bin/sh
+#!/usr/bin/env bash
 
 USERNAME=$1
 SCHEMA=$2
@@ -359,7 +357,7 @@ elements in the for loop (i.e. tmpf_to_sample.tif)
 
 #+name: raster2pgsql-import-weather-rasters
 #+begin_src sh :results silent :exports code :tangle ../resources/import_weather_rasters.sh :padline no :no-expand :comments link
-#!/bin/sh
+#!/usr/bin/env bash
 
 USERNAME=$1
 SCHEMA=$2
@@ -1377,11 +1375,8 @@ crown fire initiation occurs.
 
 #+name: van-wagner-crown-fire-initiation
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/crown_fire.clj :padline no :no-expand :comments link
-(ns gridfire.crown-fire)
-
-(defn ft->m ^double [^double ft] (* 0.3048 ft))
-
-(defn kW-m->Btu-ft-s ^double [^double kW-m] (* 0.288894658272 kW-m))
+(ns gridfire.crown-fire
+  (:require [gridfire.conversion :as convert]))
 
 (defn van-wagner-crown-fire-initiation?
   "- canopy-cover (0-100 %)
@@ -1391,9 +1386,9 @@ crown fire initiation occurs.
   [^double canopy-cover ^double canopy-base-height ^double foliar-moisture ^double fire-line-intensity]
   (and (> canopy-cover 40.0)
        (-> (+ 460.0 (* 2600.0 foliar-moisture)) ;; heat-of-ignition = kJ/kg
-           (* 0.01 (ft->m canopy-base-height))
+           (* 0.01 (convert/ft->m canopy-base-height))
            (Math/pow 1.5) ;; critical-intensity = kW/m
-           (kW-m->Btu-ft-s)
+           (convert/kW-m->Btu-ft-s)
            (< fire-line-intensity))))
 #+end_src
 
@@ -1418,20 +1413,14 @@ active, otherwise passive.
 
 #+name: cruz-crown-fire-spread
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/crown_fire.clj :no-expand :comments link
-(defn mph->km-hr ^double [^double mph] (* 1.609344 mph))
-
-(defn lb-ft3->kg-m3 ^double [^double lb-ft3] (* 16.01846 lb-ft3))
-
-(defn m->ft ^double [^double m] (* 3.281 m))
-
 (defn cruz-crown-fire-spread
   "Returns spread-rate in ft/min given:
    - wind-speed-20ft (mph)
    - crown-bulk-density (lb/ft^3)
    - estimated-fine-fuel-moisture (-> M_f :dead :1hr) (0-1)"
   [wind-speed-20ft ^double crown-bulk-density ^double estimated-fine-fuel-moisture]
-  (let [wind-speed-10m               (/ (mph->km-hr wind-speed-20ft) 0.87) ;; km/hr
-        crown-bulk-density           (lb-ft3->kg-m3 crown-bulk-density) ;; kg/m^3
+  (let [wind-speed-10m               (/ (convert/mph->km-hr wind-speed-20ft) 0.87) ;; km/hr
+        crown-bulk-density           (convert/lb-ft3->kg-m3 crown-bulk-density) ;; kg/m^3
         estimated-fine-fuel-moisture (* 100.0 estimated-fine-fuel-moisture)
         active-spread-rate           (* 11.02
                                         (Math/pow wind-speed-10m 0.90)
@@ -1441,8 +1430,8 @@ active, otherwise passive.
         critical-spread-rate         (/ 3.0 crown-bulk-density) ;; m/min
         criteria-for-active-crowning (/ active-spread-rate critical-spread-rate)]
     (if (> active-spread-rate critical-spread-rate)
-      [:active-crown (m->ft active-spread-rate)]
-      [:passive-crown (m->ft (* active-spread-rate (Math/exp (- criteria-for-active-crowning))))])))
+      [:active-crown (convert/m->ft active-spread-rate)]
+      [:passive-crown (convert/m->ft (* active-spread-rate (Math/exp (- criteria-for-active-crowning))))])))
 #+end_src
 
 Once the crown fire spread rate is determined, the crown fire line
@@ -2460,10 +2449,11 @@ the direction perpendicular to the wind.
                                      in-bounds?
                                      burnable?
                                      fuel-moisture-from-raster]]
-            [gridfire.crown-fire :refer [ft->m]]
             [gridfire.utils.random :refer [random-float my-rand-range]]
             [gridfire.conversion :as convert]
             [kixi.stats.distribution :as distribution]))
+
+(m/set-current-implementation :vectorz)
 
 ;;-----------------------------------------------------------------------------
 ;; Formulas
@@ -2643,10 +2633,10 @@ firebrands landing in a cell.
    torched-origin
    here]
   (let [ignition-probability (schroeder-ign-prob fuel-moisture temperature)
-        distance             (ft->m (distance-3d (:elevation landfire-rasters)
-                                                 cell-size
-                                                 here
-                                                 torched-origin))
+        distance             (convert/ft->m (distance-3d (:elevation landfire-rasters)
+                                                         cell-size
+                                                         here
+                                                         torched-origin))
         decay-factor         (Math/exp (* -1 ^double decay-constant distance))]
     (- 1 (Math/pow (- 1 (* ignition-probability decay-factor)) firebrand-count))))
 #+end_src
@@ -2815,7 +2805,7 @@ ignition probability.
              (when (spot-ignition? rand-gen spot-ignition-p)
                (let [[i j] cell
                      t     (spot-ignition-time global-clock
-                                               (ft->m (m/mget flame-length-matrix i j))
+                                               (convert/ft->m (m/mget flame-length-matrix i j))
                                                (convert/mph->mps ws))]
                  [[x y] [t spot-ignition-p]])))
            (remove nil?)))))
@@ -2954,6 +2944,8 @@ described in the previous section.
   (:import org.geotools.coverage.grid.GridGeometry2D
            org.geotools.referencing.operation.transform.AffineTransform2D))
 
+(m/set-current-implementation :vectorz)
+
 (defn geotiff-raster-to-matrix
   "Reads a raster from a file using the magellan.core library. Returns the
    post-processed raster values as a Clojure matrix using the core.matrix API
@@ -2985,8 +2977,8 @@ described in the previous section.
      :height     (:height image)
      :scalex     (.getScaleX crs2d)
      :scaley     (.getScaleY crs2d)
-     :skewx      0.0 ;FIXME not used?
-     :skewy      0.0 ;FIXME not used?
+     :skewx      0.0                    ;FIXME not used?
+     :skewy      0.0                    ;FIXME not used?
      :numbands   (:bands image)
      :matrix     (m/matrix matrix)}))
 #+end_src
@@ -3044,7 +3036,6 @@ or false:
 #+name: gridfire-core
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/core.clj :padline no :no-expand :comments link
 (ns gridfire.core
-  (:gen-class)
   (:require [clojure.core.matrix      :as m]
             [clojure.core.reducers    :as r]
             [clojure.data.csv         :as csv]
@@ -3053,7 +3044,7 @@ or false:
             [clojure.string           :as str]
             [gridfire.binary-output   :as binary]
             [gridfire.common          :refer [calc-emc get-neighbors in-bounds?]]
-            [gridfire.crown-fire      :refer [m->ft]]
+            [gridfire.conversion      :refer [m->ft]]
             [gridfire.fetch           :as fetch]
             [gridfire.fire-spread     :refer [rothermel-fast-wrapper run-fire-spread]]
             [gridfire.perturbation    :as perturbation]
@@ -3597,6 +3588,108 @@ or false:
         (log-str "Could not run simulation. No valid ignition sites")))))
 #+end_src
 
+#+name: command-line-interface
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/cli.clj :padline no :no-expand :comments link
+(ns gridfire.cli
+  (:gen-class)
+  (:require [clojure.core.async    :refer [<!!]]
+            [clojure.edn           :as edn]
+            [clojure.java.io       :as io]
+            [clojure.tools.cli     :refer [parse-opts]]
+            [gridfire.config       :as config]
+            [gridfire.core         :as gridfire]
+            [gridfire.server       :as server]
+            [gridfire.utils.server :refer [hostname? throw-message]]))
+
+(set! *unchecked-math* :warn-on-boxed)
+
+;;===========================================================
+;; Argument Processing
+;;===========================================================
+
+(defn all-required-keys? [arguments options]
+  (or (seq arguments)
+      (every? options [:server-config :host :port])
+      (:elmfire-data options)))
+
+(defn process-options [arguments {:keys [server-config] :as options}]
+  (cond (not (all-required-keys? arguments options))
+        (throw-message (str "For gridfire cli mode, include "
+                            "one or more gridfire.edn files.\n"
+                            "For gridfire server mode, include these args: "
+                            "--server-config --host --port\n"
+                            "For converting elmfire.data to gridfire.edn, include this arg: "
+                            "--elmfire-data"))
+
+        server-config
+        (let [config-file-params  (edn/read-string (slurp server-config))
+              command-line-params (dissoc options :server-config)]
+          (merge config-file-params command-line-params))
+
+        :else
+        options))
+
+;;===========================================================
+;; User Interface
+;;===========================================================
+
+(def cli-options
+  [["-c" "--server-config CONFIG" "Server config file"
+    :validate [#(.exists  (io/file %)) "The provided --server-config does not exist."
+               #(.canRead (io/file %)) "The provided --server-config is not readable."]]
+
+   ["-h" "--host HOST" "Host domain name"
+    :validate [hostname? "The provided --host is invalid."]]
+
+   ["-p" "--port PORT" "Port number"
+    :parse-fn #(if (int? %) % (Integer/parseInt %))
+    :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
+
+   ["-e" "--elmfire-data FILE" "Path to an elmfire.data file"
+    :validate [#(.exists  (io/file %)) "The provided --elmfire-data does not exist."
+               #(.canRead (io/file %)) "The provided --elmfire-data is not readable."]]
+
+   ["-v" "--verbose" "Flag for controlling elmfire.data conversion output params"]])
+
+(def program-banner
+  (str "gridfire: Launch fire spread simulations via config files or in server mode.\n"
+       "Copyright © 2014-2021 Spatial Informatics Group, LLC.\n"))
+
+(defn -main
+  [& args]
+  (println program-banner)
+  (let [{:keys [options arguments summary errors]} (parse-opts args cli-options)
+        ;; {:options   The options map, keyed by :id, mapped to the parsed value
+        ;;  :arguments A vector of unprocessed arguments
+        ;;  :summary   A string containing a minimal options summary
+        ;;  :errors    A vector of error message strings thrown during parsing; nil when no errors exist
+        config-params (try
+                        (process-options arguments options)
+                        (catch Exception e
+                          (ex-message e)))]
+    (cond
+      (seq errors)
+      (do
+        (run! println errors)
+        (println (str "\nUsage:\n" summary)))
+
+      (string? config-params)
+      (do
+        (println config-params)
+        (println (str "\nUsage:\n" summary)))
+
+      (:elmfire-data options)
+      (config/convert-config! (:elmfire-data options))
+
+      (:server-config options)
+      (<!! (server/start-server! config-params))
+
+      :else
+      (doseq [config-file arguments]
+        (gridfire/process-config-file! config-file)))
+    (System/exit 0)))
+#+end_src
+
 #+name: utils-random
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/utils/random.clj :padline no :no-expand :comments link
 (ns gridfire.utils.random
@@ -3675,7 +3768,7 @@ The Post processing scripts require the following packages to work:
 The GridFire system is also available for use in server mode. The
 server is confgured by and edn file containing the following contents:
 
-#+begin_src clojure :results silent :exports code
+#+begin_src clojure :results silent :exports code :tangle ../resources/sample_server.edn :padline no :no-expand :comments link
 {:software-dir    "/gridfire/software"
  :incoming-dir    "/gridfire/incoming"
  :active-fire-dir "/gridfire/incoming/active_fires"
@@ -3887,6 +3980,8 @@ Here's the namespace that implments this functionality.
   (:require [clojure.core.matrix :as m]
             [gridfire.common     :refer [burnable-fuel-model?]]))
 
+(m/set-current-implementation :vectorz)
+
 (defn- in-edge-buffer?
   "Returns true if give [row col] is within the buffer region defined
   by buffer-size. The buffer size is the thickness (pixel) of the edge
@@ -3950,6 +4045,8 @@ this functionality.
             [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
             [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]))
 
+(m/set-current-implementation :vectorz)
+
 ;;TODO refactor multi-methods landfire-layer weather, ignition-layer, ignition-mask-layer
 ;; to the same function
 
@@ -3995,9 +4092,9 @@ this functionality.
                  [layer-name
                   (if (map? source)
                     (-> (landfire-layer db-spec source)
-                        (convert/to-imperial source layer-name))
+                        (convert/to-imperial! source layer-name))
                     (-> (postgis-raster-to-matrix db-spec source)
-                        (convert/to-imperial {:units :metric} layer-name)))])))
+                        (convert/to-imperial! {:units :metric} layer-name)))])))
         layer-names))
 
 ;;-----------------------------------------------------------------------------
@@ -4062,7 +4159,7 @@ this functionality.
                (let [weather-spec (get config weather-name)]
                  (when (map? weather-spec)
                    [weather-name (-> (weather config weather-spec)
-                                     (convert/to-imperial weather-spec weather-name))]))))
+                                     (convert/to-imperial! weather-spec weather-name))]))))
         weather-names))
 
 ;;-----------------------------------------------------------------------------
@@ -4326,9 +4423,8 @@ are meant to be in metric, you must include an entry for the units:
   [config]
   (into config
         (map (fn [[layer {:keys [units range] :as spec}]]
-               (if (= units :metric)
-                 (let [convert-fn (conversion-table layer)]
-                   [layer (assoc spec :range (map convert-fn range))])
+               (if-let [converter (get-in conversion-table [layer units])]
+                 [layer (assoc spec :range (map converter range))]
                  [layer spec])))
         config))
 

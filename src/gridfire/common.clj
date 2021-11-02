@@ -1,7 +1,8 @@
 (ns gridfire.common
-  (:require
-   [clojure.core.matrix :as m]
-   [gridfire.perturbation :as perturbation]))
+  (:require [clojure.core.matrix :as m]
+            [gridfire.perturbation :as perturbation]))
+
+(m/set-current-implementation :vectorz)
 
 (defn matrix-value-at ^double
   [[i j] ^double global-clock matrix]
