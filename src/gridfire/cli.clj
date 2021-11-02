@@ -1,30 +1,35 @@
 ;; [[file:../../org/GridFire.org::command-line-interface][command-line-interface]]
 (ns gridfire.cli
   (:gen-class)
-  (:require [clojure.edn           :as edn]
+  (:require [clojure.core.async    :refer [<!!]]
+            [clojure.edn           :as edn]
             [clojure.java.io       :as io]
             [clojure.tools.cli     :refer [parse-opts]]
-            [gridfire.utils.server :refer [hostname?
-                                           throw-message]]
             [gridfire.config       :as config]
             [gridfire.core         :as gridfire]
-            [gridfire.server       :as server]))
+            [gridfire.server       :as server]
+            [gridfire.utils.server :refer [hostname? throw-message]]))
+
+(set! *unchecked-math* :warn-on-boxed)
 
 ;;===========================================================
 ;; Argument Processing
 ;;===========================================================
 
-(defn all-required-keys? [arguments config-params]
+(defn all-required-keys? [arguments options]
   (or (seq arguments)
-      (every? config-params [:server-config :host :port])
-      (:elmfire-data config-params)))
+      (every? options [:server-config :host :port])
+      (:elmfire-data options)))
 
 (defn process-options [arguments {:keys [server-config] :as options}]
   (cond (not (all-required-keys? arguments options))
-        (throw-message (str "For gridfire server mode, please include:\n"
+        (throw-message (str "For gridfire cli mode, include "
+                            "one or more gridfire.edn files.\n"
+                            "For gridfire server mode, include these args: "
                             "--server-config --host --port\n"
-                            "For converting elmfire.data to gridfire.edn, please include:\n"
+                            "For converting elmfire.data to gridfire.edn, include this arg: "
                             "--elmfire-data"))
+
         server-config
         (let [config-file-params  (edn/read-string (slurp server-config))
               command-line-params (dissoc options :server-config)]
@@ -41,6 +46,7 @@
   [["-c" "--server-config CONFIG" "Server config file"
     :validate [#(.exists  (io/file %)) "The provided --server-config does not exist."
                #(.canRead (io/file %)) "The provided --server-config is not readable."]]
+
    ["-h" "--host HOST" "Host domain name"
     :validate [hostname? "The provided --host is invalid."]]
 
@@ -48,19 +54,19 @@
     :parse-fn #(if (int? %) % (Integer/parseInt %))
     :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
 
-   ["-e" "--elmfire-data FILE" "Path to an elmfire.data file."
+   ["-e" "--elmfire-data FILE" "Path to an elmfire.data file"
     :validate [#(.exists  (io/file %)) "The provided --elmfire-data does not exist."
                #(.canRead (io/file %)) "The provided --elmfire-data is not readable."]]
 
    ["-v" "--verbose" "Flag for controlling elmfire.data conversion output params"]
 
-   ["-o" "--override-config OVERRIDE" "Path to overide.edn file"
+   ["-o" "--override-config OVERRIDE" "Path to override.edn file"
     :validate [#(.exists  (io/file %)) "The provided --override-config does not exist."
                #(.canRead (io/file %)) "The provided --override-config is not readable."]]])
 
 (def program-banner
   (str "gridfire: Launch fire spread simulations via config files or in server mode.\n"
-       "Copyright © 2011-2021 Spatial Informatics Group, LLC.\n"))
+       "Copyright © 2014-2021 Spatial Informatics Group, LLC.\n"))
 
 (defn -main
   [& args]
@@ -75,24 +81,24 @@
                         (catch Exception e
                           (ex-message e)))]
     (cond
-      (or (seq errors) (and (empty? options) (empty? arguments)))
+      (seq errors)
       (do
         (run! println errors)
         (println (str "\nUsage:\n" summary)))
 
-      (seq arguments)
-      (doseq [config-file arguments]
-        (gridfire/process-config-file! (edn/read-string (slurp config-file))))
-
       (string? config-params)
       (do
         (println config-params)
-        (println (str "Usage:\n" summary)))
+        (println (str "\nUsage:\n" summary)))
+
+      (:elmfire-data options)
+      (config/convert-config! (:elmfire-data options) (:override-config options))
 
       (:server-config options)
-      (server/start-server! config-params)
+      (<!! (server/start-server! config-params))
 
       :else
-      (config/convert-config! config-params))
-    (shutdown-agents)))
+      (doseq [config-file arguments]
+        (gridfire/process-config-file! config-file)))
+    (System/exit 0)))
 ;; command-line-interface ends here

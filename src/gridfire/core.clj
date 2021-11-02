@@ -1,20 +1,20 @@
 ;; [[file:../../org/GridFire.org::gridfire-core][gridfire-core]]
 (ns gridfire.core
-  (:gen-class)
   (:require [clojure.core.matrix      :as m]
             [clojure.core.reducers    :as r]
             [clojure.data.csv         :as csv]
+            [clojure.edn              :as edn]
             [clojure.java.io          :as io]
-            [clojure.spec.alpha       :as s]
+            [clojure.spec.alpha       :as spec]
             [clojure.string           :as str]
             [gridfire.binary-output   :as binary]
             [gridfire.common          :refer [calc-emc get-neighbors in-bounds?]]
-            [gridfire.crown-fire      :refer [m->ft]]
+            [gridfire.conversion      :refer [m->ft]]
             [gridfire.fetch           :as fetch]
             [gridfire.fire-spread     :refer [rothermel-fast-wrapper run-fire-spread]]
             [gridfire.perturbation    :as perturbation]
             [gridfire.random-ignition :as random-ignition]
-            [gridfire.spec.config     :as spec]
+            [gridfire.spec.config     :as config-spec]
             [gridfire.utils.random    :refer [draw-samples]]
             [magellan.core            :refer [make-envelope
                                               matrix-to-raster
@@ -187,7 +187,7 @@
       (output-png config filtered-matrix name envelope simulation-id output-time))))
 
 (defn process-output-layers!
-  [{:keys [output-layers ouput-geotiffs? output-pngs?] :as config}
+  [{:keys [output-layers output-geotiffs? output-pngs?] :as config}
    {:keys [global-clock burn-time-matrix] :as fire-spread-results}
    envelope
    simulation-id]
@@ -207,7 +207,7 @@
           (let [matrix (if (= layer "burn_history")
                          (to-color-map-values layer global-clock)
                          (fire-spread-results layer))]
-            (when ouput-geotiffs?
+            (when output-geotiffs?
              (output-geotiff config matrix name envelope simulation-id))
             (when output-pngs?
              (output-png config matrix name envelope simulation-id))))))))
@@ -323,10 +323,10 @@
                               (Random. random-seed)
                               (Random.))))
 
-(defn add-ignitions-csv
-  [{:keys [ignitions-csv] :as inputs}]
-  (if ignitions-csv
-    (let [ignitions (with-open [reader (io/reader ignitions-csv)]
+(defn add-ignition-csv
+  [{:keys [ignition-csv] :as inputs}]
+  (if ignition-csv
+    (let [ignitions (with-open [reader (io/reader ignition-csv)]
                       (doall (rest (csv/read-csv reader))))]
       (assoc inputs
              :ignition-rows        (mapv #(Integer/parseInt (get % 0)) ignitions)
@@ -394,7 +394,7 @@
   (-> config
       (add-input-layers)
       (add-misc-params)
-      (add-ignitions-csv)
+      (add-ignition-csv)
       (add-sampled-params)
       (add-weather-params)
       (add-ignitable-sites)
@@ -493,7 +493,7 @@
           (write-raster (str (name layer) outfile-suffix ".tif"))))))
 
 (defn write-burn-probability-layer!
-  [{:keys [output-burn-probability simulations envelope ouptut-png?] :as inputs} {:keys [burn-count-matrix]}]
+  [{:keys [output-burn-probability simulations envelope output-pngs?] :as inputs} {:keys [burn-count-matrix]}]
   (when-let [timestep output-burn-probability]
     (let [output-name "burn_probability"]
       (if (int? timestep)
@@ -504,7 +504,7 @@
             (output-png inputs probability-matrix output-name envelope nil output-time)))
         (let [probability-matrix (m/emap #(/ % simulations) burn-count-matrix)]
           (output-geotiff inputs probability-matrix output-name envelope)
-          (when ouptut-png?
+          (when output-pngs?
            (output-png inputs probability-matrix output-name envelope)))))))
 
 (defn write-flame-length-sum-layer!
@@ -562,14 +562,16 @@
              (csv/write-csv out-file))))))
 
 (defn process-config-file!
-  [config]
-  (if-not (s/valid? ::spec/config config)
-    (s/explain ::spec/config config)
-    (let [inputs (load-inputs config)]
-      (if (seq (:ignitable-sites inputs))
-        (let [outputs (run-simulations! inputs)]
-          (write-landfire-layers! inputs)
-          (write-aggregate-layers! inputs outputs)
-          (write-csv-outputs! inputs outputs))
-        (log-str "Could not run simulation. No valid ignition sites")))))
+  [config-file]
+  (let [config (edn/read-string (slurp config-file))]
+    (if-not (spec/valid? ::config-spec/config config)
+      (spec/explain ::config-spec/config config)
+      (let [inputs (load-inputs config)]
+        (if (seq (:ignitable-sites inputs))
+          (let [outputs (run-simulations! inputs)]
+            (write-landfire-layers! inputs)
+            (write-aggregate-layers! inputs outputs)
+            (write-csv-outputs! inputs outputs))
+          (log-str "Could not run simulation. No valid ignition sites. Config:" config-file))))
+    (shutdown-agents)))
 ;; gridfire-core ends here

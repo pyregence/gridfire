@@ -19,9 +19,8 @@
   [config]
   (into config
         (map (fn [[layer {:keys [units range] :as spec}]]
-               (if (= units :metric)
-                 (let [convert-fn (conversion-table layer)]
-                   [layer (assoc spec :range (map convert-fn range))])
+               (if-let [converter (get-in conversion-table [layer units])]
+                 [layer (assoc spec :range (map converter range))]
                  [layer spec])))
         config))
 
