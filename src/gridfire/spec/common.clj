@@ -69,7 +69,7 @@
   (s/or :number    number?
         :range-map (s/and (s/keys :req-un [::lo ::hi])
                           (fn [{:keys [lo hi]}]
-                            (apply < (flatten [(val lo) (val hi)]))))))
+                            (apply <= (flatten [(val lo) (val hi)]))))))
 
 ;;=============================================================================
 ;; Layer Coords

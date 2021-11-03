@@ -12,7 +12,7 @@
 ;; Utilities
 ;;=============================================================================
 
-(def ^:dynamic *elmfire-directory-path* "")
+(def ^:dynamic *elmfire-directory-path* ".")
 
 (defn file-path
   ([file-or-directory]
@@ -93,11 +93,12 @@
     (let [ignition-mask-file-path (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY IGNITION_MASK_FILENAME)]
       (assoc config
              :random-ignition
-             {:ignition-mask (when (and USE_IGNITION_MASK (.exists (io/file ignition-mask-file-path)))
-                               {:type   :geotiff
-                                :source ignition-mask-file-path})
-              :edge-buffer   (when EDGEBUFFER
-                               (convert/m->ft EDGEBUFFER))}))
+             (cond-> {}
+               (and USE_IGNITION_MASK (.exists (io/file ignition-mask-file-path)))
+               (assoc :ignition-mask {:type :geotiff :source ignition-mask-file-path})
+
+               EDGEBUFFER
+               (assoc :edge-buffer (convert/m->ft EDGEBUFFER)))))
     (assoc config
            :ignition-layer
            {:type        :geotiff
