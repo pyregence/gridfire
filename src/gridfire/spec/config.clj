@@ -99,9 +99,9 @@
 
 ;; Fuel Moisture
 
-(s/def ::1hr        ::common/layer-coords)
-(s/def ::10hr       ::common/layer-coords)
-(s/def ::100hr      ::common/layer-coords)
+(s/def ::1hr        ::common/number-or-layer-coords)
+(s/def ::10hr       ::common/number-or-layer-coords)
+(s/def ::100hr      ::common/number-or-layer-coords)
 (s/def ::woody      ::common/number-or-layer-coords)
 (s/def ::herbaceous ::common/number-or-layer-coords)
 
@@ -148,7 +148,7 @@
 
 ;; Outputs
 
-(s/def ::output-directory        ::common/file-path)
+(s/def ::output-directory        ::common/writable-directory)
 (s/def ::outfile-suffix          string?)
 (s/def ::output-landfire-inputs? boolean?)
 (s/def ::output-geotiffs?        boolean?)
