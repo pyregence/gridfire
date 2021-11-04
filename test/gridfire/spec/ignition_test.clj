@@ -4,8 +4,8 @@
             [gridfire.spec.config :as config]))
 
 (deftest path-test
-  (is (s/valid? ::config/ignition-layer {:type   :postgis
-                                         :source "/some/path/to.tif"})))
+  (is (s/valid? ::config/ignition-layer {:type   :geotiff
+                                         :source "test/gridfire/resources/asp.tif"})))
 
 (deftest sql-test
   (is (s/valid? ::config/ignition-layer {:type   :postgis
@@ -13,6 +13,6 @@
 
 (deftest burn-value-test
   (is (s/valid? ::config/ignition-layer {:type        :geotiff
-                                         :source      "/some/path/to.tif"
+                                         :source      "test/gridfire/resources/asp.tif"
                                          :burn-values {:burned   1.0
                                                        :unburned -1.0}})))
