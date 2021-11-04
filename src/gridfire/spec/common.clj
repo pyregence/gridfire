@@ -72,6 +72,31 @@
                             (apply < (flatten [(val lo) (val hi)]))))))
 
 ;;=============================================================================
+;; File Access
+;;=============================================================================
+
+(def file-path-regex      #"^(((\.\.){1}/)*|(/){1})?(([\w\-]*)/)*([\w\-\.]+)$")
+(def directory-path-regex #"^(((\.\.){1}/)*|(/){1})?(([\w\-]*)/)*([\w\-]+)/?$")
+
+(s/def ::file-path      (s/and string? #(re-matches file-path-regex %)))
+(s/def ::directory-path (s/and string? #(re-matches directory-path-regex %)))
+
+(defn file-exists? [f]
+  (.exists (io/file f)))
+
+(defn file-readable? [f]
+  (.canRead (io/file f)))
+
+(defn file-writable? [f]
+  (.canWrite (io/file f)))
+
+(s/def ::readable-file (s/and ::file-path file-exists? file-readable?))
+(s/def ::writable-file (s/and ::file-path file-exists? file-writable?))
+
+(s/def ::readable-directory (s/and ::directory-path file-exists? file-readable?))
+(s/def ::writable-directory (s/and ::directory-path file-exists? file-writable?))
+
+;;=============================================================================
 ;; Layer Coords
 ;;=============================================================================
 
@@ -81,7 +106,6 @@
 
 (s/def ::sql (s/and string? #(re-matches postgis-sql-regex %)))
 
-;; FIXME: move File Access section above this one
 (s/def ::geotiff (s/and string? #(re-matches path-to-geotiff-regex %) ::readable-file))
 
 (s/def ::source (s/or :sql     ::sql
@@ -115,31 +139,6 @@
 (s/def ::number-or-layer-coords
   (s/or :number number?
         :raster ::layer-coords))
-
-;;=============================================================================
-;; File Access
-;;=============================================================================
-
-(def file-path-regex      #"^(((\.\.){1}/)*|(/){1})?(([\w\-]*)/)*([\w\-\.]+)$")
-(def directory-path-regex #"^(((\.\.){1}/)*|(/){1})?(([\w\-]*)/)*([\w\-]+)/?$")
-
-(s/def ::file-path      (s/and string? #(re-matches file-path-regex %)))
-(s/def ::directory-path (s/and string? #(re-matches directory-path-regex %)))
-
-(defn file-exists? [f]
-  (.exists (io/file f)))
-
-(defn file-readable? [f]
-  (.canRead (io/file f)))
-
-(defn file-writable? [f]
-  (.canWrite (io/file f)))
-
-(s/def ::readable-file (s/and ::file-path file-exists? file-readable?))
-(s/def ::writable-file (s/and ::file-path file-exists? file-writable?))
-
-(s/def ::readable-directory (s/and ::directory-path file-exists? file-readable?))
-(s/def ::writable-directory (s/and ::directory-path file-exists? file-writable?))
 
 ;;=============================================================================
 ;; Macros
