@@ -1,8 +1,7 @@
 (ns gridfire.config-validation-test
   (:require [gridfire.spec.config :as spec]
-            [gridfire.crown-fire :refer [m->ft]]
             [clojure.spec.alpha :as s]
-            [clojure.test :refer [deftest is testing]]))
+            [clojure.test :refer [deftest is]]))
 
 ;;-----------------------------------------------------------------------------
 ;; Config

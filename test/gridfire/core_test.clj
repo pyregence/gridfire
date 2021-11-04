@@ -2,8 +2,8 @@
   (:require [clojure.string         :as str]
             [clojure.test           :refer [deftest is testing use-fixtures]]
             [gridfire.binary-output :as binary]
+            [gridfire.conversion    :refer [m->ft]]
             [gridfire.core          :as gridfire]
-            [gridfire.crown-fire    :refer [m->ft]]
             [gridfire.fetch         :as fetch]
             [gridfire.utils.test    :as utils]))
 
