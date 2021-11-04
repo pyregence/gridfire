@@ -1,7 +1,7 @@
 (ns gridfire.output-test
-  (:require [clojure.java.io :as io]
-            [clojure.test :refer [deftest is testing use-fixtures]]
-            [gridfire.core :refer [process-config-file!]]
+  (:require [clojure.java.io     :as io]
+            [clojure.test        :refer [deftest is use-fixtures]]
+            [gridfire.core       :refer [run-gridfire!]]
             [gridfire.utils.test :as utils]))
 
 ;;-----------------------------------------------------------------------------
@@ -62,34 +62,34 @@
 (deftest output_burn_probability_test
   (let [config (merge test-config-base
                       {:output-burn-probability :final})
-        _      (process-config-file! config)]
+        _      (run-gridfire! config)]
 
     (is (.exists (io/file "test/output/burn_probability.tif")))))
 
 (deftest output_flame_length_sum_test
   (let [config (merge test-config-base
-                      {:output-flame-length-sum true})
-        _      (process-config-file! config)]
+                      {:output-flame-length-sum? true})
+        _      (run-gridfire! config)]
 
     (is (.exists (io/file "test/output/flame_length_sum.tif")))))
 
 (deftest output_flame_length_max_test
   (let [config (merge test-config-base
-                      {:output-flame-length-max true})
-        _      (process-config-file! config)]
+                      {:output-flame-length-max? true})
+        _      (run-gridfire! config)]
 
     (is (.exists (io/file "test/output/flame_length_max.tif")))))
 
 (deftest output_burn_count_test
   (let [config (merge test-config-base
-                      {:output-burn-count true})
-        _      (process-config-file! config)]
+                      {:output-burn-count? true})
+        _      (run-gridfire! config)]
 
     (is (.exists (io/file "test/output/burn_count.tif")))))
 
 (deftest output_spot_count_test
   (let [config (merge test-config-base
-                      {:output-spot-count true})
-        _      (process-config-file! config)]
+                      {:output-spot-count? true})
+        _      (run-gridfire! config)]
 
     (is (.exists (io/file "test/output/spot_count.tif")))))
