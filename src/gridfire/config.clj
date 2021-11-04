@@ -165,7 +165,7 @@
                               (get elmfire->gridfire))
            :range        [(get config (str "PDF_LOWER_LIMIT-" index))
                           (get config (str "PDF_UPPER_LIMIT-" index))]}
-    (layers-in-metric key) (assoc :units :metric)))
+    (layers-in-metric key) (assoc :units :metric))) ; FIXME: :units is not in gridfire.spec.config/::perturbation
 
 (defn perturbation-key
   [config index]
@@ -320,12 +320,12 @@
   (->> {:cell-size                       (convert/m->ft COMPUTATIONAL_DOMAIN_CELLSIZE)
         :srid                            (or A_SRS "EPSG:32610")
         :max-runtime                     (convert/sec->min SIMULATION_TSTOP)
-        :simulations                     10 ; FIXME: use NUM_ENSEMBLE_MEMBERS or gridfire_base.edn
+        :simulations                     10 ; FIXME: use NUM_ENSEMBLE_MEMBERS or override.edn
         :random-seed                     SEED
         :foliar-moisture                 FOLIAR_MOISTURE_CONTENT
         :ellipse-adjustment-factor       1.0
         :parallel-strategy               :between-fires
-        :fractional-distance-combination :sum}
+        :fractional-distance-combination :sum} ; FIXME: unused parameter
        (process-landfire-layers data)
        (process-ignition data)
        (process-weather data)
