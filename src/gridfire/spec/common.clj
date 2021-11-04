@@ -119,19 +119,9 @@
 
 (s/def ::multiplier number?)
 
-(s/def ::spatial-type #{:global :pixel})
-
-(s/def ::range ::number-range)
-
-(s/def ::frequency integer?)
-
-(s/def ::perturbation
-  (s/keys :req-un [::spatial-type ::range]
-          :opt-un [::frequency]))
-
 (s/def ::postgis-or-geotiff
   (s/keys :req-un [::source ::type]
-          :opt-un [::cell-size ::unit ::multiplier ::perturbation]))
+          :opt-un [::cell-size ::unit ::multiplier]))
 
 (s/def ::layer-coords (s/or :sql ::sql
                             :map ::postgis-or-geotiff))

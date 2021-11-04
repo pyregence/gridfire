@@ -1,6 +1,7 @@
 (ns gridfire.spec.config
-  (:require [clojure.spec.alpha   :as s]
-            [gridfire.spec.common :as common]))
+  (:require [clojure.spec.alpha          :as s]
+            [gridfire.spec.common        :as common]
+            [gridfire.spec.perturbations :as perturbations]))
 
 ;;=============================================================================
 ;; Required Keys
@@ -146,6 +147,19 @@
                    ::crown-fire-spotting-percent]
           :opt-un [::surface-fire-spotting]))
 
+;; Perturbations
+
+(s/def ::perturbations
+  (common/one-or-more-keys
+   [::perturbations/canopy-base-height
+    ::perturbations/canopy-cover
+    ::perturbations/canopy-height
+    ::perturbations/crown-bulk-density
+    ::perturbations/temperature
+    ::perturbations/relative-humidity
+    ::perturbations/wind-speed-20ft
+    ::perturbations/wind-direction]))
+
 ;; Outputs
 
 (s/def ::output-directory        ::common/writable-directory)
@@ -209,6 +223,7 @@
              ::relative-humidity
              ::fuel-moisture-layers
              ::spotting
+             ::perturbations
              ::output-directory
              ::outfile-suffix
              ::output-landfire-inputs?
