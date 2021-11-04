@@ -1,6 +1,5 @@
 (ns gridfire.config-test
   (:require [clojure.spec.alpha   :as s]
-            [clojure.java.io      :as io]
             [clojure.test         :refer [deftest is]]
             [gridfire.config      :as config]
             [gridfire.spec.config :as spec]))

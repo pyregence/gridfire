@@ -1,5 +1,5 @@
 (ns gridfire.fetch-ignition-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.test   :refer [deftest is testing]]
             [gridfire.fetch :as fetch]))
 
 ;;-----------------------------------------------------------------------------

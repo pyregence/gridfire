@@ -1,10 +1,9 @@
 (ns gridfire.conversion-test
-  (:require [clojure.test :refer [deftest is testing]]
-            [gridfire.conversion :as convert]
+  (:require [clojure.core.matrix      :as m]
+            [clojure.test             :refer [deftest is testing]]
+            [gridfire.conversion      :as convert]
             [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
-            [gridfire.utils.test :as utils]
-
-            [clojure.core.matrix :as m]))
+            [gridfire.utils.test      :as utils]))
 
 (def resources-path "test/gridfire/resources/weather-test")
 

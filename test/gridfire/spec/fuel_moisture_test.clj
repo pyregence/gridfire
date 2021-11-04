@@ -1,8 +1,8 @@
 (ns gridfire.spec.fuel-moisture-test
-  (:require [clojure.spec.alpha :as s]
-            [clojure.test :refer [deftest is]]
+  (:require [clojure.spec.alpha   :as s]
+            [clojure.test         :refer [deftest is]]
             [gridfire.spec.config :as config]
-            [gridfire.utils.test :as utils]))
+            [gridfire.utils.test  :as utils]))
 
 (def resources-path "test/gridfire/resources/weather-test")
 

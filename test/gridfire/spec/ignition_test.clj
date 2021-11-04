@@ -1,6 +1,6 @@
 (ns gridfire.spec.ignition-test
-  (:require [clojure.spec.alpha :as s]
-            [clojure.test :refer [deftest is]]
+  (:require [clojure.spec.alpha   :as s]
+            [clojure.test         :refer [deftest is]]
             [gridfire.spec.config :as config]))
 
 (deftest path-test

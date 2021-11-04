@@ -1,8 +1,8 @@
 (ns gridfire.surface-fire-test
-  (:require [clojure.test :refer :all]
-            [gridfire.fuel-models :refer [fuel-models build-fuel-model moisturize]]
-            [gridfire.surface-fire :refer :all]
-            [gridfire.conversion :refer [ft->m]]
+  (:require [clojure.test                :refer :all]
+            [gridfire.fuel-models        :refer [fuel-models build-fuel-model moisturize]]
+            [gridfire.surface-fire       :refer :all]
+            [gridfire.conversion         :refer [ft->m]]
             [gridfire.behaveplus-results :refer :all]))
 
 ;; Tests fuel model weighting factors, rothermel equations, and byram's flame length and fire line intensity under fully cured conditions
