@@ -11,7 +11,7 @@
             [gridfire.core                :as gridfire]
             [gridfire.simple-sockets      :as sockets]
             [gridfire.spec.server         :as server-spec]
-            [gridfire.utils.server        :refer [nil-on-error]]
+            [gridfire.utils.server        :refer [nil-on-error throw-message]]
             [triangulum.logging           :refer [log log-str set-log-path!]]
             [triangulum.utils             :refer [parse-as-sh-cmd]]))
 
@@ -118,10 +118,11 @@
           gridfire-output-dir (.getPath (io/file input-deck-path "outputs"))]
       (config/convert-config! elmfire-data-file override-config)
       (send-gridfire-response! request config 2 "Running simulation.")
-      (gridfire/process-config-file! gridfire-edn-file)
-      (copy-post-process-scripts! software-dir gridfire-output-dir)
-      (run-post-process-scripts! request config gridfire-output-dir)
-      [0 "Successful run! Results uploaded to GeoServer!"])
+      (if (gridfire/process-config-file! gridfire-edn-file) ; Returns true on success
+        (do (copy-post-process-scripts! software-dir gridfire-output-dir)
+            (run-post-process-scripts! request config gridfire-output-dir)
+            [0 "Successful run! Results uploaded to GeoServer!"])
+        (throw-message "Simulation failed. No results uploaded to GeoServer.")))
     (catch Exception e
       [1 (str "Processing error: " (ex-message e))])))
 
