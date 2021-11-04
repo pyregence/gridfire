@@ -1,7 +1,7 @@
 (ns gridfire.spec.fuel-moisture-test
   (:require [clojure.spec.alpha :as s]
             [clojure.test :refer [deftest is]]
-            [gridfire.spec.fuel-moisture :as fuel-moisture]
+            [gridfire.spec.config :as config]
             [gridfire.utils.test :as utils]))
 
 (def resources-path "test/gridfire/resources/weather-test")
@@ -17,4 +17,4 @@
                                     :source (utils/in-file-path resources-path "mlw_to_sample.tif")}
                        :herbaceous {:type   :geotiff
                                     :source (utils/in-file-path resources-path "mlh_to_sample.tif")}}}]
-    (is (s/valid? ::fuel-moisture/fuel-moisture-layers config))))
+    (is (s/valid? ::config/fuel-moisture-layers config))))
