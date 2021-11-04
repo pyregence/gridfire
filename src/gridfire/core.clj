@@ -18,18 +18,16 @@
             [gridfire.spec.config     :as config-spec]
             [gridfire.utils.random    :refer [draw-samples]]
             [magellan.core            :refer [make-envelope
-                                              matrix-to-raster
-                                              register-new-crs-definitions-from-properties-file!
-                                              write-raster]]
-            [matrix-viz.core          :refer [save-matrix-as-png]]
+                                              register-new-crs-definitions-from-properties-file!]]
             [taoensso.tufte           :as tufte]
             [triangulum.logging       :refer [log log-str]])
   (:import java.util.Random))
 
 (m/set-current-implementation :vectorz)
 
-(register-new-crs-definitions-from-properties-file! "CUSTOM"
-                                                    (io/resource "custom_projections.properties"))
+#_(set! *unchecked-math* :warn-on-boxed)
+
+(register-new-crs-definitions-from-properties-file! "CUSTOM" (io/resource "custom_projections.properties"))
 
 (defn cells-to-acres
   [cell-size num-cells]
@@ -118,51 +116,6 @@
           layer-matrix
           burn-time-matrix))
 
-(defn output-filename [name outfile-suffix simulation-id output-time ext]
-  (as-> [name outfile-suffix simulation-id (when output-time (str "t" output-time))] $
-    (remove str/blank? $)
-    (str/join "_" $)
-    (str $ ext)))
-
-(defn output-geotiff
-  ([config matrix name envelope]
-   (output-geotiff config matrix name envelope nil nil))
-
-  ([config matrix name envelope simulation-id]
-   (output-geotiff config matrix name envelope simulation-id nil))
-
-  ([{:keys [output-directory outfile-suffix] :as config}
-    matrix name envelope simulation-id output-time]
-   (let [file-name (output-filename name
-                                    outfile-suffix
-                                    (str simulation-id)
-                                    output-time
-                                    ".tif")]
-     (-> (matrix-to-raster name matrix envelope)
-         (write-raster (if output-directory
-                         (str/join "/" [output-directory file-name])
-                         file-name))))))
-
-(defn output-png
-  ([config matrix name envelope]
-   (output-png config matrix name envelope nil nil))
-
-  ([config matrix name envelope simulation-id]
-   (output-png config matrix name envelope simulation-id nil))
-
-  ([{:keys [output-directory outfile-suffix]}
-    matrix name envelope simulation-id output-time]
-   (let [file-name (output-filename name
-                                    outfile-suffix
-                                    (str simulation-id)
-                                    output-time
-                                    ".png")]
-     (save-matrix-as-png :color 4 -1.0
-                         matrix
-                         (if output-directory
-                           (str/join "/" [output-directory file-name])
-                           (file-name))))))
-
 (def layer-name->matrix
   [["fire_spread"         :fire-spread-matrix]
    ["flame_length"        :flame-length-matrix]
@@ -184,12 +137,12 @@
                             (to-color-map-values layer output-time)
                             (fire-spread-results layer))
           filtered-matrix (layer-snapshot burn-time-matrix matrix output-time)]
-      (output-geotiff config filtered-matrix name envelope simulation-id output-time)
-      (output-png config filtered-matrix name envelope simulation-id output-time))))
+      (outputs/output-geotiff config filtered-matrix name envelope simulation-id output-time)
+      (outputs/output-png config filtered-matrix name envelope simulation-id output-time))))
 
 (defn process-output-layers!
   [{:keys [output-layers output-geotiffs? output-pngs?] :as config}
-   {:keys [global-clock burn-time-matrix] :as fire-spread-results}
+   {:keys [global-clock] :as fire-spread-results}
    envelope
    simulation-id]
   (let [layers (if output-layers
@@ -209,9 +162,9 @@
                          (to-color-map-values layer global-clock)
                          (fire-spread-results layer))]
             (when output-geotiffs?
-             (output-geotiff config matrix name envelope simulation-id))
+             (outputs/output-geotiff config matrix name envelope simulation-id))
             (when output-pngs?
-             (output-png config matrix name envelope simulation-id))))))))
+             (outputs/output-png config matrix name envelope simulation-id))))))))
 
 (defn process-burn-count!
   [{:keys [fire-spread-matrix burn-time-matrix global-clock]}

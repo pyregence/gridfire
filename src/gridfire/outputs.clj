@@ -1,4 +1,59 @@
-(ns gridfire.outputs)
+(ns gridfire.outputs
+  (:require [clojure.core.matrix :as m]
+            [clojure.data.csv    :as csv]
+            [clojure.java.io     :as io]
+            [clojure.string      :as str]
+            [magellan.core       :refer [matrix-to-raster write-raster]]
+            [matrix-viz.core     :refer [save-matrix-as-png]]))
+
+(m/set-current-implementation :vectorz)
+
+#_(set! *unchecked-math* :warn-on-boxed)
+
+(defn output-filename [name outfile-suffix simulation-id output-time ext]
+  (as-> [name outfile-suffix simulation-id (when output-time (str "t" output-time))] $
+    (remove str/blank? $)
+    (str/join "_" $)
+    (str $ ext)))
+
+(defn output-geotiff
+  ([config matrix name envelope]
+   (output-geotiff config matrix name envelope nil nil))
+
+  ([config matrix name envelope simulation-id]
+   (output-geotiff config matrix name envelope simulation-id nil))
+
+  ([{:keys [output-directory outfile-suffix] :as config}
+    matrix name envelope simulation-id output-time]
+   (let [file-name (output-filename name
+                                    outfile-suffix
+                                    (str simulation-id)
+                                    output-time
+                                    ".tif")]
+     (-> (matrix-to-raster name matrix envelope)
+         (write-raster (if output-directory
+                         (str/join "/" [output-directory file-name])
+                         file-name))))))
+
+(defn output-png
+  ([config matrix name envelope]
+   (output-png config matrix name envelope nil nil))
+
+  ([config matrix name envelope simulation-id]
+   (output-png config matrix name envelope simulation-id nil))
+
+  ([{:keys [output-directory outfile-suffix]}
+    matrix name envelope simulation-id output-time]
+   (let [file-name (output-filename name
+                                    outfile-suffix
+                                    (str simulation-id)
+                                    output-time
+                                    ".png")]
+     (save-matrix-as-png :color 4 -1.0
+                         matrix
+                         (if output-directory
+                           (str/join "/" [output-directory file-name])
+                           (file-name))))))
 
 (defn write-landfire-layers!
   [{:keys [output-landfire-inputs? outfile-suffix landfire-rasters envelope]}]
