@@ -1,7 +1,6 @@
 (ns gridfire.output-test
   (:require [clojure.java.io     :as io]
             [clojure.test        :refer [deftest is use-fixtures]]
-            [gridfire.core       :as core]
             [gridfire.utils.test :as utils]))
 
 ;;-----------------------------------------------------------------------------
