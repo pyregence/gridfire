@@ -74,21 +74,15 @@
                        config-file-path
                        (spec/explain-str ::config-spec/config config))))))
 
-(defn run-gridfire!
-  [config]
-  (let [inputs (load-inputs! config)]
-    (if (seq (:ignitable-sites inputs))
-      (let [outputs (run-simulations! inputs)]
-        (outputs/write-landfire-layers! inputs)
-        (outputs/write-aggregate-layers! outputs)
-        (outputs/write-csv-outputs! outputs))
-      (log-str "Could not run simulation. No valid ignition sites. Config:" (:config-file-name config)))))
-
 (defn process-config-file!
-  [config-file]
-  (let [config (edn/read-string (slurp config-file))]
-    (if-not (spec/valid? ::config-spec/config config)
-      (spec/explain ::config-spec/config config)
-      (run-gridfire! (assoc config :config-file-name config-file)))
-    (shutdown-agents)))
+  [config-file-path]
+  (try
+    (some-> config-file-path
+            (load-config!)
+            (load-inputs!)
+            (ensure-ignitable-sites config-file-path)
+            (run-simulations!)
+            (write-outputs!))
+    (catch Exception e
+      (log-str (ex-message e)))))
 ;; gridfire-core ends here
