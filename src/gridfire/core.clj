@@ -76,12 +76,12 @@
 
 (defn run-gridfire!
   [config]
-  (let [inputs (outputs/load-inputs config)]
+  (let [inputs (load-inputs! config)]
     (if (seq (:ignitable-sites inputs))
       (let [outputs (run-simulations! inputs)]
         (outputs/write-landfire-layers! inputs)
-        (outputs/write-aggregate-layers! inputs outputs)
-        (outputs/write-csv-outputs! inputs outputs))
+        (outputs/write-aggregate-layers! outputs)
+        (outputs/write-csv-outputs! outputs))
       (log-str "Could not run simulation. No valid ignition sites. Config:" (:config-file-name config)))))
 
 (defn process-config-file!

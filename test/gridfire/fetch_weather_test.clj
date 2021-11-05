@@ -2,8 +2,8 @@
   (:require [clojure.core.matrix :as m]
             [clojure.java.jdbc   :as jdbc]
             [clojure.test        :refer [deftest is]]
-            [gridfire.core       :as gridfire]
             [gridfire.fetch      :as fetch]
+            [gridfire.inputs     :as inputs]
             [magellan.core       :refer [read-raster]])
   (:import java.util.Random))
 
@@ -145,7 +145,7 @@
                               {:temperature [0 100]
                                :simulations 10})
         rand-generator (Random. (:random-seed config))
-        results        (gridfire/get-weather config rand-generator :temperature {})]
+        results        (inputs/get-weather config rand-generator :temperature {})]
 
     (is (vector results))
 
@@ -157,7 +157,7 @@
                               {:temperature tmp-list
                                :simulations 10})
         rand-generator (Random. (:random-seed config))
-        results        (gridfire/get-weather config rand-generator :temperature {})]
+        results        (inputs/get-weather config rand-generator :temperature {})]
 
     (is (vector results))
 
@@ -170,7 +170,7 @@
                               {:temperature 42
                                :simulations 10})
         rand-generator (Random. (:random-seed config))
-        results        (gridfire/get-weather config rand-generator :temperature {})]
+        results        (inputs/get-weather config rand-generator :temperature {})]
 
     (is (vector results))
 
