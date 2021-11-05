@@ -7,10 +7,12 @@
             [gridfire.perturbation    :as perturbation]
             [gridfire.random-ignition :as random-ignition]
             [gridfire.utils.random    :refer [draw-samples]]
-            [magellan.core            :refer [make-envelope]])
+            [magellan.core            :refer [make-envelope register-new-crs-definitions-from-properties-file!]])
   (:import java.util.Random))
 
 (m/set-current-implementation :vectorz)
+
+(register-new-crs-definitions-from-properties-file! "CUSTOM" (io/resource "custom_projections.properties"))
 
 #_(set! *unchecked-math* :warn-on-boxed)
 

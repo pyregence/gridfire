@@ -32,6 +32,7 @@
     (sample-at here global-clock matrix-or-val multiplier perturb-info)
     matrix-or-val))
 
+;; FIXME: unused
 (defn calc-emc
   "Computes the Equilibrium Moisture Content (EMC) from rh (relative
    humidity in %) and temp (temperature in F)."

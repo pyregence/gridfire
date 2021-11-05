@@ -136,6 +136,18 @@
   [^double minutes]
   (* minutes 60.0))
 
+(defn hour->min
+  "Converts hours to minutes."
+  ^double
+  [^long hours]
+  (* hours 60.0))
+
+(defn min->hour
+  "Converts minutes to hours. (rounds down)"
+  ^long
+  [^double minutes]
+  (unchecked-divide-int minutes 60))
+
 (defn convert-date-string
   "Convert a date string between two formats."
   [date-str from-format to-format]
@@ -167,6 +179,16 @@
     (->> (map str/capitalize (rest words))
          (cons (first words))
          (str/join ""))))
+
+(defn snake->kebab
+  "Converts snake_string to kebab-string."
+  [snake-string]
+  (str/replace snake-string #"_" "-"))
+
+(defn kebab->snake
+  "Converts kebab-string to snake_string."
+  [kebab-string]
+  (str/replace kebab-string #"-" "_"))
 
 (def conversion-table
   {:elevation          {:metric m->ft}

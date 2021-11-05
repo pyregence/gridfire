@@ -63,54 +63,50 @@
           (write-raster (str (name layer) outfile-suffix ".tif"))))))
 
 (defn write-burn-probability-layer!
-  [{:keys [output-burn-probability simulations envelope output-pngs?] :as inputs} {:keys [burn-count-matrix]}]
+  [{:keys [output-burn-probability simulations envelope output-pngs? burn-count-matrix] :as outputs}]
   (when-let [timestep output-burn-probability]
     (let [output-name "burn_probability"]
       (if (int? timestep)
         (doseq [[band matrix] (map-indexed vector burn-count-matrix)]
           (let [output-time        (* band timestep)
                 probability-matrix (m/emap #(/ % simulations) matrix)]
-            (output-geotiff inputs probability-matrix output-name envelope nil output-time)
-            (output-png inputs probability-matrix output-name envelope nil output-time)))
+            (output-geotiff outputs probability-matrix output-name envelope nil output-time)
+            (output-png outputs probability-matrix output-name envelope nil output-time)))
         (let [probability-matrix (m/emap #(/ % simulations) burn-count-matrix)]
-          (output-geotiff inputs probability-matrix output-name envelope)
+          (output-geotiff outputs probability-matrix output-name envelope)
           (when output-pngs?
-            (output-png inputs probability-matrix output-name envelope)))))))
+            (output-png outputs probability-matrix output-name envelope)))))))
 
 (defn write-flame-length-sum-layer!
-  [{:keys [envelope output-flame-length-sum?] :as inputs}
-   {:keys [flame-length-sum-matrix]}]
+  [{:keys [envelope output-flame-length-sum? flame-length-sum-matrix] :as outputs}]
   (when output-flame-length-sum?
-    (output-geotiff inputs flame-length-sum-matrix "flame_length_sum" envelope)))
+    (output-geotiff outputs flame-length-sum-matrix "flame_length_sum" envelope)))
 
 (defn write-flame-length-max-layer!
-  [{:keys [envelope output-flame-length-max?] :as inputs}
-   {:keys [flame-length-max-matrix]}]
+  [{:keys [envelope output-flame-length-max? flame-length-max-matrix] :as outputs}]
   (when output-flame-length-max?
-    (output-geotiff inputs flame-length-max-matrix "flame_length_max" envelope)))
+    (output-geotiff outputs flame-length-max-matrix "flame_length_max" envelope)))
 
 (defn write-burn-count-layer!
-  [{:keys [envelope output-burn-count?] :as inputs}
-   {:keys [burn-count-matrix]}]
+  [{:keys [envelope output-burn-count? burn-count-matrix] :as outputs}]
   (when output-burn-count?
-    (output-geotiff inputs burn-count-matrix "burn_count" envelope)))
+    (output-geotiff outputs burn-count-matrix "burn_count" envelope)))
 
 (defn write-spot-count-layer!
-  [{:keys [envelope output-spot-count?] :as inputs}
-   {:keys [spot-count-matrix]}]
+  [{:keys [envelope output-spot-count? spot-count-matrix] :as outputs}]
   (when output-spot-count?
-    (output-geotiff inputs spot-count-matrix "spot_count" envelope)))
+    (output-geotiff outputs spot-count-matrix "spot_count" envelope)))
 
 (defn write-aggregate-layers!
-  [inputs outputs]
-  (write-burn-probability-layer! inputs outputs)
-  (write-flame-length-sum-layer! inputs outputs)
-  (write-flame-length-max-layer! inputs outputs)
-  (write-burn-count-layer! inputs outputs)
-  (write-spot-count-layer! inputs outputs))
+  [outputs]
+  (write-burn-probability-layer! outputs)
+  (write-flame-length-sum-layer! outputs)
+  (write-flame-length-max-layer! outputs)
+  (write-burn-count-layer! outputs)
+  (write-spot-count-layer! outputs))
 
 (defn write-csv-outputs!
-  [{:keys [output-csvs? output-directory outfile-suffix]} {:keys [summary-stats]}]
+  [{:keys [output-csvs? output-directory outfile-suffix summary-stats]}]
   (when output-csvs?
     (let [output-filename (str "summary_stats" outfile-suffix ".csv")]
       (with-open [out-file (io/writer (if output-directory
