@@ -14,34 +14,38 @@
 
 (register-new-crs-definitions-from-properties-file! "CUSTOM" (io/resource "custom_projections.properties"))
 
-#_(set! *unchecked-math* :warn-on-boxed)
+(set! *unchecked-math* :warn-on-boxed)
 
 (defn get-envelope
   [config landfire-layers]
-  (let [{:keys [upperleftx upperlefty width height scalex scaley]} (landfire-layers :elevation)]
+  (let [{:keys [^double upperleftx
+                ^double upperlefty
+                ^double width
+                ^double height
+                ^double scalex
+                ^double scaley]} (landfire-layers :elevation)]
     (make-envelope (:srid config)
                    upperleftx
                    (+ upperlefty (* height scaley))
                    (* width scalex)
                    (* -1.0 height scaley))))
 
-;; FIXME: Rename :landfire-rasters to :landfire-matrices everywhere (do we have to pass this parameter around?)
 (defn add-input-layers
   [config]
   (let [landfire-layers (fetch/landfire-layers config)]
     (assoc config
            :envelope             (get-envelope config landfire-layers)
-           :landfire-rasters    (into {}
-                                      (map (fn [[layer-name layer-info]] [layer-name (first (:matrix layer-info))]))
-                                      landfire-layers)
+           :landfire-rasters     (into {}
+                                       (map (fn [[layer-name layer-info]] [layer-name (first (:matrix layer-info))]))
+                                       landfire-layers)
            :ignition-layer       (fetch/ignition-layer config)
            :ignition-mask-layer  (fetch/ignition-mask-layer config)
            :weather-layers       (fetch/weather-layers config)
            :fuel-moisture-layers (fetch/fuel-moisture-layers config))))
 
 (defn cell-size-multiplier
-  [cell-size {:keys [scalex]}]
-  (int (quot (m->ft scalex) cell-size)))  ; FIXME: Should we be using /?
+  ^double [^double cell-size {:keys [^double scalex]}]
+  (/ (m->ft scalex) cell-size)) ; FIXME: scalex isn't in meters for all SRIDs
 
 (defn create-multiplier-lookup
   [{:keys [cell-size weather-layers fuel-moisture-layers]}]
@@ -63,13 +67,14 @@
 
 (defn add-misc-params
   [{:keys [random-seed landfire-rasters] :as inputs}]
-  (assoc inputs
-         :num-rows          (m/row-count (:fuel-model landfire-rasters))
-         :num-cols          (m/column-count (:fuel-model landfire-rasters))
-         :multiplier-lookup (create-multiplier-lookup inputs)
-         :rand-gen          (if random-seed
-                              (Random. random-seed)
-                              (Random.))))
+  (let [fuel-model (:fuel-model landfire-rasters)]
+    (assoc inputs
+           :num-rows          (m/row-count fuel-model)
+           :num-cols          (m/column-count fuel-model)
+           :multiplier-lookup (create-multiplier-lookup inputs)
+           :rand-gen          (if random-seed
+                                (Random. random-seed)
+                                (Random.)))))
 
 (defn add-ignition-csv
   [{:keys [ignition-csv] :as inputs}]
@@ -100,7 +105,8 @@
 
 ;; FIXME: This would be simpler is we flattened fuel-moisture-layers into a single-level map
 
-(defn get-weather [config rand-generator weather-type weather-layers]
+(defn get-weather
+  [config rand-generator weather-type weather-layers]
   (if (contains? weather-layers weather-type)
     (weather-type weather-layers)
     (draw-samples rand-generator (:simulations config) (config weather-type))))

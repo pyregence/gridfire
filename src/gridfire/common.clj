@@ -17,7 +17,7 @@
 
   ([here global-clock matrix multiplier perturb-info]
    (let [cell       (if multiplier
-                      (mapv #(quot ^long % ^long multiplier) here)
+                      (mapv #(long (quot ^long % ^double multiplier)) here)
                       here)
          value-here (matrix-value-at cell global-clock matrix)]
      (if perturb-info
