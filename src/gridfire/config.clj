@@ -173,7 +173,7 @@
        (get elmfire->gridfire)))
 
 (defn extract-perturbations
-  [{:strs [^int NUM_RASTERS_TO_PERTURB] :as config}]
+  [{:strs [^long NUM_RASTERS_TO_PERTURB] :as config}]
   (when (and NUM_RASTERS_TO_PERTURB (pos? NUM_RASTERS_TO_PERTURB))
     (into {}
           (keep (fn [index]

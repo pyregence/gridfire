@@ -33,7 +33,7 @@
          result#)))
 
 (defn run-simulations!
-  [{:keys [^int simulations parallel-strategy] :as inputs}]
+  [{:keys [^long simulations parallel-strategy] :as inputs}]
   (with-multithread-profiling
     (log-str "Running simulations")
     (let [parallel-bin-size (max 1 (quot simulations (.availableProcessors (Runtime/getRuntime))))

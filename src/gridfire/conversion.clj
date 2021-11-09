@@ -146,7 +146,7 @@
   "Converts minutes to hours. (rounds down)"
   ^long
   [^double minutes]
-  (unchecked-divide-int minutes 60))
+  (long (quot minutes 60.0)))
 
 (defn convert-date-string
   "Convert a date string between two formats."

@@ -150,7 +150,7 @@
   temperature: (Farenheit)"
   ^double
   [fuel-moisture temperature]
-  (let [ignition-temperature 320 ;;FIXME should this be a constant?
+  (let [ignition-temperature 320.0 ;;FIXME should this be a constant?
         moisture             (-> fuel-moisture :dead :1hr)
         Q_ig                 (heat-of-preignition (convert/F->C temperature) ignition-temperature moisture)
         X                    (/ (- 400 Q_ig) 10)]
