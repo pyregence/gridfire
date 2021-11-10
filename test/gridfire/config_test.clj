@@ -1,6 +1,6 @@
 (ns gridfire.config-test
   (:require [clojure.spec.alpha   :as s]
-            [clojure.test         :refer [deftest is]]
+            [clojure.test         :refer [deftest is use-fixtures]]
             [gridfire.config      :as config]
             [gridfire.spec.config :as spec]))
 
@@ -16,6 +16,12 @@
 
 (defn in-file-path [filename]
   (str resources-path filename))
+
+(defn with-elmfire-directory-binding [test-fn]
+  (binding [gridfire.config/*elmfire-directory-path* "./test/gridfire/resources/config_test"]
+   (test-fn)))
+
+(use-fixtures :once with-elmfire-directory-binding)
 
 ;;-----------------------------------------------------------------------------
 ;; Tests
@@ -37,59 +43,38 @@
   (is (= "some/directory" (config/convert-val"'some/directory'"))))
 
 (deftest misc-params-test
-  (binding [gridfire.config/*elmfire-directory-path* "./test/gridfire/resources/config_test"]
-    (let [config (config/build-edn (->> (slurp (in-file-path "sample-elmfire.data"))
-                                        config/parse-elmfire))]
-      (s/explain ::spec/config config)
+  (let [config (config/build-edn (->> (slurp (in-file-path "sample-elmfire.data"))
+                                      config/parse-elmfire))]
+    (is (s/valid? ::spec/config config))
 
-      (is (s/valid? ::spec/config config))
+    (is (= 98.43 (:cell-size config)))
 
-      (is (= 98.43 (:cell-size config)))
+    (is (= "EPSG:32610" (:srid config)))
 
-      (is (= "EPSG:32610" (:srid config)))
+    (is (= 10 (:simulations config)))
 
-      (is (= 10 (:simulations config)))
+    (is (= 2021 (:random-seed config)))
 
-      (is (= 2021 (:random-seed config)))
+    (is (= 90.0 (:foliar-moisture config)))
 
-      (is (= 90.0 (:foliar-moisture config)))
+    (is (= 1.0 (:ellipse-adjustment-factor config)))
 
-      (is (= 1.0 (:ellipse-adjustment-factor config)))
+    (is (= :between-fires (:parallel-strategy config)))
 
-      (is (= :between-fires (:parallel-strategy config)))
-
-      (is (= :sum (:fractional-distance-combination config))))))
+    (is (= :sum (:fractional-distance-combination config)))))
 
 ;;-----------------------------------------------------------------------------
 ;; Landfire Layers
 ;;-----------------------------------------------------------------------------
 
 (deftest process-landfire-layers-test
-  (let [data    (->> (in-file-path "sample-elmfire.data")
-                     slurp
-                     config/parse-elmfire)
-        results (:landfire-layers (config/process-landfire-layers data {}))]
+  (binding [gridfire.config/*elmfire-directory-path* "./test/gridfire/resources/config_test"]
+   (let [data    (->> (in-file-path "sample-elmfire.data")
+                      slurp
+                      config/parse-elmfire)
+         results (:landfire-layers (config/process-landfire-layers data {}))]
 
-    (is (= {:aspect             {:type :geotiff :source "fuels_and_topography/asp.tif"}
-            :canopy-base-height {:type       :geotiff
-                                 :source     "fuels_and_topography/cbh.tif"
-                                 :units      :metric
-                                 :multiplier 0.1}
-            :canopy-cover       {:type :geotiff :source "fuels_and_topography/cc.tif"}
-            :canopy-height      {:type       :geotiff
-                                 :source     "fuels_and_topography/ch.tif"
-                                 :units      :metric
-                                 :multiplier 0.1}
-            :crown-bulk-density {:type       :geotiff
-                                 :source     "fuels_and_topography/cbd.tif"
-                                 :units      :metric
-                                 :multiplier 0.01}
-            :elevation          {:type   :geotiff
-                                 :source "fuels_and_topography/dem.tif"
-                                 :units  :metric}
-            :fuel-model         {:type :geotiff :source "fuels_and_topography/fbfm40.tif"}
-            :slope              {:type :geotiff :source "fuels_and_topography/slp.tif"}}
-           results))))
+     (is (s/valid? ::spec/landfire-layers results)))))
 
 
 ;;-----------------------------------------------------------------------------
@@ -116,13 +101,21 @@
                      config/parse-elmfire)
         results (config/process-weather data {})]
 
-    (is (= {:type :geotiff :source "weather/tmpf.tif"} (:temperature results)))
+    (is (s/valid? ::spec/temperature (:temperature results)))
 
-    (is (= {:type :geotiff :source "weather/rh.tif"} (:relative-humidity results)))
+    (is (s/valid? ::spec/relative-humidity (:relative-humidity results)))
 
-    (is (= {:type :geotiff :source "weather/ws.tif"} (:wind-speed-20ft results)))
+    (is (s/valid? ::spec/wind-speed-20ft (:wind-speed-20ft results)))
 
-    (is (= {:type :geotiff :source "weather/wd.tif"} (:wind-from-direction results)))))
+    (is (s/valid? ::spec/wind-from-direction (:wind-from-direction results)))
+
+    (is (= {:type :geotiff :source "test/gridfire/resources/config_test/weather/tmpf.tif"} (:temperature results)))
+
+    (is (= {:type :geotiff :source "test/gridfire/resources/config_test/weather/rh.tif"} (:relative-humidity results)))
+
+    (is (= {:type :geotiff :source "test/gridfire/resources/config_test/weather/ws.tif"} (:wind-speed-20ft results)))
+
+    (is (= {:type :geotiff :source "test/gridfire/resources/config_test/weather/wd.tif"} (:wind-from-direction results)))))
 
 
 ;;-----------------------------------------------------------------------------
@@ -147,7 +140,7 @@
 
     (is (true?  (:output-csvs? results)))
 
-    (is (= "outputs"  (:output-directory results)))))
+    (is (= "test/gridfire/resources/config_test/outputs"  (:output-directory results)))))
 
 
 ;;-----------------------------------------------------------------------------
@@ -159,6 +152,8 @@
                      slurp
                      config/parse-elmfire)
         results (config/extract-perturbations config)]
+
+    (is (s/valid? ::spec/perturbations results))
 
     (is (= {:wind-speed-20ft {:spatial-type :global :range [-2.0 2.0]}
             :wind-direction  {:spatial-type :global :range [-7.5 7.5]}
@@ -197,6 +192,8 @@
                      config/parse-elmfire)
         results (:spotting (config/process-spotting data {}))]
 
+    (is (s/valid? ::spec/spotting results))
+
     (is (= {:mean-distance                {:lo 5.0 :hi 15.0}
             :ws-exp                       {:lo 0.4 :hi 0.7}
             :flin-exp                     {:lo 0.2 :hi 0.4}
@@ -218,9 +215,11 @@
                      config/parse-elmfire)
         results (:fuel-moisture-layers (config/process-fuel-moisture-layers data {}))]
 
-    (is (= {:dead {:1hr   {:type :geotiff :source "weather/m1.tif"}
-                   :10hr  {:type :geotiff :source "weather/m10.tif"}
-                   :100hr {:type :geotiff :source "weather/m100.tif"}}
+    (is (s/valid? ::spec/fuel-moisture-layers results))
+
+    (is (= {:dead {:1hr   {:type :geotiff :source "test/gridfire/resources/config_test/weather/m1.tif"}
+                   :10hr  {:type :geotiff :source "test/gridfire/resources/config_test/weather/m10.tif"}
+                   :100hr {:type :geotiff :source "test/gridfire/resources/config_test/weather/m100.tif"}}
             :live {:woody      80.0
                    :herbaceous 30.0}}
            results))))

@@ -12,7 +12,7 @@
 ;; Utilities
 ;;=============================================================================
 
-(def ^:dynamic *elmfire-directory-path* ".")
+(def ^:dynamic *elmfire-directory-path* "")
 
 (defn file-path
   ([file-or-directory]
