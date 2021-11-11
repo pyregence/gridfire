@@ -1,0 +1,2 @@
+simulation,ignition-row,ignition-col,max-runtime,temperature,relative-humidity,wind-speed-20ft,wind-from-direction,foliar-moisture,ellipse-adjustment-factor,fire-size,flame-length-mean,flame-length-stddev,fire-line-intensity-mean,fire-line-intensity-stddev,crown-fire-size,spot-count
+1,128,128,720,80,0,20,0,0,1.0,53.59694285181359,1.7034707307299786,0.36741610701338795,19.08045215685698,6.234553123325616,0.0,0

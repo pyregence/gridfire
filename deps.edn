@@ -26,6 +26,7 @@
            :repl              {:main-opts ["-e" "(require,'gridfire.core)"
                                            "-e" "(in-ns,'gridfire.core)"
                                            "-r"]}
+           :gen-raster        {:main-opts ["-m" "gridfire.gen-raster"]}
            :make-uberjar      {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
                                :exec-fn      hf.depstar/uberjar
                                :exec-args    {:jar         target/gridfire-2021.11.02.jar
