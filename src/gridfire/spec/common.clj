@@ -135,6 +135,6 @@
 ;;=============================================================================
 
 (defmacro one-or-more-keys [ks]
-  (let [keyset (set (map (comp keyword name) ks))]
+  (let [keyseq (map (comp keyword name) ks)]
     `(s/and (s/keys :opt-un ~ks)
-            #(some ~keyset (keys %)))))
+            #(some % '~keyseq))))
