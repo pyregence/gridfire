@@ -1,6 +1,6 @@
 (ns gridfire.postgis-bridge-test
-  (:require [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]
-            [clojure.test :refer [deftest is]]))
+  (:require [clojure.test            :refer [deftest is]]
+            [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]))
 
 (def db-spec {:classname   "org.postgresql.Driver"
               :subprotocol "postgresql"

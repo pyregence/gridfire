@@ -90,14 +90,15 @@
            USE_IGNITION_MASK EDGEBUFFER IGNITION_MASK_FILENAME]}
    config]
   (if RANDOM_IGNITIONS
-    (let [ignition-mask-file-path (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY IGNITION_MASK_FILENAME)]
-      (assoc config
-             :random-ignition
-             {:ignition-mask (when (and USE_IGNITION_MASK (.exists (io/file ignition-mask-file-path)))
-                               {:type   :geotiff
-                                :source ignition-mask-file-path})
-              :edge-buffer   (when EDGEBUFFER
-                               (convert/m->ft EDGEBUFFER))}))
+    (assoc config
+           :random-ignition
+           (cond-> {}
+             USE_IGNITION_MASK
+             (assoc :ignition-mask {:type   :geotiff
+                                    :source (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY IGNITION_MASK_FILENAME)})
+
+             EDGEBUFFER
+             (assoc :edge-buffer (convert/m->ft EDGEBUFFER))))
     (assoc config
            :ignition-layer
            {:type        :geotiff

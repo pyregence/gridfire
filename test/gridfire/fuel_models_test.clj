@@ -1,7 +1,7 @@
 (ns gridfire.fuel-models-test
-  (:require [clojure.test :refer :all]
-            [gridfire.fuel-models :refer :all]
-            [gridfire.behaveplus-results :refer :all]))
+  (:require [clojure.test                :refer :all]
+            [gridfire.behaveplus-results :refer :all]
+            [gridfire.fuel-models        :refer :all]))
 
 ;; Checks live fuel moisture of extinction and dynamic fuel loading for the S&B40 fuel models under fully cured conditions
 (deftest moisturize-test-dry

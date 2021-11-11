@@ -1,8 +1,7 @@
 (ns gridfire.config-validation-test
-  (:require [gridfire.spec.config :as spec]
-            [gridfire.crown-fire :refer [m->ft]]
-            [clojure.spec.alpha :as s]
-            [clojure.test :refer [deftest is testing]]))
+  (:require [clojure.spec.alpha   :as s]
+            [clojure.test         :refer [deftest is]]
+            [gridfire.spec.config :as spec]))
 
 ;;-----------------------------------------------------------------------------
 ;; Config
@@ -20,17 +19,6 @@
 ;;-----------------------------------------------------------------------------
 ;; Validator tests
 ;;-----------------------------------------------------------------------------
-
-(deftest valid-landfire-geotiff-bacwards-compatable-test
-  (let [config {:aspect             (in-file-path "asp.tif")
-                :canopy-base-height (in-file-path "cbh.tif")
-                :canopy-cover       (in-file-path "cc.tif")
-                :canopy-height      (in-file-path "ch.tif")
-                :crown-bulk-density (in-file-path "cbd.tif")
-                :elevation          (in-file-path "dem.tif")
-                :fuel-model         (in-file-path "fbfm40.tif")
-                :slope              (in-file-path "slp.tif")}]
-    (is (s/valid? ::spec/landfire-layers config))))
 
 (deftest valid-landfire-geotiff-test
   (let [config {:aspect             {:type   :geotiff

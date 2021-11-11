@@ -96,7 +96,7 @@
 (s/def ::random-ignition
   (s/or
    :boolean boolean?
-   :map     (s/keys :req-un [::ignition-mask ::edge-buffer])))
+   :map     (common/one-or-more-keys [::ignition-mask ::edge-buffer])))
 
 ;; Fuel Moisture
 

@@ -69,7 +69,7 @@
   (s/or :number    number?
         :range-map (s/and (s/keys :req-un [::lo ::hi])
                           (fn [{:keys [lo hi]}]
-                            (apply < (flatten [(val lo) (val hi)]))))))
+                            (apply <= (flatten [(val lo) (val hi)]))))))
 
 ;;=============================================================================
 ;; File Access
@@ -135,6 +135,6 @@
 ;;=============================================================================
 
 (defmacro one-or-more-keys [ks]
-  (let [keyset (set (map (comp keyword name) ks))]
+  (let [keyseq (map (comp keyword name) ks)]
     `(s/and (s/keys :opt-un ~ks)
-            #(some ~keyset (keys %)))))
+            #(some % '~keyseq))))

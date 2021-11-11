@@ -1,6 +1,6 @@
 (ns gridfire.spotting-test
-  (:require [gridfire.spotting :as spotting]
-            [clojure.test :refer [deftest is testing]])
+  (:require [clojure.test      :refer [deftest is testing]]
+            [gridfire.spotting :as spotting])
   (:import java.util.Random))
 
 (defn close-to-zero [d]
