@@ -82,14 +82,13 @@
     (let [ignitions (with-open [reader (io/reader ignition-csv)]
                       (doall (rest (csv/read-csv reader))))]
       (assoc inputs
-             :ignition-rows        (mapv #(Integer/parseInt (get % 0)) ignitions)
-             :ignition-cols        (mapv #(Integer/parseInt (get % 1)) ignitions)
+             :ignition-rows        (mapv #(Long/parseLong (get % 0)) ignitions)
+             :ignition-cols        (mapv #(Long/parseLong (get % 1)) ignitions)
              :ignition-start-times (mapv #(Double/parseDouble (get % 2)) ignitions)
              :max-runtimes         (mapv #(Double/parseDouble (get % 3)) ignitions)
              :simulations          (count ignitions)))
     inputs))
 
-;; FIXME: Try using draw-sample within run-simulation instead of draw-samples here.
 (defn add-sampled-params
   [{:keys [rand-gen simulations max-runtime ignition-row ignition-col
            foliar-moisture ellipse-adjustment-factor perturbations ignition-rows
@@ -101,9 +100,7 @@
          :ignition-cols              (or ignition-cols (draw-samples rand-gen simulations ignition-col))
          :foliar-moistures           (draw-samples rand-gen simulations foliar-moisture)
          :ellipse-adjustment-factors (draw-samples rand-gen simulations ellipse-adjustment-factor)
-         :perturbations              (perturbation/draw-samples rand-gen simulations perturbations)));FIXME: shadowed
-
-;; FIXME: This would be simpler is we flattened fuel-moisture-layers into a single-level map
+         :perturbations              (perturbation/draw-samples rand-gen simulations perturbations)))
 
 (defn get-weather
   [config rand-generator weather-type weather-layers]
