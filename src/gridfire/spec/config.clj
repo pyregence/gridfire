@@ -7,11 +7,11 @@
 ;; Required Keys
 ;;=============================================================================
 
-(s/def ::max-runtime     number?)
+(s/def ::max-runtime     ::common/number-sample)
 (s/def ::simulations     integer?)
 (s/def ::srid            string?)
 (s/def ::cell-size       number?)
-(s/def ::foliar-moisture number?)
+(s/def ::foliar-moisture ::common/number-sample)
 
 ;; Weather
 
@@ -51,7 +51,7 @@
 ;;=============================================================================
 
 (s/def ::random-seed                     integer?)
-(s/def ::ellipse-adjustment-factor       number?)
+(s/def ::ellipse-adjustment-factor       ::common/number-sample)
 (s/def ::fractional-distance-combination #{:sum}) ; FIXME This is currently unused.
 (s/def ::parallel-strategy               #{:within-fires :between-fires})
 
