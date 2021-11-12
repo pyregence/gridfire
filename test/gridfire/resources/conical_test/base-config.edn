@@ -1,13 +1,16 @@
 {:landfire-layers           {:aspect             {:type   :geotiff
                                                   :source "test/gridfire/resources/conical_test/zero-raster.tif"}
                              :canopy-base-height {:type   :geotiff
-                                                  :source "test/gridfire/resources/conical_test/zero-raster.tif"}
+                                                  :source "test/gridfire/resources/conical_test/zero-raster.tif"
+                                                  :units  :imperial}
                              :canopy-cover       {:type   :geotiff
                                                   :source "test/gridfire/resources/conical_test/zero-raster.tif"}
                              :canopy-height      {:type   :geotiff
-                                                  :source "test/gridfire/resources/conical_test/zero-raster.tif"}
+                                                  :source "test/gridfire/resources/conical_test/zero-raster.tif"
+                                                  :units  :imperial}
                              :crown-bulk-density {:type   :geotiff
-                                                  :source "test/gridfire/resources/conical_test/zero-raster.tif"}
+                                                  :source "test/gridfire/resources/conical_test/zero-raster.tif"
+                                                  :units  :metric}
                              :elevation          {:type   :geotiff
                                                   :source "test/gridfire/resources/conical_test/zero-raster.tif"}
                              :fuel-model         {:type   :geotiff
@@ -41,7 +44,7 @@
  :foliar-moisture           0   ; (%)
 
  ;; Section 4: Number of simulations and (optional) random seed parameter
- :max-runtime               720 ; 12 hrs   ; (minutes)
+ :max-runtime               1440 ; 24 hrs   ; (minutes)
  :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
  :simulations               1
  :random-seed               1234567890     ; long value (optional)
