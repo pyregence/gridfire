@@ -137,10 +137,10 @@
     (assoc inputs :ignitable-sites ignitable-sites)))
 
 (defn initialize-burn-count-matrix
-  [{:keys [output-burn-probability output-burn-count? max-runtimes num-rows num-cols]}]
+  [{:keys [^double output-burn-probability output-burn-count? ^doubles max-runtimes num-rows num-cols]}]
   (when (or output-burn-count? output-burn-probability)
     (if (int? output-burn-probability)
-      (let [num-bands (inc (quot (apply max max-runtimes) output-burn-probability))]
+      (let [num-bands (inc (long (quot (double (apply max max-runtimes)) output-burn-probability)))]
         (m/zero-array [num-bands num-rows num-cols]))
       (m/zero-array [num-rows num-cols]))))
 
