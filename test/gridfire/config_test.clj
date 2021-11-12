@@ -19,7 +19,7 @@
 
 (defn with-elmfire-directory-binding [test-fn]
   (binding [gridfire.config/*elmfire-directory-path* "./test/gridfire/resources/config_test"]
-   (test-fn)))
+    (test-fn)))
 
 (use-fixtures :once with-elmfire-directory-binding)
 
@@ -69,12 +69,12 @@
 
 (deftest process-landfire-layers-test
   (binding [gridfire.config/*elmfire-directory-path* "./test/gridfire/resources/config_test"]
-   (let [data    (->> (in-file-path "sample-elmfire.data")
-                      slurp
-                      config/parse-elmfire)
-         results (:landfire-layers (config/process-landfire-layers data {}))]
+    (let [data    (->> (in-file-path "sample-elmfire.data")
+                       slurp
+                       config/parse-elmfire)
+          results (:landfire-layers (config/process-landfire-layers data {}))]
 
-     (is (s/valid? ::spec/landfire-layers results)))))
+      (is (s/valid? ::spec/landfire-layers results)))))
 
 
 ;;-----------------------------------------------------------------------------
@@ -87,9 +87,12 @@
                      config/parse-elmfire)
         results (:random-ignition (config/process-ignition data {}))]
 
-    (is (= {:edge-buffer 98.43}
+    (is (= {:ignition-mask
+            {:type :geotiff,
+             :source
+             "test/gridfire/resources/config_test/fuels_and_topography/ignition_mask.tif"},
+            :edge-buffer 98.43}
            results))))
-
 
 ;;-----------------------------------------------------------------------------
 ;; Weather

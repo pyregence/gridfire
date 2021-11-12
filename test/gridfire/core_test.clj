@@ -291,7 +291,7 @@
                                         :source (in-file-path "weather-test/tmpf_to_sample_lower_res.tif")}}
           lookup         (inputs/create-multiplier-lookup (assoc config :weather-layers (fetch/weather-layers config)))]
 
-      (is (= {:temperature 10} lookup)))))
+      (is (= {:temperature 10.0} lookup)))))
 
 ;;-----------------------------------------------------------------------------
 ;; Perturbation Tests
