@@ -17,11 +17,13 @@
 (def ^:private conical-dir       "test/gridfire/resources/conical_test/")
 (def ^:private base-config       (edn/read-string (slurp (str conical-dir "base-config.edn"))))
 (def ^:private summary-stats-csv "summary_stats.csv")
-(def ^:private scenarios         {:fuel-model      [:grass-fbfm40 :timber-litter-fbfm40]
-                                  :canopy-cover    [:zero-raster :ones-raster]
-                                  :slope           [:zero-raster :slp-10 :slp-20 :slp-30]
-                                  :foliar-moisture [0 50 100]
-                                  :wind-speed-20ft [0 10 20 40]})
+(def ^:private scenarios         {:fuel-model          [:grass-fbfm40 :timber-litter-fbfm40]
+                                  :canopy-cover        [:zero-raster :ones-raster]
+                                  :slope               [:zero-raster :slp-10 :slp-20 :slp-30]
+                                  :foliar-moisture     [0 50 100]
+                                  :wind-speed-20ft     [0 10 20 40]
+                                  :canopy-base-height  [:zero-raster :raster-10 :raster-20 :raster-40]
+                                  :crown-bulk-density [:zero-raster :cbd-02 :cbd-035 :cbd-05]})
 
 (defn- ->tif [filekey]
   {:source (str conical-dir (name filekey) ".tif")
@@ -34,15 +36,32 @@
     :slp-20      (->tif :dem-20-slp)
     :slp-30      (->tif :dem-30-slp)))
 
-(defn- output-directory [datetime fuel-model canopy-cover slope moisture wind-speed-20ft & {:keys [base-dir]}]
+(defn- ->ch [cbh]
+  (case cbh
+    :zero-raster (->tif :zero-raster)
+    :raster-10   (->tif :raster-20)
+    :raster-20   (->tif :raster-40)
+    :raster-40   (->tif :raster-80)))
+
+(defn- output-directory [{:keys [base-dir
+                                 datetime
+                                 fuel-model
+                                 canopy-cover
+                                 slope
+                                 foliar-moisture
+                                 wind-speed-20ft
+                                 canopy-base-height
+                                 crown-bulk-density]}]
   (str (when base-dir base-dir)
        "outputs"
        "/" datetime
        "/fuel-model_" (name fuel-model)
        "/canopy-cover_" (name canopy-cover)
        "/slope_" (name slope)
-       "/moisture_" moisture
+       "/moisture_" foliar-moisture
        "/wind-speed-20ft_" wind-speed-20ft
+       "/canopy-base-height_" (name canopy-base-height)
+       "/crown-bulk-density_" (name crown-bulk-density)
        "/"))
 
 (defn- run-sim! [config]
@@ -66,7 +85,14 @@
     (apply merge-with deep-merge maps)))
 
 (defn- gen-scenario
-  [{:keys [datetime fuel-model canopy-cover slope foliar-moisture wind-speed-20ft] :as params}]
+  [{:keys [datetime
+           fuel-model
+           canopy-cover
+           slope
+           foliar-moisture
+           wind-speed-20ft
+           canopy-base-height
+           crown-bulk-density] :as params}]
   (deep-merge base-config
               {:params          params
                :landfire-layers {:fuel-model   (->tif fuel-model)
@@ -75,12 +101,11 @@
                                  :elevation    (->dem-tif slope)}
                :foliar-moisture foliar-moisture
                :wind-speed-20ft wind-speed-20ft
-               :output-directory (output-directory datetime
-                                                   fuel-model
-                                                   canopy-cover
-                                                   slope
-                                                   foliar-moisture
-                                                   wind-speed-20ft)}))
+               :output-directory (output-directory (assoc params :datetime datetime))}
+              (when-not (some #(= :zero-raster %) [canopy-cover canopy-base-height crown-bulk-density])
+                {:landfire-layers {:canopy-base-height  (->tif canopy-base-height)
+                                   :canopy-height       (->ch canopy-base-height)
+                                   :crown-bulk-density (->tif crown-bulk-density)}})))
 
 (defn- gen-scenarios []
   (deep-flatten
@@ -90,22 +115,19 @@
           (for [slope (:slope scenarios)]
             (for [foliar-moisture (:foliar-moisture scenarios)]
               (for [wind-speed-20ft (:wind-speed-20ft scenarios)]
-                (gen-scenario {:datetime     datetime
-                               :fuel-model   fuel-model
-                               :canopy-cover canopy-cover
-                               :slope        slope
-                               :foliar-moisture foliar-moisture
-                               :wind-speed-20ft wind-speed-20ft})))))))))
+                (for [canopy-base-height (:canopy-base-height scenarios)]
+                  (for [crown-bulk-density (:crown-bulk-density scenarios)]
+                    (gen-scenario {:datetime     datetime
+                                   :fuel-model   fuel-model
+                                   :canopy-cover canopy-cover
+                                   :slope        slope
+                                   :foliar-moisture foliar-moisture
+                                   :crown-bulk-density crown-bulk-density
+                                   :canopy-base-height canopy-base-height
+                                   :wind-speed-20ft wind-speed-20ft})))))))))))
 
 (defn- run-test-scenario! [{:keys [params] :as scenario}]
-  (let [control-dir   (output-directory "control"
-                                        (:fuel-model params)
-                                        (:canopy-cover params)
-                                        (:slope params)
-                                        (:foliar-moisture params)
-                                        (:wind-speed-20ft params)
-                                        :base-dir conical-dir)
-
+  (let [control-dir   (output-directory (assoc params :base-dir conical-dir))
         control-stats (str control-dir summary-stats-csv)
         new-stats     (str (:output-directory scenario) summary-stats-csv)]
     (run-sim! scenario)
