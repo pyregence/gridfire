@@ -5,11 +5,11 @@
 (defn van-wagner-crown-fire-initiation?
   "- canopy-cover (0-100 %)
    - canopy-base-height (ft)
-   - foliar-moisture (lb moisture/lb ovendry weight)
+   - foliar-moisture (0-100 %) (lb moisture/lb ovendry weight)
    - fire-line-intensity (Btu/ft*s)"
   [^double canopy-cover ^double canopy-base-height ^double foliar-moisture ^double fire-line-intensity]
   (and (> canopy-cover 40.0)
-       (-> (+ 460.0 (* 2600.0 foliar-moisture)) ;; heat-of-ignition = kJ/kg
+       (-> (+ 460.0 (* 26.0 foliar-moisture)) ;; heat-of-ignition = kJ/kg
            (* 0.01 (convert/ft->m canopy-base-height))
            (Math/pow 1.5) ;; critical-intensity = kW/m
            (convert/kW-m->Btu-ft-s)
