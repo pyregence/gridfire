@@ -44,15 +44,15 @@
  :foliar-moisture           0   ; (%)
 
  ;; Section 4: Number of simulations and (optional) random seed parameter
- :max-runtime               1440 ; 24 hrs   ; (minutes)
+ :max-runtime               720 ; 12 hrs   ; (minutes)
  :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
  :simulations               1
  :random-seed               1234567890     ; long value (optional)
 
  ;; Section 5: Types and names of outputs
  ;; :output-landfire-inputs?   true
- :output-geotiffs?          true
- :output-pngs?              true
+ :output-geotiffs?          false
+ :output-pngs?              false
  :output-directory          "outputs/simple/"
  :output-csvs?              true}
 

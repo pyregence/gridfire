@@ -22,9 +22,9 @@
 (def ^:private scenarios         {:fuel-model         [:grass-fbfm40 :timber-litter-fbfm40]
                                   :canopy-cover       [:zero-raster :raster-100]
                                   :slope              [:zero-raster :slp-10 :slp-20 :slp-30]
-                                  :foliar-moisture    [0 50 100]
+                                  :foliar-moisture    [0 0.5 1.0]
                                   :wind-speed-20ft    [0 10 20 40]
-                                  :canopy-base-height [:zero-raster :raster-2]
+                                  :canopy-base-height [:zero-raster :raster-2 :raster-10 :raster-20 :raster-40]
                                   :crown-bulk-density [:zero-raster :cbd-02 :cbd-035 :cbd-05]})
 
 (defn- ->tif [filekey]
@@ -41,7 +41,10 @@
 (defn- ->ch [cbh]
   (case cbh
     :zero-raster (->tif :zero-raster)
-    :raster-2    (->tif :raster-5)))
+    :raster-2    (->tif :raster-5)
+    :raster-10   (->tif :raster-20)
+    :raster-20   (->tif :raster-40)
+    :raster-40   (->tif :raster-80)))
 
 (defn- output-directory [{:keys [base-dir
                                  datetime
@@ -58,7 +61,7 @@
        "/fuel-model_" (name fuel-model)
        "/canopy-cover_" (name canopy-cover)
        "/slope_" (name slope)
-       "/moisture_" foliar-moisture
+       "/moisture_" (int (* 100 foliar-moisture))
        "/wind-speed-20ft_" wind-speed-20ft
        "/canopy-base-height_" (name canopy-base-height)
        "/crown-bulk-density_" (name crown-bulk-density)
