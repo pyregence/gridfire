@@ -2,7 +2,7 @@
   (:require [clojure.test                :refer :all]
             [gridfire.fuel-models        :refer [fuel-models build-fuel-model moisturize]]
             [gridfire.surface-fire       :refer :all]
-            [gridfire.conversion         :refer [ft->m]]
+            [gridfire.conversion         :refer [ft->m mph->fpm]]
             [gridfire.behaveplus-results :refer :all]))
 
 ;; Tests fuel model weighting factors, rothermel equations, and byram's flame length and fire line intensity under fully cured conditions
@@ -49,7 +49,7 @@
           {:keys [spread-rate reaction-intensity residence-time
                   get-phi_W get-phi_S] :as spread-info-min}       (rothermel-surface-fire-spread-no-wind-no-slope gridfire-fuel-model)
           corrected-spread-rate                                   (if (grass-fuel-model? num) (* 2.0 spread-rate) spread-rate)
-          midflame-wind-speed                                     (* 10.0 88.0) ;; mi/hr -> ft/min
+          midflame-wind-speed                                     (mph->fpm 10.0)
           slope                                                   0.2 ;; vertical feet/horizontal feet
           {:keys [max-spread-rate max-spread-direction
                   effective-wind-speed eccentricity]}             (rothermel-surface-fire-spread-max (assoc spread-info-min :spread-rate corrected-spread-rate)
@@ -79,7 +79,7 @@
           {:keys [spread-rate reaction-intensity residence-time
                   get-phi_W get-phi_S] :as spread-info-min}       (rothermel-surface-fire-spread-no-wind-no-slope gridfire-fuel-model)
           corrected-spread-rate                                   (if (grass-fuel-model? num) (* 2.0 spread-rate) spread-rate)
-          midflame-wind-speed                                     (* 10.0 88.0) ;; mi/hr -> ft/min
+          midflame-wind-speed                                     (mph->fpm 10.0)
           slope                                                   0.2 ;; vertical feet/horizontal feet
           {:keys [max-spread-rate max-spread-direction
                   effective-wind-speed eccentricity]}             (rothermel-surface-fire-spread-max (assoc spread-info-min :spread-rate corrected-spread-rate)
@@ -106,7 +106,7 @@
           {:keys [spread-rate reaction-intensity residence-time
                   get-phi_W get-phi_S] :as spread-info-min}       (rothermel-surface-fire-spread-no-wind-no-slope gridfire-fuel-model)
           corrected-spread-rate                                   (if (grass-fuel-model? num) (* 2.0 spread-rate) spread-rate)
-          midflame-wind-speed                                     (* 10.0 88.0) ;; mi/hr -> ft/min
+          midflame-wind-speed                                     (mph->fpm 10.0)
           slope                                                   0.2 ;; vertical feet/horizontal feet
           {:keys [max-spread-rate max-spread-direction
                   effective-wind-speed eccentricity]}             (rothermel-surface-fire-spread-max (assoc spread-info-min :spread-rate corrected-spread-rate)

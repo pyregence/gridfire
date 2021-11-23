@@ -82,6 +82,12 @@
   [^double mph]
   (* mph 1.609344))
 
+(defn mph->fpm
+  "Convert miles per hour to feet per minute."
+  ^double
+  [^double mph]
+  (* mph 88.0))
+
 (defn km-hr->mph
   "Convert kilometers per hour to miles per hour."
   ^double

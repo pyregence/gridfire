@@ -16,6 +16,7 @@
                                                   crown-fire-line-intensity
                                                   cruz-crown-fire-spread
                                                   van-wagner-crown-fire-initiation?]]
+            [gridfire.conversion          :refer [mph->fpm]]
             [gridfire.fuel-models         :refer [build-fuel-model moisturize]]
             [gridfire.perturbation        :as perturbation]
             [gridfire.spotting            :as spot]
@@ -203,10 +204,10 @@
         ^double fuel-moisture         (or (fuel-moisture-from-raster constants here global-clock)
                                           (get-fuel-moisture relative-humidity temperature))
         [fuel-model spread-info-min]  (rothermel-fast-wrapper fuel-model fuel-moisture)
-        midflame-wind-speed           (* wind-speed-20ft
-                                         88.0
-                                         (wind-adjustment-factor ^long (:delta fuel-model)
-                                                                 canopy-height canopy-cover)) ; mi/hr -> ft/min
+        midflame-wind-speed           (mph->fpm
+                                       (* wind-speed-20ft
+                                          (wind-adjustment-factor ^long (:delta fuel-model)
+                                                                  canopy-height canopy-cover)))
         spread-info-max               (rothermel-surface-fire-spread-max spread-info-min
                                                                          midflame-wind-speed
                                                                          wind-from-direction
