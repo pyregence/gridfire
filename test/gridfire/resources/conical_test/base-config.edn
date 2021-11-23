@@ -40,11 +40,11 @@
  :temperature               80  ; (degrees Fahrenheit)
  :relative-humidity         0   ; (%)
  :wind-speed-20ft           10  ; (miles/hour)
- :wind-from-direction       0   ; (degrees cw from north)
+ :wind-from-direction       90  ; (degrees cw from north)
  :foliar-moisture           0   ; (%)
 
  ;; Section 4: Number of simulations and (optional) random seed parameter
- :max-runtime               720 ; 12 hrs   ; (minutes)
+ :max-runtime               1440 ; 24 hrs   ; (minutes)
  :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
  :simulations               1
  :random-seed               1234567890     ; long value (optional)

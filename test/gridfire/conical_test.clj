@@ -33,10 +33,10 @@
 
 (defn- ->dem-tif [slope]
   (case slope
-    :zero-raster (->tif :zero-raster)
-    :slp-10      (->tif :dem-10-slp)
-    :slp-20      (->tif :dem-20-slp)
-    :slp-30      (->tif :dem-30-slp)))
+    :zero-raster (assoc (->tif :zero-raster) :units :metric)
+    :slp-10      (assoc (->tif :dem-10-slp)  :units :metric)
+    :slp-20      (assoc (->tif :dem-20-slp)  :units :metric)
+    :slp-30      (assoc (->tif :dem-30-slp)  :units :metric)))
 
 (defn- ->ch [cbh]
   (case cbh
@@ -152,21 +152,21 @@
 (defn- gen-scenarios []
   (deep-flatten
     (let [datetime (now)]
-      (for [fuel-model (:fuel-model scenarios)]
-        (for [canopy-cover (:canopy-cover scenarios)]
-          (for [slope (:slope scenarios)]
-            (for [foliar-moisture (:foliar-moisture scenarios)]
-              (for [wind-speed-20ft (:wind-speed-20ft scenarios)]
-                (for [canopy-base-height (:canopy-base-height scenarios)]
-                  (for [crown-bulk-density (:crown-bulk-density scenarios)]
-                    (gen-scenario {:datetime           datetime
-                                   :fuel-model         fuel-model
-                                   :canopy-cover       canopy-cover
-                                   :slope              slope
-                                   :foliar-moisture    foliar-moisture
-                                   :crown-bulk-density crown-bulk-density
-                                   :canopy-base-height canopy-base-height
-                                   :wind-speed-20ft    wind-speed-20ft})))))))))))
+      (for [fuel-model (:fuel-model scenarios)
+            canopy-cover (:canopy-cover scenarios)
+            slope (:slope scenarios)
+            foliar-moisture (:foliar-moisture scenarios)
+            wind-speed-20ft (:wind-speed-20ft scenarios)
+            canopy-base-height (:canopy-base-height scenarios)
+            crown-bulk-density (:crown-bulk-density scenarios)]
+        (gen-scenario {:datetime           datetime
+                       :fuel-model         fuel-model
+                       :canopy-cover       canopy-cover
+                       :slope              slope
+                       :foliar-moisture    foliar-moisture
+                       :crown-bulk-density crown-bulk-density
+                       :canopy-base-height canopy-base-height
+                       :wind-speed-20ft    wind-speed-20ft})))))
 
 (defn- run-test-scenario! [{:keys [params] :as scenario}]
   (let [control-dir   (output-directory (assoc params :base-dir conical-dir))

@@ -1,6 +1,7 @@
 (ns gridfire.gen-raster
   (:require [clojure.string    :as str]
             [clojure.tools.cli :refer [parse-opts]]
+            [gridfire.conversion :refer [deg->percent m->ft]]
             [magellan.core     :refer [write-raster
                                        make-envelope
                                        matrix-to-raster]]))
@@ -19,9 +20,21 @@
   {:pre [(number? width) (number? height) (float? value)]}
   (into-array (repeat height (into-array (repeat width value)))))
 
-(defn dem-matrix [size slp height width]
-  (into-array (for [row (range height)]
-                (into-array (repeat width (* row size slp))))))
+(defn dem-matrix [size degrees height width]
+  (let [slope (deg->percent degrees)]
+    (into-array (for [row (range height)]
+                  (into-array (repeat width (* row size slope)))))))
+
+(comment
+  (for [degree (range 10 60 10)]
+    (do
+      (def raster (matrix->raster (format "dem-%s-slp" degree)
+                                  (dem-matrix 30 degree 256 256)
+                                  {:size 30
+                                   :xmin 500000.0
+                                   :ymax 4000000.0}))
+      (write-raster raster (format "test/gridfire/resources/conical_test/dem-%s-slp.tif" degree))))
+  )
 
 (defn basename [path]
   (-> path
