@@ -46,6 +46,12 @@
   [^double degrees]
   (* degrees 0.017453292519943295)) ; (/ Math/PI 180.0) = 0.017453292519943295
 
+(defn deg->percent
+  "Convert degrees to percent."
+  ^double
+  [^double degrees]
+  (Math/tan (deg->rad degrees)))
+
 (defn rad->deg
   "Convert radians to degrees."
   ^double
@@ -192,7 +198,7 @@
 
 (def conversion-table
   {:elevation          {:metric m->ft}
-   :slope              {nil deg->rad}
+   :slope              {nil deg->percent}
    :canopy-height      {:metric m->ft}
    :canopy-base-height {:metric m->ft}
    :crown-bulk-density {:metric kg-m3->lb-ft3}
