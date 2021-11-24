@@ -41,6 +41,7 @@
  :relative-humidity         0   ; (%)
  :wind-speed-20ft           10  ; (miles/hour)
  :wind-from-direction       90  ; (degrees cw from north)
+ :fuel-moisture             0   ; (%)
  :foliar-moisture           0   ; (%)
 
  ;; Section 4: Number of simulations and (optional) random seed parameter
@@ -52,7 +53,7 @@
  ;; Section 5: Types and names of outputs
  ;; :output-landfire-inputs?   true
  :output-geotiffs?          false
- :output-pngs?              false
+ :output-pngs?              true
  :output-directory          "outputs/simple/"
  :output-csvs?              true}
 
