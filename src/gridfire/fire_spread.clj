@@ -12,11 +12,11 @@
                                                    get-value-at
                                                    sample-at
                                                    distance-3d]]
+            [gridfire.conversion          :refer [mph->fpm]]
             [gridfire.crown-fire          :refer [crown-fire-eccentricity
                                                   crown-fire-line-intensity
                                                   cruz-crown-fire-spread
                                                   van-wagner-crown-fire-initiation?]]
-            [gridfire.conversion          :refer [mph->fpm]]
             [gridfire.fuel-models         :refer [build-fuel-model moisturize]]
             [gridfire.perturbation        :as perturbation]
             [gridfire.spotting            :as spot]
@@ -207,7 +207,8 @@
         midflame-wind-speed           (mph->fpm
                                        (* wind-speed-20ft
                                           (wind-adjustment-factor ^long (:delta fuel-model)
-                                                                  canopy-height canopy-cover)))
+                                                                  canopy-height
+                                                                  canopy-cover)))
         spread-info-max               (rothermel-surface-fire-spread-max spread-info-min
                                                                          midflame-wind-speed
                                                                          wind-from-direction
