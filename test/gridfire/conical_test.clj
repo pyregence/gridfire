@@ -18,7 +18,7 @@
                                   :canopy-cover       [:zero-raster :raster-100]
                                   :slope              [:zero-raster :slp-10 :slp-20 :slp-30]
                                   :wind-speed-20ft    [0 10 20 40]
-                                  :fuel-moisture      (range 0.0 1.0 0.1)
+                                  :fuel-moisture      (range 0.0 0.25 0.05)
                                   :foliar-moisture    [0 0.5 1.0]
                                   :canopy-base-height [:zero-raster :raster-2 :raster-10 :raster-20 :raster-40]
                                   :crown-bulk-density [:zero-raster :cbd-02 :cbd-035 :cbd-05]})
