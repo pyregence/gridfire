@@ -56,7 +56,7 @@
 ;; Tests
 ;;-----------------------------------------------------------------------------
 
-(deftest fetch-ignition-layer-test
+(deftest ^:database fetch-ignition-layer-test
   (testing "Fetching ignition layer from postgis and geotiff file"
     (let [geotiff-config         (merge test-config-base
                                         {:ignition-layer {:type   :geotiff

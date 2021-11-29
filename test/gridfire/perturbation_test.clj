@@ -4,7 +4,7 @@
             [gridfire.perturbation :as perturbation])
   (:import java.util.Random))
 
-(deftest enrich-info-test
+(deftest ^:unit enrich-info-test
   (testing "global spatial type"
     (let [perturbations {:canopy-cover       {:spatial-type :global
                                               :range        [-1 1]}
@@ -36,7 +36,7 @@
 
       (is (= (map convert/m->ft [-1 1]) converted-range)))))
 
-(deftest update-global-vals-test
+(deftest ^:unit update-global-vals-test
   (let [old-value     3.0
         constants     {:perturbations {:canopy-cover {:spatial-type   :global
                                                       :range          [-1 1]

@@ -7,7 +7,7 @@
 
 (def resources-path "test/gridfire/resources/weather-test")
 
-(deftest canopy-height-test
+(deftest ^:unit canopy-height-test
   (let [layer         (geotiff-raster-to-matrix (utils/in-file-path resources-path "ch.tif"))
         unit-fn       convert/m->ft
         multiplier-fn #(* 100 %)]
@@ -36,7 +36,7 @@
           (is (= (:matrix layer-after) (:matrix layer)))))))
 
 
-(deftest elevation-test
+(deftest ^:unit elevation-test
   (let [layer         (geotiff-raster-to-matrix (utils/in-file-path resources-path "dem.tif"))
         unit-fn       convert/m->ft
         multiplier-fn #(* 100 %)]
@@ -66,7 +66,7 @@
         (is (= (:matrix layer-after) (:matrix layer)))))))
 
 
-(deftest canopy-base-height-test
+(deftest ^:unit canopy-base-height-test
   (let [layer         (geotiff-raster-to-matrix (utils/in-file-path resources-path "cbh.tif"))
         unit-fn       convert/m->ft
         multiplier-fn #(* 100 %)]
@@ -97,7 +97,7 @@
 
 
 
-(deftest crown-bulk-density-test
+(deftest ^:unit crown-bulk-density-test
   (let [layer           (geotiff-raster-to-matrix (utils/in-file-path resources-path "cbd.tif"))
         unit-fn         #(* 0.0624 %)
         multiplier-fn   #(* 100 %)]
@@ -127,7 +127,7 @@
         (is (= (:matrix layer-after) (:matrix layer)))))))
 
 
-(deftest wind-speed-20ft-test
+(deftest ^:unit wind-speed-20ft-test
   (let [layer           (geotiff-raster-to-matrix (utils/in-file-path resources-path "ws_to_sample.tif"))
         unit-fn         convert/mps->mph
         multiplier-fn   #(* 100 %)]
@@ -157,7 +157,7 @@
         (is (= (:matrix layer-after) (:matrix layer)))))))
 
 
-(deftest temperature-test
+(deftest ^:unit temperature-test
   (let [layer         (geotiff-raster-to-matrix (utils/in-file-path resources-path "tmpf_to_sample.tif"))
         multiplier-fn #(* 100 %)]
 

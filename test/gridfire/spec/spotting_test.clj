@@ -3,7 +3,7 @@
             [clojure.test           :refer [deftest is testing]]
             [gridfire.spec.config   :as config]))
 
-(deftest spotting-test
+(deftest ^:unit spotting-test
   (let [required {:mean-distance                {:lo 5.0 :hi 15.0}
                   :normalized-distance-variance {:lo 250.0 :hi 600.0}
                   :flin-exp                     {:lo 0.2 :hi 0.4}
@@ -20,7 +20,7 @@
                                               :critical-fire-line-intensity 2000.0}}]
         (is (s/valid? ::config/spotting (merge required optional)))))))
 
-(deftest crown-fire-spotting-percent-test
+(deftest ^:unit crown-fire-spotting-percent-test
   (testing "scalar"
     (is (s/valid? ::config/crown-fire-spotting-percent 0.1)))
 
@@ -31,7 +31,7 @@
     (is (not (s/valid? ::config/crown-fire-spotting-percent [0.8 0.1]))
         "first value should not be larger than the second")))
 
-(deftest num-firebrands-test
+(deftest ^:unit num-firebrands-test
   (testing "scalar"
     (is (s/valid? ::config/num-firebrands 10)))
 
@@ -63,7 +63,7 @@
       (is (not (s/valid? ::config/num-firebrands config))
           "should not have overlapping ranges"))))
 
-(deftest surface-fire-spotting-test
+(deftest ^:unit surface-fire-spotting-test
   (testing "scalar percents"
     (let [config [[[1   149] 1.0]
                   [[150 169] 2.0]

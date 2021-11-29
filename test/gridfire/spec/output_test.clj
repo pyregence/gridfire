@@ -3,27 +3,27 @@
             [clojure.test         :refer [deftest is]]
             [gridfire.spec.config :as config]))
 
-(deftest scalar-test
+(deftest ^:unit scalar-test
   (let [config {:fire-spread 10}]
     (is (s/valid? ::config/output-layers config))))
 
-(deftest final-keyword-test
+(deftest ^:unit final-keyword-test
   (let [config {:fire-spread :final}]
     (is (s/valid? ::config/output-layers config))))
 
-(deftest flame-length-test
+(deftest ^:unit flame-length-test
   (let [config {:flame-length 10}]
     (is (s/valid? ::config/output-layers config))))
 
-(deftest fire-line-inentisyt-test
+(deftest ^:unit fire-line-inentisyt-test
   (let [config {:fire-line-intensity 10}]
     (is (s/valid? ::config/output-layers config))))
 
-(deftest burn-history-test
+(deftest ^:unit burn-history-test
   (let [config {:burn-history 10}]
     (is (s/valid? ::config/output-layers config))))
 
-(deftest multiple-output-layer-test
+(deftest ^:unit multiple-output-layer-test
   (let [config {:fire-spread         10
                 :flame-lenth         10
                 :fire-line-intensity 10

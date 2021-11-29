@@ -6,7 +6,7 @@
 
 (def resources-path "test/gridfire/resources/weather-test")
 
-(deftest basic-test
+(deftest ^:unit basic-test
   (let [config {:dead {:1hr   {:type   :geotiff
                                :source (utils/in-file-path resources-path "m1_to_sample.tif")}
                        :10hr  {:type   :geotiff

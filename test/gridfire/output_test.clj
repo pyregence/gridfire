@@ -58,35 +58,35 @@
 ;; Tests
 ;;-----------------------------------------------------------------------------
 
-(deftest output_burn_probability_test
+(deftest ^:database output_burn_probability_test
   (let [config (merge test-config-base
                       {:output-burn-probability :final})
         _      (utils/run-gridfire! config)]
 
     (is (.exists (io/file "test/output/burn_probability.tif")))))
 
-(deftest output_flame_length_sum_test
+(deftest ^:database output_flame_length_sum_test
   (let [config (merge test-config-base
                       {:output-flame-length-sum? true})
         _      (utils/run-gridfire! config)]
 
     (is (.exists (io/file "test/output/flame_length_sum.tif")))))
 
-(deftest output_flame_length_max_test
+(deftest ^:database output_flame_length_max_test
   (let [config (merge test-config-base
                       {:output-flame-length-max? true})
         _      (utils/run-gridfire! config)]
 
     (is (.exists (io/file "test/output/flame_length_max.tif")))))
 
-(deftest output_burn_count_test
+(deftest ^:database output_burn_count_test
   (let [config (merge test-config-base
                       {:output-burn-count? true})
         _      (utils/run-gridfire! config)]
 
     (is (.exists (io/file "test/output/burn_count.tif")))))
 
-(deftest output_spot_count_test
+(deftest ^:database output_spot_count_test
   (let [config (merge test-config-base
                       {:output-spot-count? true})
         _      (utils/run-gridfire! config)]

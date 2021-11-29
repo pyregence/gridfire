@@ -20,7 +20,7 @@
 ;; Validator tests
 ;;-----------------------------------------------------------------------------
 
-(deftest valid-landfire-geotiff-test
+(deftest ^:unit valid-landfire-geotiff-test
   (let [config {:aspect             {:type   :geotiff
                                      :source (in-file-path "asp.tif")}
                 :canopy-base-height {:type   :geotiff
@@ -39,13 +39,13 @@
                                      :source (in-file-path "slp.tif")}}]
     (is (s/valid? ::spec/landfire-layers config))))
 
-(deftest valid-weather-geotiff-test
+(deftest ^:unit valid-weather-geotiff-test
   (let [config {:type      :geotiff
                 :source    (in-file-path "weather-test/tmpf_to_sample.tif")
                 :cell-size 10.0}]
     (is (s/valid? ::spec/weather config))))
 
-(deftest valid-weather-postgis-test
+(deftest ^:unit valid-weather-postgis-test
   (let [config {:type      :postgis
                 :source    "weather.ws WHERE rid=1"
                 :cell-size 10.0}]

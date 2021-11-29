@@ -6,7 +6,7 @@
 (defn close-to-zero [d]
   (< -0.000001 d 0.000001))
 
-(deftest deltas-axis-test
+(deftest ^:unit deltas-axis-test
   (testing "x-axis"
     (testing "east"
       (let [H (spotting/hypotenuse 10 10)]
@@ -69,7 +69,7 @@
 
           (is (= H dx)))))))
 
-(deftest surface-spot-percents
+(deftest ^:unit surface-spot-percents
   (let [rand-gen (Random.)]
     (testing "expected ranges"
       (let [spot-percents [[[1 140] 1.0]
