@@ -5,10 +5,10 @@
             [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
             [gridfire.utils.test      :as utils]))
 
-(def resources-path "test/gridfire/resources/weather-test")
+(def resources-path "test/gridfire/resources/conversion_test")
 
 (deftest canopy-height-test
-  (let [layer         (geotiff-raster-to-matrix (utils/in-file-path resources-path "ch.tif"))
+  (let [layer         (geotiff-raster-to-matrix (utils/in-file-path resources-path "single-band.tif"))
         unit-fn       convert/m->ft
         multiplier-fn #(* 100 %)]
 
@@ -23,13 +23,13 @@
 
         (is (= (:matrix layer-after) (m/emap multiplier-fn (:matrix layer))))))
 
-    #_(testing "convert metric and scale with multiplier"
+    (testing "convert metric and scale with multiplier"
         (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
               layer-after  (convert/to-imperial! layer-before {:units :metric :multiplier 100} :canopy-height)]
 
           (is (= (:matrix layer-after) (m/emap (comp unit-fn multiplier-fn) (:matrix layer))))))
 
-    #_(testing "no conversion, already in imperial"
+    (testing "no conversion, already in imperial"
         (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
               layer-after  (convert/to-imperial! layer-before {:units :imperial} :canopy-height)]
 
@@ -37,7 +37,7 @@
 
 
 (deftest elevation-test
-  (let [layer         (geotiff-raster-to-matrix (utils/in-file-path resources-path "dem.tif"))
+  (let [layer         (geotiff-raster-to-matrix (utils/in-file-path resources-path "single-band.tif"))
         unit-fn       convert/m->ft
         multiplier-fn #(* 100 %)]
 
@@ -67,7 +67,7 @@
 
 
 (deftest canopy-base-height-test
-  (let [layer         (geotiff-raster-to-matrix (utils/in-file-path resources-path "cbh.tif"))
+  (let [layer         (geotiff-raster-to-matrix (utils/in-file-path resources-path "single-band.tif"))
         unit-fn       convert/m->ft
         multiplier-fn #(* 100 %)]
 
@@ -96,9 +96,8 @@
         (is (= (:matrix layer-after) (:matrix layer)))))))
 
 
-
 (deftest crown-bulk-density-test
-  (let [layer           (geotiff-raster-to-matrix (utils/in-file-path resources-path "cbd.tif"))
+  (let [layer           (geotiff-raster-to-matrix (utils/in-file-path resources-path "single-band.tif"))
         unit-fn         #(* 0.0624 %)
         multiplier-fn   #(* 100 %)]
 
@@ -128,7 +127,7 @@
 
 
 (deftest wind-speed-20ft-test
-  (let [layer           (geotiff-raster-to-matrix (utils/in-file-path resources-path "ws_to_sample.tif"))
+  (let [layer           (geotiff-raster-to-matrix (utils/in-file-path resources-path "single-band.tif"))
         unit-fn         convert/mps->mph
         multiplier-fn   #(* 100 %)]
 
@@ -158,7 +157,7 @@
 
 
 (deftest temperature-test
-  (let [layer         (geotiff-raster-to-matrix (utils/in-file-path resources-path "tmpf_to_sample.tif"))
+  (let [layer         (geotiff-raster-to-matrix (utils/in-file-path resources-path "single-band.tif"))
         multiplier-fn #(* 100 %)]
 
     (testing "convert metric"
