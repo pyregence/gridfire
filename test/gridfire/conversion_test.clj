@@ -35,7 +35,6 @@
 
           (is (= (:matrix layer-after) (:matrix layer)))))))
 
-
 (deftest elevation-test
   (let [layer         (geotiff-raster-to-matrix (utils/in-file-path resources-path "single-band.tif"))
         unit-fn       convert/m->ft
@@ -64,7 +63,6 @@
             layer-after  (convert/to-imperial! layer-before {:units :imperial} :elevation)]
 
         (is (= (:matrix layer-after) (:matrix layer)))))))
-
 
 (deftest canopy-base-height-test
   (let [layer         (geotiff-raster-to-matrix (utils/in-file-path resources-path "single-band.tif"))
@@ -95,7 +93,6 @@
 
         (is (= (:matrix layer-after) (:matrix layer)))))))
 
-
 (deftest crown-bulk-density-test
   (let [layer           (geotiff-raster-to-matrix (utils/in-file-path resources-path "single-band.tif"))
         unit-fn         #(* 0.0624 %)
@@ -125,7 +122,6 @@
 
         (is (= (:matrix layer-after) (:matrix layer)))))))
 
-
 (deftest wind-speed-20ft-test
   (let [layer           (geotiff-raster-to-matrix (utils/in-file-path resources-path "single-band.tif"))
         unit-fn         convert/mps->mph
@@ -154,7 +150,6 @@
             layer-after  (convert/to-imperial! layer-before {:units :imperial} :wind-speed-20ft)]
 
         (is (= (:matrix layer-after) (:matrix layer)))))))
-
 
 (deftest temperature-test
   (let [layer         (geotiff-raster-to-matrix (utils/in-file-path resources-path "single-band.tif"))
