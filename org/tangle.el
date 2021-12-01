@@ -6,17 +6,16 @@
 
 (require 'package)
 
-(setq package-archives '(("gnu"          . "https://elpa.gnu.org/packages/")
-                         ("marmalade"    . "https://marmalade-repo.org/packages/")
-                         ("melpa-stable" . "https://stable.melpa.org/packages/")
-                         ("melpa"        . "https://melpa.org/packages/")))
+(setq package-selected-packages '(org clojure-mode)
+      package-archives          '(("gnu"          . "https://elpa.gnu.org/packages/")
+                                  ("marmalade"    . "https://marmalade-repo.org/packages/")
+                                  ("melpa-stable" . "https://stable.melpa.org/packages/")
+                                  ("melpa"        . "https://melpa.org/packages/")))
 
 (package-initialize)
 
 (unless package-archive-contents
   (package-refresh-contents))
-
-(setq package-selected-packages '(org clojure-mode))
 
 (package-install-selected-packages)
 
