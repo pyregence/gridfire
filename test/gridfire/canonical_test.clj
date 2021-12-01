@@ -1,7 +1,7 @@
-(ns gridfire.conical-test
+(ns gridfire.canonical-test
   (:require [clojure.edn          :as edn]
             [clojure.java.io      :as io]
-            [clojure.data.csv    :as csv]
+            [clojure.data.csv     :as csv]
             [clojure.spec.alpha   :as s]
             [clojure.test         :refer [deftest is run-tests]]
             [gridfire.core        :as gf]
@@ -11,8 +11,8 @@
 
 ;;; Constants
 
-(def ^:private conical-dir       "test/gridfire/resources/conical_test/")
-(def ^:private base-config       (edn/read-string (slurp (str conical-dir "base-config.edn"))))
+(def ^:private canonical-dir     "test/gridfire/resources/canonical_test/")
+(def ^:private base-config       (edn/read-string (slurp (str canonical-dir "base-config.edn"))))
 (def ^:private summary-stats-csv "summary_stats.csv")
 (def ^:private scenarios         {:fuel-model         [:grass-fbfm40 :timber-litter-fbfm40]
                                   :canopy-cover       [:zero-raster :raster-100]
@@ -42,7 +42,7 @@
     (apply merge-with deep-merge maps)))
 
 (defn- ->tif [filekey]
-  {:source (str conical-dir (name filekey) ".tif")
+  {:source (str canonical-dir (name filekey) ".tif")
    :type :geotiff})
 
 (defn- ->dem-tif [slope]
@@ -184,7 +184,7 @@
 ;;; Tests
 
 (defn- run-test-scenario! [{:keys [params] :as scenario}]
-  (let [control-dir   (output-directory (assoc params :base-dir conical-dir))
+  (let [control-dir   (output-directory (assoc params :base-dir canonical-dir))
         control-stats (str control-dir summary-stats-csv)
         new-stats     (str (:output-directory scenario) summary-stats-csv)]
     (run-sim! scenario)
@@ -198,6 +198,6 @@
 
 (comment
 
-  (run-tests 'gridfire.conical-test)
+  (run-tests 'gridfire.canonical-test)
 
   )

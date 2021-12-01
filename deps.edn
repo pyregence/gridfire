@@ -13,7 +13,6 @@
         org.clojure/data.json               {:mvn/version "2.4.0"}
         org.clojure/java.jdbc               {:mvn/version "0.7.12"}
         org.clojure/tools.cli               {:mvn/version "1.0.206"}
-        org.clojure/math.combinatorics      {:mvn/version "0.1.6"}
         org.postgresql/postgresql           {:mvn/version "42.2.23"}
         sig-gis/magellan                    {:mvn/version "20210401"}
         sig-gis/triangulum                  {:git/url "https://github.com/sig-gis/triangulum"

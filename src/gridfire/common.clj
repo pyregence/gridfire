@@ -70,14 +70,13 @@
         (update-in [:live :woody] (f [:live :woody])))))
 
 (defn constant-fuel-moisture [{:keys [fuel-moisture]}]
-  (when fuel-moisture
-    (cond
-      (map? fuel-moisture)
-      fuel-moisture
+  (cond
+    (map? fuel-moisture)
+    fuel-moisture
 
-      (float? fuel-moisture)
-      {:dead (zipmap [:1hr :10hr :100hr]  (repeat (float fuel-moisture)))
-       :live (zipmap [:woody :herbaceous] (repeat (float fuel-moisture)))})))
+    (float? fuel-moisture)
+    {:dead (zipmap [:1hr :10hr :100hr]  (repeat fuel-moisture))
+     :live (zipmap [:woody :herbaceous] (repeat fuel-moisture))}))
 
 (defn fuel-moisture-from-raster
   "Returns a map of moisture

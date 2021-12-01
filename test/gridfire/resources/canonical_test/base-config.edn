@@ -1,22 +1,22 @@
 {:landfire-layers           {:aspect             {:type   :geotiff
-                                                  :source "test/gridfire/resources/conical_test/zero-raster.tif"}
+                                                  :source "test/gridfire/resources/canonical_test/zero-raster.tif"}
                              :canopy-base-height {:type   :geotiff
-                                                  :source "test/gridfire/resources/conical_test/zero-raster.tif"
+                                                  :source "test/gridfire/resources/canonical_test/zero-raster.tif"
                                                   :units  :imperial}
                              :canopy-cover       {:type   :geotiff
-                                                  :source "test/gridfire/resources/conical_test/zero-raster.tif"}
+                                                  :source "test/gridfire/resources/canonical_test/zero-raster.tif"}
                              :canopy-height      {:type   :geotiff
-                                                  :source "test/gridfire/resources/conical_test/zero-raster.tif"
+                                                  :source "test/gridfire/resources/canonical_test/zero-raster.tif"
                                                   :units  :imperial}
                              :crown-bulk-density {:type   :geotiff
-                                                  :source "test/gridfire/resources/conical_test/zero-raster.tif"
+                                                  :source "test/gridfire/resources/canonical_test/zero-raster.tif"
                                                   :units  :metric}
                              :elevation          {:type   :geotiff
-                                                  :source "test/gridfire/resources/conical_test/zero-raster.tif"}
+                                                  :source "test/gridfire/resources/canonical_test/zero-raster.tif"}
                              :fuel-model         {:type   :geotiff
-                                                  :source "test/gridfire/resources/conical_test/grass-fbfm40.tif"}
+                                                  :source "test/gridfire/resources/canonical_test/grass-fbfm40.tif"}
                              :slope              {:type   :geotiff
-                                                  :source "test/gridfire/resources/conical_test/zero-raster.tif"}}
+                                                  :source "test/gridfire/resources/canonical_test/zero-raster.tif"}}
  :srid                      "EPSG:32610"
  :cell-size                 98.425         ; (feet)
 
@@ -41,7 +41,6 @@
  :relative-humidity         0   ; (%)
  :wind-speed-20ft           10  ; (miles/hour)
  :wind-from-direction       90  ; (degrees cw from north)
- :fuel-moisture             0   ; (%)
  :foliar-moisture           0   ; (%)
 
  ;; Section 4: Number of simulations and (optional) random seed parameter
