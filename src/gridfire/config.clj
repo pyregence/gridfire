@@ -367,7 +367,7 @@
 
 (defn parse-elmfire [s]
   (transduce (comp
-              (filter #(str/includes? % "="))
+              (filter #(str/includes? % " = "))
               (map #(str/split % #" = ")))
              (completing
               (fn [acc [k v]]

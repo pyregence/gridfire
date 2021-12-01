@@ -55,6 +55,7 @@ minimum required versions and URLs from which they may be downloaded.
 | Clojure CLI Tools    |   1.10+ | https://clojure.org/guides/getting_started |
 | Postgresql           |     10+ | https://www.postgresql.org/download        |
 | PostGIS              |      3+ | https://postgis.net/install                |
+| GDAL                 |      3+ | https://gdal.org                           |
 |----------------------+---------+--------------------------------------------|
 
 GridFire is written in the Clojure programming
