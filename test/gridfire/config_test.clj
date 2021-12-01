@@ -226,3 +226,12 @@
             :live {:woody      80.0
                    :herbaceous 30.0}}
            results))))
+
+;;-----------------------------------------------------------------------------
+;; Proj String test
+;;-----------------------------------------------------------------------------
+
+(deftest proj-string-test
+  (let [proj-string "+proj=aea +lat_0=23 +lon_0=-96 +lat_1=29.5 +lat_2=45.5 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs"
+        srid        (config/get-srid proj-string)]
+    (is (= "EPSG:5070" srid))))

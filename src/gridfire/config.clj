@@ -1,6 +1,7 @@
 (ns gridfire.config
   (:require [clojure.edn         :as edn]
             [clojure.java.io     :as io]
+            [clojure.java.shell  :refer [sh]]
             [clojure.pprint      :as pprint]
             [clojure.string      :as str]
             [gridfire.conversion :as convert]
@@ -338,6 +339,15 @@
 ;; Parse elmfire.data
 ;;=============================================================================
 
+(defn get-srid
+  [proj-string]
+  (let [{:keys [err out]} (sh "gdalsrsinfo" "-e" proj-string "-o" "epsg" "--single-line")]
+    (when (empty? err)
+     (->> out
+          (str/split-lines)
+          (filter #(str/includes? % "EPSG"))
+          (first)))))
+
 (def regex-for-array-item #"^[A-Z0-9\_]+\(\d+\)")
 
 (defn convert-key [s]
@@ -352,13 +362,13 @@
     (re-matches #".TRUE." s)               true
     (re-matches #".FALSE." s)              false
     (re-matches #"'[0-9a-zA-Z_.//]*'" s)   (subs s 1 (dec (count s)))
-    (str/includes? "proj" s)               s
+    (str/includes? s "proj")               (get-srid (subs s 1 (dec (count s))))
     :else                                  nil))
 
 (defn parse-elmfire [s]
   (transduce (comp
-              (filter #(str/includes? % "="))
-              (map #(str/split % #"=")))
+              (filter #(str/includes? % " = "))
+              (map #(str/split % #" = ")))
              (completing
               (fn [acc [k v]]
                 (assoc acc
