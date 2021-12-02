@@ -44,24 +44,25 @@
   "Convert degrees to radians."
   ^double
   [^double degrees]
-  (* degrees 0.017453292519943295)) ; (/ Math/PI 180.0) = 0.017453292519943295
-
-(defn deg->percent
-  "Convert degrees to percent."
-  ^double
-  [^double degrees]
-  (Math/tan (deg->rad degrees)))
+  (Math/toRadians degrees))
 
 (defn rad->deg
   "Convert radians to degrees."
   ^double
   [^double radians]
-  (* radians 57.29577951308232)) ; (/ 180.0 Math/PI) = 57.29577951308232
+  (Math/toDegrees radians))
 
 (defn deg->percent
+  "Convert degrees to percent."
   ^double
   [^double degrees]
   (-> degrees Math/toRadians Math/tan))
+
+(defn percent->deg
+  "Convert percent to degrees."
+  ^double
+  [^double percent]
+  (-> percent Math/atan Math/toDegrees))
 
 (defn m->ft
   "Convert meters to feet."
