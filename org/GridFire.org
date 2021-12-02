@@ -126,6 +126,7 @@ deps.edn for the current GridFire version is shown below.
            :repl              {:main-opts ["-e" "(require,'gridfire.core)"
                                            "-e" "(in-ns,'gridfire.core)"
                                            "-r"]}
+           :gen-raster        {:main-opts ["-m" "gridfire.gen-raster"]}
            :make-uberjar      {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
                                :exec-fn      hf.depstar/uberjar
                                :exec-args    {:jar         target/gridfire-2021.11.12.jar
@@ -1766,6 +1767,7 @@ pseudo-code lays out the steps taken in this procedure:
             [gridfire.common               :refer [burnable-fuel-model?
                                                    burnable?
                                                    get-fuel-moisture
+                                                   constant-fuel-moisture
                                                    fuel-moisture-from-raster
                                                    in-bounds?
                                                    burnable-neighbors?
@@ -1963,6 +1965,7 @@ pseudo-code lays out the steps taken in this procedure:
                                                     (:wind-speed-20ft multiplier-lookup)
                                                     (:wind-speed-20ft perturbations))
         ^double fuel-moisture         (or (fuel-moisture-from-raster constants here global-clock)
+                                          (constant-fuel-moisture constants)
                                           (get-fuel-moisture relative-humidity temperature))
         [fuel-model spread-info-min]  (rothermel-fast-wrapper fuel-model fuel-moisture)
         midflame-wind-speed           (mph->fpm
@@ -2454,6 +2457,7 @@ the direction perpendicular to the wind.
 (ns gridfire.spotting
   (:require [clojure.core.matrix :as m]
             [gridfire.common :refer [distance-3d
+                                     constant-fuel-moisture
                                      get-fuel-moisture
                                      get-value-at
                                      in-bounds?
@@ -2793,6 +2797,7 @@ ignition probability.
                                           (:wind-from-direction multiplier-lookup)
                                           (:wind-from-direction perturbations))
           fuel-moisture     (or (fuel-moisture-from-raster inputs cell global-clock)
+                                (constant-fuel-moisture inputs)
                                 (get-fuel-moisture rh temperature))
           deltas            (sample-wind-dir-deltas inputs
                                                     fire-line-intensity-matrix
