@@ -20,7 +20,6 @@
   (outputs/write-csv-outputs! outputs)
   :success)
 
-;; TODO: Disable this to see how much performance is gained.
 (defmacro with-multithread-profiling
   [& body]
   `(do (tufte/remove-handler! :accumulating)
@@ -34,7 +33,7 @@
 
 (defn run-simulations!
   [{:keys [^long simulations parallel-strategy] :as inputs}]
-  (with-multithread-profiling
+  (with-multithread-profiling ; TODO: Disable this to see how much performance is gained.
     (log-str "Running simulations")
     (let [parallel-bin-size (max 1 (quot simulations (.availableProcessors (Runtime/getRuntime))))
           reducer-fn        (if (= parallel-strategy :between-fires)
