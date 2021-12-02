@@ -58,6 +58,11 @@
   [^double radians]
   (* radians 57.29577951308232)) ; (/ 180.0 Math/PI) = 57.29577951308232
 
+(defn deg->percent
+  ^double
+  [^double degrees]
+  (-> degrees Math/toRadians Math/tan))
+
 (defn m->ft
   "Convert meters to feet."
   ^double

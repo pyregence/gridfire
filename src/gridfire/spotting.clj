@@ -2,6 +2,7 @@
 (ns gridfire.spotting
   (:require [clojure.core.matrix :as m]
             [gridfire.common :refer [distance-3d
+                                     constant-fuel-moisture
                                      get-fuel-moisture
                                      get-value-at
                                      in-bounds?
@@ -294,6 +295,7 @@
                                           (:wind-from-direction multiplier-lookup)
                                           (:wind-from-direction perturbations))
           fuel-moisture     (or (fuel-moisture-from-raster inputs cell global-clock)
+                                (constant-fuel-moisture inputs)
                                 (get-fuel-moisture rh temperature))
           deltas            (sample-wind-dir-deltas inputs
                                                     fire-line-intensity-matrix

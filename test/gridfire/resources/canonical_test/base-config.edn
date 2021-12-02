@@ -1,0 +1,58 @@
+{:landfire-layers           {:aspect             {:type   :geotiff
+                                                  :source "test/gridfire/resources/canonical_test/zero-raster.tif"}
+                             :canopy-base-height {:type   :geotiff
+                                                  :source "test/gridfire/resources/canonical_test/zero-raster.tif"
+                                                  :units  :imperial}
+                             :canopy-cover       {:type   :geotiff
+                                                  :source "test/gridfire/resources/canonical_test/zero-raster.tif"}
+                             :canopy-height      {:type   :geotiff
+                                                  :source "test/gridfire/resources/canonical_test/zero-raster.tif"
+                                                  :units  :imperial}
+                             :crown-bulk-density {:type   :geotiff
+                                                  :source "test/gridfire/resources/canonical_test/zero-raster.tif"
+                                                  :units  :metric}
+                             :elevation          {:type   :geotiff
+                                                  :source "test/gridfire/resources/canonical_test/zero-raster.tif"}
+                             :fuel-model         {:type   :geotiff
+                                                  :source "test/gridfire/resources/canonical_test/grass-fbfm40.tif"}
+                             :slope              {:type   :geotiff
+                                                  :source "test/gridfire/resources/canonical_test/zero-raster.tif"}}
+ :srid                      "EPSG:32610"
+ :cell-size                 98.425         ; (feet)
+
+ ;; Section 2: Ignition data from which to build simulation inputs
+
+ :ignition-row              128
+ :ignition-col              128
+
+ ;; Section 3: Weather data from which to build simulation inputs
+ ;; For all options in this section, you may enter values in one of five ways:
+ ;;   1. Single Value: 25
+ ;;   2. List of Values: (2 17 9)
+ ;;   3. Range of Values: [10 20]
+ ;;   4. Raster from file on disk: {:type :geotiff :source "path/to/file/weather.tif"}
+ ;;   5. Raster from Postgresql database: {:type :postgis :source "weather.ws WHERE rid=1"}
+ ;;
+ ;; If a single value is provided, it will be kept the same for all simulations.
+ ;; For a list of values, the list will be randomly sampled from in each simulation.
+ ;; For a range of values, the range [inclusive exclusive] will be randomly sampled from in each simulation.
+
+ :temperature               80  ; (degrees Fahrenheit)
+ :relative-humidity         0   ; (%)
+ :wind-speed-20ft           10  ; (miles/hour)
+ :wind-from-direction       90  ; (degrees cw from north)
+ :foliar-moisture           0   ; (%)
+
+ ;; Section 4: Number of simulations and (optional) random seed parameter
+ :max-runtime               1440 ; 24 hrs   ; (minutes)
+ :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
+ :simulations               1
+ :random-seed               1234567890     ; long value (optional)
+
+ ;; Section 5: Types and names of outputs
+ ;; :output-landfire-inputs?   true
+ :output-geotiffs?          false
+ :output-pngs?              true
+ :output-directory          "outputs/simple/"
+ :output-csvs?              true}
+

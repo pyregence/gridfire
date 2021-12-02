@@ -12,3 +12,4 @@ org/missfont.log
 pom.xml
 target/
 server.edn
+outputs/

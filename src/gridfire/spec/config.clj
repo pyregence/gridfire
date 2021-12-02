@@ -115,6 +115,11 @@
 (s/def ::fuel-moisture-layers
   (s/keys :req-un [::dead ::live]))
 
+(s/def ::fuel-moisture
+  (s/or
+    :constant ::common/percent
+    :map      ::fuel-moisture-layers))
+
 (s/def ::rh-or-fuel-moisture
   (fn [{:keys [relative-humidity fuel-moisture-layers]}]
     (or relative-humidity fuel-moisture-layers)))
@@ -222,6 +227,7 @@
              ::random-ignition
              ::relative-humidity
              ::fuel-moisture-layers
+             ::fuel-moisture
              ::spotting
              ::perturbations
              ::output-directory

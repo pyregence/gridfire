@@ -5,6 +5,7 @@
             [gridfire.common               :refer [burnable-fuel-model?
                                                    burnable?
                                                    get-fuel-moisture
+                                                   constant-fuel-moisture
                                                    fuel-moisture-from-raster
                                                    in-bounds?
                                                    burnable-neighbors?
@@ -202,6 +203,7 @@
                                                     (:wind-speed-20ft multiplier-lookup)
                                                     (:wind-speed-20ft perturbations))
         ^double fuel-moisture         (or (fuel-moisture-from-raster constants here global-clock)
+                                          (constant-fuel-moisture constants)
                                           (get-fuel-moisture relative-humidity temperature))
         [fuel-model spread-info-min]  (rothermel-fast-wrapper fuel-model fuel-moisture)
         midflame-wind-speed           (mph->fpm
