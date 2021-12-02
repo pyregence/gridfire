@@ -31,7 +31,7 @@
                                  {:size 30
                                   :xmin 500000.0
                                   :ymax 4000000.0})]
-      (write-raster raster (format "test/gridfire/resources/conical_test/dem-%s-slp.tif" degree)))))
+      (write-raster raster (format "test/gridfire/resources/canonical_test/dem-%s-slp.tif" degree)))))
 
 (defn- basename [path]
   (-> path
@@ -63,12 +63,12 @@
    ["-w" "--width WIDTH" "Raster width in pixels (default: 256)."
     :default  256
     :parse-fn #(Integer/parseInt %)
-    :validate [number? "--width must be a number."]]
+    :validate [integer? "--width must be an integer."]]
 
    ["-h" "--height HEIGHT" "Raster height in pixels (default: 256)."
     :default  256
     :parse-fn #(Integer/parseInt %)
-    :validate [number? "--height must be a number."]]
+    :validate [integer? "--height must be an integer."]]
 
    ["-s" "--size SIZE" "Size of each cell in the units of the provided CRS (default: 30 -- 30 meters in UTM)."
     :default  30
@@ -112,6 +112,5 @@
 
       :else
       (do (println "Creating raster" (:output options) "...")
-          (println options errors)
           (inputs->output-raster options)))
     (System/exit 0)))
