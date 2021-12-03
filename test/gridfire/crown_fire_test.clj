@@ -2,11 +2,12 @@
   (:require [clojure.test        :refer [deftest testing are run-tests]]
             [gridfire.conversion :as c]
             [gridfire.crown-fire :refer [crown-fire-line-intensity
+                                         crown-fire-eccentricity
                                          cruz-crown-fire-spread
                                          cruz-crown-fire-spread-metric
                                          cruz-active-crown-fire-spread
                                          cruz-passive-crown-fire-spread
-                                         van-wagner-crown-fire-line-intensity
+                                         van-wagner-critical-fire-line-intensity
                                          van-wagner-crown-fire-initiation-metric?
                                          van-wagner-crown-fire-initiation?]]))
 
@@ -22,7 +23,7 @@
 
 (deftest ^:unit test-van-wagner-crown-fire-line-intensity
   (testing "Fire intensity using Van Wagner (1976), equation 4."
-    (are [expected args] (within-5%? expected (apply van-wagner-crown-fire-line-intensity args))
+    (are [expected args] (within-5%? expected (apply van-wagner-critical-fire-line-intensity args))
          ; Crit. surf. intensity (kW/m) [canopy-base-height (m) foliar-moisture epsilon (%)]
          0.0                            [0 0]      ; No Canopy Base Height/Intensity
          2890.0                         [7 95]     ; Red pine (C6)
@@ -49,9 +50,9 @@
          false        [50  0.0           0.0  0]     ; No Canopy Base Height/No final-intensity
          false        [50  0.0           0.0  (c/kW-m->Btu-ft-s 10.0)]    ; No Canopy Base Height
          true         [50  (c/m->ft 1.0) 0.0  (c/kW-m->Btu-ft-s 10.0)]    ; CC, CBH, No Moisture
-         true         [50  (c/m->ft 7.0) 0.95 (c/kW-m->Btu-ft-s 10500.0)] ; Red pine (C6)
-         true         [50  (c/m->ft 7.0) 1.35 (c/kW-m->Btu-ft-s 9500.0)]  ; Red pine (C4)
-         false        [50  (c/m->ft 1.0) 1.20 (c/kW-m->Btu-ft-s 85.0)]))) ; Balsam fir under pine (F3)
+         true         [50  (c/m->ft 7.0) 95   (c/kW-m->Btu-ft-s 10500.0)] ; Red pine (C6)
+         true         [50  (c/m->ft 7.0) 135  (c/kW-m->Btu-ft-s 9500.0)]  ; Red pine (C4)
+         false        [50  (c/m->ft 1.0) 120  (c/kW-m->Btu-ft-s 85.0)]))) ; Balsam fir under pine (F3)
 
 (deftest ^:unit test-cruz-active-fire-spread
   (testing "Crown Fire spread rate (Cruz 2005) using SI units."
@@ -63,7 +64,9 @@
 
 (deftest ^:unit test-cruz-passive-fire-spread
   (testing "Passive fire spread rate (Cruz 2005) using SI units."
-    (are [expected args] (within-5%? expected (apply cruz-passive-crown-fire-spread args))
+    (are [expected args] (let [active-spread    (apply cruz-active-crown-fire-spread args)
+                               crit-spread-rate (/ 3.0 (second args))]
+                           (within-5%? expected (cruz-passive-crown-fire-spread active-spread crit-spread-rate)))
          ; m/min [wind-speed-10m (km/hr) canopy-bulk-density (kg/m^3) est. fine fuel moisture (%)]
          7.1     [16.3 0.16 8.6]    ; Mean values
          7.6     [7    0.08 8.0]))) ; Bor Island Fire Experiment
@@ -84,26 +87,35 @@
 (deftest ^:unit test-cruz-fire-spread-imperial
   (testing "Testing using imperial units fires."
     (are [expected args] (crown-fire-within-5%? [:active-crown expected] (apply cruz-crown-fire-spread args))
-         ; ft/min [wind-speed-20ft (mph) canopy-bulk-density (lb/ft^3) est. fine fuel moisture (0-1)]
-         (c/m->ft 22.6) [(c/U-10m->U-20ft 15.8) (c/kg-m3->lb-ft3 0.27) 0.088]
-         (c/m->ft 32.0) [(c/U-10m->U-20ft 35.0) (c/kg-m3->lb-ft3 0.1)  0.1]))
+         ; ft/min       [wind-speed-20ft (mph) canopy-bulk-density (lb/ft^3) est. fine fuel moisture (0-1)]
+         (c/m->ft 22.6) [(c/wind-speed-10m->wind-speed-20ft 15.8) (c/kg-m3->lb-ft3 0.27) 0.088]
+         (c/m->ft 32.0) [(c/wind-speed-10m->wind-speed-20ft 35.0) (c/kg-m3->lb-ft3 0.1)  0.1]))
 
   (testing "Passive crown fires"
     (are [expected args] (crown-fire-within-5%? [:passive-crown expected] (apply cruz-crown-fire-spread args))
-         ; ft/min     [wind-speed-20ft (mph) canopy-bulk-density (lb/ft^3) est. fine fuel moisture (0-1)]
-         (c/m->ft 7.6)  [(c/U-10m->U-20ft 7.0)  (c/kg-m3->lb-ft3 0.08) 0.08]
-         (c/m->ft 11.0) [(c/U-10m->U-20ft 30.0) (c/kg-m3->lb-ft3 0.1)  0.1])))
+         ; ft/min       [wind-speed-20ft (mph) canopy-bulk-density (lb/ft^3) est. fine fuel moisture (0-1)]
+         (c/m->ft 7.6)  [(c/wind-speed-10m->wind-speed-20ft 7.0)  (c/kg-m3->lb-ft3 0.08) 0.08]
+         (c/m->ft 11.0) [(c/wind-speed-10m->wind-speed-20ft 30.0) (c/kg-m3->lb-ft3 0.1)  0.1])))
 
 (deftest ^:unit test-crown-fire-line-intensity
   (testing "Crown Fire line intensity using SI units."
     (are [expected args] (within-5%? expected (apply crown-fire-line-intensity args))
-         ; kW/m  [crown-spread-rate (m/min) crown-bulk-density (kg/m^3) canopy-height (m) canopy-base-height (m) heat-of-combustion (kJ/kg)]
-         78 [1.0 0.25 2.0 1.0 (c/Btu-lb->kJ-kg 8000.0)])) ; Metric
+         ; kW/m  [crown-spread-rate (m/min) crown-bulk-density (kg/m^3) canopy-height-difference (m) heat-of-combustion (kJ/kg)]
+         78 [1.0 0.25 1.0 (c/Btu-lb->kJ-kg 8000.0)])) ; Metric
 
   (testing "Crown Fire line intensity using imperial units."
     (are [expected args] (within-5%? expected (apply crown-fire-line-intensity args))
-         ; Btu/ft*s  [crown-spread-rate (f/min) crown-bulk-density (lb/ft^3) canopy-height (ft) canopy-base-height (ft) heat-of-combustion (Btu/lb)]
-         22 [(c/m->ft 1.0) (c/kg-m3->lb-ft3 0.25) (c/m->ft 2.0) (c/m->ft 1.0) 8000.0])))
+         ; Btu/ft*s  [crown-spread-rate (f/min) crown-bulk-density (lb/ft^3) canopy-height-difference (ft) heat-of-combustion (Btu/lb)]
+         22 [(c/m->ft 1.0) (c/kg-m3->lb-ft3 0.25) (c/m->ft 1.0) 8000.0])))
+
+(deftest ^:unit test-crown-fire-eccentricity
+  (testing "Crown fire eccentricity"
+    (are [expected args] (within-5%? expected (apply crown-fire-eccentricity args))
+         ; E  [wind-speed-20ft ellipse-adjustment-factor]
+         0.0  [1 0]
+         0.45 [1 1]
+         0.75 [1 4.0]
+         0.9  [1 10.0])))
 
 (comment
   (run-tests 'gridfire.crown-fire-test)
