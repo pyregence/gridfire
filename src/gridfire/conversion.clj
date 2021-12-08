@@ -101,16 +101,16 @@
   (* km-hr 0.621371192237334))
 
 (defn wind-speed-20ft->wind-speed-10m
-  "Convert wind speed at 20ft (mph) to wind speed at 10m (km/hr)"
+  "Convert wind speed at 20ft to wind speed at 10m."
   ^double
   [^double wind-speed-20ft]
-  (/ (mph->km-hr wind-speed-20ft) 0.87))
+  (/ wind-speed-20ft 0.87))
 
 (defn wind-speed-10m->wind-speed-20ft
-  "Convert wind speed at 10m (km/hr) to wind speed at 20ft (mph)"
+  "Convert wind speed at 10m to wind speed at 20ft."
   ^double
   [^double wind-speed-10m]
-  (km-hr->mph (* 0.87 wind-speed-10m)))
+  (* 0.87 wind-speed-10m))
 
 (defn Btu-ft-s->kW-m
   "Convert BTU per feet per second to kilowatt per meter."

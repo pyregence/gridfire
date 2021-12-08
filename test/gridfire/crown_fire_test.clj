@@ -3,6 +3,7 @@
             [gridfire.conversion :as c]
             [gridfire.crown-fire :refer [crown-fire-line-intensity
                                          crown-fire-eccentricity
+                                         crown-length-to-width-ratio
                                          cruz-crown-fire-spread
                                          cruz-crown-fire-spread-metric
                                          cruz-active-crown-fire-spread
@@ -88,14 +89,14 @@
   (testing "Testing using imperial units fires."
     (are [expected args] (crown-fire-within-5%? [:active-crown expected] (apply cruz-crown-fire-spread args))
          ; ft/min       [wind-speed-20ft (mph) canopy-bulk-density (lb/ft^3) est. fine fuel moisture (0-1)]
-         (c/m->ft 22.6) [(c/wind-speed-10m->wind-speed-20ft 15.8) (c/kg-m3->lb-ft3 0.27) 0.088]
-         (c/m->ft 32.0) [(c/wind-speed-10m->wind-speed-20ft 35.0) (c/kg-m3->lb-ft3 0.1)  0.1]))
+         (c/m->ft 22.6) [(-> 15.8 (c/km-hr->mph) (c/wind-speed-10m->wind-speed-20ft)) (c/kg-m3->lb-ft3 0.27) 0.088]
+         (c/m->ft 32.0) [(-> 35.0 (c/km-hr->mph) (c/wind-speed-10m->wind-speed-20ft)) (c/kg-m3->lb-ft3 0.1)  0.1]))
 
   (testing "Passive crown fires"
     (are [expected args] (crown-fire-within-5%? [:passive-crown expected] (apply cruz-crown-fire-spread args))
          ; ft/min       [wind-speed-20ft (mph) canopy-bulk-density (lb/ft^3) est. fine fuel moisture (0-1)]
-         (c/m->ft 7.6)  [(c/wind-speed-10m->wind-speed-20ft 7.0)  (c/kg-m3->lb-ft3 0.08) 0.08]
-         (c/m->ft 11.0) [(c/wind-speed-10m->wind-speed-20ft 30.0) (c/kg-m3->lb-ft3 0.1)  0.1])))
+         (c/m->ft 7.6)  [(-> 7.0  (c/km-hr->mph) (c/wind-speed-10m->wind-speed-20ft)) (c/kg-m3->lb-ft3 0.08) 0.08]
+         (c/m->ft 11.0) [(-> 30.0 (c/km-hr->mph) (c/wind-speed-10m->wind-speed-20ft)) (c/kg-m3->lb-ft3 0.1)  0.1])))
 
 (deftest ^:unit test-crown-fire-line-intensity
   (testing "Crown Fire line intensity using SI units."
@@ -107,6 +108,15 @@
     (are [expected args] (within-5%? expected (apply crown-fire-line-intensity args))
          ; Btu/ft*s  [crown-spread-rate (f/min) crown-bulk-density (lb/ft^3) canopy-height-difference (ft) heat-of-combustion (Btu/lb)]
          22 [(c/m->ft 1.0) (c/kg-m3->lb-ft3 0.25) (c/m->ft 1.0) 8000.0])))
+
+(deftest ^:unit test-crown-length-to-width-ratio
+  (testing "Crown fire length/width ratio"
+    (are [expected args] (within-5%? expected (apply crown-length-to-width-ratio args))
+         ; L/W [wind-speed-20ft ellipse-adjustment-factor]
+         1.0   [0 0]
+         1.0   [1 0]
+         1.125 [1 1]
+         1.25  [1 2])))
 
 (deftest ^:unit test-crown-fire-eccentricity
   (testing "Crown fire eccentricity"
