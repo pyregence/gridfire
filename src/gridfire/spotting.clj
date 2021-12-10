@@ -111,52 +111,58 @@
           coord-deltas)))
 ;; convert-deltas ends here
 ;; [[file:../../org/GridFire.org::firebrand-ignition-probability][firebrand-ignition-probability]]
-(defn- specific-heat-dry-fuel
-  "Returns specific heat of dry fuel given:
-  initiial-temp: (Celcius)
-  ignition-temp: (Celcius)"
-  ^double
-  [^double initial-temp ^double ignition-temp]
-  (+ 0.266 (* 0.0016 (/ (+ ignition-temp initial-temp) 2))))
-
-(defn- heat-of-preignition
+(defn heat-of-preignition
   "Returns heat of preignition given:
-  init-temperature: (Celcius)
-  ignition-temperature: (Celcius)
-  moisture content: (Percent)"
+   - Temperature: (Celsius)
+   - Fine fuels moisture content (0-1 ratio)
+
+   Q_ig = 144.51 - 0.266*T_o - 0.00058 * (T_o)^2 - T_o * M + 18.54 * (1 - exp ( -15.1 * M ) ) + 640 * M       (eq. 10)
+  "
   ^double
-  [^double init-temperature ^double ignition-temperature ^double moisture]
+  [^double init-temperature ^double moisture]
   (let [T_o init-temperature
-        T_i ignition-temperature
         M   moisture
-        c_f (specific-heat-dry-fuel T_o T_i)
 
         ;; heat required to reach ignition temperature
-        Q_a (* (- T_i T_o) c_f)
+        Q_a (+ 144.512 (* -0.266 T_o) (* -0.00058 (Math/pow T_o 2.0)))
 
         ;; heat required to raise moisture to reach boiling point
-        Q_b (* (- 100 T_o) M)
+        Q_b (* -1.0 T_o M)
 
         ;; Heat of desorption
-        Q_c (* 18.54 (- 1 (Math/exp (* -15.1 M))))
+        Q_c (* 18.54 (- 1.0 (Math/exp (* -15.1 M))))
 
         ;; Heat required to vaporize moisture
-        Q_d (* 540 M)]
+        Q_d (* 640.0 M)]
     (+ Q_a Q_b Q_c Q_d)))
 
-(defn- schroeder-ign-prob
+(defn schroeder-ign-prob
   "Returns the probability of ignition as described in Shroeder (1969) given:
-  relative-humidity: (%)
-  temperature: (Farenheit)"
-  ^double
-  [fuel-moisture temperature]
-  (let [ignition-temperature 320.0 ;;FIXME should this be a constant?
-        moisture             (-> fuel-moisture :dead :1hr)
-        Q_ig                 (heat-of-preignition (convert/F->C temperature) ignition-temperature moisture)
-        X                    (/ (- 400 Q_ig) 10)]
-    (/ (* 0.000048 (Math/pow X 4.3)) 50)))
+   - Temperature: (Celsius)
+   - Fine fuels moisture content (0-1 ratio)
 
-(defn- spot-ignition-probability
+   X = (400 - Q_ig) / 10
+   P(I) = (0.000048 * (X)^4.3) / 50    (pg. 15)"
+  ^double
+  [^double temperature ^double fuel-moisture]
+  (let [Q_ig (heat-of-preignition temperature fuel-moisture)
+        X    (/ (- 400 Q_ig) 10)]
+    (-> X
+        (Math/pow 4.3)
+        (* 0.000048)
+        (/ 50)
+        (Math/min 1.0)
+        (Math/max 0.0))))
+
+(defn spot-ignition-probability
+  "Returns the probablity of spot fire ignition (Perryman 2012) given:
+   - Distance from the torch cell [d] (meters)
+   - Fine fuel moisture (%) and Temperature (C) to calculate Schroeder's Ignition
+     Probility [P(I)]
+   - Decay constant [lambda] (0.005)
+   - Number of firebrands accumulted in the cell [b]
+
+   P(Spot Ignition) = 1 - (1 - (P(I) * exp(-lambda * d)))^b"
   [{:keys [cell-size landfire-rasters]}
    {:keys [decay-constant]}
    fuel-moisture
@@ -164,7 +170,7 @@
    firebrand-count
    torched-origin
    here]
-  (let [ignition-probability (schroeder-ign-prob fuel-moisture temperature)
+  (let [ignition-probability (schroeder-ign-prob temperature fuel-moisture)
         distance             (convert/ft->m (distance-3d (:elevation landfire-rasters)
                                                          cell-size
                                                          here
@@ -173,28 +179,44 @@
     (- 1 (Math/pow (- 1 (* ignition-probability decay-factor)) firebrand-count))))
 ;; firebrand-ignition-probability ends here
 ;; [[file:../../org/GridFire.org::firebrands-time-of-ignition][firebrands-time-of-ignition]]
-(defn- spot-ignition?
+(defn spot-ignition?
   [rand-gen ^double spot-ignition-probability]
   (let [random-number (random-float 0 1 rand-gen)]
     (> spot-ignition-probability random-number)))
 
-(defn- spot-ignition-time
-  "Returns the time of spot ignition in minutes given:
-  global-clock: (min)
-  flame-length: (m)
-  wind-speed-20ft: (ms^-1)"
-  [^double global-clock ^double flame-length ^double wind-speed-20ft]
-  (let [a              5.963
-        b              (- a 1.4)
-        D              0.003 ;firebrand diameter (m)
-        z-max          (* 0.39 D (Math/pow 10 5))
-        t-steady-state 20    ;period of building up to steady state from ignition (min)
-        t_o            1     ;period of steady burning of tree crowns (min)
-        t-max-height   (+ (/ t_o (/ (* 2 flame-length) wind-speed-20ft))
-                          1.2
-                          (* (/ a 3.0)
-                             (- (Math/pow (/ (+ b (/ z-max flame-length)) a) (/ 3.0 2.0)) 1)))]
-    (+ global-clock (* 2 t-max-height) t-steady-state)))
+(defn albini-t-max
+  "Returns the time of spot ignition (Albini 1979) in minutes given:
+   - Global clock: (min)
+   - Flame length: (m) [z_F]
+
+   w_F = 2.3 * (z_F)^0.5                                         (A58)
+   t_o = t_c / (2 * z_F / w_F)
+   z =  0.39 * D * 10^5
+   t_T = t_o + 1.2 + (a / 3) * ( ( (b + (z/z_F) )/a )^2/3 - 1 )  (D43)"
+  ^double
+  [^double flame-length]
+  (let [a              5.963                               ; constant from (D33)
+        b              4.563                               ; constant from (D34)
+        z-max          117                                 ; max height given particle diameter of 0.003m
+        w_F            (Math/pow (* 2.3 flame-length) 0.5) ; upward axial velocity at flame tip
+        t_o            (/ 1 (/ (* 2 flame-length) w_F))]   ; period of steady burning of tree crowns (min) normalized by 2*z_F / w_F
+    (+ t_o 1.2
+       (* (/ a 3.0)
+          (- (Math/pow (/ (+ b (/ z-max flame-length)) a) 1.5) 1)))))
+
+(defn spot-ignition-time
+  "Returns the time of spot ignition using (Albini 1979) and (Perryman 2012) in minutes given:
+   - Global clock: (min)
+   - Flame length: (m)
+
+   time_spot = clock + (2 * t-max) + t_ss"
+  ^double
+  [^double global-clock ^double flame-length]
+  (let [t-steady-state 20] ; period of building up to steady state from ignition (min)
+    (-> (albini-t-max flame-length)
+        (* 2)
+        (+ global-clock t-steady-state))))
+
 ;; firebrands-time-of-ignition ends here
 ;; [[file:../../org/GridFire.org::spread-firebrands][spread-firebrands]]
 (defn- update-firebrand-counts!
@@ -217,6 +239,7 @@
   (<= min fuel-model-number max))
 
 (defn surface-spot-percent
+  "Returns the surface spotting probability given."
   ^double
   [fuel-range-percents fuel-model-number rand-gen]
   (reduce (fn [acc [fuel-range percent]]
@@ -228,10 +251,10 @@
           0.0
           fuel-range-percents))
 
-(defn- surface-fire-spot-fire?
+(defn surface-fire-spot-fire?
   "Expects surface-fire-spotting config to be a sequence of tuples of
-  ranges [lo hi] and spottting percent. The range represents the range (inclusive)
-  of fuel model numbers that the spotting percent is set to.
+  ranges [lo hi] and spotting probability. The range represents the range (inclusive)
+  of fuel model numbers that the spotting probability is set to.
   [[[1 140] 0.0]
   [[141 149] 1.0]
   [[150 256] 1.0]]"
@@ -246,7 +269,10 @@
             spot-percent        (surface-spot-percent fuel-range-percents fuel-model-number rand-gen)]
         (>= spot-percent (random-float 0.0 1.0 rand-gen))))))
 
-(defn- crown-spot-fire? [{:keys [spotting rand-gen]}]
+(defn crown-spot-fire?
+  "Determine whether crowning causes spot fires. Config key `:spotting` should
+   take either a vector of probabilities (0-1) or a single spotting probability."
+  [{:keys [spotting rand-gen]}]
   (when-let [spot-percent (:crown-fire-spotting-percent spotting)]
     (let [^double p (if (vector? spot-percent)
                       (let [[lo hi] spot-percent]
@@ -308,16 +334,15 @@
                  :let  [firebrand-count (m/mget firebrand-count-matrix x y)
                         spot-ignition-p (spot-ignition-probability inputs
                                                                    spotting
-                                                                   fuel-moisture
-                                                                   tmp
+                                                                   (-> fuel-moisture :dead :1hr)
+                                                                   (convert/F->C tmp)
                                                                    firebrand-count
                                                                    cell
                                                                    [x y])]]
              (when (spot-ignition? rand-gen spot-ignition-p)
                (let [[i j] cell
                      t     (spot-ignition-time global-clock
-                                               (convert/ft->m (m/mget flame-length-matrix i j))
-                                               (convert/mph->mps ws))]
+                                               (convert/ft->m (m/mget flame-length-matrix i j)))]
                  [[x y] [t spot-ignition-p]])))
            (remove nil?)))))
 ;; spread-firebrands ends here
