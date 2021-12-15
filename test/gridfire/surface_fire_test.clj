@@ -1,12 +1,26 @@
 (ns gridfire.surface-fire-test
-  (:require [clojure.test                :refer :all]
+  (:require [clojure.test                :refer [deftest testing is run-tests]]
             [gridfire.fuel-models        :refer [fuel-models build-fuel-model moisturize]]
-            [gridfire.surface-fire       :refer :all]
+            [gridfire.surface-fire       :refer [anderson-flame-depth
+                                                 grass-fuel-model?
+                                                 byram-fire-line-intensity
+                                                 byram-flame-length
+                                                 rothermel-surface-fire-spread-no-wind-no-slope
+                                                 rothermel-surface-fire-spread-max
+                                                 wind-adjustment-factor
+                                                 wind-adjustment-factor-elmfire]]
             [gridfire.conversion         :refer [ft->m mph->fpm]]
-            [gridfire.behaveplus-results :refer :all]))
+            [gridfire.behaveplus-results :refer [behaveplus5-surface-fire-values-dry-no-wind-no-slope
+                                                 behaveplus5-surface-fire-values-mid-no-wind-no-slope
+                                                 behaveplus5-surface-fire-values-mid-with-wind-and-slope
+                                                 behaveplus5-surface-fire-values-mid-with-cross-wind-and-slope-90-180
+                                                 behaveplus5-surface-fire-values-mid-with-cross-wind-and-slope-135-180
+                                                 sb40-fuel-models
+                                                 test-fuel-moisture
+                                                 within]]))
 
 ;; Tests fuel model weighting factors, rothermel equations, and byram's flame length and fire line intensity under fully cured conditions
-(deftest rothermel-surface-fire-spread-no-wind-no-slope-test-dry
+(deftest ^:unit rothermel-surface-fire-spread-no-wind-no-slope-test-dry
   (doseq [num sb40-fuel-models]
     (let [gridfire-fuel-model                                     (moisturize (build-fuel-model num) (test-fuel-moisture :dry))
           {:keys [spread-rate reaction-intensity residence-time]} (rothermel-surface-fire-spread-no-wind-no-slope gridfire-fuel-model)
@@ -23,7 +37,7 @@
       (is (within fl flame-length 0.05)))))
 
 ;; Tests fuel model weighting factors, rothermel equations, and byram's flame length and fire line intensity under 50% cured conditions
-(deftest rothermel-surface-fire-spread-no-wind-no-slope-test-mid
+(deftest ^:unit rothermel-surface-fire-spread-no-wind-no-slope-test-mid
   (doseq [num sb40-fuel-models]
     (let [gridfire-fuel-model                                     (moisturize (build-fuel-model num) (test-fuel-moisture :mid))
           {:keys [spread-rate reaction-intensity residence-time]} (rothermel-surface-fire-spread-no-wind-no-slope gridfire-fuel-model)
@@ -43,7 +57,7 @@
 ;; byram's flame length and fire line intensity under 50% cured
 ;; conditions with 10mph wind speed and 20% slope. Also tests phi_W
 ;; and phi_S from the rothermel equations.
-(deftest rothermel-surface-fire-spread-with-wind-and-slope-test-mid
+(deftest ^:unit rothermel-surface-fire-spread-with-wind-and-slope-test-mid
   (doseq [num sb40-fuel-models]
     (let [gridfire-fuel-model                                     (moisturize (build-fuel-model num) (test-fuel-moisture :mid))
           {:keys [spread-rate reaction-intensity residence-time
@@ -73,7 +87,7 @@
 ;; byram's flame length and fire line intensity under 50% cured
 ;; conditions with 10mph wind speed and 20% slope. Also tests max
 ;; spread direction and effective wind speed for cross-slope winds.
-(deftest rothermel-surface-fire-spread-with-cross-wind-and-slope-test-mid-90-180
+(deftest ^:unit rothermel-surface-fire-spread-with-cross-wind-and-slope-test-mid-90-180
   (doseq [num sb40-fuel-models]
     (let [gridfire-fuel-model                                     (moisturize (build-fuel-model num) (test-fuel-moisture :mid))
           {:keys [spread-rate reaction-intensity residence-time
@@ -100,7 +114,7 @@
 ;; byram's flame length and fire line intensity under 50% cured
 ;; conditions with 10mph wind speed and 20% slope. Also tests max
 ;; spread direction and effective wind speed for cross-slope winds.
-(deftest rothermel-surface-fire-spread-with-cross-wind-and-slope-test-mid-135-180
+(deftest ^:unit rothermel-surface-fire-spread-with-cross-wind-and-slope-test-mid-135-180
   (doseq [num sb40-fuel-models]
     (let [gridfire-fuel-model                                     (moisturize (build-fuel-model num) (test-fuel-moisture :mid))
           {:keys [spread-rate reaction-intensity residence-time
@@ -125,7 +139,7 @@
       (is (within eff_wsp effective-wind-speed-mph 0.1))
       (is (within behaveplus-eccentricity eccentricity 0.01)))))
 
-(deftest wind-adjustment-factor-test
+(deftest ^:unit wind-adjustment-factor-test
   (doseq [fuel-bed-depth (map second (vals (select-keys fuel-models sb40-fuel-models)))] ;; ft
     (doseq [canopy-height (range 0 121 10)] ;; ft
       (doseq [canopy-cover (range 0 101 10)] ;; %

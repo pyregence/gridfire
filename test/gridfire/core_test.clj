@@ -71,10 +71,10 @@
 ;; Tests
 ;;-----------------------------------------------------------------------------
 
-(deftest fetch-landfire-layers-old-config-test
+(deftest ^{:database true :simulation true} fetch-landfire-layers-old-config-test
   (is (some? (fetch/landfire-layers test-config-base))))
 
-(deftest fetch-landfire-layers-test
+(deftest ^{:database true :simulation true} fetch-landfire-layers-test
   (testing "Fetching layers from postgis and geotiff files"
     (let [postgis-config {:db-spec         db-spec
                           :srid            "CUSTOM:900914"
@@ -141,7 +141,7 @@
 ;; Landfire Layer Tests
 ;;-----------------------------------------------------------------------------
 
-(deftest run-test-simulation!-test
+(deftest ^{:database true :simulation true} run-test-simulation!-test
   (testing "Running simulation with different ways to fetch LANDFIRE layers"
     (let [postgis-config  (merge test-config-base
                                  {:landfire-layers {:aspect             {:type   :postgis
@@ -191,7 +191,7 @@
 ;; Ignition Layer Tests
 ;;-----------------------------------------------------------------------------
 
-(deftest geotiff-ignition-test
+(deftest ^{:database true :simulation true} geotiff-ignition-test
   (testing "Running simulation with ignition layers read from geotiff files"
     (let [config (merge test-config-base
                         {:ignition-layer {:type   :geotiff
@@ -199,14 +199,14 @@
 
       (is (valid-exits? (run-test-simulation! config))))))
 
-(deftest postgis-ignition-test
+(deftest ^{:database true :simulation true} postgis-ignition-test
   (testing "Running simulation with ignition layers read from Postgres database"
     (let [config (merge test-config-base
                         {:ignition-layer {:type   :postgis
                                           :source "ignition.ign WHERE rid=1"}})]
       (is (valid-exits? (run-test-simulation! config))))))
 
-(deftest burn-value-test
+(deftest ^{:database true :simulation true} burn-value-test
   (testing "Running simulation with burned and unburned values different from Gridfire's definition"
     (let [config (merge test-config-base
                         {:ignition-layer {:type        :geotiff
@@ -253,7 +253,7 @@
    :wind-from-direction {:type   :geotiff
                          :source (in-file-path "weather-test/wd_to_sample.tif")}})
 
-(deftest run-test-simulation!-weather-test
+(deftest ^{:database true :simulation true} run-test-simulation!-weather-test
   (doseq [weather weather-layers]
     (let [config (merge test-config-base
                         weather
@@ -263,7 +263,7 @@
       (is (valid-exits? (run-test-simulation! config))))))
 
 
-(deftest geotiff-landfire-weather-ignition
+(deftest ^:simulation geotiff-landfire-weather-ignition
   (testing "Running simulation using landfire, weather, and ignition data from geotiff files"
     (let [config (merge test-config-base
                         weather-layers
@@ -274,7 +274,7 @@
 
       (is (valid-exits? (run-test-simulation! config))))))
 
-(deftest run-test-simulation!-using-lower-resolution-weather-test
+(deftest ^:simulation run-test-simulation!-using-lower-resolution-weather-test
   (testing "Running simulation using temperature data from geotiff file"
     (let [config (merge test-config-base
                         {:cell-size       (m->ft 30)
@@ -284,7 +284,7 @@
 
       (is (valid-exits? (run-test-simulation! config))))))
 
-(deftest multiplier-lookup-test
+(deftest ^:unit multiplier-lookup-test
   (testing "constructing multiplier lookup for weather raster"
     (let [config         {:cell-size   (m->ft 30)
                           :temperature {:type   :geotiff
@@ -297,7 +297,7 @@
 ;; Perturbation Tests
 ;;-----------------------------------------------------------------------------
 
-(deftest run-test-simulation!-with-landfire-perturbations
+(deftest ^{:database true :simulation true} run-test-simulation!-with-landfire-perturbations
   (testing "with global perturbation value"
     (let [config  (merge test-config-base
                          {:perturbations {:canopy-height {:spatial-type :global
@@ -314,7 +314,7 @@
 ;; Outputs
 ;;-----------------------------------------------------------------------------
 
-(deftest binary-output-files-test
+(deftest ^{:database true :simulation true} binary-output-files-test
   (let [config         (merge test-config-base
                               {:output-binary?   true
                                :output-directory "test/output"})
@@ -327,7 +327,7 @@
 ;; Ignition Mask
 ;;-----------------------------------------------------------------------------
 
-(deftest igniton-mask-test
+(deftest ^:simulation igniton-mask-test
   (let [config (merge test-config-base
                       {:landfire-layers landfire-layers-weather-test
                        :ignition-row    nil
@@ -341,7 +341,7 @@
 ;; Moisture Rasters
 ;;-----------------------------------------------------------------------------
 
-(deftest moisture-rasters-test
+(deftest ^:simulation moisture-rasters-test
   (let [config (merge test-config-base
                       {:landfire-layers      landfire-layers-weather-test
                        :ignition-row         nil
@@ -361,7 +361,7 @@
                                                                   :source (in-file-path "weather-test/mlh_to_sample.tif")}}}})]
     (is (valid-exits? (run-test-simulation! config)))))
 
-(deftest moisture-scalars-only-test
+(deftest ^:simulation moisture-scalars-only-test
   (let [config (merge test-config-base
                       {:landfire-layers      landfire-layers-weather-test
                        :ignition-row         nil
@@ -376,7 +376,7 @@
                                                      :herbaceous 30.0}}})]
     (is (valid-exits? (run-test-simulation! config)))))
 
-(deftest moisture-mix-raster-scalars-test
+(deftest ^:simulation moisture-mix-raster-scalars-test
   (let [config (merge test-config-base
                       {:landfire-layers      landfire-layers-weather-test
                        :ignition-row         nil
@@ -398,7 +398,7 @@
 ;; Ignition CSV
 ;;-----------------------------------------------------------------------------
 
-(deftest ignition-csv-test
+(deftest ^{:database true :simulation true} ignition-csv-test
   (let [results (run-test-simulation! (assoc test-config-base :ignition-csv (in-file-path "sample_ignitions.csv")))]
 
     (is (valid-exits? results))

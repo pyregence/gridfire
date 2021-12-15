@@ -4,7 +4,7 @@
                                                   ignition-time-regex]]
             [clojure.test :refer [deftest is]]))
 
-(deftest file-name-regex-test
+(deftest ^:unit file-name-regex-test
 
   (is (= "nm-johnson_20210617_203600_001"
          (->>  "nm-johnson_20210617_203600_001.tar"
@@ -18,7 +18,7 @@
          (->>  "/gridfire/data/nm-johnson_20210617_203600_001.tar"
                (re-find file-name-regex)))))
 
-(deftest fire-name-regex-test
+(deftest ^:unit fire-name-regex-test
 
   (is (= "nm-johnson"
          (->>  "nm-johnson_20210617_203600_001"
@@ -35,7 +35,7 @@
          (->>  "ca-success-2_20210618_000000_001.tar"
                (re-find fire-name-regex)))))
 
-(deftest ignition-time-regex-test
+(deftest ^:unit ignition-time-regex-test
 
   (is (= "20210617_203600"
          (->>  "nm-johnson_20210617_203600_001"

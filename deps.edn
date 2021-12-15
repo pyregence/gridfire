@@ -29,13 +29,13 @@
            :gen-raster        {:main-opts ["-m" "gridfire.gen-raster"]}
            :make-uberjar      {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
                                :exec-fn      hf.depstar/uberjar
-                               :exec-args    {:jar         target/gridfire-2021.11.12.jar
+                               :exec-args    {:jar         target/gridfire-2021.11.24.jar
                                               :main-class  gridfire.cli
                                               :aot         true
                                               :sync-pom    true
                                               :group-id    sig-gis
                                               :artifact-id gridfire
-                                              :version     "2021.11.12"
+                                              :version     "2021.11.24"
                                               :manifest
                                               {:specification-title    "Java Advanced Imaging Image I/O Tools"
                                                :specification-version  "1.1"
@@ -49,6 +49,13 @@
                                               :sha     "dd6da11611eeb87f08780a30ac8ea6012d4c05ce"}}
                                :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
                                              "-m" "cognitect.test-runner"]}
+           :test-unit         {:extra-paths ["test"]
+                               :extra-deps  {com.cognitect/test-runner
+                                             {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                              :sha     "dd6da11611eeb87f08780a30ac8ea6012d4c05ce"}}
+                               :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
+                                             "-m" "cognitect.test-runner"
+                                             "--include" ":unit"]}
            :check-reflections {:extra-paths ["test"]
                                :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
                                              "-e" "(require,'gridfire.cli)"

@@ -27,7 +27,7 @@
 ;; Tests
 ;;-----------------------------------------------------------------------------
 
-(deftest convert-test
+(deftest ^:unit convert-test
   (is (= 42 (config/convert-val "42")))
 
   (is (= 42.0 (config/convert-val "42.0")))
@@ -42,7 +42,7 @@
 
   (is (= "some/directory" (config/convert-val"'some/directory'"))))
 
-(deftest misc-params-test
+(deftest ^:unit misc-params-test
   (let [config (config/build-edn (->> (slurp (in-file-path "sample-elmfire.data"))
                                       config/parse-elmfire))]
     (is (s/valid? ::spec/config config))
@@ -67,7 +67,7 @@
 ;; Landfire Layers
 ;;-----------------------------------------------------------------------------
 
-(deftest process-landfire-layers-test
+(deftest ^:unit process-landfire-layers-test
   (binding [gridfire.config/*elmfire-directory-path* "./test/gridfire/resources/config_test"]
     (let [data    (->> (in-file-path "sample-elmfire.data")
                        slurp
@@ -81,7 +81,7 @@
 ;; Ignition
 ;;-----------------------------------------------------------------------------
 
-(deftest process-ignition-test
+(deftest ^:unit process-ignition-test
   (let [data    (->> (in-file-path "sample-elmfire.data")
                      slurp
                      config/parse-elmfire)
@@ -98,7 +98,7 @@
 ;; Weather
 ;;-----------------------------------------------------------------------------
 
-(deftest process-weather-test
+(deftest ^:unit process-weather-test
   (let [data    (->> (in-file-path "sample-elmfire.data")
                      slurp
                      config/parse-elmfire)
@@ -125,7 +125,7 @@
 ;; Output
 ;;-----------------------------------------------------------------------------
 
-(deftest process-output-test
+(deftest ^:unit process-output-test
   (let [data    (->> (in-file-path "sample-elmfire.data")
                      slurp
                      config/parse-elmfire)
@@ -150,7 +150,7 @@
 ;; Perturbations
 ;;-----------------------------------------------------------------------------
 
-(deftest extract-perturbations-test
+(deftest ^:unit extract-perturbations-test
   (let [config  (->> (in-file-path "sample-elmfire.data")
                      slurp
                      config/parse-elmfire)
@@ -170,7 +170,7 @@
 ;; Spotting
 ;;-----------------------------------------------------------------------------
 
-(deftest extract-num-firbrands-test
+(deftest ^:unit extract-num-firbrands-test
   (let [config  (->> (in-file-path "sample-elmfire.data")
                      slurp
                      config/parse-elmfire)
@@ -180,7 +180,7 @@
             :hi [1 2]}
            results))))
 
-(deftest extract-crown-fire-spotting-percent-test
+(deftest ^:unit extract-crown-fire-spotting-percent-test
   (let [config  (->> (in-file-path "sample-elmfire.data")
                      slurp
                      config/parse-elmfire)
@@ -189,7 +189,7 @@
     (is (= [0.005 0.02]
            results))))
 
-(deftest process-spotting-test
+(deftest ^:unit process-spotting-test
   (let [data    (->> (in-file-path "sample-elmfire.data")
                      slurp
                      config/parse-elmfire)
@@ -212,7 +212,7 @@
 ;; Fuel Moisture
 ;;-----------------------------------------------------------------------------
 
-(deftest process-fuel-moisture-test
+(deftest ^:unit process-fuel-moisture-test
   (let [data    (->> (in-file-path "sample-elmfire.data")
                      slurp
                      config/parse-elmfire)

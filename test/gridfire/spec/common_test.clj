@@ -3,7 +3,7 @@
             [clojure.test         :refer [deftest is testing]]
             [gridfire.spec.common :as common]))
 
-(deftest number-or-range-map-test
+(deftest ^:unit number-or-range-map-test
   (testing "scalar"
     (is (s/valid? ::common/number-or-range-map 5.0)
         "scalar can be float")

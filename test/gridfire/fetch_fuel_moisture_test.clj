@@ -7,7 +7,7 @@
 
 (def resources-path "test/gridfire/resources/weather-test")
 
-(deftest fuel-moisture-test
+(deftest ^:unit fuel-moisture-test
   (let [layers               {:dead {:1hr   {:type   :geotiff
                                              :source (utils/in-file-path resources-path "m1_to_sample.tif")}
                                      :10hr  {:type   :geotiff
