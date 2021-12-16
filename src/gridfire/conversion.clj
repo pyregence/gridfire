@@ -106,6 +106,18 @@
   [^double km-hr]
   (* km-hr 0.621371192237334))
 
+(defn wind-speed-20ft->wind-speed-10m
+  "Convert wind speed at 20ft to wind speed at 10m."
+  ^double
+  [^double wind-speed-20ft]
+  (/ wind-speed-20ft 0.87))
+
+(defn wind-speed-10m->wind-speed-20ft
+  "Convert wind speed at 10m to wind speed at 20ft."
+  ^double
+  [^double wind-speed-10m]
+  (* 0.87 wind-speed-10m))
+
 (defn Btu-ft-s->kW-m
   "Convert BTU per feet per second to kilowatt per meter."
   ^double
@@ -117,6 +129,18 @@
   ^double
   [^double kW-m]
   (* kW-m 0.28887942532730604))
+
+(defn Btu-lb->kJ-kg
+  "Convert BTU per lb to kilojoule per kilogram."
+  ^double
+  [^double Btu-lb]
+  (* Btu-lb 2.3259999996185))
+
+(defn kJ-kg->Btu-lb
+  "Convert kilojoule per kilogram to BTU per lb."
+  ^double
+  [^double kJ-kg]
+  (/ kJ-kg 2.3259999996185))
 
 (defn kg-m3->lb-ft3
   "Convert kilogram per cubic meter to pound per cubic foot."
