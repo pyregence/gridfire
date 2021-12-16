@@ -114,14 +114,13 @@
 (defn heat-of-preignition
   "Returns heat of preignition given:
    - Temperature: (Celsius)
-   - Fine fuels moisture content (0-1 ratio)
+   - Fine fuel moisture (0-1 ratio)
 
-   Q_ig = 144.51 - 0.266*T_o - 0.00058 * (T_o)^2 - T_o * M + 18.54 * (1 - exp ( -15.1 * M ) ) + 640 * M       (eq. 10)
-  "
+   Q_ig = 144.512 - 0.266*T_o - 0.00058 * (T_o)^2 - T_o * M + 18.54 * (1 - exp ( -15.1 * M ) ) + 640 * M  (eq. 10)"
   ^double
-  [^double init-temperature ^double moisture]
+  [^double init-temperature ^double fine-fuel-moisture]
   (let [T_o init-temperature
-        M   moisture
+        M   fine-fuel-moisture
 
         ;; heat required to reach ignition temperature
         Q_a (+ 144.512 (* -0.266 T_o) (* -0.00058 (Math/pow T_o 2.0)))
@@ -142,25 +141,24 @@
    - Fine fuels moisture content (0-1 ratio)
 
    X = (400 - Q_ig) / 10
-   P(I) = (0.000048 * (X)^4.3) / 50    (pg. 15)"
+   P(I) = (0.000048 * X^4.3) / 50    (pg. 15)"
   ^double
-  [^double temperature ^double fuel-moisture]
-  (let [Q_ig (heat-of-preignition temperature fuel-moisture)
-        X    (/ (- 400 Q_ig) 10)]
+  [^double temperature ^double fine-fuel-moisture]
+  (let [Q_ig (heat-of-preignition temperature fine-fuel-moisture)
+        X    (/ (- 400.0 Q_ig) 10.0)]
     (-> X
         (Math/pow 4.3)
         (* 0.000048)
-        (/ 50)
+        (/ 50.0)
         (Math/min 1.0)
         (Math/max 0.0))))
 
 (defn spot-ignition-probability
-  "Returns the probablity of spot fire ignition (Perryman 2012) given:
+  "Returns the probability of spot fire ignition (Perryman 2012) given:
    - Distance from the torch cell [d] (meters)
-   - Fine fuel moisture (%) and Temperature (C) to calculate Schroeder's Ignition
-     Probility [P(I)]
+   - Fine fuel moisture (0-1 ratio) and Temperature (C) to calculate Schroeder's Ignition Probability [P(I)]
    - Decay constant [lambda] (0.005)
-   - Number of firebrands accumulted in the cell [b]
+   - Number of firebrands accumulated in the cell [b]
 
    P(Spot Ignition) = 1 - (1 - (P(I) * exp(-lambda * d)))^b"
   [{:keys [cell-size landfire-rasters]}
@@ -175,8 +173,8 @@
                                                          cell-size
                                                          here
                                                          torched-origin))
-        decay-factor         (Math/exp (* -1 ^double decay-constant distance))]
-    (- 1 (Math/pow (- 1 (* ignition-probability decay-factor)) firebrand-count))))
+        decay-factor         (Math/exp (* -1.0 ^double decay-constant distance))]
+    (- 1.0 (Math/pow (- 1.0 (* ignition-probability decay-factor)) firebrand-count))))
 ;; firebrand-ignition-probability ends here
 ;; [[file:../../org/GridFire.org::firebrands-time-of-ignition][firebrands-time-of-ignition]]
 (defn spot-ignition?
@@ -185,37 +183,47 @@
     (> spot-ignition-probability random-number)))
 
 (defn albini-t-max
-  "Returns the time of spot ignition (Albini 1979) in minutes given:
-   - Global clock: (min)
+  "Returns the time of spot ignition using (Albini 1979) in minutes given:
    - Flame length: (m) [z_F]
 
+   a = 5.963                                                     (D33)
+   b = a - 1.4                                                   (D34)
+   D = 0.003
+   t_c = 1
    w_F = 2.3 * (z_F)^0.5                                         (A58)
    t_o = t_c / (2 * z_F / w_F)
    z =  0.39 * D * 10^5
-   t_T = t_o + 1.2 + (a / 3) * ( ( (b + (z/z_F) )/a )^2/3 - 1 )  (D43)"
+   t_T = t_o + 1.2 + (a / 3) * ( ( (b + (z/z_F) )/a )^3/2 - 1 )  (D43)"
   ^double
   [^double flame-length]
-  (let [a              5.963                               ; constant from (D33)
-        b              4.563                               ; constant from (D34)
-        z-max          117                                 ; max height given particle diameter of 0.003m
-        w_F            (Math/pow (* 2.3 flame-length) 0.5) ; upward axial velocity at flame tip
-        t_o            (/ 1 (/ (* 2 flame-length) w_F))]   ; period of steady burning of tree crowns (min) normalized by 2*z_F / w_F
-    (+ t_o 1.2
-       (* (/ a 3.0)
-          (- (Math/pow (/ (+ b (/ z-max flame-length)) a) 1.5) 1)))))
+  (let [a     5.963                            ; constant from (D33)
+        b     4.563                            ; constant from (D34)
+        z-max 117.0                            ; max height given particle diameter of 0.003m
+        w_F   (* 2.3 (Math/sqrt flame-length)) ; upward axial velocity at flame tip
+        t_0   (/ w_F (* 2.0 flame-length))]    ; period of steady burning of tree crowns (t_c, min) normalized by 2*z_F / w_F
+    (-> z-max
+        (/ flame-length)
+        (+ b)
+        (/ a)
+        (Math/pow 1.5)
+        (- 1.0)
+        (* (/ a 3.0))
+        (+ 1.2)
+        (+ t_0))))
 
 (defn spot-ignition-time
   "Returns the time of spot ignition using (Albini 1979) and (Perryman 2012) in minutes given:
    - Global clock: (min)
    - Flame length: (m)
 
-   time_spot = clock + (2 * t-max) + t_ss"
+   t_spot = clock + (2 * t_max) + t_ss"
   ^double
   [^double global-clock ^double flame-length]
-  (let [t-steady-state 20] ; period of building up to steady state from ignition (min)
+  (let [t-steady-state 20.0] ; period of building up to steady state from ignition (min)
     (-> (albini-t-max flame-length)
-        (* 2)
-        (+ global-clock t-steady-state))))
+        (* 2.0)
+        (+ global-clock)
+        (+ t-steady-state))))
 
 ;; firebrands-time-of-ignition ends here
 ;; [[file:../../org/GridFire.org::spread-firebrands][spread-firebrands]]
@@ -239,7 +247,13 @@
   (<= min fuel-model-number max))
 
 (defn surface-spot-percent
-  "Returns the surface spotting probability given."
+  "Returns the surface spotting probability, given:
+   - Vector of vectors where the first entry is a vector range of fuel models,
+     and the second entry is the a single probability or vector range of probabilities
+     of those fuels spotting (e.g. `[[[10 20] 0.2]]` or `[[[10 20] [0.2 0.4]]`)
+   - The fuel model number for the particular cell
+   - A random number generator, which is used to generate the probability when
+     a range of probabilities is given."
   ^double
   [fuel-range-percents fuel-model-number rand-gen]
   (reduce (fn [acc [fuel-range percent]]

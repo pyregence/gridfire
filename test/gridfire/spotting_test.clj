@@ -171,19 +171,19 @@
   (testing "Calculating t-max from Albini (1976)."
     (are [result args] (within? result (apply spotting/albini-t-max args) 0.1)
          ; Time to max height (min) [Flame length (m)]
-         182.9                      [1.0]
-         19.7                       [5.0]
-         8.4                        [10.0]
+         183.3                      [1.0]
+         19.9                       [5.0]
+         8.5                        [10.0]
          2.7                        [30.0]
          1.28                       [84.0]))
 
   (testing "Calculating time to spot ignition using Perryman."
     (are [result args] (within? result (apply spotting/spot-ignition-time args) 0.1)
          ; Ignition time (m) [Global clock time (m) Flame length (m)]
-         385.8               [0 1.0]
-         59.4                [0 5.0]
-         36.8                [0 10.0]
-         25.4                [0 30.0]
+         386.6               [0 1.0]
+         59.8                [0 5.0]
+         37.0                [0 10.0]
+         25.5                [0 30.0]
          22.56               [0 84.0])))
 
 (deftest ^:unit test-spot-ignition?
