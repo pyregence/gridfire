@@ -27,8 +27,8 @@
          ::ordered-pair))
 
 (s/def ::ratio-or-range
-  (s/or :percent ::ratio
-        :range   ::ratio-range))
+  (s/or :ratio ::ratio
+        :range ::ratio-range))
 
 (s/def ::integer-or-range
   (s/or :integer integer?
@@ -43,9 +43,9 @@
         :range  ::number-range))
 
 (s/def ::ratio-sample
-  (s/or :percent ::ratio
-        :range   ::ratio-range
-        :list    (s/coll-of ::ratio :kind list?)))
+  (s/or :ratio ::ratio
+        :range ::ratio-range
+        :list  (s/coll-of ::ratio :kind list?)))
 
 (s/def ::integer-sample
   (s/or :integer integer?
@@ -127,8 +127,8 @@
                             :map ::postgis-or-geotiff))
 
 (s/def ::ratio-or-layer-coords
-  (s/or :percent ::ratio
-        :raster  ::layer-coords))
+  (s/or :ratio  ::ratio
+        :raster ::layer-coords))
 
 ;;=============================================================================
 ;; Macros

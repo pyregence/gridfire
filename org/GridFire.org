@@ -4108,7 +4108,7 @@ To specifiy this feature include the following mappings at the top
 level of the config file:
 
 - *fuel-moisture-layers*: a map of fuel moisture specicfiations
- 
+
 Fuel moisture specifications can be either a specification map as
 described in section 1 or a ratio value.
 
