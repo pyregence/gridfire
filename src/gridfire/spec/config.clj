@@ -100,11 +100,11 @@
 
 ;; Fuel Moisture
 
-(s/def ::1hr        ::common/number-or-layer-coords)
-(s/def ::10hr       ::common/number-or-layer-coords)
-(s/def ::100hr      ::common/number-or-layer-coords)
-(s/def ::woody      ::common/number-or-layer-coords)
-(s/def ::herbaceous ::common/number-or-layer-coords)
+(s/def ::1hr        ::common/percent-or-layer-coords)
+(s/def ::10hr       ::common/percent-or-layer-coords)
+(s/def ::100hr      ::common/percent-or-layer-coords)
+(s/def ::woody      ::common/percent-or-layer-coords)
+(s/def ::herbaceous ::common/percent-or-layer-coords)
 
 (s/def ::dead
   (s/keys :req-un [::1hr ::10hr ::100hr]))

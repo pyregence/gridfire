@@ -126,9 +126,9 @@
 (s/def ::layer-coords (s/or :sql ::sql
                             :map ::postgis-or-geotiff))
 
-(s/def ::number-or-layer-coords
-  (s/or :number number?
-        :raster ::layer-coords))
+(s/def ::percent-or-layer-coords
+  (s/or :percent ::percent
+        :raster  ::layer-coords))
 
 ;;=============================================================================
 ;; Macros

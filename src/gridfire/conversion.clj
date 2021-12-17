@@ -52,17 +52,17 @@
   [^double radians]
   (Math/toDegrees radians))
 
-(defn deg->percent
-  "Convert degrees to percent."
+(defn deg->ratio
+  "Convert degrees to ratio."
   ^double
   [^double degrees]
   (-> degrees Math/toRadians Math/tan))
 
-(defn percent->deg
-  "Convert percent to degrees."
+(defn ratio->deg
+  "Convert ratio to degrees."
   ^double
-  [^double percent]
-  (-> percent Math/atan Math/toDegrees))
+  [^double ratio]
+  (-> ratio Math/atan Math/toDegrees))
 
 (defn m->ft
   "Convert meters to feet."
@@ -234,7 +234,7 @@
 
 (def conversion-table
   {:elevation          {:metric m->ft}
-   :slope              {nil deg->percent}
+   :slope              {nil deg->ratio}
    :canopy-height      {:metric m->ft}
    :canopy-base-height {:metric m->ft}
    :crown-bulk-density {:metric kg-m3->lb-ft3}

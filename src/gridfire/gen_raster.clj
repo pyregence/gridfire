@@ -1,7 +1,7 @@
 (ns gridfire.gen-raster
   (:require [clojure.string      :as str]
             [clojure.tools.cli   :refer [parse-opts]]
-            [gridfire.conversion :refer [deg->percent]]
+            [gridfire.conversion :refer [deg->ratio]]
             [magellan.core       :refer [write-raster
                                          make-envelope
                                          matrix-to-raster]]))
@@ -20,7 +20,7 @@
   (into-array (repeat height (into-array (repeat width value)))))
 
 (defn- dem-matrix [size degrees height width]
-  (let [slope (deg->percent degrees)]
+  (let [slope (deg->ratio degrees)]
     (into-array (for [row (range height)]
                   (into-array (repeat width (* row size slope)))))))
 

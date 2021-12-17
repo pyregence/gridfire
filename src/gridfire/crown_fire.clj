@@ -13,7 +13,7 @@
   (-> foliar-moisture
       (* 26.0)
       (+ 460.0) ;; heat-of-ignition = kJ/kg
-      (* 0.01)
+      (* 0.01)  ;; empirical estimate for C in eq. 4
       (* canopy-base-height)
       (Math/pow 1.5))) ;; critical-intensity = kW/m
 
@@ -26,17 +26,17 @@
   (and (> canopy-cover 40.0)
        (> fire-line-intensity 0.0)
        (> canopy-base-height 0.0)
-       (> fire-line-intensity (van-wagner-critical-fire-line-intensity canopy-base-height foliar-moisture))))
+       (>= fire-line-intensity (van-wagner-critical-fire-line-intensity canopy-base-height foliar-moisture))))
 
 (defn van-wagner-crown-fire-initiation?
   "- canopy-cover (0-100 %)
    - canopy-base-height (ft)
-   - foliar-moisture (0-100 %)
+   - foliar-moisture (0-1)
    - fire-line-intensity (Btu/ft*s)"
   [^double canopy-cover ^double canopy-base-height ^double foliar-moisture ^double fire-line-intensity]
   (van-wagner-crown-fire-initiation-metric? canopy-cover
                                             (convert/ft->m canopy-base-height)
-                                            foliar-moisture
+                                            (convert/dec->percent foliar-moisture)
                                             (convert/Btu-ft-s->kW-m fire-line-intensity)))
 ;; van-wagner-crown-fire-initiation ends here
 
