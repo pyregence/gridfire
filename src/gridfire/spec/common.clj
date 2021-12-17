@@ -8,10 +8,10 @@
 
 (s/def ::ordered-pair (fn [[a b]] (< a b)))
 
-(s/def ::percent (s/and float? #(<= 0.0 % 1.0)))
+(s/def ::ratio (s/and float? #(<= 0.0 % 1.0)))
 
-(s/def ::percent-range
-  (s/and (s/coll-of ::percent :kind vector? :count 2)
+(s/def ::ratio-range
+  (s/and (s/coll-of ::ratio :kind vector? :count 2)
          ::ordered-pair))
 
 (s/def ::integer-range
@@ -26,9 +26,9 @@
   (s/and (s/coll-of number? :kind vector? :count 2)
          ::ordered-pair))
 
-(s/def ::percent-or-range
-  (s/or :percent ::percent
-        :range   ::percent-range))
+(s/def ::ratio-or-range
+  (s/or :percent ::ratio
+        :range   ::ratio-range))
 
 (s/def ::integer-or-range
   (s/or :integer integer?
@@ -42,10 +42,10 @@
   (s/or :number number?
         :range  ::number-range))
 
-(s/def ::percent-sample
-  (s/or :percent ::percent
-        :range   ::percent-range
-        :list    (s/coll-of ::percent :kind list?)))
+(s/def ::ratio-sample
+  (s/or :percent ::ratio
+        :range   ::ratio-range
+        :list    (s/coll-of ::ratio :kind list?)))
 
 (s/def ::integer-sample
   (s/or :integer integer?
@@ -126,8 +126,8 @@
 (s/def ::layer-coords (s/or :sql ::sql
                             :map ::postgis-or-geotiff))
 
-(s/def ::percent-or-layer-coords
-  (s/or :percent ::percent
+(s/def ::ratio-or-layer-coords
+  (s/or :percent ::ratio
         :raster  ::layer-coords))
 
 ;;=============================================================================

@@ -100,11 +100,11 @@
 
 ;; Fuel Moisture
 
-(s/def ::1hr        ::common/percent-or-layer-coords)
-(s/def ::10hr       ::common/percent-or-layer-coords)
-(s/def ::100hr      ::common/percent-or-layer-coords)
-(s/def ::woody      ::common/percent-or-layer-coords)
-(s/def ::herbaceous ::common/percent-or-layer-coords)
+(s/def ::1hr        ::common/ratio-or-layer-coords)
+(s/def ::10hr       ::common/ratio-or-layer-coords)
+(s/def ::100hr      ::common/ratio-or-layer-coords)
+(s/def ::woody      ::common/ratio-or-layer-coords)
+(s/def ::herbaceous ::common/ratio-or-layer-coords)
 
 (s/def ::dead
   (s/keys :req-un [::1hr ::10hr ::100hr]))
@@ -117,7 +117,7 @@
 
 (s/def ::fuel-moisture
   (s/or
-    :constant ::common/percent
+    :constant ::common/ratio
     :map      ::fuel-moisture-layers))
 
 (s/def ::rh-or-fuel-moisture
@@ -131,7 +131,7 @@
 (s/def ::flin-exp                     ::common/number-or-range-map)
 (s/def ::ws-exp                       ::common/number-or-range-map)
 (s/def ::normalized-distance-variance ::common/number-or-range-map)
-(s/def ::crown-fire-spotting-percent  ::common/percent-or-range)
+(s/def ::crown-fire-spotting-percent  ::common/ratio-or-range)
 
 (s/def ::valid-fuel-range             (fn [[lo hi]] (< 0 lo hi 205)))
 (s/def ::fuel-number-range            (s/and ::common/integer-range ::valid-fuel-range))
