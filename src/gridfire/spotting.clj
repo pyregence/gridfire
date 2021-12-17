@@ -118,8 +118,8 @@
 
    Q_ig = 144.512 - 0.266*T_o - 0.00058 * (T_o)^2 - T_o * M + 18.54 * (1 - exp ( -15.1 * M ) ) + 640 * M  (eq. 10)"
   ^double
-  [^double init-temperature ^double fine-fuel-moisture]
-  (let [T_o init-temperature
+  [^double temperature ^double fine-fuel-moisture]
+  (let [T_o temperature
         M   fine-fuel-moisture
 
         ;; heat required to reach ignition temperature
@@ -138,7 +138,7 @@
 (defn schroeder-ign-prob
   "Returns the probability of ignition as described in Shroeder (1969) given:
    - Temperature: (Celsius)
-   - Fine fuels moisture content (0-1 ratio)
+   - Fine fuel moisture (0-1 ratio)
 
    X = (400 - Q_ig) / 10
    P(I) = (0.000048 * X^4.3) / 50    (pg. 15)"
@@ -155,26 +155,24 @@
 
 (defn spot-ignition-probability
   "Returns the probability of spot fire ignition (Perryman 2012) given:
-   - Distance from the torch cell [d] (meters)
-   - Fine fuel moisture (0-1 ratio) and Temperature (C) to calculate Schroeder's Ignition Probability [P(I)]
+   - Schroeder's probability of ignition [P(I)] (0-1)
    - Decay constant [lambda] (0.005)
+   - Distance from the torched cell [d] (meters)
    - Number of firebrands accumulated in the cell [b]
 
    P(Spot Ignition) = 1 - (1 - (P(I) * exp(-lambda * d)))^b"
-  [{:keys [cell-size landfire-rasters]}
-   {:keys [decay-constant]}
-   fuel-moisture
-   temperature
-   firebrand-count
-   torched-origin
-   here]
-  (let [ignition-probability (schroeder-ign-prob temperature fuel-moisture)
-        distance             (convert/ft->m (distance-3d (:elevation landfire-rasters)
-                                                         cell-size
-                                                         here
-                                                         torched-origin))
-        decay-factor         (Math/exp (* -1.0 ^double decay-constant distance))]
-    (- 1.0 (Math/pow (- 1.0 (* ignition-probability decay-factor)) firebrand-count))))
+  ^double
+  [^double ignition-probability ^double decay-constant ^double spotting-distance ^double firebrand-count]
+  (let [one-minus #(- 1.0 %)]
+    (-> decay-constant
+        (* -1.0)
+        (* spotting-distance)
+        (Math/exp)
+        (* ignition-probability)
+        (one-minus)
+        (Math/pow firebrand-count)
+        (one-minus))))
+
 ;; firebrand-ignition-probability ends here
 ;; [[file:../../org/GridFire.org::firebrands-time-of-ignition][firebrands-time-of-ignition]]
 (defn spot-ignition?
@@ -248,12 +246,12 @@
 
 (defn surface-spot-percent
   "Returns the surface spotting probability, given:
-   - Vector of vectors where the first entry is a vector range of fuel models,
-     and the second entry is the a single probability or vector range of probabilities
-     of those fuels spotting (e.g. `[[[10 20] 0.2]]` or `[[[10 20] [0.2 0.4]]`)
+   - A vector of vectors where the first entry is a vector range of fuel models,
+     and the second entry is either a single probability or vector range of probabilities
+     of those fuels spotting (e.g. `[[[10 20] 0.2]]` or `[[[10 20] [0.2 0.4]]]`)
    - The fuel model number for the particular cell
    - A random number generator, which is used to generate the probability when
-     a range of probabilities is given."
+     a range of probabilities is given"
   ^double
   [fuel-range-percents fuel-model-number rand-gen]
   (reduce (fn [acc [fuel-range percent]]
@@ -345,14 +343,19 @@
       (->> (for [[x y] firebrands
                  :when (and (in-bounds? num-rows num-cols [x y])
                             (burnable? fire-spread-matrix (:fuel-model landfire-rasters) cell [x y]))
-                 :let  [firebrand-count (m/mget firebrand-count-matrix x y)
-                        spot-ignition-p (spot-ignition-probability inputs
-                                                                   spotting
-                                                                   (-> fuel-moisture :dead :1hr)
-                                                                   (convert/F->C tmp)
-                                                                   firebrand-count
-                                                                   cell
-                                                                   [x y])]]
+                 :let  [temperature          (convert/F->C (double tmp))
+                        fine-fuel-moisture   (-> fuel-moisture :dead :1hr)
+                        ignition-probability (schroeder-ign-prob temperature fine-fuel-moisture)
+                        decay-constant       (double (:decay-constant spotting))
+                        spotting-distance    (convert/ft->m (distance-3d (:elevation landfire-rasters)
+                                                                         (double cell-size)
+                                                                         [x y]
+                                                                         cell))
+                        firebrand-count      (m/mget firebrand-count-matrix x y)
+                        spot-ignition-p      (spot-ignition-probability ignition-probability
+                                                                        decay-constant
+                                                                        spotting-distance
+                                                                        firebrand-count)]]
              (when (spot-ignition? rand-gen spot-ignition-p)
                (let [[i j] cell
                      t     (spot-ignition-time global-clock

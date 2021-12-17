@@ -15,7 +15,7 @@
 
 (use-fixtures :each create-random-generator)
 
-(defn- within? [a b epsilon]
+(defn- within? [^double a ^double b ^double epsilon]
   (> epsilon (Math/abs (- a b))))
 
 (defn- close-to-zero [d]
@@ -135,37 +135,27 @@
 
 (deftest ^:unit test-spot-ignition-probability
   (testing "Using Perryman (2012)."
-    (let [inputs {:cell-size 10 :landfire-rasters {:elevation (m/zero-matrix 100 100)}}
-          const  {:decay-constant 0.005}]
+    (let [lambda 0.005]
       (are [result args] (within? result (apply spotting/spot-ignition-probability args) 0.001)
-           ; Probability (0-1) [inputs constants fuel-moisture (%) temperature (C) firebrand-count (int) torched-origin (coords) here (coords)]
+           ; Probability (0-1) [ignition-probability (0-1) decay-constant spotting-distance (m) firebrand-count]
 
-           ; Increasing Estimated Fine-Fuel Moisture
-           0.0                 [inputs const 0.0   0.0  0.0  [0 0] [5 5]]
-           0.663               [inputs const 0.063 80.0 1.0  [0 0] [5 5]]
-           0.452               [inputs const 0.094 80.0 1.0  [0 0] [5 5]]
-           0.306               [inputs const 0.124 80.0 1.0  [0 0] [5 5]]
-           0.100               [inputs const 0.2   80.0 1.0  [0 0] [5 5]]
-           0.001               [inputs const 0.37  80.0 1.0  [0 0] [5 5]]
-
-           ; Increasing Temperature
-           0.316               [inputs const 0.1   50.0 1.0  [0 0] [5 5]]
-           0.346               [inputs const 0.1   60.0 1.0  [0 0] [5 5]]
-           0.381               [inputs const 0.1   70.0 1.0  [0 0] [5 5]]
-           0.418               [inputs const 0.1   80.0 1.0  [0 0] [5 5]]
-           0.459               [inputs const 0.1   90.0 1.0  [0 0] [5 5]]
+           ; Increasing Schroeder Ignition Probability
+           0.121               [0.2 lambda 100 1.0]
+           0.242               [0.4 lambda 100 1.0]
+           0.363               [0.6 lambda 100 1.0]
+           0.485               [0.8 lambda 100 1.0]
+           0.606               [1.0 lambda 100 1.0]
 
            ; Increasing Firebrands Count
-           0.0                 [inputs const 0.1   80.0 0.0  [0 0] [5 5]]
-           0.418               [inputs const 0.1   80.0 1.0  [0 0] [5 5]]
-           0.661               [inputs const 0.1   80.0 2.0  [0 0] [5 5]]
-           0.995               [inputs const 0.1   80.0 10.0 [0 0] [5 5]]
+           0.0                 [0.5 lambda 100 0.0]
+           0.303               [0.5 lambda 100 1.0]
+           0.514               [0.5 lambda 100 2.0]
+           0.973               [0.5 lambda 100 10.0]
 
            ; Increasing Distance
-           0.455               [inputs const 0.1   80.0 1.0  [0 0] [1 1]]
-           0.418               [inputs const 0.1   80.0 1.0  [0 0] [5 5]]
-           0.383               [inputs const 0.1   80.0 1.0  [0 0] [9 9]]
-           0.055               [inputs const 0.1   80.0 1.0  [0 0] [99 99]]))))
+           0.303               [0.5 lambda 100  1.0]
+           0.183               [0.5 lambda 200  1.0]
+           0.0                 [0.5 lambda 2000 1.0]))))
 
 (deftest ^:unit test-spot-ignition-time
   (testing "Calculating t-max from Albini (1976)."
