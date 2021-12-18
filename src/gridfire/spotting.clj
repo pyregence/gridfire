@@ -153,6 +153,8 @@
         (Math/min 1.0)
         (Math/max 0.0))))
 
+(defn- one-minus ^double [^double x] (- 1.0 x))
+
 (defn spot-ignition-probability
   "Returns the probability of spot fire ignition (Perryman 2012) given:
    - Schroeder's probability of ignition [P(I)] (0-1)
@@ -163,15 +165,14 @@
    P(Spot Ignition) = 1 - (1 - (P(I) * exp(-lambda * d)))^b"
   ^double
   [^double ignition-probability ^double decay-constant ^double spotting-distance ^double firebrand-count]
-  (let [one-minus #(- 1.0 %)]
-    (-> decay-constant
-        (* -1.0)
-        (* spotting-distance)
-        (Math/exp)
-        (* ignition-probability)
-        (one-minus)
-        (Math/pow firebrand-count)
-        (one-minus))))
+  (-> decay-constant
+      (* -1.0)
+      (* spotting-distance)
+      (Math/exp)
+      (* ignition-probability)
+      (one-minus)
+      (Math/pow firebrand-count)
+      (one-minus)))
 
 ;; firebrand-ignition-probability ends here
 ;; [[file:../../org/GridFire.org::firebrands-time-of-ignition][firebrands-time-of-ignition]]
@@ -344,7 +345,7 @@
                  :when (and (in-bounds? num-rows num-cols [x y])
                             (burnable? fire-spread-matrix (:fuel-model landfire-rasters) cell [x y]))
                  :let  [temperature          (convert/F->C (double tmp))
-                        fine-fuel-moisture   (-> fuel-moisture :dead :1hr)
+                        fine-fuel-moisture   (double (-> fuel-moisture :dead :1hr))
                         ignition-probability (schroeder-ign-prob temperature fine-fuel-moisture)
                         decay-constant       (double (:decay-constant spotting))
                         spotting-distance    (convert/ft->m (distance-3d (:elevation landfire-rasters)
