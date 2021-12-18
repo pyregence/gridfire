@@ -202,7 +202,7 @@
                                                     wind-speed-20ft
                                                     (:wind-speed-20ft multiplier-lookup)
                                                     (:wind-speed-20ft perturbations))
-        ^double fuel-moisture         (or (fuel-moisture-from-raster constants here global-clock)
+        fuel-moisture                 (or (fuel-moisture-from-raster constants here global-clock)
                                           (constant-fuel-moisture constants)
                                           (get-fuel-moisture relative-humidity temperature))
         [fuel-model spread-info-min]  (rothermel-fast-wrapper fuel-model fuel-moisture)
@@ -516,8 +516,8 @@
     - canopy-cover: core.matrix 2D double array (0-100)
   - wind-speed-20ft: double (miles/hour)
   - wind-from-direction: double (degrees clockwise from north)
-  - fuel-moisture: doubles (%){:dead {:1hr :10hr :100hr} :live {:herbaceous :woody}}
-  - foliar-moisture: double (%)
+  - fuel-moisture: doubles (0-1) {:dead {:1hr :10hr :100hr} :live {:herbaceous :woody}}
+  - foliar-moisture: double (0-1)
   - ellipse-adjustment-factor: (< 1.0 = more circular, > 1.0 = more elliptical)
   - initial-ignition-site: One of the following:
      - point represented as [row col]

@@ -44,7 +44,14 @@
             :else (+ 21.0606 (* 0.005565 rh rh) (* -0.00035 rh temp) (* -0.483199 rh))))
      30))
 
-(defn get-fuel-moisture [relative-humidity temperature]
+(defn get-fuel-moisture
+  "Returns a map of moisture
+  {:dead {:1hr        (0-1)
+          :10hr       (0-1)
+          :100hr      (0-1)}
+   :live {:herbaceous (0-1)
+          :woody      (0-1)}}"
+  [relative-humidity temperature]
   (let [equilibrium-moisture (calc-emc relative-humidity temperature)]
     {:dead {:1hr   (+ equilibrium-moisture 0.002)
             :10hr  (+ equilibrium-moisture 0.015)
@@ -53,6 +60,12 @@
             :woody      (* equilibrium-moisture 0.5)}}))
 
 (defn extract-fuel-moisture
+  "Returns a map of moisture
+  {:dead {:1hr        (0-1)
+          :10hr       (0-1)
+          :100hr      (0-1)}
+   :live {:herbaceous (0-1)
+          :woody      (0-1)}}"
   [fuel-moisture-layers multiplier-lookup here global-clock]
   (let [f (fn [path]
             (fn [spec]
@@ -69,7 +82,14 @@
         (update-in [:live :herbaceous] (f [:live :herbaceous]))
         (update-in [:live :woody] (f [:live :woody])))))
 
-(defn constant-fuel-moisture [{:keys [fuel-moisture]}]
+(defn constant-fuel-moisture
+  "Returns a map of moisture
+  {:dead {:1hr        (0-1)
+          :10hr       (0-1)
+          :100hr      (0-1)}
+   :live {:herbaceous (0-1)
+          :woody      (0-1)}}"
+  [{:keys [fuel-moisture]}]
   (cond
     (map? fuel-moisture)
     fuel-moisture
@@ -80,11 +100,11 @@
 
 (defn fuel-moisture-from-raster
   "Returns a map of moisture
-  {:dead {:1hr          (percent)
-            :10hr       (percent)
-            :100hr      (percent)}
-     :live {:herbaceous (percent)
-            :woody      (percent)}}"
+  {:dead {:1hr        (0-1)
+          :10hr       (0-1)
+          :100hr      (0-1)}
+   :live {:herbaceous (0-1)
+          :woody      (0-1)}}"
   ([constants here]
    (fuel-moisture-from-raster constants here 0))
 

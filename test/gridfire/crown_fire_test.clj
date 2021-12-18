@@ -46,14 +46,14 @@
 (deftest ^:unit test-van-wagner-crown-fire-initation?
   (testing "Fire intensity reaches Van Wagner crown fire threshold using imperial units."
     (are [expected args] (= expected (apply van-wagner-crown-fire-initiation? args))
-         ; true/false [canopy-cover (%) canopy-base-height (m) foliar-moisture (%) final-intensity (kW/m)]
+         ; true/false [canopy-cover (%) canopy-base-height (m) foliar-moisture (ratio) final-intensity (kW/m)]
          false        [0   0.0           0.0  0]     ; No canopy cover
          false        [50  0.0           0.0  0]     ; No Canopy Base Height/No final-intensity
          false        [50  0.0           0.0  (c/kW-m->Btu-ft-s 10.0)]    ; No Canopy Base Height
          true         [50  (c/m->ft 1.0) 0.0  (c/kW-m->Btu-ft-s 10.0)]    ; CC, CBH, No Moisture
-         true         [50  (c/m->ft 7.0) 95   (c/kW-m->Btu-ft-s 10500.0)] ; Red pine (C6)
-         true         [50  (c/m->ft 7.0) 135  (c/kW-m->Btu-ft-s 9500.0)]  ; Red pine (C4)
-         false        [50  (c/m->ft 1.0) 120  (c/kW-m->Btu-ft-s 85.0)]))) ; Balsam fir under pine (F3)
+         true         [50  (c/m->ft 7.0) 0.95 (c/kW-m->Btu-ft-s 10500.0)] ; Red pine (C6)
+         true         [50  (c/m->ft 7.0) 1.35 (c/kW-m->Btu-ft-s 9500.0)]  ; Red pine (C4)
+         false        [50  (c/m->ft 1.0) 1.20 (c/kW-m->Btu-ft-s 85.0)]))) ; Balsam fir under pine (F3)
 
 (deftest ^:unit test-cruz-active-fire-spread
   (testing "Crown Fire spread rate (Cruz 2005) using SI units."

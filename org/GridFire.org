@@ -4109,6 +4109,9 @@ level of the config file:
 
 - *fuel-moisture-layers*: a map of fuel moisture specicfiations
 
+Fuel moisture specifications can be either a specification map as
+described in section 1 or a ratio value.
+
 #+begin_src clojure
 {:fuel-moisture-layers {:dead {:1hr   {:type   :geotiff
                                        :source "test/gridfire/resources/weather-test/m1_to_sample.tif"}
@@ -4116,10 +4119,8 @@ level of the config file:
                                        :source "test/gridfire/resources/weather-test/m10_to_sample.tif"}
                                :100hr {:type   :geotiff
                                        :source "test/gridfire/resources/weather-test/m100_to_sample.tif"}}
-                        :live {:woody      {:type   :geotiff
-                                            :source "test/gridfire/resources/weather-test/mlw_to_sample.tif"}
-                               :herbaceous {:type   :geotiff
-                                            :source "test/gridfire/resources/weather-test/mlh_to_sample.tif"}}}}
+                        :live {:woody      0.80
+                               :herbaceous 0.30}}}
 #+end_src
 
 *Note*: Dead fuel moistures are expected to be multiband rasters and

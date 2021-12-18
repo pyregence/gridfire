@@ -158,11 +158,11 @@
 
 (defn fuel-moisture-layers
   "Returns a map of moisture layers (represented as maps) with the following units:
-  {:dead {:1hr        %
-          :10hr       %
-          :100hr      %
-   :live {:herbaceous %
-          :woody      %"
+  {:dead {:1hr        ratio (0-1)
+          :10hr       ratio (0-1)
+          :100hr      ratio (0-1)
+   :live {:herbaceous ratio (0-1)
+          :woody      ratio (0-1)"
   [{:keys [db-spec fuel-moisture-layers]}]
   (when fuel-moisture-layers
     (letfn [(f [fuel-class]
@@ -176,7 +176,7 @@
                           (update :matrix (fn [m] (m/emap #(* % 0.01) m))))
 
                       :else
-                      (* spec 0.01))))]
+                      spec)))]
       (-> fuel-moisture-layers
           (update-in [:dead :1hr] (f :dead))
           (update-in [:dead :10hr] (f :dead))

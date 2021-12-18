@@ -223,8 +223,8 @@
     (is (= {:dead {:1hr   {:type :geotiff :source "test/gridfire/resources/config_test/weather/m1.tif"}
                    :10hr  {:type :geotiff :source "test/gridfire/resources/config_test/weather/m10.tif"}
                    :100hr {:type :geotiff :source "test/gridfire/resources/config_test/weather/m100.tif"}}
-            :live {:woody      80.0
-                   :herbaceous 30.0}}
+            :live {:woody      0.80
+                   :herbaceous 0.30}}
            results))))
 
 ;;-----------------------------------------------------------------------------
