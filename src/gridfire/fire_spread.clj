@@ -107,8 +107,7 @@
                                     (crown-fire-line-intensity
                                      crown-spread-rate
                                      crown-bulk-density
-                                     canopy-height
-                                     canopy-base-height
+                                     (- canopy-height canopy-base-height)
                                      (-> fuel-model :h :dead :1hr)))
         spread-rate               (if crown-fire?
                                     (max surface-spread-rate crown-spread-rate)
