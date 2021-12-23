@@ -112,17 +112,14 @@
 (s/def ::live
   (s/keys :req-un [::woody ::herbaceous]))
 
-(s/def ::fuel-moisture-layers
-  (s/keys :req-un [::dead ::live]))
-
 (s/def ::fuel-moisture
   (s/or
-    :constant ::common/ratio
-    :map      ::fuel-moisture-layers))
+   :constant ::common/ratio
+   :map (s/keys :req-un [::dead ::live])))
 
 (s/def ::rh-or-fuel-moisture
-  (fn [{:keys [relative-humidity fuel-moisture-layers]}]
-    (or relative-humidity fuel-moisture-layers)))
+  (fn [{:keys [relative-humidity fuel-moisture]}]
+    (or relative-humidity fuel-moisture)))
 
 ;; Spotting
 
@@ -226,7 +223,6 @@
              ::ignition-csv
              ::random-ignition
              ::relative-humidity
-             ::fuel-moisture-layers
              ::fuel-moisture
              ::spotting
              ::perturbations

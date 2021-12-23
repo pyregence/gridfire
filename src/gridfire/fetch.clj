@@ -145,39 +145,39 @@
 ;; Moisture Layers
 ;;-----------------------------------------------------------------------------
 
-(defmulti fuel-moisture-layer
+(defmulti fuel-moisture-layers
   (fn [_ {:keys [type]}] type))
 
-(defmethod fuel-moisture-layer :geotiff
+(defmethod fuel-moisture-layers :geotiff
   [_ {:keys [source]}]
   (geotiff-raster-to-matrix source))
 
-(defmethod fuel-moisture-layer :postgis
+(defmethod fuel-moisture-layers :postgis
   [db-spec {:keys [source]}]
   (postgis-raster-to-matrix db-spec source))
 
-(defn fuel-moisture-layers
+(defn fuel-moisture
   "Returns a map of moisture layers (represented as maps) with the following units:
   {:dead {:1hr        ratio (0-1)
           :10hr       ratio (0-1)
           :100hr      ratio (0-1)
    :live {:herbaceous ratio (0-1)
           :woody      ratio (0-1)"
-  [{:keys [db-spec fuel-moisture-layers]}]
-  (when fuel-moisture-layers
+  [{:keys [db-spec fuel-moisture]}]
+  (when fuel-moisture
     (letfn [(f [fuel-class]
               (fn [spec]
                 (cond (and (map? spec) (= fuel-class :live))
-                      (-> (fuel-moisture-layer db-spec spec)
+                      (-> (fuel-moisture-layers db-spec spec)
                           (update :matrix (comp first (fn [m] (m/emap #(* % 0.01) m)))))
 
                       (map? spec)
-                      (-> (fuel-moisture-layer db-spec spec)
+                      (-> (fuel-moisture-layers db-spec spec)
                           (update :matrix (fn [m] (m/emap #(* % 0.01) m))))
 
                       :else
                       spec)))]
-      (-> fuel-moisture-layers
+      (-> fuel-moisture
           (update-in [:dead :1hr] (f :dead))
           (update-in [:dead :10hr] (f :dead))
           (update-in [:dead :100hr] (f :dead))

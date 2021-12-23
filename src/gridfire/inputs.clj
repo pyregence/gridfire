@@ -41,15 +41,15 @@
            :ignition-layer       (fetch/ignition-layer config)
            :ignition-mask-layer  (fetch/ignition-mask-layer config)
            :weather-layers       (fetch/weather-layers config)
-           :fuel-moisture-layers (fetch/fuel-moisture-layers config))))
+           :fuel-moisture        (fetch/fuel-moisture config))))
 
 (defn cell-size-multiplier
   ^double [^double cell-size {:keys [^double scalex]}]
   (/ (m->ft scalex) cell-size)) ; FIXME: scalex isn't in meters for all SRIDs
 
 (defn create-multiplier-lookup
-  [{:keys [cell-size weather-layers fuel-moisture-layers]}]
-  (let [layers (merge weather-layers fuel-moisture-layers)]
+  [{:keys [cell-size weather-layers fuel-moisture]}]
+  (let [layers (merge weather-layers fuel-moisture)]
     (reduce (fn [acc ks] (let [layer (get-in layers ks)]
                            (if (map? layer)
                              (assoc-in acc ks (cell-size-multiplier cell-size layer))

@@ -286,10 +286,10 @@
 
 (deftest ^:unit multiplier-lookup-test
   (testing "constructing multiplier lookup for weather raster"
-    (let [config         {:cell-size   (m->ft 30)
-                          :temperature {:type   :geotiff
-                                        :source (in-file-path "weather-test/tmpf_to_sample_lower_res.tif")}}
-          lookup         (inputs/create-multiplier-lookup (assoc config :weather-layers (fetch/weather-layers config)))]
+    (let [config {:cell-size   (m->ft 30)
+                  :temperature {:type   :geotiff
+                                :source (in-file-path "weather-test/tmpf_to_sample_lower_res.tif")}}
+          lookup (inputs/create-multiplier-lookup (assoc config :weather-layers (fetch/weather-layers config)))]
 
       (is (= {:temperature 10.0} lookup)))))
 
@@ -299,15 +299,15 @@
 
 (deftest ^{:database true :simulation true} run-test-simulation!-with-landfire-perturbations
   (testing "with global perturbation value"
-    (let [config  (merge test-config-base
-                         {:perturbations {:canopy-height {:spatial-type :global
-                                                          :range        [-1.0 1.0]}}})]
+    (let [config (merge test-config-base
+                        {:perturbations {:canopy-height {:spatial-type :global
+                                                         :range        [-1.0 1.0]}}})]
       (is (valid-exits? (run-test-simulation! config)))))
 
   (testing "with pixel by pixel perturbation"
-    (let [config  (merge test-config-base
-                         {:perturbations {:canopy-height {:spatial-type :pixel
-                                                          :range        [-1.0 1.0]}}})]
+    (let [config (merge test-config-base
+                        {:perturbations {:canopy-height {:spatial-type :pixel
+                                                         :range        [-1.0 1.0]}}})]
       (is (valid-exits? (run-test-simulation! config))))))
 
 ;;-----------------------------------------------------------------------------
@@ -343,55 +343,55 @@
 
 (deftest ^:simulation moisture-rasters-test
   (let [config (merge test-config-base
-                      {:landfire-layers      landfire-layers-weather-test
-                       :ignition-row         nil
-                       :ignition-col         nil
-                       :random-ignition      {:ignition-mask {:type   :geotiff
-                                                              :source (in-file-path "weather-test/ignition_mask.tif")}
-                                              :edge-buffer   9843.0}
-                       :fuel-moisture-layers {:dead {:1hr   {:type   :geotiff
-                                                             :source (in-file-path "weather-test/m1_to_sample.tif")}
-                                                     :10hr  {:type   :geotiff
-                                                             :source (in-file-path "weather-test/m10_to_sample.tif")}
-                                                     :100hr {:type   :geotiff
-                                                             :source (in-file-path "weather-test/m100_to_sample.tif")}}
-                                              :live {:woody      {:type   :geotiff
-                                                                  :source (in-file-path "weather-test/mlw_to_sample.tif")}
-                                                     :herbaceous {:type   :geotiff
-                                                                  :source (in-file-path "weather-test/mlh_to_sample.tif")}}}})]
+                      {:landfire-layers landfire-layers-weather-test
+                       :ignition-row    nil
+                       :ignition-col    nil
+                       :random-ignition {:ignition-mask {:type   :geotiff
+                                                         :source (in-file-path "weather-test/ignition_mask.tif")}
+                                         :edge-buffer   9843.0}
+                       :fuel-moisture   {:dead {:1hr   {:type   :geotiff
+                                                        :source (in-file-path "weather-test/m1_to_sample.tif")}
+                                                :10hr  {:type   :geotiff
+                                                        :source (in-file-path "weather-test/m10_to_sample.tif")}
+                                                :100hr {:type   :geotiff
+                                                        :source (in-file-path "weather-test/m100_to_sample.tif")}}
+                                         :live {:woody      {:type   :geotiff
+                                                             :source (in-file-path "weather-test/mlw_to_sample.tif")}
+                                                :herbaceous {:type   :geotiff
+                                                             :source (in-file-path "weather-test/mlh_to_sample.tif")}}}})]
     (is (valid-exits? (run-test-simulation! config)))))
 
 (deftest ^:simulation moisture-scalars-only-test
   (let [config (merge test-config-base
-                      {:landfire-layers      landfire-layers-weather-test
-                       :ignition-row         nil
-                       :ignition-col         nil
-                       :random-ignition      {:ignition-mask {:type   :geotiff
-                                                              :source (in-file-path "weather-test/ignition_mask.tif")}
-                                              :edge-buffer   9843.0}
-                       :fuel-moisture-layers {:dead {:1hr   10.0
-                                                     :10hr  10.0
-                                                     :100hr 10.0}
-                                              :live {:woody      80.0
-                                                     :herbaceous 30.0}}})]
+                      {:landfire-layers landfire-layers-weather-test
+                       :ignition-row    nil
+                       :ignition-col    nil
+                       :random-ignition {:ignition-mask {:type   :geotiff
+                                                         :source (in-file-path "weather-test/ignition_mask.tif")}
+                                         :edge-buffer   9843.0}
+                       :fuel-moisture   {:dead {:1hr   0.10
+                                                :10hr  0.10
+                                                :100hr 0.10}
+                                         :live {:woody      0.80
+                                                :herbaceous 0.80}}})]
     (is (valid-exits? (run-test-simulation! config)))))
 
 (deftest ^:simulation moisture-mix-raster-scalars-test
   (let [config (merge test-config-base
-                      {:landfire-layers      landfire-layers-weather-test
-                       :ignition-row         nil
-                       :ignition-col         nil
-                       :random-ignition      {:ignition-mask {:type   :geotiff
-                                                              :source (in-file-path "weather-test/ignition_mask.tif")}
-                                              :edge-buffer   9843.0}
-                       :fuel-moisture-layers {:dead {:1hr   {:type   :geotiff
-                                                             :source (in-file-path "weather-test/m1_to_sample.tif")}
-                                                     :10hr  {:type   :geotiff
-                                                             :source (in-file-path "weather-test/m10_to_sample.tif")}
-                                                     :100hr {:type   :geotiff
-                                                             :source (in-file-path "weather-test/m100_to_sample.tif")}}
-                                              :live {:woody      80.0
-                                                     :herbaceous 30.0}}})]
+                      {:landfire-layers landfire-layers-weather-test
+                       :ignition-row    nil
+                       :ignition-col    nil
+                       :random-ignition {:ignition-mask {:type   :geotiff
+                                                         :source (in-file-path "weather-test/ignition_mask.tif")}
+                                         :edge-buffer   9843.0}
+                       :fuel-moisture   {:dead {:1hr   {:type   :geotiff
+                                                        :source (in-file-path "weather-test/m1_to_sample.tif")}
+                                                :10hr  {:type   :geotiff
+                                                        :source (in-file-path "weather-test/m10_to_sample.tif")}
+                                                :100hr {:type   :geotiff
+                                                        :source (in-file-path "weather-test/m100_to_sample.tif")}}
+                                         :live {:woody      80.0
+                                                :herbaceous 30.0}}})]
     (is (valid-exits? (run-test-simulation! config)))))
 
 ;;-----------------------------------------------------------------------------

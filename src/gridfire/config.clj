@@ -291,12 +291,12 @@
 ;;=============================================================================
 
 ;; FIXME: Since mlw.tif and mlh.tif aren't provided in elmfire.data, where are these files on disk?
-(defn process-fuel-moisture-layers
+(defn process-fuel-moisture
   [{:strs [WEATHER_DIRECTORY M1_FILENAME M10_FILENAME M100_FILENAME
            USE_CONSTANT_LW USE_CONSTANT_LH LW_MOISTURE_CONTENT LH_MOISTURE_CONTENT]}
    config]
   (assoc config
-         :fuel-moisture-layers
+         :fuel-moisture
          {:dead {:1hr   {:type   :geotiff
                          :source (file-path WEATHER_DIRECTORY M1_FILENAME)}
                  :10hr  {:type   :geotiff
@@ -333,7 +333,7 @@
        (process-output data)
        (process-perturbations data)
        (process-spotting data)
-       (process-fuel-moisture-layers data)))
+       (process-fuel-moisture data)))
 
 ;;=============================================================================
 ;; Parse elmfire.data

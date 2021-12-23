@@ -216,9 +216,9 @@
   (let [data    (->> (in-file-path "sample-elmfire.data")
                      slurp
                      config/parse-elmfire)
-        results (:fuel-moisture-layers (config/process-fuel-moisture-layers data {}))]
+        results (:fuel-moisture (config/process-fuel-moisture data {}))]
 
-    (is (s/valid? ::spec/fuel-moisture-layers results))
+    (is (s/valid? ::spec/fuel-moisture results))
 
     (is (= {:dead {:1hr   {:type :geotiff :source "test/gridfire/resources/config_test/weather/m1.tif"}
                    :10hr  {:type :geotiff :source "test/gridfire/resources/config_test/weather/m10.tif"}

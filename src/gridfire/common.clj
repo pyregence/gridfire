@@ -66,7 +66,7 @@
           :100hr      (0-1)}
    :live {:herbaceous (0-1)
           :woody      (0-1)}}"
-  [fuel-moisture-layers multiplier-lookup here global-clock]
+  [fuel-moisture multiplier-lookup here global-clock]
   (let [f (fn [path]
             (fn [spec]
               (if (map? spec)
@@ -75,7 +75,7 @@
                            (:matrix spec)
                            (get-in multiplier-lookup path))
                 spec)))]
-    (-> fuel-moisture-layers
+    (-> fuel-moisture
         (update-in [:dead :1hr] (f [:dead :1hr]))
         (update-in [:dead :10hr] (f [:dead :10hr]))
         (update-in [:dead :100hr] (f [:dead :100hr]))
@@ -108,9 +108,9 @@
   ([constants here]
    (fuel-moisture-from-raster constants here 0))
 
-  ([{:keys [fuel-moisture-layers multiplier-lookup]} here global-clock]
-   (when fuel-moisture-layers
-     (extract-fuel-moisture fuel-moisture-layers multiplier-lookup here global-clock))))
+  ([{:keys [fuel-moisture multiplier-lookup]} here global-clock]
+   (when fuel-moisture
+     (extract-fuel-moisture fuel-moisture multiplier-lookup here global-clock))))
 
 (defn in-bounds?
   "Returns true if the point lies within the bounds [0,rows) by [0,cols)."
