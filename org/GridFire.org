@@ -122,7 +122,8 @@ deps.edn for the current GridFire version is shown below.
 
  :aliases {:build-test-db     {:extra-paths ["test"]
                                :main-opts   ["-m" "gridfire.build-test-db"]}
-           :run               {:main-opts ["-m" "gridfire.cli"]}
+           :run               {:main-opts ["-m" "gridfire.cli"]
+                               :jvm-opts  ["-XX:MaxRAMPercentage=90"]}
            :repl              {:main-opts ["-e" "(require,'gridfire.core)"
                                            "-e" "(in-ns,'gridfire.core)"
                                            "-r"]}
