@@ -174,7 +174,6 @@
       (one-minus)
       (Math/pow firebrand-count)
       (one-minus)))
-
 ;; firebrand-ignition-probability ends here
 ;; [[file:../../org/GridFire.org::firebrands-time-of-ignition][firebrands-time-of-ignition]]
 (defn spot-ignition?
@@ -224,7 +223,6 @@
         (* 2.0)
         (+ global-clock)
         (+ t-steady-state))))
-
 ;; firebrands-time-of-ignition ends here
 ;; [[file:../../org/GridFire.org::spread-firebrands][spread-firebrands]]
 (defn- update-firebrand-counts!
