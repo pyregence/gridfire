@@ -145,14 +145,14 @@
 ;; Moisture Layers
 ;;-----------------------------------------------------------------------------
 
-(defmulti fuel-moisture-layers
+(defmulti fuel-moisture-layer
   (fn [_ {:keys [type]}] type))
 
-(defmethod fuel-moisture-layers :geotiff
+(defmethod fuel-moisture-layer :geotiff
   [_ {:keys [source]}]
   (geotiff-raster-to-matrix source))
 
-(defmethod fuel-moisture-layers :postgis
+(defmethod fuel-moisture-layer :postgis
   [db-spec {:keys [source]}]
   (postgis-raster-to-matrix db-spec source))
 
@@ -168,11 +168,11 @@
     (letfn [(f [fuel-class]
               (fn [spec]
                 (cond (and (map? spec) (= fuel-class :live))
-                      (-> (fuel-moisture-layers db-spec spec)
+                      (-> (fuel-moisture-layer db-spec spec)
                           (update :matrix (comp first (fn [m] (m/emap #(* % 0.01) m)))))
 
                       (map? spec)
-                      (-> (fuel-moisture-layers db-spec spec)
+                      (-> (fuel-moisture-layer db-spec spec)
                           (update :matrix (fn [m] (m/emap #(* % 0.01) m))))
 
                       :else

@@ -115,7 +115,7 @@
 (s/def ::fuel-moisture
   (s/or
    :constant ::common/ratio
-   :map (s/keys :req-un [::dead ::live])))
+   :map      (s/keys :req-un [::dead ::live])))
 
 (s/def ::rh-or-fuel-moisture
   (fn [{:keys [relative-humidity fuel-moisture]}]
