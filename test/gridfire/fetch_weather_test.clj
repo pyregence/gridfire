@@ -44,8 +44,8 @@
         postgis-config  (merge test-config-base
                                {:temperature {:type   :postgis
                                               :source postgis-table}})
-        geotiff-results (:matrix (fetch/weather geotiff-config (:temperature geotiff-config)))
-        postgis-results (:matrix (fetch/weather postgis-config (:temperature postgis-config)))]
+        geotiff-results (:matrix (fetch/weather-layer geotiff-config :temperature))
+        postgis-results (:matrix (fetch/weather-layer postgis-config :temperature))]
 
     (is (every? m/matrix? geotiff-results))
 
@@ -70,8 +70,8 @@
         postgis-config  (merge test-config-base
                                {:relative-humidity {:type   :postgis
                                                     :source postgis-table}})
-        geotiff-results (:matrix (fetch/weather geotiff-config (:relative-humidity geotiff-config)))
-        postgis-results (:matrix (fetch/weather postgis-config (:relative-humidity postgis-config)))]
+        geotiff-results (:matrix (fetch/weather-layer geotiff-config :relative-humidity))
+        postgis-results (:matrix (fetch/weather-layer postgis-config :relative-humidity))]
 
     (is (every? m/matrix? geotiff-results))
 
@@ -96,8 +96,8 @@
         postgis-config  (merge test-config-base
                                {:wind-speed-20ft {:type   :postgis
                                                   :source postgis-table}})
-        geotiff-results (:matrix (fetch/weather geotiff-config (:wind-speed-20ft geotiff-config)))
-        postgis-results (:matrix (fetch/weather postgis-config (:wind-speed-20ft postgis-config)))]
+        geotiff-results (:matrix (fetch/weather-layer geotiff-config :wind-speed-20ft))
+        postgis-results (:matrix (fetch/weather-layer postgis-config :wind-speed-20ft))]
 
     (is (every? m/matrix? geotiff-results))
 
@@ -122,8 +122,8 @@
         postgis-config  (merge test-config-base
                                {:wind-from-direction {:type   :postgis
                                                       :source postgis-table}})
-        geotiff-results (:matrix (fetch/weather geotiff-config (:wind-from-direction geotiff-config)))
-        postgis-results (:matrix (fetch/weather postgis-config (:wind-from-direction postgis-config)))]
+        geotiff-results (:matrix (fetch/weather-layer geotiff-config :wind-from-direction))
+        postgis-results (:matrix (fetch/weather-layer postgis-config :wind-from-direction))]
 
     (is (every? m/matrix? geotiff-results))
 
@@ -145,19 +145,18 @@
                               {:temperature [0 100]
                                :simulations 10})
         rand-generator (Random. (:random-seed config))
-        results        (inputs/get-weather config rand-generator :temperature {})]
+        results        (inputs/get-weather config rand-generator :temperature)]
 
     (is (vector results))
 
     (is (every? int? results))))
 
 (deftest ^:database get-weather-from-list-test
-  (let [tmp-list       '(0 10 20 30)
-        config         (merge test-config-base
-                              {:temperature tmp-list
+  (let [config         (merge test-config-base
+                              {:temperature (list 0 10 20 30)
                                :simulations 10})
         rand-generator (Random. (:random-seed config))
-        results        (inputs/get-weather config rand-generator :temperature {})]
+        results        (inputs/get-weather config rand-generator :temperature)]
 
     (is (vector results))
 

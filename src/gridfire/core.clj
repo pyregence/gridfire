@@ -61,6 +61,7 @@
       (inputs/add-ignition-csv)
       (inputs/add-sampled-params)
       (inputs/add-weather-params)
+      (inputs/add-fuel-moisture-params)
       (inputs/add-ignitable-sites)
       (inputs/add-aggregate-matrices)))
 

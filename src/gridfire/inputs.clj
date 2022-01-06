@@ -7,41 +7,36 @@
             [gridfire.perturbation    :as perturbation]
             [gridfire.random-ignition :as random-ignition]
             [gridfire.utils.random    :refer [draw-samples]]
-            [magellan.core            :refer [make-envelope register-new-crs-definitions-from-properties-file!]])
+            [clojure.string :as str])
   (:import java.util.Random))
 
 (m/set-current-implementation :vectorz)
 
-(register-new-crs-definitions-from-properties-file! "CUSTOM" (io/resource "custom_projections.properties"))
-
 (set! *unchecked-math* :warn-on-boxed)
-
-(defn get-envelope
-  [config landfire-layers]
-  (let [{:keys [^double upperleftx
-                ^double upperlefty
-                ^double width
-                ^double height
-                ^double scalex
-                ^double scaley]} (landfire-layers :elevation)]
-    (make-envelope (:srid config)
-                   upperleftx
-                   (+ upperlefty (* height scaley))
-                   (* width scalex)
-                   (* -1.0 height scaley))))
 
 (defn add-input-layers
   [config]
-  (let [landfire-layers (fetch/landfire-layers config)]
-    (assoc config
-           :envelope             (get-envelope config landfire-layers)
-           :landfire-rasters     (into {}
-                                       (map (fn [[layer-name layer-info]] [layer-name (first (:matrix layer-info))]))
-                                       landfire-layers)
-           :ignition-layer       (fetch/ignition-layer config)
-           :ignition-mask-layer  (fetch/ignition-mask-layer config)
-           :weather-layers       (fetch/weather-layers config)
-           :fuel-moisture        (fetch/fuel-moisture config))))
+  (assoc config
+         :envelope                             (fetch/landfire-envelope config :aspect)
+         :aspect-matrix                        (fetch/landfire-matrix config :aspect)
+         :canopy-base-height-matrix            (fetch/landfire-matrix config :canopy-base-height)
+         :canopy-cover-matrix                  (fetch/landfire-matrix config :canopy-cover)
+         :canopy-height-matrix                 (fetch/landfire-matrix config :canopy-height)
+         :crown-bulk-density-matrix            (fetch/landfire-matrix config :crown-bulk-density)
+         :elevation-matrix                     (fetch/landfire-matrix config :elevation)
+         :fuel-model-matrix                    (fetch/landfire-matrix config :fuel-model)
+         :slope-matrix                         (fetch/landfire-matrix config :slope)
+         :ignition-matrix                      (fetch/ignition-matrix config)
+         :ignition-mask-matrix                 (fetch/ignition-mask-matrix config)
+         :temperature-matrix                   (fetch/weather-matrix config :temperature)
+         :relative-humidity-matrix             (fetch/weather-matrix config :relative-humidity)
+         :wind-speed-20ft-matrix               (fetch/weather-matrix config :wind-speed-20ft)
+         :wind-from-direction-matrix           (fetch/weather-matrix config :wind-from-direction)
+         :fuel-moisture-1hr-matrix             (fetch/fuel-moisture-matrix config :dead :1hr)
+         :fuel-moisture-10hr-matrix            (fetch/fuel-moisture-matrix config :dead :10hr)
+         :fuel-moisture-100hr-matrix           (fetch/fuel-moisture-matrix config :dead :100hr)
+         :fuel-moisture-live-herbaceous-matrix (fetch/fuel-moisture-matrix config :live :herbaceous)
+         :fuel-moisture-live-woody-matrix      (fetch/fuel-moisture-matrix config :live :woody)))
 
 (defn cell-size-multiplier
   ^double [^double cell-size {:keys [^double scalex]}]
@@ -66,15 +61,14 @@
              [:live :woody]])))
 
 (defn add-misc-params
-  [{:keys [random-seed landfire-rasters] :as inputs}]
-  (let [fuel-model (:fuel-model landfire-rasters)]
-    (assoc inputs
-           :num-rows          (m/row-count fuel-model)
-           :num-cols          (m/column-count fuel-model)
-           :multiplier-lookup (create-multiplier-lookup inputs)
-           :rand-gen          (if random-seed
-                                (Random. random-seed)
-                                (Random.)))))
+  [{:keys [random-seed fuel-model-matrix] :as inputs}]
+  (assoc inputs
+         :num-rows          (m/row-count fuel-model-matrix)
+         :num-cols          (m/column-count fuel-model-matrix)
+         :multiplier-lookup (create-multiplier-lookup inputs)
+         :rand-gen          (if random-seed
+                              (Random. random-seed)
+                              (Random.))))
 
 (defn add-ignition-csv
   [{:keys [ignition-csv] :as inputs}]
@@ -93,7 +87,7 @@
   [{:keys [rand-gen simulations max-runtime ignition-row ignition-col
            foliar-moisture ellipse-adjustment-factor perturbations ignition-rows
            ignition-cols max-runtimes]
-    :as inputs}]
+    :as   inputs}]
   (assoc inputs
          :max-runtimes               (or max-runtimes (draw-samples rand-gen simulations max-runtime))
          :ignition-rows              (or ignition-rows (draw-samples rand-gen simulations ignition-row))
@@ -103,37 +97,58 @@
          :perturbations              (perturbation/draw-samples rand-gen simulations perturbations)))
 
 (defn get-weather
-  [config rand-generator weather-type weather-layers]
-  (if (contains? weather-layers weather-type)
-    (weather-type weather-layers)
-    (draw-samples rand-generator (:simulations config) (config weather-type))))
+  [inputs rand-generator weather-type]
+  (let [matrix-kw (-> weather-type
+                      name
+                      (str "-matrix")
+                      keyword)]
+    (if (contains? inputs matrix-kw)
+      (matrix-kw inputs)
+      (draw-samples rand-generator (:simulations inputs) (inputs weather-type)))))
 
 ;; FIXME: Try using draw-sample within run-simulation instead of get-weather here.
 (defn add-weather-params
-  [{:keys [rand-gen weather-layers] :as inputs}]
+  [{:keys [rand-gen] :as inputs}]
   (assoc inputs
-         :temperatures         (get-weather inputs rand-gen :temperature weather-layers)
-         :relative-humidities  (get-weather inputs rand-gen :relative-humidity weather-layers)
-         :wind-speeds-20ft     (get-weather inputs rand-gen :wind-speed-20ft weather-layers)
-         :wind-from-directions (get-weather inputs rand-gen :wind-from-direction weather-layers)))
+         :temperatures         (get-weather inputs rand-gen :temperature)
+         :relative-humidities  (get-weather inputs rand-gen :relative-humidity)
+         :wind-speeds-20ft     (get-weather inputs rand-gen :wind-speed-20ft)
+         :wind-from-directions (get-weather inputs rand-gen :wind-from-direction)))
+
+(defn get-fuel-moisture
+  [{:keys [fuel-moisture] :as inputs} rand-generator category size]
+  (let [matrix-kw (keyword (str/join "-" ["fuel-moisture"
+                                          (name category)
+                                          (name size)
+                                          "matrix"]))]
+    (if (matrix-kw inputs)
+      (matrix-kw inputs)
+      (draw-samples rand-generator (:simulations inputs) (get-in fuel-moisture [category size])))))
+
+(defn add-fuel-moisture-params
+  [{:keys [rand-gen] :as inputs}]
+  (assoc inputs
+         :fuel-moistures-dead-1hr        (get-fuel-moisture inputs rand-gen :dead :1hr)
+         :fuel-moistures-dead-10hr       (get-fuel-moisture inputs rand-gen :dead :10hr)
+         :fuel-moistures-dead-100hr      (get-fuel-moisture inputs rand-gen :dead :100hr)
+         :fuel-moistures-live-herbaceous (get-fuel-moisture inputs rand-gen :live :herbaceous)
+         :fuel-moistures-live-woody      (get-fuel-moisture inputs rand-gen :live :woody)))
 
 (defn add-ignitable-sites
-  [{:keys [ignition-mask-layer num-rows num-cols] :as inputs}]
-  (let [ignition-mask-indices (some->> ignition-mask-layer
-                                       :matrix
-                                       first
+  [{:keys [ignition-mask-matrix num-rows num-cols] :as inputs}]
+  (let [ignition-mask-indices (some->> ignition-mask-matrix
                                        m/non-zero-indices
                                        (map-indexed (fn [i v] (when (pos? (count v)) [i v])))
                                        (filterv identity))
-        ignitable-sites (if ignition-mask-indices
-                          (for [[row cols] ignition-mask-indices
-                                col        cols
-                                :when      (random-ignition/valid-ignition-site? inputs row col)]
-                            [row col])
-                          (for [row   (range num-rows)
-                                col   (range num-cols)
-                                :when (random-ignition/valid-ignition-site? inputs row col)]
-                            [row col]))]
+        ignitable-sites       (if ignition-mask-indices
+                                (for [[row cols] ignition-mask-indices
+                                      col        cols
+                                      :when      (random-ignition/valid-ignition-site? inputs row col)]
+                                  [row col])
+                                (for [row   (range num-rows)
+                                      col   (range num-cols)
+                                      :when (random-ignition/valid-ignition-site? inputs row col)]
+                                  [row col]))]
     (assoc inputs :ignitable-sites ignitable-sites)))
 
 (defn initialize-burn-count-matrix
@@ -145,8 +160,9 @@
       (m/zero-array [num-rows num-cols]))))
 
 (defn initialize-aggregate-matrices
-  [{:keys [num-rows num-cols output-flame-length-sum?
-           output-flame-length-max? output-spot-count?] :as inputs}]
+  [{:keys
+    [num-rows num-cols output-flame-length-sum?
+     output-flame-length-max? output-spot-count?] :as inputs}]
   {:burn-count-matrix       (initialize-burn-count-matrix inputs)
    :flame-length-sum-matrix (when output-flame-length-sum? (m/zero-array [num-rows num-cols]))
    :flame-length-max-matrix (when output-flame-length-max? (m/zero-array [num-rows num-cols]))
