@@ -39,78 +39,38 @@
   ^double
   [^double rh ^double temp]
   (/ (double
-      (cond (< rh 10)  (+ 0.03229 (* 0.281073 rh) (* -0.000578 rh temp))
-            (< rh 50)  (+ 2.22749 (* 0.160107 rh) (* -0.01478 temp))
-            :else (+ 21.0606 (* 0.005565 rh rh) (* -0.00035 rh temp) (* -0.483199 rh))))
+      (cond (< rh 10) (+ 0.03229 (* 0.281073 rh) (* -0.000578 rh temp))
+            (< rh 50) (+ 2.22749 (* 0.160107 rh) (* -0.01478 temp))
+            :else     (+ 21.0606 (* 0.005565 rh rh) (* -0.00035 rh temp) (* -0.483199 rh))))
      30))
 
-(defn get-fuel-moisture
-  "Returns a map of moisture
-  {:dead {:1hr        (0-1)
-          :10hr       (0-1)
-          :100hr      (0-1)}
-   :live {:herbaceous (0-1)
-          :woody      (0-1)}}"
-  [relative-humidity temperature]
-  (let [equilibrium-moisture (calc-emc relative-humidity temperature)]
-    {:dead {:1hr   (+ equilibrium-moisture 0.002)
-            :10hr  (+ equilibrium-moisture 0.015)
-            :100hr (+ equilibrium-moisture 0.025)}
-     :live {:herbaceous (* equilibrium-moisture 2.0)
-            :woody      (* equilibrium-moisture 0.5)}}))
+(def fuel-categories #{:dead :live})
 
-(defn extract-fuel-moisture
-  "Returns a map of moisture
-  {:dead {:1hr        (0-1)
-          :10hr       (0-1)
-          :100hr      (0-1)}
-   :live {:herbaceous (0-1)
-          :woody      (0-1)}}"
-  [fuel-moisture multiplier-lookup here global-clock]
-  (let [f (fn [path]
-            (fn [spec]
-              (if (map? spec)
-                (sample-at here
-                           global-clock
-                           (:matrix spec)
-                           (get-in multiplier-lookup path))
-                spec)))]
-    (-> fuel-moisture
-        (update-in [:dead :1hr] (f [:dead :1hr]))
-        (update-in [:dead :10hr] (f [:dead :10hr]))
-        (update-in [:dead :100hr] (f [:dead :100hr]))
-        (update-in [:live :herbaceous] (f [:live :herbaceous]))
-        (update-in [:live :woody] (f [:live :woody])))))
+(def fuel-sizes #{:1hr :10hr :100hr :herbaceous :woody})
 
-(defn constant-fuel-moisture
-  "Returns a map of moisture
-  {:dead {:1hr        (0-1)
-          :10hr       (0-1)
-          :100hr      (0-1)}
-   :live {:herbaceous (0-1)
-          :woody      (0-1)}}"
-  [{:keys [fuel-moisture]}]
-  (cond
-    (map? fuel-moisture)
-    fuel-moisture
+(defn calc-fuel-moisture
+  [relative-humidity temperature category size]
+  (when (and (contains? fuel-categories category) (contains? fuel-sizes size))
+    (let [equilibrium-moisture (calc-emc relative-humidity temperature)]
+      (cond
+        (and (= category :dead) (= size :1hr))
+        (+ equilibrium-moisture 0.002)
 
-    (float? fuel-moisture)
-    {:dead (zipmap [:1hr :10hr :100hr]  (repeat fuel-moisture))
-     :live (zipmap [:woody :herbaceous] (repeat fuel-moisture))}))
+        (and (= category :dead) (= size :10hr))
+        (+ equilibrium-moisture 0.015)
 
-(defn fuel-moisture-from-raster
-  "Returns a map of moisture
-  {:dead {:1hr        (0-1)
-          :10hr       (0-1)
-          :100hr      (0-1)}
-   :live {:herbaceous (0-1)
-          :woody      (0-1)}}"
-  ([constants here]
-   (fuel-moisture-from-raster constants here 0))
+        (and (= category :dead) (= size :10hr))
+        (+ equilibrium-moisture 0.025)
 
-  ([{:keys [fuel-moisture multiplier-lookup]} here global-clock]
-   (when fuel-moisture
-     (extract-fuel-moisture fuel-moisture multiplier-lookup here global-clock))))
+        (and (= category :live) (= size :herbaceous))
+        (+ equilibrium-moisture 2.0)
+
+
+        (and (= category :live) (= size :woody))
+        (+ equilibrium-moisture 0.5)
+
+        :else
+        nil))))
 
 (defn in-bounds?
   "Returns true if the point lies within the bounds [0,rows) by [0,cols)."
@@ -139,8 +99,8 @@
 (defn get-neighbors
   "Returns the eight points adjacent to the passed-in point."
   [[i j]]
-  (let [i (long i)
-        j (long j)
+  (let [i  (long i)
+        j  (long j)
         i- (- i 1)
         i+ (+ i 1)
         j- (- j 1)

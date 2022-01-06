@@ -1,6 +1,6 @@
 ;; [[file:../../../org/GridFire.org::utils-random][utils-random]]
 (ns gridfire.utils.random
-  (:import java.util.Random))
+  (:import (java.util ArrayList Collection Collections Random)))
 
 (defn my-rand
   ([^Random rand-generator] (.nextDouble rand-generator))
@@ -48,4 +48,14 @@
         (cond (list? x)   (sample-from-list rand-generator n x)
               (vector? x) (sample-from-range rand-generator n x)
               :else       (repeat n x))))
+
+(defn my-shuffle
+  [^Random seed ^Collection coll]
+  (if (< (count coll) 2)
+    (if (vector? coll)
+      coll
+      (vec coll))
+    (let [al (ArrayList. coll)]
+      (Collections/shuffle al seed)
+      (vec (.toArray al)))))
 ;; utils-random ends here

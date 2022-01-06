@@ -2,12 +2,10 @@
 (ns gridfire.spotting
   (:require [clojure.core.matrix :as m]
             [gridfire.common :refer [distance-3d
-                                     constant-fuel-moisture
-                                     get-fuel-moisture
+                                     calc-fuel-moisture
                                      get-value-at
                                      in-bounds?
-                                     burnable?
-                                     fuel-moisture-from-raster]]
+                                     burnable?]]
             [gridfire.utils.random :refer [random-float my-rand-range]]
             [gridfire.conversion :as convert]
             [kixi.stats.distribution :as distribution]))
@@ -306,7 +304,7 @@
   [{:keys
     [num-rows num-cols cell-size landfire-rasters global-clock spotting rand-gen
      multiplier-lookup perturbations temperature relative-humidity wind-speed-20ft
-     wind-from-direction] :as inputs}
+     wind-from-direction fuel-moisture-dead-1hr] :as inputs}
    {:keys [firebrand-count-matrix fire-spread-matrix fire-line-intensity-matrix flame-length-matrix]}
    {:keys [cell fire-line-intensity crown-fire?]}]
   (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
@@ -331,9 +329,13 @@
                                           wind-from-direction
                                           (:wind-from-direction multiplier-lookup)
                                           (:wind-from-direction perturbations))
-          fuel-moisture     (or (fuel-moisture-from-raster inputs cell global-clock)
-                                (constant-fuel-moisture inputs)
-                                (get-fuel-moisture rh temperature))
+          m1                (if fuel-moisture-dead-1hr
+                              (get-value-at cell
+                                            global-clock
+                                            fuel-moisture-dead-1hr
+                                            (get-in multiplier-lookup [:dead :1hr])
+                                            nil)
+                              (calc-fuel-moisture rh tmp :dead :1hr))
           deltas            (sample-wind-dir-deltas inputs
                                                     fire-line-intensity-matrix
                                                     (convert/mph->mps ws)
@@ -345,7 +347,7 @@
                  :when (and (in-bounds? num-rows num-cols [x y])
                             (burnable? fire-spread-matrix (:fuel-model landfire-rasters) cell [x y]))
                  :let  [temperature          (convert/F->C (double tmp))
-                        fine-fuel-moisture   (double (-> fuel-moisture :dead :1hr))
+                        fine-fuel-moisture   (double m1)
                         ignition-probability (schroeder-ign-prob temperature fine-fuel-moisture)
                         decay-constant       (double (:decay-constant spotting))
                         spotting-distance    (convert/ft->m (distance-3d (:elevation landfire-rasters)

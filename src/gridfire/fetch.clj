@@ -90,9 +90,9 @@
 
 (defn weather-matrix
   "Returns a matrix for the given weather name. Units of available weather:
-  - tempearture:         farenheight
+  - temperature:         fahrenheit
   - relative-humidity:   percent (0-100)
-  - wind-speed20ft:      mph
+  - wind-speed-20ft:     mph
   - wind-from-direction: degreees clockwise from north"
   [config weather-name]
   (:matrix (weather-layer config weather-name)))
@@ -104,14 +104,15 @@
 (defn ignition-mask-layer
   [{:keys [db-spec random-ignition]}]
   (when (map? random-ignition)
-    (let [spec (:ignition-mask random-ignition)]
+    (let [spec (get-in random-ignition [:ignition-mask :raster])]
       (if (= (:type spec) :postgis)
         (postgis-raster-to-matrix db-spec (:source spec))
         (geotiff-raster-to-matrix (:source spec))))))
 
 (defn ignition-mask-matrix
   [config]
-  (-> (ignition-mask-layer config) :matrix first))
+  (when-let [layer (ignition-mask-layer config)]
+   (-> layer :matrix first)))
 
 ;;-----------------------------------------------------------------------------
 ;; Moisture Layers
@@ -131,8 +132,8 @@
   "Returns a matrix values for the given fuel category and size
   Units are in ratio (0-1)"
   [config category size]
-  (let [layer (fuel-moisture-layer config category size)]
-    (if (and (map? layer) (= category :live))
+  (when-let [layer (fuel-moisture-layer config category size)]
+    (if (= category :live)
       (-> layer :matrix first)
       (-> layer :matrix))))
 ;; fetch.clj ends here

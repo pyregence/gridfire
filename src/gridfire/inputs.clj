@@ -2,17 +2,15 @@
   (:require [clojure.core.matrix      :as m]
             [clojure.data.csv         :as csv]
             [clojure.java.io          :as io]
+            [gridfire.common          :refer [burnable-fuel-model?]]
             [gridfire.conversion      :refer [m->ft]]
             [gridfire.fetch           :as fetch]
             [gridfire.perturbation    :as perturbation]
-            [gridfire.random-ignition :as random-ignition]
-            [gridfire.utils.random    :refer [draw-samples]]
+            [gridfire.utils.random    :refer [draw-samples my-shuffle]]
             [clojure.string :as str])
   (:import java.util.Random))
 
 (m/set-current-implementation :vectorz)
-
-(set! *unchecked-math* :warn-on-boxed)
 
 (defn add-input-layers
   [config]
@@ -84,16 +82,13 @@
     inputs))
 
 (defn add-sampled-params
-  [{:keys [rand-gen simulations max-runtime ignition-row ignition-col
-           foliar-moisture ellipse-adjustment-factor perturbations ignition-rows
-           ignition-cols max-runtimes]
-    :as   inputs}]
+  [{:keys
+    [rand-gen simulations max-runtime max-runtimes foliar-moisture ellipse-adjustment-factor perturbations]
+    :as inputs}]
   (assoc inputs
          :max-runtimes               (or max-runtimes (draw-samples rand-gen simulations max-runtime))
-         :ignition-rows              (or ignition-rows (draw-samples rand-gen simulations ignition-row))
-         :ignition-cols              (or ignition-cols (draw-samples rand-gen simulations ignition-col))
          :foliar-moistures           (draw-samples rand-gen simulations foliar-moisture)
-         :ellipse-adjustment-factors (draw-samples rand-gen simulations ellipse-adjustment-factor)
+         :ellipse-adjustment-factors (draw-samples rand-gen simulations (or ellipse-adjustment-factor 1.0))
          :perturbations              (perturbation/draw-samples rand-gen simulations perturbations)))
 
 (defn get-weather
@@ -102,8 +97,8 @@
                       name
                       (str "-matrix")
                       keyword)]
-    (if (contains? inputs matrix-kw)
-      (matrix-kw inputs)
+    (when (and (inputs weather-type)
+               (not (contains? inputs matrix-kw)))
       (draw-samples rand-generator (:simulations inputs) (inputs weather-type)))))
 
 ;; FIXME: Try using draw-sample within run-simulation instead of get-weather here.
@@ -121,8 +116,8 @@
                                           (name category)
                                           (name size)
                                           "matrix"]))]
-    (if (matrix-kw inputs)
-      (matrix-kw inputs)
+    (when (and fuel-moisture
+               (not (contains? inputs matrix-kw)))
       (draw-samples rand-generator (:simulations inputs) (get-in fuel-moisture [category size])))))
 
 (defn add-fuel-moisture-params
@@ -134,40 +129,79 @@
          :fuel-moistures-live-herbaceous (get-fuel-moisture inputs rand-gen :live :herbaceous)
          :fuel-moistures-live-woody      (get-fuel-moisture inputs rand-gen :live :woody)))
 
-(defn add-ignitable-sites
-  [{:keys [ignition-mask-matrix num-rows num-cols] :as inputs}]
-  (let [ignition-mask-indices (some->> ignition-mask-matrix
-                                       m/non-zero-indices
-                                       (map-indexed (fn [i v] (when (pos? (count v)) [i v])))
-                                       (filterv identity))
-        ignitable-sites       (if ignition-mask-indices
-                                (for [[row cols] ignition-mask-indices
-                                      col        cols
-                                      :when      (random-ignition/valid-ignition-site? inputs row col)]
-                                  [row col])
-                                (for [row   (range num-rows)
-                                      col   (range num-cols)
-                                      :when (random-ignition/valid-ignition-site? inputs row col)]
-                                  [row col]))]
-    (assoc inputs :ignitable-sites ignitable-sites)))
+(defn- filter-ignitions
+  [ignition-param buffer-size limit num-items]
+  (filter
+   #(<= buffer-size % limit)
+   (cond
+     (vector? ignition-param) (range (first ignition-param) (inc (second ignition-param)))
+     (list? ignition-param)   ignition-param
+     (number? ignition-param) (list ignition-param)
+     :else                    (range 0 num-items))))
+
+(defn- fill-ignition-sites
+  [rand-gen ignition-sites simulations]
+  (let [num-sites-available (count ignition-sites)]
+    (loop [num-sites-needed     (- simulations num-sites-available)
+           final-ignition-sites ignition-sites]
+      (if (pos? num-sites-needed)
+        (let [num-additional-sites (min num-sites-needed num-sites-available)
+              additional-sites     (-> (my-shuffle rand-gen ignition-sites)
+                                       (subvec 0 num-additional-sites))]
+          (recur (- num-sites-needed num-additional-sites)
+                 (into final-ignition-sites additional-sites)))
+        final-ignition-sites))))
+
+(defn- sample-ignition-sites
+  [{:keys [rand-gen fuel-model-matrix ignition-mask-matrix simulations]}
+   ignition-rows
+   ignition-cols]
+  (let [ignitable-cell? (if ignition-mask-matrix
+                          (fn [row col]
+                            (and (pos? (m/mget ignition-mask-matrix row col))
+                                 (burnable-fuel-model? (m/mget fuel-model-matrix row col))))
+                          (fn [row col]
+                            (burnable-fuel-model? (m/mget fuel-model-matrix row col))))
+        ignitable-sites (my-shuffle rand-gen
+                                    (for [row   ignition-rows
+                                          col   ignition-cols
+                                          :when (ignitable-cell? row col)]
+                                      [row col]))]
+    (subvec ignitable-sites 0 (min simulations (count ignitable-sites)))))
+
+(defn add-random-ignition-sites
+  [{:keys
+    [num-rows num-cols ignition-row ignition-col simulations cell-size random-ignition
+     rand-gen ignition-matrix ignition-csv] :as inputs}]
+  (if (or ignition-matrix ignition-csv)
+    inputs
+    (let [buffer-size    (if-let [edge-buffer (:edge-buffer random-ignition)]
+                           (int (Math/ceil (/ edge-buffer cell-size)))
+                           0)
+          ignition-rows  (filter-ignitions ignition-row buffer-size (- num-rows buffer-size 1) num-rows)
+          ignition-cols  (filter-ignitions ignition-col buffer-size (- num-cols buffer-size 1) num-cols)
+          ignition-sites (sample-ignition-sites inputs ignition-rows ignition-cols)]
+      (if (seq ignition-sites)
+        (let [ignition-sites* (fill-ignition-sites rand-gen ignition-sites simulations)]
+          (assoc inputs
+                 :ignition-rows (mapv first ignition-sites*)
+                 :ignition-cols (mapv second ignition-sites*)))
+        inputs))))
 
 (defn initialize-burn-count-matrix
-  [{:keys [^double output-burn-probability output-burn-count? ^doubles max-runtimes num-rows num-cols]}]
-  (when (or output-burn-count? output-burn-probability)
-    (if (int? output-burn-probability)
-      (let [num-bands (inc (long (quot (double (apply max max-runtimes)) output-burn-probability)))]
-        (m/zero-array [num-bands num-rows num-cols]))
-      (m/zero-array [num-rows num-cols]))))
-
-(defn initialize-aggregate-matrices
-  [{:keys
-    [num-rows num-cols output-flame-length-sum?
-     output-flame-length-max? output-spot-count?] :as inputs}]
-  {:burn-count-matrix       (initialize-burn-count-matrix inputs)
-   :flame-length-sum-matrix (when output-flame-length-sum? (m/zero-array [num-rows num-cols]))
-   :flame-length-max-matrix (when output-flame-length-max? (m/zero-array [num-rows num-cols]))
-   :spot-count-matrix       (when output-spot-count? (m/zero-array [num-rows num-cols]))})
+  [output-burn-probability max-runtimes ^long num-rows ^long num-cols]
+  (if (number? output-burn-probability)
+    (let [num-bands (long (Math/ceil (/ (reduce max max-runtimes) output-burn-probability)))]
+      (m/zero-array [num-bands num-rows num-cols]))
+    (m/zero-array [num-rows num-cols])))
 
 (defn add-aggregate-matrices
-  [inputs]
-  (merge inputs (initialize-aggregate-matrices inputs)))
+  [{:keys
+    [max-runtimes num-rows num-cols output-burn-count? output-burn-probability output-flame-length-sum?
+     output-flame-length-max? output-spot-count?] :as inputs}]
+  (assoc inputs
+         :burn-count-matrix       (when (or output-burn-count? output-burn-probability)
+                                    (initialize-burn-count-matrix output-burn-probability max-runtimes num-rows num-cols))
+         :flame-length-sum-matrix (when output-flame-length-sum? (m/zero-array [num-rows num-cols]))
+         :flame-length-max-matrix (when output-flame-length-max? (m/zero-array [num-rows num-cols]))
+         :spot-count-matrix       (when output-spot-count? (m/zero-array [num-rows num-cols]))))

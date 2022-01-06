@@ -49,7 +49,8 @@
 
 (defn ensure-ignitable-sites
   [inputs config-file-path]
-  (if (seq (:ignitable-sites inputs))
+  (if (and (seq (:ignition-rows inputs))
+           (seq (:ignition-cols inputs)))
     inputs
     (log-str (format "Invalid config file [%s]: No valid ignition sites." config-file-path))))
 
@@ -62,7 +63,7 @@
       (inputs/add-sampled-params)
       (inputs/add-weather-params)
       (inputs/add-fuel-moisture-params)
-      (inputs/add-ignitable-sites)
+      (inputs/add-random-ignition-sites)
       (inputs/add-aggregate-matrices)))
 
 (defn load-config!

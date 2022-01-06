@@ -15,12 +15,11 @@
        (<= col buffer-size)
        (> col (- num-cols buffer-size))))
 
-(defn valid-ignition-site? [{:keys [num-rows num-cols random-ignition cell-size landfire-rasters]} row col]
-  (let [{:keys [edge-buffer]} random-ignition
-        {:keys [fuel-model]}  landfire-rasters]
+(defn valid-ignition-site? [{:keys [num-rows num-cols random-ignition cell-size fuel-model-matrix]} row col]
+  (let [{:keys [edge-buffer]} random-ignition]
     (and (if edge-buffer
            (let [buffer-size (int (Math/ceil (/ edge-buffer cell-size)))]
              (not (in-edge-buffer? num-rows num-cols buffer-size row col)))
            true)
-         (burnable-fuel-model? (m/mget fuel-model row col)))))
+         (burnable-fuel-model? (m/mget fuel-model-matrix row col)))))
 ;; random_ignition.clj ends here

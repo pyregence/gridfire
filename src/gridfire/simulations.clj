@@ -170,6 +170,11 @@
      :fire-line-intensity-stddev fire-line-intensity-stddev
      :spot-count                 (:spot-count fire-spread-results)}))
 
+(defn matrix-or-i
+  [inputs matrix-kw sample-kw i]
+  (or (get inputs matrix-kw)
+      (get-in inputs [sample-kw i])))
+
 ;; FIXME: Replace input-variations expression with add-sampled-params
 ;;        and add-weather-params (and remove them from load-inputs).
 ;;        This will require making these function return single
@@ -178,26 +183,29 @@
 ;;        move it to run-fire-spread.
 (defn run-simulation!
   [i
-   {:keys [output-csvs? envelope ignition-layer cell-size
-           max-runtimes ignition-rows ignition-cols foliar-moistures ellipse-adjustment-factors perturbations
-           temperatures relative-humidities wind-speeds-20ft wind-from-directions
-           random-seed ignition-start-times] :as inputs}]
+   {:keys
+    [output-csvs? envelope ignition-matrix cell-size max-runtimes ignition-rows ignition-cols
+     foliar-moistures ellipse-adjustment-factors perturbations random-seed ignition-start-times] :as inputs}]
   (tufte/profile
    {:id :run-simulation}
-   (let [matrix-or-i           (fn [obj i] (:matrix obj (obj i)))
-         initial-ignition-site (or ignition-layer
+   (let [initial-ignition-site (or ignition-matrix
                                    (when (and (ignition-rows i) (ignition-cols i))
                                      [(ignition-rows i) (ignition-cols i)]))
-         input-variations      {:rand-gen                  (if random-seed (Random. (+ random-seed i)) (Random.))
-                                :max-runtime               (max-runtimes i)
-                                :foliar-moisture           (* 0.01 (foliar-moistures i))
-                                :ellipse-adjustment-factor (ellipse-adjustment-factors i)
-                                :perturbations             (when perturbations (perturbations i))
-                                :temperature               (matrix-or-i temperatures i)
-                                :relative-humidity         (matrix-or-i relative-humidities i)
-                                :wind-speed-20ft           (matrix-or-i wind-speeds-20ft i)
-                                :wind-from-direction       (matrix-or-i wind-from-directions i)
-                                :ignition-start-time       (get ignition-start-times i 0.0)}
+         input-variations      {:rand-gen                      (if random-seed (Random. (+ random-seed i)) (Random.))
+                                :max-runtime                   (max-runtimes i)
+                                :foliar-moisture               (* 0.01 (foliar-moistures i))
+                                :ellipse-adjustment-factor     (ellipse-adjustment-factors i)
+                                :perturbations                 (when perturbations (perturbations i))
+                                :temperature                   (matrix-or-i inputs :temperature-matrix :temperatures i)
+                                :relative-humidity             (matrix-or-i inputs :relative-humidity-matrix :relative-humidities i)
+                                :wind-speed-20ft               (matrix-or-i inputs :wind-speed-20ft-matrix :wind-speeds-20ft i)
+                                :wind-from-direction           (matrix-or-i inputs :wind-from-direction-matrix :wind-from-directions i)
+                                :fuel-moisture-dead-1hr        (matrix-or-i inputs :fuel-moisture-dead-1hr-matrix :fuel-moistures-dead-1hr i)
+                                :fuel-moisture-dead-10hr       (matrix-or-i inputs :fuel-moisture-dead-10hr-matrix :fuel-moistures-dead-10hr i)
+                                :fuel-moisture-dead-100hr      (matrix-or-i inputs :fuel-moisture-dead-100hr-matrix :fuel-moistures-dead-100hr i)
+                                :fuel-moisture-live-herbaceous (matrix-or-i inputs :fuel-moisture-live-herbaceous-matrix :fuel-moistures-live-herbaceous i)
+                                :fuel-moisture-live-woody      (matrix-or-i inputs :fuel-moisture-live-woody-matrix :fuel-moistures-live-woody i)
+                                :ignition-start-time           (get ignition-start-times i 0.0)}
          fire-spread-results   (tufte/p :run-fire-spread
                                         (run-fire-spread
                                          (merge inputs
