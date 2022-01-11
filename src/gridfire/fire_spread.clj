@@ -428,11 +428,13 @@
           ignited-cells  ignited-cells
           spot-ignitions {}]
       (if (and (< global-clock ignition-stop-time)
-              (seq ignited-cells))
-       (let [dt                (->> ignited-cells
-                                    (reduce reducer-fn 0.0)
-                                    (/ cell-size)
-                                    double)
+               (or (seq ignited-cells) (seq spot-ignitions)))
+       (let [dt                (if (seq ignited-cells)
+                                 (->> ignited-cells
+                                      (reduce reducer-fn 0.0)
+                                      (/ cell-size)
+                                      double)
+                                 10.0)
              timestep          (min dt (- ignition-stop-time global-clock))
              next-global-clock (+ global-clock timestep)
              ignition-events   (identify-ignition-events inputs ignited-cells timestep
