@@ -427,6 +427,7 @@
     (loop [global-clock  ignition-start-time
           ignited-cells  ignited-cells
           spot-ignitions {}]
+      ; FIXME: Combine ignited cells and spot ignitions
       (if (and (< global-clock ignition-stop-time)
                (or (seq ignited-cells) (seq spot-ignitions)))
        (let [dt                (if (seq ignited-cells)
