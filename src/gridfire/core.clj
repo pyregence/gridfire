@@ -48,9 +48,10 @@
       (assoc inputs :summary-stats summary-stats))))
 
 (defn ensure-ignitable-sites
-  [inputs config-file-path]
-  (if (and (seq (:ignition-rows inputs))
-           (seq (:ignition-cols inputs)))
+  [{:keys [ignition-matrix ignition-rows ignition-cols] :as inputs} config-file-path]
+  (if (or ignition-matrix
+          (and (seq ignition-rows)
+               (seq ignition-cols)))
     inputs
     (log-str (format "Invalid config file [%s]: No valid ignition sites." config-file-path))))
 
