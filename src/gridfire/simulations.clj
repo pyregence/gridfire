@@ -201,7 +201,7 @@
                                 :foliar-moisture               (* 0.01 (foliar-moistures i))
                                 :ellipse-adjustment-factor     (ellipse-adjustment-factors i)
                                 :perturbations                 (when perturbations (perturbations i))
-                                :temperature                   (matrix-or-i inputs :tempearture i)
+                                :temperature                   (matrix-or-i inputs :temperature i)
                                 :relative-humidity             (matrix-or-i inputs :relative-humidity i)
                                 :wind-speed-20ft               (matrix-or-i inputs :wind-speed-20ft i)
                                 :wind-from-direction           (matrix-or-i inputs :wind-from-direction i)
