@@ -107,7 +107,7 @@
   (assoc inputs
          :temperature-samples         (get-weather inputs :temperature)
          :relative-humidity-samples   (get-weather inputs :relative-humidity)
-         :wind-speed-20-ft-samples    (get-weather inputs :wind-speed-20ft)
+         :wind-speed-20ft-samples     (get-weather inputs :wind-speed-20ft)
          :wind-from-direction-samples (get-weather inputs :wind-from-direction)))
 
 (defn get-fuel-moisture
