@@ -92,42 +92,42 @@
          :perturbations              (perturbation/draw-samples rand-gen simulations perturbations)))
 
 (defn get-weather
-  [inputs rand-generator weather-type]
+  [{:keys [rand-gen simulations] :as inputs} weather-type]
   (let [matrix-kw (-> weather-type
                       name
                       (str "-matrix")
                       keyword)]
     (when (and (inputs weather-type)
                (not (contains? inputs matrix-kw)))
-      (draw-samples rand-generator (:simulations inputs) (inputs weather-type)))))
+      (draw-samples rand-gen simulations (inputs weather-type)))))
 
 ;; FIXME: Try using draw-sample within run-simulation instead of get-weather here.
 (defn add-weather-params
-  [{:keys [rand-gen] :as inputs}]
+  [inputs]
   (assoc inputs
-         :temperature-samples         (get-weather inputs rand-gen :temperature)
-         :relative-humidity-samples   (get-weather inputs rand-gen :relative-humidity)
-         :wind-speed-20-ft-samples    (get-weather inputs rand-gen :wind-speed-20ft)
-         :wind-from-direction-samples (get-weather inputs rand-gen :wind-from-direction)))
+         :temperature-samples         (get-weather inputs :temperature)
+         :relative-humidity-samples   (get-weather inputs :relative-humidity)
+         :wind-speed-20-ft-samples    (get-weather inputs :wind-speed-20ft)
+         :wind-from-direction-samples (get-weather inputs :wind-from-direction)))
 
 (defn get-fuel-moisture
-  [{:keys [fuel-moisture] :as inputs} rand-generator category size]
+  [{:keys [fuel-moisture simulations rand-gen] :as inputs} category size]
   (let [matrix-kw (keyword (str/join "-" ["fuel-moisture"
                                           (name category)
                                           (name size)
                                           "matrix"]))]
     (when (and fuel-moisture
                (not (contains? inputs matrix-kw)))
-      (draw-samples rand-generator (:simulations inputs) (get-in fuel-moisture [category size])))))
+      (draw-samples rand-gen simulations (get-in fuel-moisture [category size])))))
 
 (defn add-fuel-moisture-params
-  [{:keys [rand-gen] :as inputs}]
+  [inputs]
   (assoc inputs
-         :fuel-moisture-dead-1hr-samples        (get-fuel-moisture inputs rand-gen :dead :1hr)
-         :fuel-moisture-dead-10hr-samples       (get-fuel-moisture inputs rand-gen :dead :10hr)
-         :fuel-moisture-dead-100hrsamples       (get-fuel-moisture inputs rand-gen :dead :100hr)
-         :fuel-moisture-live-herbaceous-samples (get-fuel-moisture inputs rand-gen :live :herbaceous)
-         :fuel-moisture-live-woodysamples       (get-fuel-moisture inputs rand-gen :live :woody)))
+         :fuel-moisture-dead-1hr-samples        (get-fuel-moisture inputs :dead :1hr)
+         :fuel-moisture-dead-10hr-samples       (get-fuel-moisture inputs :dead :10hr)
+         :fuel-moisture-dead-100hrsamples       (get-fuel-moisture inputs :dead :100hr)
+         :fuel-moisture-live-herbaceous-samples (get-fuel-moisture inputs :live :herbaceous)
+         :fuel-moisture-live-woodysamples       (get-fuel-moisture inputs :live :woody)))
 
 (defn- filter-ignitions
   [ignition-param buffer-size limit num-items]

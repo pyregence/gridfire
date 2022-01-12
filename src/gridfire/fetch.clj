@@ -126,7 +126,7 @@
         (-> (if (= type :postgis)
               (postgis-raster-to-matrix db-spec source)
               (geotiff-raster-to-matrix source))
-            (update :matrix #(m/emap! convert/percent->dec)))))))
+            (update :matrix #(m/emap! convert/percent->dec %)))))))
 
 (defn fuel-moisture-matrix
   "Returns a matrix values for the given fuel category and size

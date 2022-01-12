@@ -22,7 +22,8 @@
 (def test-config-base
   {:db-spec     db-spec
    :simulations 1
-   :random-seed 1234567890})
+   :random-seed 1234567890
+   :rand-gen    (Random. 1234567890)})
 
 ;;-----------------------------------------------------------------------------
 ;; Utils
@@ -139,24 +140,22 @@
           numbands (:numbands (first results))]
       (is (= numbands (m/dimension-count postgis-results 0))))))
 
-
 (deftest ^:database get-weather-from-range-test
-  (let [config         (merge test-config-base
-                              {:temperature [0 100]
-                               :simulations 10})
-        rand-generator (Random. (:random-seed config))
-        results        (inputs/get-weather config rand-generator :temperature)]
+  (let [config  (assoc test-config-base
+                       :temperature [0 100]
+                       :simulations 10)
+        results (inputs/get-weather config :temperature)]
 
     (is (vector results))
 
     (is (every? int? results))))
 
 (deftest ^:database get-weather-from-list-test
-  (let [config         (merge test-config-base
-                              {:temperature (list 0 10 20 30)
-                               :simulations 10})
-        rand-generator (Random. (:random-seed config))
-        results        (inputs/get-weather config rand-generator :temperature)]
+  (let [tmp-list (list 0 10 20 30)
+        config   (assoc test-config-base
+                        :temperature tmp-list
+                        :simulations 10)
+        results  (inputs/get-weather config :temperature)]
 
     (is (vector results))
 
@@ -165,11 +164,10 @@
     (is (= (set results) (set tmp-list)))))
 
 (deftest ^:database get-weather-scalar-from-test
-  (let [config         (merge test-config-base
-                              {:temperature 42
-                               :simulations 10})
-        rand-generator (Random. (:random-seed config))
-        results        (inputs/get-weather config rand-generator :temperature {})]
+  (let [config  (assoc test-config-base
+                       :temperature 42
+                       :simulations 10)
+        results (inputs/get-weather config :temperature)]
 
     (is (vector results))
 
