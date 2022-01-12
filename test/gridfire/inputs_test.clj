@@ -1,8 +1,7 @@
 (ns gridfire.inputs-test
-  (:require 
-            [clojure.test :refer [are deftest is testing use-fixtures]]
-            [gridfire.inputs :as inputs]
-            [clojure.core.matrix :as m])
+  (:require [clojure.core.matrix :as m]
+            [clojure.test        :refer [are deftest is testing use-fixtures]]
+            [gridfire.inputs     :as inputs])
   (:import java.util.Random))
 
 ;;-----------------------------------------------------------------------------
