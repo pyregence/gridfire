@@ -105,10 +105,10 @@
 (defn add-weather-params
   [{:keys [rand-gen] :as inputs}]
   (assoc inputs
-         :temperatures         (get-weather inputs rand-gen :temperature)
-         :relative-humidities  (get-weather inputs rand-gen :relative-humidity)
-         :wind-speeds-20ft     (get-weather inputs rand-gen :wind-speed-20ft)
-         :wind-from-directions (get-weather inputs rand-gen :wind-from-direction)))
+         :temperature-samples         (get-weather inputs rand-gen :temperature)
+         :relative-humidity-samples   (get-weather inputs rand-gen :relative-humidity)
+         :wind-speed-20-ft-samples    (get-weather inputs rand-gen :wind-speed-20ft)
+         :wind-from-direction-samples (get-weather inputs rand-gen :wind-from-direction)))
 
 (defn get-fuel-moisture
   [{:keys [fuel-moisture] :as inputs} rand-generator category size]
@@ -123,11 +123,11 @@
 (defn add-fuel-moisture-params
   [{:keys [rand-gen] :as inputs}]
   (assoc inputs
-         :fuel-moistures-dead-1hr        (get-fuel-moisture inputs rand-gen :dead :1hr)
-         :fuel-moistures-dead-10hr       (get-fuel-moisture inputs rand-gen :dead :10hr)
-         :fuel-moistures-dead-100hr      (get-fuel-moisture inputs rand-gen :dead :100hr)
-         :fuel-moistures-live-herbaceous (get-fuel-moisture inputs rand-gen :live :herbaceous)
-         :fuel-moistures-live-woody      (get-fuel-moisture inputs rand-gen :live :woody)))
+         :fuel-moisture-dead-1hr-samples        (get-fuel-moisture inputs rand-gen :dead :1hr)
+         :fuel-moisture-dead-10hr-samples       (get-fuel-moisture inputs rand-gen :dead :10hr)
+         :fuel-moisture-dead-100hrsamples       (get-fuel-moisture inputs rand-gen :dead :100hr)
+         :fuel-moisture-live-herbaceous-samples (get-fuel-moisture inputs rand-gen :live :herbaceous)
+         :fuel-moisture-live-woodysamples       (get-fuel-moisture inputs rand-gen :live :woody)))
 
 (defn- filter-ignitions
   [ignition-param buffer-size limit num-items]

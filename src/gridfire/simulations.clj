@@ -171,9 +171,14 @@
      :spot-count                 (:spot-count fire-spread-results)}))
 
 (defn matrix-or-i
-  [inputs matrix-kw sample-kw i]
-  (or (get inputs matrix-kw)
-      (get-in inputs [sample-kw i])))
+  [inputs weather-type i]
+  (or (get inputs (-> (name weather-type)
+                      (str "-matrix")
+                      keyword))
+      (get-in inputs [(-> (name weather-type)
+                          (str "-samples")
+                          keyword)
+                      i])))
 
 ;; FIXME: Replace input-variations expression with add-sampled-params
 ;;        and add-weather-params (and remove them from load-inputs).
@@ -196,15 +201,15 @@
                                 :foliar-moisture               (* 0.01 (foliar-moistures i))
                                 :ellipse-adjustment-factor     (ellipse-adjustment-factors i)
                                 :perturbations                 (when perturbations (perturbations i))
-                                :temperature                   (matrix-or-i inputs :temperature-matrix :temperatures i)
-                                :relative-humidity             (matrix-or-i inputs :relative-humidity-matrix :relative-humidities i)
-                                :wind-speed-20ft               (matrix-or-i inputs :wind-speed-20ft-matrix :wind-speeds-20ft i)
-                                :wind-from-direction           (matrix-or-i inputs :wind-from-direction-matrix :wind-from-directions i)
-                                :fuel-moisture-dead-1hr        (matrix-or-i inputs :fuel-moisture-dead-1hr-matrix :fuel-moistures-dead-1hr i)
-                                :fuel-moisture-dead-10hr       (matrix-or-i inputs :fuel-moisture-dead-10hr-matrix :fuel-moistures-dead-10hr i)
-                                :fuel-moisture-dead-100hr      (matrix-or-i inputs :fuel-moisture-dead-100hr-matrix :fuel-moistures-dead-100hr i)
-                                :fuel-moisture-live-herbaceous (matrix-or-i inputs :fuel-moisture-live-herbaceous-matrix :fuel-moistures-live-herbaceous i)
-                                :fuel-moisture-live-woody      (matrix-or-i inputs :fuel-moisture-live-woody-matrix :fuel-moistures-live-woody i)
+                                :temperature                   (matrix-or-i inputs :tempearture i)
+                                :relative-humidity             (matrix-or-i inputs :relative-humidity i)
+                                :wind-speed-20ft               (matrix-or-i inputs :wind-speed-20ft i)
+                                :wind-from-direction           (matrix-or-i inputs :wind-from-direction i)
+                                :fuel-moisture-dead-1hr        (matrix-or-i inputs :fuel-moisture-dead-1hr i)
+                                :fuel-moisture-dead-10hr       (matrix-or-i inputs :fuel-moisture-dead-10hr i)
+                                :fuel-moisture-dead-100hr      (matrix-or-i inputs :fuel-moisture-dead-100hr i)
+                                :fuel-moisture-live-herbaceous (matrix-or-i inputs :fuel-moisture-live-herbaceous i)
+                                :fuel-moisture-live-woody      (matrix-or-i inputs :fuel-moisture-live-woody i)
                                 :ignition-start-time           (get ignition-start-times i 0.0)}
          fire-spread-results   (tufte/p :run-fire-spread
                                         (run-fire-spread
