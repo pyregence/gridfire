@@ -98,7 +98,7 @@
                       (str "-matrix")
                       keyword)]
     (when (and (inputs weather-type)
-               (not (contains? inputs matrix-kw)))
+               (not (inputs matrix-kw)))
       (draw-samples rand-gen simulations (inputs weather-type)))))
 
 ;; FIXME: Try using draw-sample within run-simulation instead of get-weather here.
@@ -117,7 +117,7 @@
                                           (name size)
                                           "matrix"]))]
     (when (and fuel-moisture
-               (not (contains? inputs matrix-kw)))
+               (not (inputs matrix-kw)))
       (draw-samples rand-gen simulations (get-in fuel-moisture [category size])))))
 
 (defn add-fuel-moisture-params
