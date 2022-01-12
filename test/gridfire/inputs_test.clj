@@ -58,8 +58,6 @@
                                      (assoc :ignition-mask-matrix  ignition-mask-matrix))
             inputs-after         (inputs/add-random-ignition-sites inputs-before)]
 
-        (println (:ignition-rows inputs-after))
-
         (is (true? (valid-ignition-count? inputs-after)))
 
         (is (every? pos? (map #(m/mget (:ignition-mask-matrix inputs-after) %1 %2)
