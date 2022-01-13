@@ -5,7 +5,6 @@
             [gridfire.conversion    :refer [m->ft]]
             [gridfire.core          :as core]
             [gridfire.fetch         :as fetch]
-            [gridfire.inputs        :as inputs]
             [gridfire.utils.test    :as utils]))
 
 ;;-----------------------------------------------------------------------------
