@@ -29,9 +29,9 @@
          :relative-humidity-matrix             (fetch/weather-matrix config :relative-humidity)
          :wind-speed-20ft-matrix               (fetch/weather-matrix config :wind-speed-20ft)
          :wind-from-direction-matrix           (fetch/weather-matrix config :wind-from-direction)
-         :fuel-moisture-1hr-matrix             (fetch/fuel-moisture-matrix config :dead :1hr)
-         :fuel-moisture-10hr-matrix            (fetch/fuel-moisture-matrix config :dead :10hr)
-         :fuel-moisture-100hr-matrix           (fetch/fuel-moisture-matrix config :dead :100hr)
+         :fuel-moisture-dead-1hr-matrix        (fetch/fuel-moisture-matrix config :dead :1hr)
+         :fuel-moisture-dead-10hr-matrix       (fetch/fuel-moisture-matrix config :dead :10hr)
+         :fuel-moisture-dead-100hr-matrix      (fetch/fuel-moisture-matrix config :dead :100hr)
          :fuel-moisture-live-herbaceous-matrix (fetch/fuel-moisture-matrix config :live :herbaceous)
          :fuel-moisture-live-woody-matrix      (fetch/fuel-moisture-matrix config :live :woody)))
 
