@@ -277,16 +277,6 @@
 
       (is (valid-exits? (run-test-simulation! config))))))
 
-;FIXME update when multiplier-lookup is fixed
-#_(deftest ^:unit multiplier-lookup-test
-  (testing "constructing multiplier lookup for weather raster"
-    (let [config {:cell-size   (m->ft 30)
-                  :temperature {:type   :geotiff
-                                :source (in-file-path "weather-test/tmpf_to_sample_lower_res.tif")}}
-          lookup (inputs/create-multiplier-lookup (assoc config :weather-layers (fetch/weather-layers config)))]
-
-      (is (= {:temperature 10.0} lookup)))))
-
 ;;-----------------------------------------------------------------------------
 ;; Perturbation Tests
 ;;-----------------------------------------------------------------------------

@@ -35,13 +35,6 @@
          :fuel-moisture-live-herbaceous-matrix (fetch/fuel-moisture-matrix config :live :herbaceous)
          :fuel-moisture-live-woody-matrix      (fetch/fuel-moisture-matrix config :live :woody)))
 
-(defn- name->matrix
-  [layer-name]
-  (-> layer-name
-      name
-      (str "-matrix")
-      keyword))
-
 (defn- multi-band? [matrix]
   (> (m/dimensionality matrix) 2))
 
@@ -97,7 +90,10 @@
 
 (defn get-weather
   [{:keys [rand-gen simulations] :as inputs} weather-type]
-  (let [matrix-kw (name->matrix weather-type)]
+  (let [matrix-kw (-> weather-type
+                      name
+                      (str "-matrix")
+                      keyword)]
     (when (and (inputs weather-type)
                (not (inputs matrix-kw)))
       (draw-samples rand-gen simulations (inputs weather-type)))))
