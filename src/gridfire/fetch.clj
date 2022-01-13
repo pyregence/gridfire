@@ -70,7 +70,7 @@
   [{:keys [ignition-layer] :as config}]
   (when ignition-layer
    (let [layer (ignition-layer config)]
-     (if-let [burn-values (:burn-values ignition-layer)]
+     (if-let [burn-values (:burn-values layer)]
        (-> layer :matrix (convert-burn-values burn-values) first)
        (-> layer :matrix first)))))
 
@@ -104,7 +104,7 @@
 (defn ignition-mask-layer
   [{:keys [db-spec random-ignition]}]
   (when (map? random-ignition)
-    (let [spec (get-in random-ignition [:ignition-mask :raster])]
+    (let [spec (:ignition-mask random-ignition)]
       (if (= (:type spec) :postgis)
         (postgis-raster-to-matrix db-spec (:source spec))
         (geotiff-raster-to-matrix (:source spec))))))

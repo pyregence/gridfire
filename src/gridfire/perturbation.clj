@@ -43,8 +43,7 @@
 
 (defn draw-samples
   [rand-generator n perturbations]
-  (when perturbations
-    (mapv #(enrich-info perturbations rand-generator %) (range n))))
+  (mapv #(enrich-info perturbations rand-generator %) (range n)))
 
 (defn value-at
   (^double [perturb-info raster here]

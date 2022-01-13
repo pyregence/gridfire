@@ -189,18 +189,17 @@
 (defn run-simulation!
   [i
    {:keys
-    [output-csvs? envelope ignition-matrix cell-size max-runtimes ignition-rows ignition-cols
-     foliar-moistures ellipse-adjustment-factors perturbations random-seed ignition-start-times] :as inputs}]
+    [output-csvs? envelope ignition-matrix cell-size max-runtime-samples ignition-rows ignition-cols
+     foliar-moisture-samples ellipse-adjustment-factor-samples perturbation-samples random-seed ignition-start-times] :as inputs}]
   (tufte/profile
    {:id :run-simulation}
    (let [initial-ignition-site (or ignition-matrix
-                                   (when (and (ignition-rows i) (ignition-cols i))
-                                     [(ignition-rows i) (ignition-cols i)]))
+                                   [(ignition-rows i) (ignition-cols i)])
          input-variations      {:rand-gen                      (if random-seed (Random. (+ random-seed i)) (Random.))
-                                :max-runtime                   (max-runtimes i)
-                                :foliar-moisture               (* 0.01 (foliar-moistures i))
-                                :ellipse-adjustment-factor     (ellipse-adjustment-factors i)
-                                :perturbations                 (when perturbations (perturbations i))
+                                :max-runtime                   (max-runtime-samples i)
+                                :foliar-moisture               (* 0.01 (foliar-moisture-samples i))
+                                :ellipse-adjustment-factor     (ellipse-adjustment-factor-samples i)
+                                :perturbations                 (when perturbation-samples (perturbation-samples i))
                                 :temperature                   (matrix-or-i inputs :temperature i)
                                 :relative-humidity             (matrix-or-i inputs :relative-humidity i)
                                 :wind-speed-20ft               (matrix-or-i inputs :wind-speed-20ft i)
@@ -226,7 +225,7 @@
         {:simulation       (inc i)
          :ignition-row     (ignition-rows i)
          :ignition-col     (ignition-cols i)
-         :foliar-moisture  (foliar-moistures i)
+         :foliar-moisture  (foliar-moisture-samples i)
          :global-clock     (:global-clock fire-spread-results)
          :exit-condition   (:exit-condition fire-spread-results :no-fire-spread)
          :crown-fire-count (:crown-fire-count fire-spread-results)}

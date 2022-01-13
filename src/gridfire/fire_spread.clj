@@ -139,10 +139,14 @@
   [{:keys
     [aspect-matrix canopy-base-height-matrix canopy-cover-matrix canopy-height-matrix
      crown-bulk-density-matrix elevation-matrix fuel-model-matrix slope-matrix
-     multiplier-lookup perturbations wind-speed-20ft wind-from-direction temperature
+     perturbations wind-speed-20ft wind-from-direction temperature
      relative-humidity foliar-moisture ellipse-adjustment-factor cell-size
      num-rows num-cols fuel-moisture-dead-1hr fuel-moisture-dead-10hr fuel-moisture-dead-100hr
-     fuel-moisture-live-herbaceous fuel-moisture-live-woody]}
+     fuel-moisture-live-herbaceous fuel-moisture-live-woody relative-humidity-index-multiplier
+     temperature-index-multiplier wind-from-direction-index-multiplier wind-speed-20ft-index-multiplier
+     fuel-moisture-dead-1hr-index-multiplier fuel-moisture-dead-10hr-index-multiplier
+     fuel-moisture-dead-100hr-index-multiplier fuel-moisture-live-herbaceous-index-multiplier
+     fuel-moisture-live-woody-index-multiplier]}
    fire-spread-matrix
    here
    overflow-trajectory
@@ -151,91 +155,91 @@
   (let [^double aspect                (sample-at here
                                                  global-clock
                                                  aspect-matrix
-                                                 (:aspect multiplier-lookup)
+                                                 nil
                                                  (:aspect perturbations))
         ^double canopy-base-height    (sample-at here
                                                  global-clock
                                                  canopy-base-height-matrix
-                                                 (:canopy-base-height multiplier-lookup)
+                                                 nil
                                                  (:canopy-base-height perturbations))
         ^double canopy-cover          (sample-at here
                                                  global-clock
                                                  canopy-cover-matrix
-                                                 (:canopy-cover multiplier-lookup)
+                                                 nil
                                                  (:canopy-cover perturbations))
         ^double canopy-height         (sample-at here
                                                  global-clock
                                                  canopy-height-matrix
-                                                 (:canopy-height multiplier-lookup)
+                                                 nil
                                                  (:canopy-height perturbations))
         ^double crown-bulk-density    (sample-at here
                                                  global-clock
                                                  crown-bulk-density-matrix
-                                                 (:crown-bulk-density multiplier-lookup)
+                                                 nil
                                                  (:crown-bulk-density perturbations))
         ^long fuel-model              (sample-at here
                                                  global-clock
                                                  fuel-model-matrix
-                                                 (:fuel-model multiplier-lookup)
+                                                 nil
                                                  (:fuel-model perturbations))
         ^double slope                 (sample-at here
                                                  global-clock
                                                  slope-matrix
-                                                 (:slope multiplier-lookup)
+                                                 nil
                                                  (:slope perturbations))
         ^double relative-humidity     (get-value-at here
                                                     global-clock
                                                     relative-humidity
-                                                    (:relative-humidity multiplier-lookup)
+                                                    relative-humidity-index-multiplier
                                                     (:relative-humidity perturbations))
         ^double temperature           (get-value-at here
                                                     global-clock
                                                     temperature
-                                                    (:temperature multiplier-lookup)
+                                                    temperature-index-multiplier
                                                     (:temperature perturbations))
         ^double wind-from-direction   (get-value-at here
                                                     global-clock
                                                     wind-from-direction
-                                                    (:wind-from-direction multiplier-lookup)
+                                                    wind-from-direction-index-multiplier
                                                     (:wind-from-direction perturbations))
         ^double wind-speed-20ft       (get-value-at here
                                                     global-clock
                                                     wind-speed-20ft
-                                                    (:wind-speed-20ft multiplier-lookup)
+                                                    wind-speed-20ft-index-multiplier
                                                     (:wind-speed-20ft perturbations))
         m1                            (if fuel-moisture-dead-1hr
                                         (get-value-at here
                                                       global-clock
                                                       fuel-moisture-dead-1hr
-                                                      (get-in multiplier-lookup [:dead :1hr])
+                                                      fuel-moisture-dead-1hr-index-multiplier
                                                       nil)
                                         (calc-fuel-moisture relative-humidity temperature :dead :1hr))
         m10                           (if fuel-moisture-dead-10hr
                                         (get-value-at here
                                                       global-clock
                                                       fuel-moisture-dead-10hr
-                                                      (get-in multiplier-lookup [:dead :10hr])
+                                                      fuel-moisture-dead-10hr-index-multiplier
                                                       nil)
                                        (calc-fuel-moisture relative-humidity temperature :dead :10hr))
         m100                          (if fuel-moisture-dead-100hr
                                         (get-value-at here
                                                       global-clock
                                                       fuel-moisture-dead-100hr
-                                                      (get-in multiplier-lookup [:dead :100hr])
+                                                      fuel-moisture-dead-100hr-index-multiplier
                                                       nil)
                                         (calc-fuel-moisture relative-humidity temperature :dead :10hr))
         mlh                           (if fuel-moisture-live-herbaceous
                                         (get-value-at here
                                                       global-clock
                                                       fuel-moisture-live-herbaceous
-                                                      (get-in multiplier-lookup [:live :herbaceous])
+                                                      fuel-moisture-live-herbaceous-index-multiplier
                                                       nil)
                                         (calc-fuel-moisture relative-humidity temperature :live :herbaceous))
         mlw                           (if fuel-moisture-live-woody
                                         (get-value-at here
                                                       global-clock
                                                       fuel-moisture-live-woody
-                                                      (get-in multiplier-lookup [:live :woody])
+                                                      fuel-moisture-live-woody-index-multiplier
                                                       nil)
                                         (calc-fuel-moisture relative-humidity temperature :live :woody))
         [fuel-model spread-info-min]  (rothermel-fast-wrapper fuel-model

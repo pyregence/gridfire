@@ -1,13 +1,12 @@
 (ns gridfire.inputs
-  (:require [clojure.core.matrix      :as m]
-            [clojure.data.csv         :as csv]
-            [clojure.java.io          :as io]
-            [gridfire.common          :refer [burnable-fuel-model?]]
-            [gridfire.conversion      :refer [m->ft]]
-            [gridfire.fetch           :as fetch]
-            [gridfire.perturbation    :as perturbation]
-            [gridfire.utils.random    :refer [draw-samples my-shuffle]]
-            [clojure.string :as str])
+  (:require [clojure.core.matrix   :as m]
+            [clojure.data.csv      :as csv]
+            [clojure.java.io       :as io]
+            [clojure.string        :as str]
+            [gridfire.common       :refer [burnable-fuel-model?]]
+            [gridfire.fetch        :as fetch]
+            [gridfire.perturbation :as perturbation]
+            [gridfire.utils.random :refer [draw-samples my-shuffle]])
   (:import java.util.Random))
 
 (m/set-current-implementation :vectorz)
@@ -36,37 +35,41 @@
          :fuel-moisture-live-herbaceous-matrix (fetch/fuel-moisture-matrix config :live :herbaceous)
          :fuel-moisture-live-woody-matrix      (fetch/fuel-moisture-matrix config :live :woody)))
 
-(defn cell-size-multiplier
-  ^double [^double cell-size {:keys [^double scalex]}]
-  (/ (m->ft scalex) cell-size)) ; FIXME: scalex isn't in meters for all SRIDs
+(defn- name->matrix
+  [layer-name]
+  (-> layer-name
+      name
+      (str "-matrix")
+      keyword))
 
-(defn create-multiplier-lookup
-  [{:keys [cell-size weather-layers fuel-moisture]}]
-  (let [layers (merge weather-layers fuel-moisture)]
-    (reduce (fn [acc ks] (let [layer (get-in layers ks)]
-                           (if (map? layer)
-                             (assoc-in acc ks (cell-size-multiplier cell-size layer))
-                             acc)))
-            {}
-            [[:temperature]
-             [:relative-humidity]
-             [:wind-speed-20ft]
-             [:wind-from-direction]
-             [:dead :1hr]
-             [:dead :10hr]
-             [:dead :100hr]
-             [:live :herbaceous]
-             [:live :woody]])))
+(defn- multi-band? [matrix]
+  (> (m/dimensionality matrix) 2))
+
+(defn calc-multiplier
+  [inputs landfire-matrix-height matrix-kw]
+  (when-let [matrix (get inputs matrix-kw)]
+    (let [height-dimension (if (multi-band? matrix) 1 0)
+          matrix-height    (m/dimension-count matrix height-dimension)
+          multiplier       (double (/ matrix-height landfire-matrix-height))]
+      (when (not= multiplier 1.0)
+        multiplier))))
 
 (defn add-misc-params
   [{:keys [random-seed fuel-model-matrix] :as inputs}]
-  (assoc inputs
-         :num-rows          (m/row-count fuel-model-matrix)
-         :num-cols          (m/column-count fuel-model-matrix)
-         :multiplier-lookup (create-multiplier-lookup inputs)
-         :rand-gen          (if random-seed
-                              (Random. random-seed)
-                              (Random.))))
+  (let [num-rows (m/row-count fuel-model-matrix)]
+    (assoc inputs
+           :num-rows                                       num-rows
+           :num-cols                                       (m/column-count fuel-model-matrix)
+           :rand-gen                                       (if random-seed (Random. random-seed) (Random.))
+           :temperature-index-multiplier                   (calc-multiplier inputs num-rows :temperature-matrix)
+           :relative-humidity-index-multiplier             (calc-multiplier inputs num-rows :relative-humidity-matrix)
+           :wind-speed-20ft-index-multiplier               (calc-multiplier inputs num-rows :wind-speed-20ft-matrix)
+           :wind-from-direction-index-multiplier           (calc-multiplier inputs num-rows :wind-from-direction-matrix)
+           :fuel-moisture-dead-1hr-index-multiplier        (calc-multiplier inputs num-rows :fuel-moisture-dead-1hr-matrix)
+           :fuel-moisture-dead-10hr-index-multiplier       (calc-multiplier inputs num-rows :fuel-moisture-dead-10hr-matrix)
+           :fuel-moisture-dead-100hr-index-multiplier      (calc-multiplier inputs num-rows :fuel-moisture-dead-100hr-matrix)
+           :fuel-moisture-live-herbaceous-index-multiplier (calc-multiplier inputs num-rows :fuel-moisture-live-herbaceous-matrix)
+           :fuel-moisture-live-woody-index-multiplier      (calc-multiplier inputs num-rows :fuel-moisture-live-woody-matrix))))
 
 (defn add-ignition-csv
   [{:keys [ignition-csv] :as inputs}]
@@ -77,26 +80,24 @@
              :ignition-rows        (mapv #(Long/parseLong (get % 0)) ignitions)
              :ignition-cols        (mapv #(Long/parseLong (get % 1)) ignitions)
              :ignition-start-times (mapv #(Double/parseDouble (get % 2)) ignitions)
-             :max-runtimes         (mapv #(Double/parseDouble (get % 3)) ignitions)
+             :max-runtime-samples  (mapv #(Double/parseDouble (get % 3)) ignitions)
              :simulations          (count ignitions)))
     inputs))
 
 (defn add-sampled-params
   [{:keys
-    [rand-gen simulations max-runtime max-runtimes foliar-moisture ellipse-adjustment-factor perturbations]
+    [rand-gen simulations max-runtime max-runtime-samples foliar-moisture ellipse-adjustment-factor perturbations]
     :as inputs}]
   (assoc inputs
-         :max-runtimes               (or max-runtimes (draw-samples rand-gen simulations max-runtime))
-         :foliar-moistures           (draw-samples rand-gen simulations foliar-moisture)
-         :ellipse-adjustment-factors (draw-samples rand-gen simulations (or ellipse-adjustment-factor 1.0))
-         :perturbations              (perturbation/draw-samples rand-gen simulations perturbations)))
+         :max-runtime-samples               (or max-runtime-samples (draw-samples rand-gen simulations max-runtime))
+         :foliar-moisture-samples           (draw-samples rand-gen simulations foliar-moisture)
+         :ellipse-adjustment-factor-samples (draw-samples rand-gen simulations (or ellipse-adjustment-factor 1.0))
+         :perturbation-samples              (when perturbations
+                                              (perturbation/draw-samples rand-gen simulations perturbations))))
 
 (defn get-weather
   [{:keys [rand-gen simulations] :as inputs} weather-type]
-  (let [matrix-kw (-> weather-type
-                      name
-                      (str "-matrix")
-                      keyword)]
+  (let [matrix-kw (name->matrix weather-type)]
     (when (and (inputs weather-type)
                (not (inputs matrix-kw)))
       (draw-samples rand-gen simulations (inputs weather-type)))))
@@ -125,9 +126,9 @@
   (assoc inputs
          :fuel-moisture-dead-1hr-samples        (get-fuel-moisture inputs :dead :1hr)
          :fuel-moisture-dead-10hr-samples       (get-fuel-moisture inputs :dead :10hr)
-         :fuel-moisture-dead-100hrsamples       (get-fuel-moisture inputs :dead :100hr)
+         :fuel-moisture-dead-100hr-samples      (get-fuel-moisture inputs :dead :100hr)
          :fuel-moisture-live-herbaceous-samples (get-fuel-moisture inputs :live :herbaceous)
-         :fuel-moisture-live-woodysamples       (get-fuel-moisture inputs :live :woody)))
+         :fuel-moisture-live-woody-samples      (get-fuel-moisture inputs :live :woody)))
 
 (defn- filter-ignitions
   [ignition-param buffer-size limit num-items]

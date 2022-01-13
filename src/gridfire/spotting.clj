@@ -303,37 +303,39 @@
   p: ignition-probability"
   [{:keys
     [num-rows num-cols cell-size landfire-rasters global-clock spotting rand-gen
-     multiplier-lookup perturbations temperature relative-humidity wind-speed-20ft
-     wind-from-direction fuel-moisture-dead-1hr] :as inputs}
+     perturbations temperature relative-humidity wind-speed-20ft wind-from-direction
+     fuel-moisture-dead-1hr temperature-index-multiplier relative-humidity-index-multiplier
+     wind-speed-20ft-index-multiplier wind-from-direction-index-multiplier
+     fuel-moisture-dead-1hr-index-multiplier] :as inputs}
    {:keys [firebrand-count-matrix fire-spread-matrix fire-line-intensity-matrix flame-length-matrix]}
    {:keys [cell fire-line-intensity crown-fire?]}]
   (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
     (let [tmp               (get-value-at cell
                                           global-clock
                                           temperature
-                                          (:temperature multiplier-lookup)
+                                          temperature-index-multiplier
                                           (:temperature perturbations))
           rh                (get-value-at cell
                                           global-clock
                                           relative-humidity
-                                          (:relative-humidity multiplier-lookup)
+                                          relative-humidity-index-multiplier
                                           (:relative-humidity perturbations))
           ws                (get-value-at cell
                                           global-clock
                                           wind-speed-20ft
-                                          (:wind-speed-20ft multiplier-lookup)
+                                          wind-speed-20ft-index-multiplier
                                           (:wind-speed-20ft perturbations))
           ^double
           wd                (get-value-at cell
                                           global-clock
                                           wind-from-direction
-                                          (:wind-from-direction multiplier-lookup)
+                                          wind-from-direction-index-multiplier
                                           (:wind-from-direction perturbations))
           m1                (if fuel-moisture-dead-1hr
                               (get-value-at cell
                                             global-clock
                                             fuel-moisture-dead-1hr
-                                            (get-in multiplier-lookup [:dead :1hr])
+                                            fuel-moisture-dead-1hr-index-multiplier
                                             nil)
                               (calc-fuel-moisture rh tmp :dead :1hr))
           deltas            (sample-wind-dir-deltas inputs
