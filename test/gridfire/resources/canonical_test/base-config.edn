@@ -49,8 +49,20 @@
  :simulations               1
  :random-seed               1234567890     ; long value (optional)
 
- ;; Section 5: Types and names of outputs
+ ;; Section 5: Spotting
+ :spotting                  {:num-firebrands               10
+                             :decay-constant               0.005
+                             :crown-fire-spotting-percent  1.0
+                             :mean-distance                5.0
+                             :flin-exp                     0.3
+                             :ws-exp                       0.7
+                             :normalized-distance-variance 250.0
+                             :surface-fire-spotting        {:spotting-percent             [[[1 204] 1.0]]
+                                                            :critical-fire-line-intensity 10}}
+
+ ;; Section 6: Types and names of outputs
  ;; :output-landfire-inputs?   true
+ :output-spot-count?        true
  :output-geotiffs?          false
  :output-pngs?              true
  :output-directory          "outputs/simple/"

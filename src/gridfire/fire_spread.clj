@@ -469,66 +469,69 @@
         crown-fire-count   (atom 0)
         spot-count         (atom 0)
         ignition-stop-time (+ ignition-start-time max-runtime)]
-    (loop [global-clock   ignition-start-time
-           ignited-cells  ignited-cells
-           spot-ignitions {}]
+    (loop [global-clock  ignition-start-time
+          ignited-cells  ignited-cells
+          spot-ignitions {}]
+      ; FIXME: Combine ignited cells and spot ignitions
       (if (and (< global-clock ignition-stop-time)
-               (seq ignited-cells))
-        (let [dt                (->> ignited-cells
-                                     (reduce reducer-fn 0.0)
-                                     (/ cell-size)
-                                     double)
-              timestep          (min dt (- ignition-stop-time global-clock))
-              next-global-clock (+ global-clock timestep)
-              ignition-events   (identify-ignition-events inputs ignited-cells timestep
-                                                          fire-spread-matrix fractional-distance-matrix)
-              inputs            (perturbation/update-global-vals inputs global-clock next-global-clock)]
-          ;; [{:cell :trajectory :fractional-distance
-          ;;   :flame-length :fire-line-intensity} ...]
-          (doseq [{:keys
-                   [cell flame-length fire-line-intensity
-                    ignition-probability spread-rate fire-type
-                    dt-adjusted crown-fire?]} ignition-events]
-            (let [[i j]       cell
-                  dt-adjusted (double dt-adjusted)]
-              (when crown-fire? (swap! crown-fire-count inc))
-              (m/mset! fire-spread-matrix         i j ignition-probability)
-              (m/mset! flame-length-matrix        i j flame-length)
-              (m/mset! fire-line-intensity-matrix i j fire-line-intensity)
-              (m/mset! burn-time-matrix           i j (+ global-clock dt-adjusted))
-              (m/mset! spread-rate-matrix         i j spread-rate)
-              (m/mset! fire-type-matrix           i j (fire-type fire-type-to-value))))
-          (let [new-spot-ignitions (new-spot-ignitions (assoc inputs :global-clock global-clock)
-                                                       matrices
-                                                       ignition-events)
-                [spot-ignite-later
-                 spot-ignite-now]  (identify-spot-ignition-events global-clock
-                                                                  (merge-with (partial min-key first)
-                                                                              spot-ignitions
-                                                                              new-spot-ignitions))
-                spot-ignited-cells (spot-ignited-cells inputs
-                                                       global-clock
-                                                       matrices
-                                                       spot-ignite-now)]
-            (reset! spot-count (+ @spot-count (count spot-ignited-cells)))
-            (recur next-global-clock
-                   (update-ignited-cells inputs
-                                         (into spot-ignited-cells ignited-cells)
-                                         ignition-events
-                                         fire-spread-matrix
-                                         global-clock)
-                   spot-ignite-later)))
-        {:global-clock               global-clock
-         :exit-condition             (if (seq ignited-cells) :max-runtime-reached :no-burnable-fuels)
-         :fire-spread-matrix         fire-spread-matrix
-         :flame-length-matrix        flame-length-matrix
-         :fire-line-intensity-matrix fire-line-intensity-matrix
-         :burn-time-matrix           burn-time-matrix
-         :spot-matrix                spot-matrix
-         :spread-rate-matrix         spread-rate-matrix
-         :fire-type-matrix           fire-type-matrix
-         :crown-fire-count           @crown-fire-count
-         :spot-count                 @spot-count}))))
+               (or (seq ignited-cells) (seq spot-ignitions)))
+       (let [dt                (if (seq ignited-cells)
+                                 (->> ignited-cells
+                                      (reduce reducer-fn 0.0)
+                                      (/ cell-size)
+                                      double)
+                                 10.0)
+             timestep          (min dt (- ignition-stop-time global-clock))
+             next-global-clock (+ global-clock timestep)
+             ignition-events   (identify-ignition-events inputs ignited-cells timestep
+                                                         fire-spread-matrix fractional-distance-matrix)
+             inputs            (perturbation/update-global-vals inputs global-clock next-global-clock)]
+         ;; [{:cell :trajectory :fractional-distance
+         ;;   :flame-length :fire-line-intensity} ...]
+         (doseq [{:keys
+                  [cell flame-length fire-line-intensity
+                   ignition-probability spread-rate fire-type
+                   dt-adjusted crown-fire?]} ignition-events]
+           (let [[i j]       cell
+                 dt-adjusted (double dt-adjusted)]
+             (when crown-fire? (swap! crown-fire-count inc))
+             (m/mset! fire-spread-matrix         i j ignition-probability)
+             (m/mset! flame-length-matrix        i j flame-length)
+             (m/mset! fire-line-intensity-matrix i j fire-line-intensity)
+             (m/mset! burn-time-matrix           i j (+ global-clock dt-adjusted))
+             (m/mset! spread-rate-matrix         i j spread-rate)
+             (m/mset! fire-type-matrix           i j (fire-type fire-type-to-value))))
+         (let [new-spot-ignitions (new-spot-ignitions (assoc inputs :global-clock global-clock)
+                                                      matrices
+                                                      ignition-events)
+               [spot-ignite-later
+                spot-ignite-now]  (identify-spot-ignition-events global-clock
+                                                                 (merge-with (partial min-key first)
+                                                                             spot-ignitions
+                                                                             new-spot-ignitions))
+               spot-ignited-cells (spot-ignited-cells inputs
+                                                      global-clock
+                                                      matrices
+                                                      spot-ignite-now)]
+           (reset! spot-count (+ @spot-count (count spot-ignited-cells)))
+           (recur next-global-clock
+                  (update-ignited-cells inputs
+                                        (into spot-ignited-cells ignited-cells)
+                                        ignition-events
+                                        fire-spread-matrix
+                                        global-clock)
+                  spot-ignite-later)))
+       {:global-clock               global-clock
+        :exit-condition             (if (seq ignited-cells) :max-runtime-reached :no-burnable-fuels)
+        :fire-spread-matrix         fire-spread-matrix
+        :flame-length-matrix        flame-length-matrix
+        :fire-line-intensity-matrix fire-line-intensity-matrix
+        :burn-time-matrix           burn-time-matrix
+        :spot-matrix                spot-matrix
+        :spread-rate-matrix         spread-rate-matrix
+        :fire-type-matrix           fire-type-matrix
+        :crown-fire-count           @crown-fire-count
+        :spot-count                 @spot-count}))))
 
 (defn- initialize-matrix
   [num-rows num-cols indices]
