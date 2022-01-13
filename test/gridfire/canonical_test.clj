@@ -60,6 +60,18 @@
     :raster-20   (->tif :raster-40)
     :raster-40   (->tif :raster-80)))
 
+(defn- ->fuel-moisture-map
+  "Returns a fuel-moisture map given a constant fuel-moisture:
+  {:dead {:1hr        (0-1)
+          :10hr       (0-1)
+          :100hr      (0-1)}
+   :live {:herbaceous (0-1)
+          :woody      (0-1)}}"
+  [fuel-moisture]
+  {:dead (zipmap [:1hr :10hr :100hr]  (repeat fuel-moisture))
+   :live (zipmap [:woody :herbaceous] (repeat fuel-moisture))})
+
+
 (defn- output-directory [{:keys [base-dir
                                  datetime
                                  fuel-model
@@ -151,7 +163,7 @@
                                   :canopy-cover (->tif canopy-cover)
                                   :slope        (->tif slope)
                                   :elevation    (->dem-tif slope)}
-               :fuel-moisture    fuel-moisture
+               :fuel-moisture    (->fuel-moisture-map fuel-moisture)
                :foliar-moisture  foliar-moisture
                :wind-speed-20ft  wind-speed-20ft
                :output-directory (output-directory (assoc params :datetime datetime))}
