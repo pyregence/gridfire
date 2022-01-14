@@ -301,7 +301,7 @@
   t: time of ignition
   p: ignition-probability"
   [{:keys
-    [num-rows num-cols cell-size landfire-rasters global-clock spotting rand-gen
+    [num-rows num-cols cell-size fuel-model-matrix elevation-matrix global-clock spotting rand-gen
      perturbations temperature relative-humidity wind-speed-20ft wind-from-direction
      fuel-moisture-dead-1hr temperature-index-multiplier relative-humidity-index-multiplier
      wind-speed-20ft-index-multiplier wind-from-direction-index-multiplier
