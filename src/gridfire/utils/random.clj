@@ -21,6 +21,7 @@
   (let [range (- max-val min-val)]
     (+ min-val (my-rand rand-generator range))))
 
+;;FIXME remove int logic, unexpected behavior for users.
 (defn my-rand-range
   [rand-generator [min-val max-val]]
   (let [range (- max-val min-val)]

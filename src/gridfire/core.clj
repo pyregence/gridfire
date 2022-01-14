@@ -47,14 +47,6 @@
                                    (reducer-fn)))]
       (assoc inputs :summary-stats summary-stats))))
 
-(defn ensure-ignitable-sites
-  [{:keys [ignition-matrix ignition-rows ignition-cols] :as inputs} config-file-path]
-  (if (or ignition-matrix
-          (and (seq ignition-rows)
-               (seq ignition-cols)))
-    inputs
-    (log-str (format "Invalid config file [%s]: No valid ignition sites." config-file-path))))
-
 (defn load-inputs!
   [config]
   (-> config
@@ -71,7 +63,7 @@
   [config-file-path]
   (let [config (edn/read-string (slurp config-file-path))]
     (if (spec/valid? ::config-spec/config config)
-      config
+      (assoc config :config-file-path config-file-path)
       (log-str (format "Invalid config file [%s]:\n%s"
                        config-file-path
                        (spec/explain-str ::config-spec/config config))))))
@@ -82,7 +74,6 @@
     (some-> config-file-path
             (load-config!)
             (load-inputs!)
-            (ensure-ignitable-sites config-file-path)
             (run-simulations!)
             (write-outputs!))
     (catch Exception e

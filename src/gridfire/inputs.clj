@@ -6,7 +6,8 @@
             [gridfire.common       :refer [burnable-fuel-model?]]
             [gridfire.fetch        :as fetch]
             [gridfire.perturbation :as perturbation]
-            [gridfire.utils.random :refer [draw-samples my-shuffle]])
+            [gridfire.utils.random :refer [draw-samples my-shuffle]]
+            [gridfire.utils.server :refer [throw-message]])
   (:import java.util.Random))
 
 (m/set-current-implementation :vectorz)
@@ -169,7 +170,7 @@
 (defn add-random-ignition-sites
   [{:keys
     [num-rows num-cols ignition-row ignition-col simulations cell-size random-ignition
-     rand-gen ignition-matrix ignition-csv] :as inputs}]
+     rand-gen ignition-matrix ignition-csv config-file-path] :as inputs}]
   (if (or ignition-matrix ignition-csv)
     inputs
     (let [buffer-size    (if-let [edge-buffer (:edge-buffer random-ignition)]
@@ -183,7 +184,7 @@
           (assoc inputs
                  :ignition-rows (mapv first ignition-sites*)
                  :ignition-cols (mapv second ignition-sites*)))
-        inputs))))
+        (throw-message (format "Invalid config file [%s]: No valid ignition sites." config-file-path))))))
 
 (defn initialize-burn-count-matrix
   [output-burn-probability max-runtimes ^long num-rows ^long num-cols]
