@@ -3,7 +3,6 @@
 
  :deps {com.nextjournal/beholder            {:mvn/version "1.0.0"}
         com.taoensso/tufte                  {:mvn/version "2.2.0"}
-        kixi/stats                          {:mvn/version "0.5.4"}
         net.mikera/core.matrix              {:mvn/version "0.62.0"}
         net.mikera/vectorz-clj              {:mvn/version "0.48.0"}
         org.clojars.lambdatronic/matrix-viz {:mvn/version "0.1.7"}

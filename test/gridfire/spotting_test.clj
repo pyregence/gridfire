@@ -18,71 +18,55 @@
 (defn- within? [^double a ^double b ^double epsilon]
   (> epsilon (Math/abs (- a b))))
 
-(defn- close-to-zero [d]
-  (< -0.000001 d 0.000001))
-
 (deftest ^:unit deltas-axis-test
-  (testing "x-axis"
-    (testing "east"
-      (let [H (spotting/hypotenuse 10 10)]
+  (testing "Simple 1-unit parallel to wind."
+    (are [result args] (let [[dx-res dy-res] result
+                             [dx dy]         (first (apply spotting/deltas-wind->coord args))]
+                         (and (within? dx-res dx 0.01) (within? dy-res dy 0.01)))
+         [0.0     -1.0]   [[[1 0]] 0]     ;; North
+         [0.707   -0.707] [[[1 0]] 45]    ;; NE
+         [1.0     0.0]    [[[1 0]] 90]    ;; East
+         [0.707   0.707]  [[[1 0]] 135]   ;; SE
+         [0.0     1.0]    [[[1 0]] 180]   ;; South
+         [-0.707  0.707]  [[[1 0]] 225]   ;; SW
+         [-1.0    0.0]    [[[1 0]] 270]   ;; West
+         [-0.707  -0.707] [[[1 0]] 315]   ;; NW
+         [0.0     -1.0]   [[[1 0]] 360])) ;; North
 
-        (let [[dx dy] (first (spotting/deltas-wind->coord [[10 10]] 45.0))]
+  (testing "1 unit parallel, 1 unit perpindicular to wind direction."
+    (are [result args] (let [[dx-res dy-res] result
+                             [dx dy]         (first (apply spotting/deltas-wind->coord args))]
+                         (and (within? dx-res dx 0.01) (within? dy-res dy 0.01)))
+         [1.0    -1.0]   [[[1 1]] 0]      ;; North
+         [1.414  0.0]    [[[1 1]] 45]     ;; NE
+         [1.0    1.0]    [[[1 1]] 90]     ;; East
+         [0.0    1.414]  [[[1 1]] 135]    ;; SE
+         [-1.0   1.0]    [[[1 1]] 180]    ;; South
+         [-1.414 0.0]    [[[1 1]] 225]    ;; SW
+         [-1.0   -1.0]   [[[1 1]] 270]    ;; West
+         [0.0    -1.414] [[[1 1]] 315]    ;; NW
+         [1.0    -1.0]   [[[1 1]] 360]))) ;; North
 
-          (is (= H dy))
-
-          (is (close-to-zero dx)))
-
-        (let [[dx dy] (first (spotting/deltas-wind->coord [[10 -10]] 135.0))]
-
-          (is (= H dy))
-
-          (is (close-to-zero dx)))))
-
-    (testing "west"
-      (let [H (spotting/hypotenuse 10 10)]
-
-        (let [[dx dy] (first (spotting/deltas-wind->coord [[10 10]] 225.0))]
-
-          (is (= (- H) dy))
-
-          (is (close-to-zero dx)))
-
-        (let [[dx dy] (first (spotting/deltas-wind->coord [[10 -10]] 315.0))]
-
-          (is (= (- H) dy))
-
-          (is (close-to-zero dx))))))
-
-  (testing "y-axis"
-    (testing "north"
-      (let [H (spotting/hypotenuse 10 10)]
-
-        (let [[dx dy] (first (spotting/deltas-wind->coord [[10 -10]] 45.0))]
-
-          (is (close-to-zero dy))
-
-          (is (= (- H) dx)))
-
-        (let [[dx dy] (first (spotting/deltas-wind->coord [[10 10]] 315.0))]
-
-          (is (close-to-zero dy))
-
-          (is (= (- H) dx)))))
-
-    (testing "south"
-      (let [H (spotting/hypotenuse 10 10)]
-
-        (let [[dx dy] (first (spotting/deltas-wind->coord [[10 10]] 135.0))]
-
-          (is (close-to-zero dy))
-
-          (is (= H dx)))
-
-        (let [[dx dy] (first (spotting/deltas-wind->coord [[10 -10]] 225.0))]
-
-          (is (close-to-zero dy))
-
-          (is (= H dx)))))))
+(deftest ^:unit firebrand-test
+  (testing "deltas to (i,j) cell in matrix"
+    (let [cell-size 10.0
+          cell      [8 12]]
+      (are [result args] (let [[i-res j-res] result
+                               [delta wd]    args
+                               [i j]         (first (spotting/firebrands [delta] wd cell cell-size))]
+                           (and (= i-res i) (= j-res j)))
+           [8   12]  [[1.0  0.0]  0]    ;; Same origin
+           [8   11]  [[10.0 0.0]  0]    ;; North
+           [9   12]  [[10.0 0.0]  90]   ;; East
+           [8   13]  [[10.0 0.0]  180]  ;; South
+           [7   12]  [[10.0 0.0]  270]  ;; West
+           [9   11]  [[10.0 10.0] 0]    ;; North w/ perpindicular component
+           [9   13]  [[10.0 10.0] 90]   ;; East w/ perpindicular component
+           [7   13]  [[10.0 10.0] 180]  ;; South w/ perpindicular component
+           [7   11]  [[10.0 10.0] 270]  ;; West w/ perpindicular component
+           [8   -8]  [[200  0]    0]    ;; North, out of bounds
+           [-12 12]  [[200  0]    270]  ;; West, out of bounds
+           ))))
 
 (deftest ^:unit surface-spot-percents
   (testing "Fuel model is within expected ranges."

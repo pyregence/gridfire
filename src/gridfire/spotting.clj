@@ -8,8 +8,8 @@
                                      burnable?
                                      fuel-moisture-from-raster]]
             [gridfire.utils.random :refer [random-float my-rand-range]]
-            [gridfire.conversion :as convert]
-            [kixi.stats.distribution :as distribution]))
+            [gridfire.conversion :as convert])
+  (:import java.util.Random))
 
 (m/set-current-implementation :vectorz)
 
@@ -54,12 +54,24 @@
   (Math/log (/ (Math/pow m 2)
                (Math/sqrt (+ v (Math/pow m 2))))))
 
+(defn- sample-normal
+  "Returns sample from normal/gaussian distribution given mu and sd."
+  ^double
+  [^Random rng ^double mu ^double sd]
+  (+ mu (* sd (.nextGaussian rng))))
+
+(defn sample-lognormal
+  "Returns sample from log-normal distribution given mu and sd."
+  ^double
+  [^Random rand-gen ^double mu ^double sd]
+  (Math/exp (sample-normal rand-gen mu sd)))
+
 (defn- sample-wind-dir-deltas
   "Returns a sequence of [x y] distances (meters) that firebrands land away
   from a torched cell at i j where:
   x: parallel to the wind
   y: perpendicular to the wind (positive values are to the right of wind direction)"
-  [{:keys [spotting rand-gen random-seed]}
+  [{:keys [spotting rand-gen]}
    fire-line-intensity-matrix
    wind-speed-20ft [i j]]
   (let [num-firebrands          (sample-spotting-params (:num-firebrands spotting) rand-gen)
@@ -67,10 +79,8 @@
         {:keys [mean variance]} (mean-variance spotting rand-gen intensity wind-speed-20ft)
         mu                      (normalized-mean mean variance)
         sd                      (standard-deviation mean variance)
-        parallel                (distribution/log-normal {:mu mu :sd sd})
-        perpendicular           (distribution/normal {:mu 0 :sd 0.92})
-        parallel-values         (distribution/sample num-firebrands parallel {:seed random-seed})
-        perpendicular-values    (distribution/sample num-firebrands perpendicular {:seed random-seed})]
+        parallel-values         (repeatedly (int num-firebrands) #(sample-lognormal rand-gen mu sd))
+        perpendicular-values    (repeatedly (int num-firebrands) #(sample-normal rand-gen 0.0 0.92))]
     (mapv (fn [x y] [(convert/m->ft x) (convert/m->ft y)])
           parallel-values
           perpendicular-values)))
@@ -91,24 +101,25 @@
                 t1 wind-direction
                 t2 (convert/rad->deg (Math/atan (/ d-perp d-paral)))
                 t3 (+ t1 t2)]
-            [(* -1 H (Math/cos (convert/deg->rad t3)))
-             (* H (Math/sin (convert/deg->rad t3)))]))
+            [(* H (Math/sin (convert/deg->rad t3)))
+             (* -1 H (Math/cos (convert/deg->rad t3)))]))
         deltas))
 
-(defn- firebrands
+(defn firebrands
   "Returns a sequence of cells that firebrands land in"
   [deltas wind-towards-direction cell ^double cell-size]
   (let [step         (/ cell-size 2)
-        [x y]        (mapv #(+ step (* ^double % step)) cell)
+        [x y]        (mapv #(+ step (* ^double % cell-size)) cell)
         x            (double x)
         y            (double y)
         coord-deltas (deltas-wind->coord deltas wind-towards-direction)]
     (mapv (fn [[dx dy]]
             (let [dx (double dx)
                   dy (double dy)]
-              [(int (Math/floor (/ (+ dx x) step)))
-               (int (Math/floor (/ (+ dy y) step)))]))
+              [(int (Math/floor (/ (+ dx x) cell-size)))
+               (int (Math/floor (/ (+ dy y) cell-size)))]))
           coord-deltas)))
+
 ;; convert-deltas ends here
 ;; [[file:../../org/GridFire.org::firebrand-ignition-probability][firebrand-ignition-probability]]
 (defn heat-of-preignition
