@@ -42,6 +42,7 @@
  :wind-speed-20ft           10  ; (miles/hour)
  :wind-from-direction       90  ; (degrees cw from north)
  :foliar-moisture           0   ; (%)
+ :grass-suppression?        true
 
  ;; Section 4: Number of simulations and (optional) random seed parameter
  :max-runtime               1440 ; 24 hrs   ; (minutes)
