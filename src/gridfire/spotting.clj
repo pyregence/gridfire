@@ -224,7 +224,7 @@
 ;; firebrands-time-of-ignition ends here
 ;; [[file:../../org/GridFire.org::spread-firebrands][spread-firebrands]]
 (defn- update-firebrand-counts!
-  [{:keys [num-rows num-cols landfire-rasters]}
+  [{:keys [num-rows num-cols fuel-model-matrix]}
    firebrand-count-matrix
    fire-spread-matrix
    source
@@ -232,7 +232,7 @@
   (doseq [[x y :as here] firebrands
           :when          (and (in-bounds? num-rows num-cols [x y])
                               (burnable? fire-spread-matrix
-                                         (:fuel-model landfire-rasters)
+                                         fuel-model-matrix
                                          source
                                          here))
           :let           [new-count (inc ^double (m/mget firebrand-count-matrix x y))]]
@@ -268,14 +268,13 @@
   [[[1 140] 0.0]
   [[141 149] 1.0]
   [[150 256] 1.0]]"
-  [{:keys [spotting rand-gen landfire-rasters]} [i j] ^double fire-line-intensity]
+  [{:keys [spotting rand-gen fuel-model-matrix]} [i j] ^double fire-line-intensity]
   (let [{:keys [surface-fire-spotting]} spotting]
     (when (and
            surface-fire-spotting
            (> fire-line-intensity ^double (:critical-fire-line-intensity surface-fire-spotting)))
       (let [fuel-range-percents (:spotting-percent surface-fire-spotting)
-            fuel-model-raster   (:fuel-model landfire-rasters)
-            fuel-model-number   (int (m/mget fuel-model-raster i j))
+            fuel-model-number   (int (m/mget fuel-model-matrix i j))
             spot-percent        (surface-spot-percent fuel-range-percents fuel-model-number rand-gen)]
         (>= spot-percent (random-float 0.0 1.0 rand-gen))))))
 
@@ -347,12 +346,12 @@
       (update-firebrand-counts! inputs firebrand-count-matrix fire-spread-matrix cell firebrands)
       (->> (for [[x y] firebrands
                  :when (and (in-bounds? num-rows num-cols [x y])
-                            (burnable? fire-spread-matrix (:fuel-model landfire-rasters) cell [x y]))
+                            (burnable? fire-spread-matrix fuel-model-matrix cell [x y]))
                  :let  [temperature          (convert/F->C (double tmp))
                         fine-fuel-moisture   (double m1)
                         ignition-probability (schroeder-ign-prob temperature fine-fuel-moisture)
                         decay-constant       (double (:decay-constant spotting))
-                        spotting-distance    (convert/ft->m (distance-3d (:elevation landfire-rasters)
+                        spotting-distance    (convert/ft->m (distance-3d elevation-matrix
                                                                          (double cell-size)
                                                                          [x y]
                                                                          cell))
