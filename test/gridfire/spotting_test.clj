@@ -1,7 +1,6 @@
 (ns gridfire.spotting-test
   (:require [clojure.test        :refer [are deftest is testing use-fixtures run-tests]]
             [clojure.core.matrix :as m]
-            [gridfire.utils.random :refer [random-float]]
             [gridfire.conversion :as c]
             [gridfire.spotting   :as spotting])
   (:import java.util.Random))
@@ -48,7 +47,9 @@
          [1.0    -1.0]   [[[1 1]] 360]))) ;; North
 
 (deftest ^:unit firebrand-test
-  (testing "deltas to (i,j) cell in matrix"
+  (testing "Convert deltas to (i,j) cell in matrix."
+    ; NOTE: matrix index [i,j] refers to [row, column]. Therefore, we need to flip
+    ; [row,column] to get to [x,y] coordinates."
     (let [cell-size 10.0
           cell      [8 12]]
       (are [result args] (let [[i-res j-res] result
@@ -56,16 +57,16 @@
                                [i j]         (first (spotting/firebrands [delta] wd cell cell-size))]
                            (and (= i-res i) (= j-res j)))
            [8   12]  [[1.0  0.0]  0]    ;; Same origin
-           [8   11]  [[10.0 0.0]  0]    ;; North
-           [9   12]  [[10.0 0.0]  90]   ;; East
-           [8   13]  [[10.0 0.0]  180]  ;; South
-           [7   12]  [[10.0 0.0]  270]  ;; West
-           [9   11]  [[10.0 10.0] 0]    ;; North w/ perpindicular component
+           [7   12]  [[10.0 0.0]  0]    ;; North
+           [8   13]  [[10.0 0.0]  90]   ;; East
+           [9   12]  [[10.0 0.0]  180]  ;; South
+           [8   11]  [[10.0 0.0]  270]  ;; West
+           [7   13]  [[10.0 10.0] 0]    ;; North w/ perpindicular component
            [9   13]  [[10.0 10.0] 90]   ;; East w/ perpindicular component
-           [7   13]  [[10.0 10.0] 180]  ;; South w/ perpindicular component
+           [9   11]  [[10.0 10.0] 180]  ;; South w/ perpindicular component
            [7   11]  [[10.0 10.0] 270]  ;; West w/ perpindicular component
-           [8   -8]  [[200  0]    0]    ;; North, out of bounds
-           [-12 12]  [[200  0]    270]  ;; West, out of bounds
+           [-12 12]  [[200  0]    0]    ;; North, out of bounds
+           [8  -8]  [[200  0]    270]  ;; West, out of bounds
            ))))
 
 (deftest ^:unit surface-spot-percents

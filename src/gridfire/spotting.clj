@@ -106,20 +106,21 @@
         deltas))
 
 (defn firebrands
-  "Returns a sequence of cells that firebrands land in"
+  "Returns a sequence of cells [i,j] that firebrands land in.
+   Note: matrix index [i,j] refers to [row, column]. Therefore, we need to flip
+   [row,column] to get to [x,y] coordinates."
   [deltas wind-towards-direction cell ^double cell-size]
   (let [step         (/ cell-size 2)
-        [x y]        (mapv #(+ step (* ^double % cell-size)) cell)
+        [y x]        (mapv #(+ step (* ^double % cell-size)) cell)
         x            (double x)
         y            (double y)
         coord-deltas (deltas-wind->coord deltas wind-towards-direction)]
     (mapv (fn [[dx dy]]
             (let [dx (double dx)
                   dy (double dy)]
-              [(int (Math/floor (/ (+ dx x) cell-size)))
-               (int (Math/floor (/ (+ dy y) cell-size)))]))
+              [(int (Math/floor (/ (+ dy y) cell-size)))
+               (int (Math/floor (/ (+ dx x) cell-size)))]))
           coord-deltas)))
-
 ;; convert-deltas ends here
 ;; [[file:../../org/GridFire.org::firebrand-ignition-probability][firebrand-ignition-probability]]
 (defn heat-of-preignition
