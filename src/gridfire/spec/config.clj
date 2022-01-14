@@ -161,6 +161,7 @@
 
 ;; Perturbations
 
+;;FIXME Add foliar-moisture
 (s/def ::perturbations
   (common/one-or-more-keys
    [::perturbations/canopy-base-height
@@ -170,7 +171,12 @@
     ::perturbations/temperature
     ::perturbations/relative-humidity
     ::perturbations/wind-speed-20ft
-    ::perturbations/wind-direction]))
+    ::perturbations/wind-direction
+    ::perturbations/fuel-moisture-dead-1hr
+    ::perturbations/fuel-moisture-dead-10hr
+    ::perturbations/fuel-moisture-dead-100hr
+    ::perturbations/fuel-moisture-live-herbaceous
+    ::perturbations/fuel-moisture-live-woody]))
 
 ;; Outputs
 
