@@ -385,13 +385,14 @@
                    :ignition-col     (ignition-cols i)
                    :global-clock     (:global-clock fire-spread-results)
                    :exit-condition   (:exit-condition fire-spread-results :no-fire-spread)
-                   :crown-fire-count (:crown-fire-count fire-spread-results)}))
-       (if fire-spread-results
-         (tufte/p
-          :summarize-fire-spread-results
-          (summarize-fire-spread-results fire-spread-results cell-size))
-         {:fire-size                  0.0
-          :flame-length-mean          0.0
-          :flame-length-stddev        0.0
-          :fire-line-intensity-mean   0.0
-          :fire-line-intensity-stddev 0.0})))))
+                   :crown-fire-count (:crown-fire-count fire-spread-results)})
+           (merge
+            (if fire-spread-results
+              (tufte/p
+               :summarize-fire-spread-results
+               (summarize-fire-spread-results fire-spread-results cell-size))
+              {:fire-size                  0.0
+               :flame-length-mean          0.0
+               :flame-length-stddev        0.0
+               :fire-line-intensity-mean   0.0
+               :fire-line-intensity-stddev 0.0})))))))
