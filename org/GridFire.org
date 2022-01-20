@@ -2843,7 +2843,7 @@ ignition probability.
            surface-fire-spotting
            (> fire-line-intensity ^double (:critical-fire-line-intensity surface-fire-spotting)))
       (let [fuel-range-percents (:spotting-percent surface-fire-spotting)
-            fuel-model-number   (int (m/mget fuel-model-matrix 0 i j))
+            fuel-model-number   (int (m/mget fuel-model-matrix i j))
             spot-percent        (surface-spot-percent fuel-range-percents fuel-model-number rand-gen)]
         (>= spot-percent (my-rand-range rand-gen 0.0 1.0))))))
 
