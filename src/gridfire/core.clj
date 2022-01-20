@@ -54,6 +54,7 @@
       (inputs/add-misc-params)
       (inputs/add-ignition-csv)
       (inputs/add-sampled-params)
+      (inputs/add-perturbation-params)
       (inputs/add-weather-params)
       (inputs/add-fuel-moisture-params)
       (inputs/add-random-ignition-sites)

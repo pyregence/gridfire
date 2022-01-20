@@ -1865,8 +1865,6 @@ pseudo-code lays out the steps taken in this procedure:
                                                    in-bounds?
                                                    burnable-neighbors?
                                                    get-neighbors
-                                                   get-value-at
-                                                   sample-at
                                                    distance-3d]]
             [gridfire.conversion          :refer [mph->fpm]]
             [gridfire.crown-fire          :refer [crown-fire-eccentricity
@@ -1874,7 +1872,6 @@ pseudo-code lays out the steps taken in this procedure:
                                                   cruz-crown-fire-spread
                                                   van-wagner-crown-fire-initiation?]]
             [gridfire.fuel-models         :refer [build-fuel-model moisturize]]
-            [gridfire.perturbation        :as perturbation]
             [gridfire.spotting            :as spot]
             [gridfire.surface-fire        :refer [anderson-flame-depth
                                                   byram-fire-line-intensity
@@ -1994,131 +1991,65 @@ pseudo-code lays out the steps taken in this procedure:
    :flame-length ft,
    :fractional-distance [0-1]}, one for each cell adjacent to here."
   [{:keys
-    [aspect-matrix canopy-base-height-matrix canopy-cover-matrix canopy-height-matrix
-     crown-bulk-density-matrix elevation-matrix fuel-model-matrix slope-matrix
-     perturbations wind-speed-20ft wind-from-direction temperature
-     relative-humidity foliar-moisture ellipse-adjustment-factor cell-size
-     num-rows num-cols fuel-moisture-dead-1hr fuel-moisture-dead-10hr fuel-moisture-dead-100hr
-     fuel-moisture-live-herbaceous fuel-moisture-live-woody relative-humidity-index-multiplier
-     temperature-index-multiplier wind-from-direction-index-multiplier wind-speed-20ft-index-multiplier
-     fuel-moisture-dead-1hr-index-multiplier fuel-moisture-dead-10hr-index-multiplier
-     fuel-moisture-dead-100hr-index-multiplier fuel-moisture-live-herbaceous-index-multiplier
-     fuel-moisture-live-woody-index-multiplier]}
+    [get-aspect get-canopy-base-height get-canopy-cover get-canopy-height get-crown-bulk-density
+     get-fuel-model get-slope elevation-matrix fuel-model-matrix get-wind-speed-20ft
+     get-wind-from-direction get-temperature get-relative-humidity get-foliar-moisture
+     ellipse-adjustment-factor cell-size num-rows num-cols get-fuel-moisture-dead-1hr
+     get-fuel-moisture-dead-10hr get-fuel-moisture-dead-100hr get-fuel-moisture-live-herbaceous
+     get-fuel-moisture-live-woody]}
    fire-spread-matrix
-   here
+   [i j :as here]
    overflow-trajectory
    overflow-heat
    global-clock]
-  (let [^double aspect                (sample-at here
-                                                 global-clock
-                                                 aspect-matrix
-                                                 nil
-                                                 (:aspect perturbations))
-        ^double canopy-base-height    (sample-at here
-                                                 global-clock
-                                                 canopy-base-height-matrix
-                                                 nil
-                                                 (:canopy-base-height perturbations))
-        ^double canopy-cover          (sample-at here
-                                                 global-clock
-                                                 canopy-cover-matrix
-                                                 nil
-                                                 (:canopy-cover perturbations))
-        ^double canopy-height         (sample-at here
-                                                 global-clock
-                                                 canopy-height-matrix
-                                                 nil
-                                                 (:canopy-height perturbations))
-        ^double crown-bulk-density    (sample-at here
-                                                 global-clock
-                                                 crown-bulk-density-matrix
-                                                 nil
-                                                 (:crown-bulk-density perturbations))
-        ^long fuel-model              (sample-at here
-                                                 global-clock
-                                                 fuel-model-matrix
-                                                 nil
-                                                 (:fuel-model perturbations))
-        ^double slope                 (sample-at here
-                                                 global-clock
-                                                 slope-matrix
-                                                 nil
-                                                 (:slope perturbations))
-        ^double relative-humidity     (get-value-at here
-                                                    global-clock
-                                                    relative-humidity
-                                                    relative-humidity-index-multiplier
-                                                    (:relative-humidity perturbations))
-        ^double temperature           (get-value-at here
-                                                    global-clock
-                                                    temperature
-                                                    temperature-index-multiplier
-                                                    (:temperature perturbations))
-        ^double wind-from-direction   (get-value-at here
-                                                    global-clock
-                                                    wind-from-direction
-                                                    wind-from-direction-index-multiplier
-                                                    (:wind-from-direction perturbations))
-        ^double wind-speed-20ft       (get-value-at here
-                                                    global-clock
-                                                    wind-speed-20ft
-                                                    wind-speed-20ft-index-multiplier
-                                                    (:wind-speed-20ft perturbations))
-        m1                            (if fuel-moisture-dead-1hr
-                                        (get-value-at here
-                                                      global-clock
-                                                      fuel-moisture-dead-1hr
-                                                      fuel-moisture-dead-1hr-index-multiplier
-                                                      nil)
-                                        (calc-fuel-moisture relative-humidity temperature :dead :1hr))
-        m10                           (if fuel-moisture-dead-10hr
-                                        (get-value-at here
-                                                      global-clock
-                                                      fuel-moisture-dead-10hr
-                                                      fuel-moisture-dead-10hr-index-multiplier
-                                                      nil)
-                                       (calc-fuel-moisture relative-humidity temperature :dead :10hr))
-        m100                          (if fuel-moisture-dead-100hr
-                                        (get-value-at here
-                                                      global-clock
-                                                      fuel-moisture-dead-100hr
-                                                      fuel-moisture-dead-100hr-index-multiplier
-                                                      nil)
-                                        (calc-fuel-moisture relative-humidity temperature :dead :10hr))
-        mlh                           (if fuel-moisture-live-herbaceous
-                                        (get-value-at here
-                                                      global-clock
-                                                      fuel-moisture-live-herbaceous
-                                                      fuel-moisture-live-herbaceous-index-multiplier
-                                                      nil)
-                                        (calc-fuel-moisture relative-humidity temperature :live :herbaceous))
-        mlw                           (if fuel-moisture-live-woody
-                                        (get-value-at here
-                                                      global-clock
-                                                      fuel-moisture-live-woody
-                                                      fuel-moisture-live-woody-index-multiplier
-                                                      nil)
-                                        (calc-fuel-moisture relative-humidity temperature :live :woody))
-        [fuel-model spread-info-min]  (rothermel-fast-wrapper fuel-model
-                                                              {:dead {:1hr   m1
-                                                                      :10hr  m10
-                                                                      :100hr m100}
-                                                               :live {:herbaceous mlh
-                                                                      :woody      mlw}})
-        midflame-wind-speed           (mph->fpm
-                                       (* wind-speed-20ft
-                                          (wind-adjustment-factor ^long (:delta fuel-model)
-                                                                  canopy-height
-                                                                  canopy-cover)))
-        spread-info-max               (rothermel-surface-fire-spread-max spread-info-min
-                                                                         midflame-wind-speed
-                                                                         wind-from-direction
-                                                                         slope
-                                                                         aspect
-                                                                         ellipse-adjustment-factor)
-        [crown-type crown-spread-max] (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density m1)
-        crown-eccentricity            (crown-fire-eccentricity wind-speed-20ft
-                                                               ellipse-adjustment-factor)]
+  (let [band                                  (int (/ global-clock 60.0))
+        ^double aspect                        (get-aspect i j)
+        ^double canopy-base-height            (get-canopy-base-height i j)
+        ^double canopy-height                 (get-canopy-height i j)
+        ^double canopy-cover                  (get-canopy-cover i j)
+        ^double crown-bulk-density            (get-crown-bulk-density i j)
+        ^double fuel-model                    (get-fuel-model i j)
+        ^double slope                         (get-slope i j)
+        ^double relative-humidity             (get-relative-humidity band i j)
+        ^double temperature                   (get-temperature band i j)
+        ^double wind-speed-20ft               (get-wind-speed-20ft band i j)
+        ^double wind-from-direction           (get-wind-from-direction band i j)
+        ^double fuel-moisture-dead-1hr        (if get-fuel-moisture-dead-1hr
+                                                (get-fuel-moisture-dead-1hr band i j)
+                                                (calc-fuel-moisture relative-humidity temperature :dead :10hr))
+        ^double fuel-moisture-dead-10hr       (if get-fuel-moisture-dead-10hr
+                                                (get-fuel-moisture-dead-10hr band i j)
+                                                (calc-fuel-moisture relative-humidity temperature :dead :10hr))
+        ^double fuel-moisture-dead-100hr      (if get-fuel-moisture-dead-100hr
+                                                (get-fuel-moisture-dead-100hr band i j)
+                                                (calc-fuel-moisture relative-humidity temperature :dead :100hr))
+        ^double fuel-moisture-live-herbaceous (if get-fuel-moisture-live-herbaceous
+                                                (get-fuel-moisture-live-herbaceous i j)
+                                                (calc-fuel-moisture relative-humidity temperature :live :herbaceous))
+        ^double fuel-moisture-live-woody      (if get-fuel-moisture-live-woody
+                                                (get-fuel-moisture-live-woody i j)
+                                                (calc-fuel-moisture relative-humidity temperature :live :woody))
+        ^double foliar-moisture               (get-foliar-moisture band i j)
+        [fuel-model spread-info-min]          (rothermel-fast-wrapper fuel-model
+                                                                      {:dead {:1hr   fuel-moisture-dead-1hr
+                                                                              :10hr  fuel-moisture-dead-10hr
+                                                                              :100hr fuel-moisture-dead-100hr}
+                                                                       :live {:herbaceous fuel-moisture-live-herbaceous
+                                                                              :woody      fuel-moisture-live-woody}})
+        midflame-wind-speed                   (mph->fpm
+                                               (* wind-speed-20ft
+                                                  (wind-adjustment-factor ^long (:delta fuel-model)
+                                                                          canopy-height
+                                                                          canopy-cover)))
+        spread-info-max                       (rothermel-surface-fire-spread-max spread-info-min
+                                                                                 midflame-wind-speed
+                                                                                 wind-from-direction
+                                                                                 slope
+                                                                                 aspect
+                                                                                 ellipse-adjustment-factor)
+        [crown-type crown-spread-max]         (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density fuel-moisture-dead-1hr)
+        crown-eccentricity                    (crown-fire-eccentricity wind-speed-20ft
+                                                                       ellipse-adjustment-factor)]
     (into []
           (comp
            (filter #(and (in-bounds? num-rows num-cols %)
@@ -2329,17 +2260,19 @@ pseudo-code lays out the steps taken in this procedure:
     (loop [global-clock   ignition-start-time
            ignited-cells  ignited-cells
            spot-ignitions {}]
+      ;; FIXME: Combine ignited cells and spot ignitions
       (if (and (< global-clock ignition-stop-time)
-               (seq ignited-cells))
-        (let [dt                (->> ignited-cells
-                                     (reduce reducer-fn 0.0)
-                                     (/ cell-size)
-                                     double)
+               (or (seq ignited-cells) (seq spot-ignitions)))
+        (let [dt                (if (seq ignited-cells)
+                                  (->> ignited-cells
+                                       (reduce reducer-fn 0.0)
+                                       (/ cell-size)
+                                       double)
+                                  10.0)
               timestep          (min dt (- ignition-stop-time global-clock))
               next-global-clock (+ global-clock timestep)
               ignition-events   (identify-ignition-events inputs ignited-cells timestep
-                                                          fire-spread-matrix fractional-distance-matrix)
-              inputs            (perturbation/update-global-vals inputs global-clock next-global-clock)]
+                                                          fire-spread-matrix fractional-distance-matrix)]
           ;; [{:cell :trajectory :fractional-distance
           ;;   :flame-length :fire-line-intensity} ...]
           (doseq [{:keys
@@ -2483,11 +2416,11 @@ pseudo-code lays out the steps taken in this procedure:
   (let [fire-spread-matrix (first (m/mutable (:matrix initial-ignition-site)))
         non-zero-indices   (get-non-zero-indices fire-spread-matrix)
         perimeter-indices  (filter #(burnable-neighbors? fire-spread-matrix
-                                                                 fuel-model-matrix
-                                                                 num-rows
-                                                                 num-cols
-                                                                 %)
-                                           non-zero-indices)]
+                                                         fuel-model-matrix
+                                                         num-rows
+                                                         num-cols
+                                                         %)
+                                   non-zero-indices)]
     (when (seq perimeter-indices)
       (let [flame-length-matrix        (initialize-matrix num-rows num-cols non-zero-indices)
             fire-line-intensity-matrix (initialize-matrix num-rows num-cols non-zero-indices)
@@ -2593,10 +2526,9 @@ the direction perpendicular to the wind.
   (:require [clojure.core.matrix :as m]
             [gridfire.common :refer [distance-3d
                                      calc-fuel-moisture
-                                     get-value-at
                                      in-bounds?
                                      burnable?]]
-            [gridfire.utils.random :refer [random-float my-rand-range]]
+            [gridfire.utils.random :refer [my-rand-range]]
             [gridfire.conversion :as convert]
             [kixi.stats.distribution :as distribution]))
 
@@ -2611,9 +2543,9 @@ the direction perpendicular to the wind.
   [param rand-gen]
   (if (map? param)
     (let [{:keys [lo hi]} param
-          l               (if (vector? lo) (my-rand-range rand-gen lo) lo)
-          h               (if (vector? hi) (my-rand-range rand-gen hi) hi)]
-      (my-rand-range rand-gen [l h]))
+          l               (if (vector? lo) (my-rand-range rand-gen (lo 0) (lo 1)) lo)
+          h               (if (vector? hi) (my-rand-range rand-gen (hi 0) (hi 1)) hi)]
+      (my-rand-range rand-gen l h))
     param))
 
 (defn- mean-variance
@@ -2806,7 +2738,7 @@ $t_I$ is also assumed to be 20 min as used in McAlpine and Wakimoto (1991).
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting.clj :padline no :no-expand :comments link
 (defn spot-ignition?
   [rand-gen ^double spot-ignition-probability]
-  (let [random-number (random-float 0 1 rand-gen)]
+  (let [random-number (my-rand-range rand-gen 0 1)]
     (> spot-ignition-probability random-number)))
 
 (defn albini-t-max
@@ -2861,7 +2793,7 @@ ignition probability.
 #+name: spread-firebrands
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting.clj :padline no :no-expand :comments link
 (defn- update-firebrand-counts!
-  [{:keys [num-rows num-cols landfire-rasters]}
+  [{:keys [num-rows num-cols fuel-model-matrix]}
    firebrand-count-matrix
    fire-spread-matrix
    source
@@ -2869,7 +2801,7 @@ ignition probability.
   (doseq [[x y :as here] firebrands
           :when          (and (in-bounds? num-rows num-cols [x y])
                               (burnable? fire-spread-matrix
-                                         (:fuel-model landfire-rasters)
+                                         fuel-model-matrix
                                          source
                                          here))
           :let           [new-count (inc ^double (m/mget firebrand-count-matrix x y))]]
@@ -2892,7 +2824,7 @@ ignition probability.
   (reduce (fn [acc [fuel-range percent]]
             (if (in-range? fuel-range fuel-model-number)
               (if (vector? percent)
-                (my-rand-range rand-gen percent)
+                (my-rand-range rand-gen (percent 0) (percent 1))
                 percent)
               acc))
           0.0
@@ -2905,16 +2837,15 @@ ignition probability.
   [[[1 140] 0.0]
   [[141 149] 1.0]
   [[150 256] 1.0]]"
-  [{:keys [spotting rand-gen landfire-rasters]} [i j] ^double fire-line-intensity]
+  [{:keys [spotting rand-gen fuel-model-matrix]} [i j] ^double fire-line-intensity]
   (let [{:keys [surface-fire-spotting]} spotting]
     (when (and
            surface-fire-spotting
            (> fire-line-intensity ^double (:critical-fire-line-intensity surface-fire-spotting)))
       (let [fuel-range-percents (:spotting-percent surface-fire-spotting)
-            fuel-model-raster   (:fuel-model landfire-rasters)
-            fuel-model-number   (int (m/mget fuel-model-raster i j))
+            fuel-model-number   (int (m/mget fuel-model-matrix 0 i j))
             spot-percent        (surface-spot-percent fuel-range-percents fuel-model-number rand-gen)]
-        (>= spot-percent (random-float 0.0 1.0 rand-gen))))))
+        (>= spot-percent (my-rand-range rand-gen 0.0 1.0))))))
 
 (defn crown-spot-fire?
   "Determine whether crowning causes spot fires. Config key `:spotting` should
@@ -2923,9 +2854,9 @@ ignition probability.
   (when-let [spot-percent (:crown-fire-spotting-percent spotting)]
     (let [^double p (if (vector? spot-percent)
                       (let [[lo hi] spot-percent]
-                        (random-float lo hi rand-gen))
+                        (my-rand-range rand-gen lo hi))
                       spot-percent)]
-      (>= p (random-float 0.0 1.0 rand-gen)))))
+      (>= p (my-rand-range rand-gen 0.0 1.0)))))
 
 (defn- spot-fire? [inputs crown-fire? here fire-line-intensity]
   (if crown-fire?
@@ -2939,42 +2870,21 @@ ignition probability.
   t: time of ignition
   p: ignition-probability"
   [{:keys
-    [num-rows num-cols cell-size landfire-rasters global-clock spotting rand-gen
-     perturbations temperature relative-humidity wind-speed-20ft wind-from-direction
-     fuel-moisture-dead-1hr temperature-index-multiplier relative-humidity-index-multiplier
-     wind-speed-20ft-index-multiplier wind-from-direction-index-multiplier
-     fuel-moisture-dead-1hr-index-multiplier] :as inputs}
+    [num-rows num-cols cell-size fuel-model-matrix elevation-matrix global-clock spotting rand-gen
+     get-temperature get-relative-humidity get-wind-speed-20ft get-wind-from-direction
+     get-fuel-moisture-dead-1hr] :as inputs}
    {:keys [firebrand-count-matrix fire-spread-matrix fire-line-intensity-matrix flame-length-matrix]}
    {:keys [cell fire-line-intensity crown-fire?]}]
   (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
-    (let [tmp               (get-value-at cell
-                                          global-clock
-                                          temperature
-                                          temperature-index-multiplier
-                                          (:temperature perturbations))
-          rh                (get-value-at cell
-                                          global-clock
-                                          relative-humidity
-                                          relative-humidity-index-multiplier
-                                          (:relative-humidity perturbations))
-          ws                (get-value-at cell
-                                          global-clock
-                                          wind-speed-20ft
-                                          wind-speed-20ft-index-multiplier
-                                          (:wind-speed-20ft perturbations))
-          ^double
-          wd                (get-value-at cell
-                                          global-clock
-                                          wind-from-direction
-                                          wind-from-direction-index-multiplier
-                                          (:wind-from-direction perturbations))
-          m1                (if fuel-moisture-dead-1hr
-                              (get-value-at cell
-                                            global-clock
-                                            fuel-moisture-dead-1hr
-                                            fuel-moisture-dead-1hr-index-multiplier
-                                            nil)
-                              (calc-fuel-moisture rh tmp :dead :1hr))
+    (let [band              (int (quot global-clock 60.0))
+          [i j]             cell
+          tmp               (get-temperature band i j)
+          rh                (get-relative-humidity band i j)
+          ws                (get-wind-speed-20ft band i j)
+          wd                (get-wind-from-direction band i j)
+          m1                (if get-fuel-moisture-dead-1hr
+                              (get-fuel-moisture-dead-1hr band i j)
+                              (calc-fuel-moisture rh tmp :dead :10hr))
           deltas            (sample-wind-dir-deltas inputs
                                                     fire-line-intensity-matrix
                                                     (convert/mph->mps ws)
@@ -2984,12 +2894,11 @@ ignition probability.
       (update-firebrand-counts! inputs firebrand-count-matrix fire-spread-matrix cell firebrands)
       (->> (for [[x y] firebrands
                  :when (and (in-bounds? num-rows num-cols [x y])
-                            (burnable? fire-spread-matrix (:fuel-model landfire-rasters) cell [x y]))
-                 :let  [temperature          (convert/F->C (double tmp))
-                        fine-fuel-moisture   (double m1)
-                        ignition-probability (schroeder-ign-prob temperature fine-fuel-moisture)
+                            (burnable? fire-spread-matrix fuel-model-matrix cell [x y]))
+                 :let  [fine-fuel-moisture   (double m1)
+                        ignition-probability (schroeder-ign-prob (convert/F->C (double tmp)) fine-fuel-moisture)
                         decay-constant       (double (:decay-constant spotting))
-                        spotting-distance    (convert/ft->m (distance-3d (:elevation landfire-rasters)
+                        spotting-distance    (convert/ft->m (distance-3d elevation-matrix
                                                                          (double cell-size)
                                                                          [x y]
                                                                          cell))
@@ -3278,14 +3187,6 @@ or false:
                                    (reducer-fn)))]
       (assoc inputs :summary-stats summary-stats))))
 
-(defn ensure-ignitable-sites
-  [{:keys [ignition-matrix ignition-rows ignition-cols] :as inputs} config-file-path]
-  (if (or ignition-matrix
-          (and (seq ignition-rows)
-               (seq ignition-cols)))
-    inputs
-    (log-str (format "Invalid config file [%s]: No valid ignition sites." config-file-path))))
-
 (defn load-inputs!
   [config]
   (-> config
@@ -3293,6 +3194,7 @@ or false:
       (inputs/add-misc-params)
       (inputs/add-ignition-csv)
       (inputs/add-sampled-params)
+      (inputs/add-perturbation-params)
       (inputs/add-weather-params)
       (inputs/add-fuel-moisture-params)
       (inputs/add-random-ignition-sites)
@@ -3302,7 +3204,7 @@ or false:
   [config-file-path]
   (let [config (edn/read-string (slurp config-file-path))]
     (if (spec/valid? ::config-spec/config config)
-      config
+      (assoc config :config-file-path config-file-path)
       (log-str (format "Invalid config file [%s]:\n%s"
                        config-file-path
                        (spec/explain-str ::config-spec/config config))))))
@@ -3313,7 +3215,6 @@ or false:
     (some-> config-file-path
             (load-config!)
             (load-inputs!)
-            (ensure-ignitable-sites config-file-path)
             (run-simulations!)
             (write-outputs!))
     (catch Exception e
@@ -3432,8 +3333,8 @@ or false:
   (:import (java.util ArrayList Collection Collections Random)))
 
 (defn my-rand
-  ([^Random rand-generator] (.nextDouble rand-generator))
-  (^double [^Random rand-generator n] (* n (my-rand rand-generator))))
+  (^double [^Random rand-generator] (.nextDouble rand-generator))
+  (^double [^Random rand-generator n] (* n (.nextDouble rand-generator))))
 
 (defn my-rand-int
   ^long
@@ -3444,18 +3345,11 @@ or false:
   [rand-generator coll]
   (nth coll (my-rand-int rand-generator (count coll))))
 
-;; FIXME: This function is redundant with my-rand-range and can be removed.
-(defn random-float
-  [min-val max-val rand-generator]
+(defn my-rand-range
+  ^double
+  [^Random rand-generator min-val max-val]
   (let [range (- max-val min-val)]
     (+ min-val (my-rand rand-generator range))))
-
-(defn my-rand-range
-  [rand-generator [min-val max-val]]
-  (let [range (- max-val min-val)]
-    (+ min-val (if (int? range)
-                 (my-rand-int rand-generator range)
-                 (my-rand rand-generator range)))))
 
 (defn sample-from-list
   [rand-generator n xs]
@@ -3463,12 +3357,12 @@ or false:
 
 (defn sample-from-range
   [rand-generator n [min-val max-val]]
-  (repeatedly n #(my-rand-range rand-generator [min-val max-val])))
+  (repeatedly n #(my-rand-range rand-generator min-val max-val)))
 
 (defn draw-sample
   [rand-generator x]
   (cond (list? x)   (my-rand-nth rand-generator x)
-        (vector? x) (my-rand-range rand-generator x)
+        (vector? x) (my-rand-range rand-generator (x 0) (x 1))
         :else       x))
 
 (defn draw-samples
@@ -4128,90 +4022,6 @@ are meant to be in metric, you must include an entry for the units:
 {:perturbations {:canopy-height {:spatial-type :global
                                  :range        [-1.0 1.0]
                                  :units        :metric}}}
-#+end_src
-
- #+name: perturbation
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/perturbation.clj :padline no :no-expand :comments link
-(ns gridfire.perturbation
-  (:require [gridfire.utils.random :refer [my-rand-range]]
-            [gridfire.conversion :refer [conversion-table]]))
-
-(defn add-rand-generator
-  [rand-generator config]
-  (into config
-        (map (fn [[layer spec]] [layer (assoc spec :rand-generator rand-generator)]))
-        config))
-
-(defn add-simulation-id
-  [id config]
-  (into config
-        (map (fn [[layer spec]] [layer (assoc spec :simulation-id id)]))
-        config))
-
-(defn convert-ranges
-  [config]
-  (into config
-        (map (fn [[layer {:keys [units range] :as spec}]]
-               (if-let [converter (get-in conversion-table [layer units])]
-                 [layer (assoc spec :range (map converter range))]
-                 [layer spec])))
-        config))
-
-(defn add-global-values
-  [config]
-  (into config
-        (map (fn [[layer {:keys [spatial-type rand-generator range] :as spec}]]
-               (if (= spatial-type :global)
-                 [layer (assoc spec :global-value (my-rand-range rand-generator range))]
-                 [layer spec])))
-        config))
-
-(defn- enrich-info
-  [perturbations rand-generator id]
-  (->> perturbations
-      (add-rand-generator rand-generator)
-      (add-simulation-id id)
-      (convert-ranges)
-      (add-global-values)))
-
-(defn draw-samples
-  [rand-generator n perturbations]
-  (mapv #(enrich-info perturbations rand-generator %) (range n)))
-
-(defn value-at
-  (^double [perturb-info raster here]
-   (value-at perturb-info raster here nil))
-
-  (^double [{:keys [range spatial-type global-value rand-generator]} raster here frequency-band]
-   (if (= spatial-type :global)
-     global-value
-     (my-rand-range rand-generator range))))
-
-(defn- update?
-  [^double global-clock ^double next-clock ^long frequency]
-  (< (quot global-clock frequency)
-     (quot next-clock frequency)))
-
-(defn- global-temporal-perturbations
-  [perturbations]
-  (->> perturbations
-       (filter (fn [[_ v]] (and (:frequency v) (= (:spatial-type v) :global))))
-       keys))
-
-(defn update-global-vals
-  [{:keys [perturbations] :as constants} current-clock next-clock]
-  (let [layers-to-update (global-temporal-perturbations perturbations)]
-    (reduce
-     (fn [acc layer-name]
-       (let [{:keys [frequency
-                     range
-                     rand-generator]} (get-in acc [:perturbations layer-name])
-             new-global               (my-rand-range rand-generator range)]
-         (if (update? current-clock next-clock frequency)
-           (assoc-in acc [:perturbations layer-name :global-value] new-global)
-           acc)))
-     constants
-     layers-to-update)))
 #+end_src
 
 ** Section 7: Spotting

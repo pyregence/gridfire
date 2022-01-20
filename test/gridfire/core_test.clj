@@ -1,6 +1,6 @@
 (ns gridfire.core-test
   (:require [clojure.string         :as str]
-            [clojure.test           :refer [deftest is testing use-fixtures]]
+            [clojure.test           :refer [deftest is testing use-fixtures are]]
             [gridfire.binary-output :as binary]
             [gridfire.conversion    :refer [m->ft]]
             [gridfire.core          :as core]
@@ -177,8 +177,7 @@
 
       (is (valid-exits? geotiff-results))
 
-      (is (= (set postgis-results) (set geotiff-results))))))
-
+      (is (= (mapv :fire-size postgis-results) (mapv :fire-size geotiff-results))))))
 ;;-----------------------------------------------------------------------------
 ;; Ignition Layer Tests
 ;;-----------------------------------------------------------------------------
@@ -292,6 +291,46 @@
                         {:perturbations {:canopy-height {:spatial-type :pixel
                                                          :range        [-1.0 1.0]}}})]
       (is (valid-exits? (run-test-simulation! config))))))
+
+(deftest ^{:database true :simulation true} run-test-simulation!-with-weather-perturbations
+  (testing "temperature"
+    (are [config] (valid-exits? (run-test-simulation! config))
+      (merge test-config-base
+             {:perturbations {:temperature {:spatial-type :global
+                                            :range        [-1.0 1.0]}}})
+      (merge test-config-base
+             {:perturbations {:temperature {:spatial-type :pixel
+                                            :range        [-1.0 1.0]}}})
+      (merge test-config-base
+             {:perturbations   {:temperature {:spatial-type :global
+                                              :range        [-1.0 1.0]}}
+              :landfire-layers landfire-layers-weather-test
+              :temperature     (:temperature weather-layers)})
+      (merge test-config-base
+             {:perturbations   {:temperature {:spatial-type :pixel
+                                              :range        [-1.0 1.0]}}
+              :landfire-layers landfire-layers-weather-test
+              :temperature     (:temperature weather-layers)}))
+
+    (testing "wind-speed-20ft"
+      (are [config] (valid-exits? (run-test-simulation! config))
+        (merge test-config-base
+               {:perturbations {:wind-speed-20ft {:spatial-type :global
+                                                  :range        [-1.0 1.0]}}})
+        (merge test-config-base
+               {:perturbations {:wind-speed-20ft {:spatial-type :pixel
+                                                  :range        [-1.0 1.0]}}})
+        (merge test-config-base
+               {:perturbations   {:wind-speed-20ft {:spatial-type :global
+                                                    :range        [-1.0 1.0]}}
+                :landfire-layers landfire-layers-weather-test
+                :wind-speed-20ft (:wind-speed-20ft weather-layers)})
+
+        (merge test-config-base
+               {:perturbations   {:wind-speed-20ft {:spatial-type :pixel
+                                                    :range        [-1.0 1.0]}}
+                :landfire-layers landfire-layers-weather-test
+                :wind-speed-20ft (:wind-speed-20ft weather-layers)})))))
 
 ;;-----------------------------------------------------------------------------
 ;; Outputs

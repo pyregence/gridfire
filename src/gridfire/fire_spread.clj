@@ -8,8 +8,6 @@
                                                    in-bounds?
                                                    burnable-neighbors?
                                                    get-neighbors
-                                                   get-value-at
-                                                   sample-at
                                                    distance-3d]]
             [gridfire.conversion          :refer [mph->fpm]]
             [gridfire.crown-fire          :refer [crown-fire-eccentricity
@@ -17,7 +15,6 @@
                                                   cruz-crown-fire-spread
                                                   van-wagner-crown-fire-initiation?]]
             [gridfire.fuel-models         :refer [build-fuel-model moisturize]]
-            [gridfire.perturbation        :as perturbation]
             [gridfire.spotting            :as spot]
             [gridfire.surface-fire        :refer [anderson-flame-depth
                                                   byram-fire-line-intensity
@@ -137,131 +134,65 @@
    :flame-length ft,
    :fractional-distance [0-1]}, one for each cell adjacent to here."
   [{:keys
-    [aspect-matrix canopy-base-height-matrix canopy-cover-matrix canopy-height-matrix
-     crown-bulk-density-matrix elevation-matrix fuel-model-matrix slope-matrix
-     perturbations wind-speed-20ft wind-from-direction temperature
-     relative-humidity foliar-moisture ellipse-adjustment-factor cell-size
-     num-rows num-cols fuel-moisture-dead-1hr fuel-moisture-dead-10hr fuel-moisture-dead-100hr
-     fuel-moisture-live-herbaceous fuel-moisture-live-woody relative-humidity-index-multiplier
-     temperature-index-multiplier wind-from-direction-index-multiplier wind-speed-20ft-index-multiplier
-     fuel-moisture-dead-1hr-index-multiplier fuel-moisture-dead-10hr-index-multiplier
-     fuel-moisture-dead-100hr-index-multiplier fuel-moisture-live-herbaceous-index-multiplier
-     fuel-moisture-live-woody-index-multiplier]}
+    [get-aspect get-canopy-base-height get-canopy-cover get-canopy-height get-crown-bulk-density
+     get-fuel-model get-slope elevation-matrix fuel-model-matrix get-wind-speed-20ft
+     get-wind-from-direction get-temperature get-relative-humidity get-foliar-moisture
+     ellipse-adjustment-factor cell-size num-rows num-cols get-fuel-moisture-dead-1hr
+     get-fuel-moisture-dead-10hr get-fuel-moisture-dead-100hr get-fuel-moisture-live-herbaceous
+     get-fuel-moisture-live-woody]}
    fire-spread-matrix
-   here
+   [i j :as here]
    overflow-trajectory
    overflow-heat
    global-clock]
-  (let [^double aspect                (sample-at here
-                                                 global-clock
-                                                 aspect-matrix
-                                                 nil
-                                                 (:aspect perturbations))
-        ^double canopy-base-height    (sample-at here
-                                                 global-clock
-                                                 canopy-base-height-matrix
-                                                 nil
-                                                 (:canopy-base-height perturbations))
-        ^double canopy-cover          (sample-at here
-                                                 global-clock
-                                                 canopy-cover-matrix
-                                                 nil
-                                                 (:canopy-cover perturbations))
-        ^double canopy-height         (sample-at here
-                                                 global-clock
-                                                 canopy-height-matrix
-                                                 nil
-                                                 (:canopy-height perturbations))
-        ^double crown-bulk-density    (sample-at here
-                                                 global-clock
-                                                 crown-bulk-density-matrix
-                                                 nil
-                                                 (:crown-bulk-density perturbations))
-        ^long fuel-model              (sample-at here
-                                                 global-clock
-                                                 fuel-model-matrix
-                                                 nil
-                                                 (:fuel-model perturbations))
-        ^double slope                 (sample-at here
-                                                 global-clock
-                                                 slope-matrix
-                                                 nil
-                                                 (:slope perturbations))
-        ^double relative-humidity     (get-value-at here
-                                                    global-clock
-                                                    relative-humidity
-                                                    relative-humidity-index-multiplier
-                                                    (:relative-humidity perturbations))
-        ^double temperature           (get-value-at here
-                                                    global-clock
-                                                    temperature
-                                                    temperature-index-multiplier
-                                                    (:temperature perturbations))
-        ^double wind-from-direction   (get-value-at here
-                                                    global-clock
-                                                    wind-from-direction
-                                                    wind-from-direction-index-multiplier
-                                                    (:wind-from-direction perturbations))
-        ^double wind-speed-20ft       (get-value-at here
-                                                    global-clock
-                                                    wind-speed-20ft
-                                                    wind-speed-20ft-index-multiplier
-                                                    (:wind-speed-20ft perturbations))
-        m1                            (if fuel-moisture-dead-1hr
-                                        (get-value-at here
-                                                      global-clock
-                                                      fuel-moisture-dead-1hr
-                                                      fuel-moisture-dead-1hr-index-multiplier
-                                                      nil)
-                                        (calc-fuel-moisture relative-humidity temperature :dead :1hr))
-        m10                           (if fuel-moisture-dead-10hr
-                                        (get-value-at here
-                                                      global-clock
-                                                      fuel-moisture-dead-10hr
-                                                      fuel-moisture-dead-10hr-index-multiplier
-                                                      nil)
-                                        (calc-fuel-moisture relative-humidity temperature :dead :10hr))
-        m100                          (if fuel-moisture-dead-100hr
-                                        (get-value-at here
-                                                      global-clock
-                                                      fuel-moisture-dead-100hr
-                                                      fuel-moisture-dead-100hr-index-multiplier
-                                                      nil)
-                                        (calc-fuel-moisture relative-humidity temperature :dead :10hr))
-        mlh                           (if fuel-moisture-live-herbaceous
-                                        (get-value-at here
-                                                      global-clock
-                                                      fuel-moisture-live-herbaceous
-                                                      fuel-moisture-live-herbaceous-index-multiplier
-                                                      nil)
-                                        (calc-fuel-moisture relative-humidity temperature :live :herbaceous))
-        mlw                           (if fuel-moisture-live-woody
-                                        (get-value-at here
-                                                      global-clock
-                                                      fuel-moisture-live-woody
-                                                      fuel-moisture-live-woody-index-multiplier
-                                                      nil)
-                                        (calc-fuel-moisture relative-humidity temperature :live :woody))
-        [fuel-model spread-info-min]  (rothermel-fast-wrapper fuel-model
-                                                              {:dead {:1hr   m1
-                                                                      :10hr  m10
-                                                                      :100hr m100}
-                                                               :live {:herbaceous mlh
-                                                                      :woody      mlw}})
-        midflame-wind-speed           (mph->fpm
-                                       (* wind-speed-20ft
-                                          (wind-adjustment-factor ^long (:delta fuel-model)
-                                                                  canopy-height
-                                                                  canopy-cover)))
-        spread-info-max               (rothermel-surface-fire-spread-max spread-info-min
-                                                                         midflame-wind-speed
-                                                                         wind-from-direction
-                                                                         slope
-                                                                         aspect
-                                                                         ellipse-adjustment-factor)
-        [crown-type crown-spread-max] (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density m1)
-        crown-eccentricity            (crown-fire-eccentricity wind-speed-20ft
-                                                               ellipse-adjustment-factor)]
+  (let [band                                  (int (/ global-clock 60.0))
+        ^double aspect                        (get-aspect i j)
+        ^double canopy-base-height            (get-canopy-base-height i j)
+        ^double canopy-height                 (get-canopy-height i j)
+        ^double canopy-cover                  (get-canopy-cover i j)
+        ^double crown-bulk-density            (get-crown-bulk-density i j)
+        ^double fuel-model                    (get-fuel-model i j)
+        ^double slope                         (get-slope i j)
+        ^double relative-humidity             (get-relative-humidity band i j)
+        ^double temperature                   (get-temperature band i j)
+        ^double wind-speed-20ft               (get-wind-speed-20ft band i j)
+        ^double wind-from-direction           (get-wind-from-direction band i j)
+        ^double fuel-moisture-dead-1hr        (if get-fuel-moisture-dead-1hr
+                                                (get-fuel-moisture-dead-1hr band i j)
+                                                (calc-fuel-moisture relative-humidity temperature :dead :10hr))
+        ^double fuel-moisture-dead-10hr       (if get-fuel-moisture-dead-10hr
+                                                (get-fuel-moisture-dead-10hr band i j)
+                                                (calc-fuel-moisture relative-humidity temperature :dead :10hr))
+        ^double fuel-moisture-dead-100hr      (if get-fuel-moisture-dead-100hr
+                                                (get-fuel-moisture-dead-100hr band i j)
+                                                (calc-fuel-moisture relative-humidity temperature :dead :100hr))
+        ^double fuel-moisture-live-herbaceous (if get-fuel-moisture-live-herbaceous
+                                                (get-fuel-moisture-live-herbaceous i j)
+                                                (calc-fuel-moisture relative-humidity temperature :live :herbaceous))
+        ^double fuel-moisture-live-woody      (if get-fuel-moisture-live-woody
+                                                (get-fuel-moisture-live-woody i j)
+                                                (calc-fuel-moisture relative-humidity temperature :live :woody))
+        ^double foliar-moisture               (get-foliar-moisture band i j)
+        [fuel-model spread-info-min]          (rothermel-fast-wrapper fuel-model
+                                                                      {:dead {:1hr   fuel-moisture-dead-1hr
+                                                                              :10hr  fuel-moisture-dead-10hr
+                                                                              :100hr fuel-moisture-dead-100hr}
+                                                                       :live {:herbaceous fuel-moisture-live-herbaceous
+                                                                              :woody      fuel-moisture-live-woody}})
+        midflame-wind-speed                   (mph->fpm
+                                               (* wind-speed-20ft
+                                                  (wind-adjustment-factor ^long (:delta fuel-model)
+                                                                          canopy-height
+                                                                          canopy-cover)))
+        spread-info-max                       (rothermel-surface-fire-spread-max spread-info-min
+                                                                                 midflame-wind-speed
+                                                                                 wind-from-direction
+                                                                                 slope
+                                                                                 aspect
+                                                                                 ellipse-adjustment-factor)
+        [crown-type crown-spread-max]         (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density fuel-moisture-dead-1hr)
+        crown-eccentricity                    (crown-fire-eccentricity wind-speed-20ft
+                                                                       ellipse-adjustment-factor)]
     (into []
           (comp
            (filter #(and (in-bounds? num-rows num-cols %)
@@ -484,8 +415,7 @@
               timestep          (min dt (- ignition-stop-time global-clock))
               next-global-clock (+ global-clock timestep)
               ignition-events   (identify-ignition-events inputs ignited-cells timestep
-                                                          fire-spread-matrix fractional-distance-matrix)
-              inputs            (perturbation/update-global-vals inputs global-clock next-global-clock)]
+                                                          fire-spread-matrix fractional-distance-matrix)]
           ;; [{:cell :trajectory :fractional-distance
           ;;   :flame-length :fire-line-intensity} ...]
           (doseq [{:keys

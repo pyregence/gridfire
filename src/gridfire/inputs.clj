@@ -4,8 +4,8 @@
             [clojure.java.io       :as io]
             [clojure.string        :as str]
             [gridfire.common       :refer [burnable-fuel-model?]]
+            [gridfire.conversion   :refer [conversion-table percent->dec]]
             [gridfire.fetch        :as fetch]
-            [gridfire.perturbation :as perturbation]
             [gridfire.utils.random :refer [draw-samples my-shuffle]]
             [gridfire.utils.server :refer [throw-message]])
   (:import java.util.Random))
@@ -39,15 +39,17 @@
 (defn- multi-band? [matrix]
   (> (m/dimensionality matrix) 2))
 
+;;TODO Document: using higher resolution layers than fuel model will choose upper left corner cell of the layer from the higher resolution grid within each fuel model grid cell. Recommend to use layers at or below resolution of fuel model matrix if you want to avoid loss of information.
 (defn calc-multiplier
-  [inputs landfire-matrix-height matrix-kw]
+  [inputs fuel-model-matrix-height matrix-kw]
   (when-let [matrix (get inputs matrix-kw)]
     (let [height-dimension (if (multi-band? matrix) 1 0)
           matrix-height    (m/dimension-count matrix height-dimension)
-          multiplier       (double (/ matrix-height landfire-matrix-height))]
+          multiplier       (double (/ matrix-height fuel-model-matrix-height))]
       (when (not= multiplier 1.0)
         multiplier))))
 
+;;TODO Document fuel-model as the resolution of the computational space. Cell size must also match fuel model.
 (defn add-misc-params
   [{:keys [random-seed fuel-model-matrix] :as inputs}]
   (let [num-rows (m/row-count fuel-model-matrix)]
@@ -55,6 +57,13 @@
            :num-rows                                       num-rows
            :num-cols                                       (m/column-count fuel-model-matrix)
            :rand-gen                                       (if random-seed (Random. random-seed) (Random.))
+           :aspect-index-multiplier                        (calc-multiplier inputs num-rows :aspect-matrix)
+           :canopy-base-height-index-multiplier            (calc-multiplier inputs num-rows :canopy-base-height-matrix)
+           :canopy-cover-index-multiplier                  (calc-multiplier inputs num-rows :canopy-cover-matrix)
+           :canopy-height-index-multiplier                 (calc-multiplier inputs num-rows :canopy-height-matrix)
+           :crown-bulk-density-index-multiplier            (calc-multiplier inputs num-rows :crown-bulk-density-matrix)
+           :elevation-index-multiplier                     (calc-multiplier inputs num-rows :elevation-matrix)
+           :slope-index-multiplier                         (calc-multiplier inputs num-rows :slope-matrix)
            :temperature-index-multiplier                   (calc-multiplier inputs num-rows :temperature-matrix)
            :relative-humidity-index-multiplier             (calc-multiplier inputs num-rows :relative-humidity-matrix)
            :wind-speed-20ft-index-multiplier               (calc-multiplier inputs num-rows :wind-speed-20ft-matrix)
@@ -80,14 +89,28 @@
 
 (defn add-sampled-params
   [{:keys
-    [rand-gen simulations max-runtime max-runtime-samples foliar-moisture ellipse-adjustment-factor perturbations]
+    [rand-gen simulations max-runtime max-runtime-samples foliar-moisture ellipse-adjustment-factor]
     :as inputs}]
   (assoc inputs
          :max-runtime-samples               (or max-runtime-samples (draw-samples rand-gen simulations max-runtime))
-         :foliar-moisture-samples           (draw-samples rand-gen simulations foliar-moisture)
-         :ellipse-adjustment-factor-samples (draw-samples rand-gen simulations (or ellipse-adjustment-factor 1.0))
-         :perturbation-samples              (when perturbations
-                                              (perturbation/draw-samples rand-gen simulations perturbations))))
+         :foliar-moisture-samples           (mapv percent->dec (draw-samples rand-gen simulations foliar-moisture))
+         :ellipse-adjustment-factor-samples (draw-samples rand-gen simulations (or ellipse-adjustment-factor 1.0))))
+
+(defn- convert-ranges
+  [config]
+  (into config
+        (map (fn [[layer {:keys [units range] :as spec}]]
+               (if-let [converter (get-in conversion-table [layer units])]
+                 [layer (assoc spec :range (map converter range))]
+                 [layer spec])))
+        config))
+
+(defn add-perturbation-params
+  [{:keys [perturbations] :as inputs}]
+  (if perturbations
+    (assoc inputs
+           :perturbations (convert-ranges perturbations))
+    perturbations))
 
 (defn get-weather
   [{:keys [rand-gen simulations] :as inputs} weather-type]

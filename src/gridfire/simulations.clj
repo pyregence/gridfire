@@ -6,6 +6,7 @@
             [gridfire.conversion    :refer [min->hour kebab->snake snake->kebab]]
             [gridfire.fire-spread   :refer [run-fire-spread]]
             [gridfire.outputs       :as outputs]
+            [gridfire.utils.random  :refer [my-rand-range]]
             [taoensso.tufte         :as tufte])
   (:import java.util.Random))
 
@@ -170,15 +171,150 @@
      :fire-line-intensity-stddev fire-line-intensity-stddev
      :spot-count                 (:spot-count fire-spread-results)}))
 
-(defn matrix-or-i
-  [inputs weather-type i]
-  (or (get inputs (-> (name weather-type)
+(defn- matrix-or-i
+  [inputs layer-name i]
+  (or (get inputs (-> (name layer-name)
                       (str "-matrix")
                       keyword))
-      (get-in inputs [(-> (name weather-type)
+      (get-in inputs [(-> (name layer-name)
                           (str "-samples")
                           keyword)
                       i])))
+
+(defn- get-index-multiplier
+  [inputs layer-name]
+  (get inputs (-> (name layer-name)
+                  (str "-index-multiplier")
+                  keyword)))
+
+;;TODO type hint all fn
+(defn- get-value-fn
+  [{:keys [perturbations] :as inputs} rand-gen layer-name i]
+  (when-let [matrix-or-num (matrix-or-i inputs layer-name i)]
+    (let [index-multiplier             (get-index-multiplier inputs layer-name)
+          {:keys [spatial-type range]} (get perturbations layer-name)
+          [range-min range-max]        range]
+      (cond
+        (and (number? matrix-or-num) (nil? (get perturbations layer-name)))
+        (fn
+          ([_ _] matrix-or-num)
+          ([_ _ _] matrix-or-num))
+
+        (and (not (number? matrix-or-num)) (nil? (get perturbations layer-name)))
+        (if index-multiplier
+          (fn
+            ([i j]
+             (let [row (int (* i index-multiplier))
+                   col (int (* j index-multiplier))]
+               (m/mget matrix-or-num row col)))
+            ([b i j]
+             (let [row (int (* i index-multiplier))
+                   col (int (* j index-multiplier))]
+               (m/mget matrix-or-num b row col))))
+          (fn
+            ([i j]
+             (m/mget matrix-or-num i j))
+            ([b i j]
+             (m/mget matrix-or-num b i j))))
+
+        (and (number? matrix-or-num) (= spatial-type :pixel))
+        (let [band-cache            (atom 0)
+              perturbed-value-cache (atom {})]
+          (fn
+            ([i j]
+             (or (get @perturbed-value-cache [i j])
+                 (let [new-value (max 0 (+ matrix-or-num (my-rand-range rand-gen range-min range-max)))]
+                   (swap! perturbed-value-cache assoc [i j] new-value)
+                   new-value)))
+            ([b i j]
+             (when-not (= b @band-cache)
+               (reset! band-cache b)
+               (reset! perturbed-value-cache {}))
+             (or (get @perturbed-value-cache [i j]) ;TODO benchmark [i j] vs string i j
+                 (let [new-value (max 0 (+ matrix-or-num (my-rand-range rand-gen range-min range-max)))] ;TODO document we are snapping negative values to 0
+                   (swap! perturbed-value-cache assoc [i j] new-value)
+                   new-value)))))
+
+        (and (number? matrix-or-num) (= spatial-type :global))
+        (let [perturbed-value-cache (atom nil)]
+          (fn
+            ([_ _]
+             (or @perturbed-value-cache
+                 (let [new-value (max 0 (+ matrix-or-num (my-rand-range rand-gen range-min range-max)))]
+                   (reset! perturbed-value-cache new-value)
+                   new-value)))
+            ([b _ _]
+             (or (get @perturbed-value-cache b)
+                 (let [new-value (max 0 (+ matrix-or-num (my-rand-range rand-gen range-min range-max)))]
+                   (reset! perturbed-value-cache {b new-value})
+                   new-value)))))
+
+        (and (not (number? matrix-or-num)) (= spatial-type :pixel))
+        (let [band-cache            (atom 0)
+              perturbed-value-cache (atom {})]
+          (if index-multiplier
+            (fn
+              ([i j]
+               (let [row (int (* i index-multiplier))
+                     col (int (* j index-multiplier))]
+                 (or (get @perturbed-value-cache [row col])
+                     (let [new-value (max 0 (+ (m/mget matrix-or-num row col) (my-rand-range rand-gen range-min range-max)))]
+                       (swap! perturbed-value-cache assoc [row col] new-value)
+                       new-value))))
+              ([b i j]
+               (when-not (= b @band-cache)
+                 (reset! band-cache b)
+                 (reset! perturbed-value-cache {}))
+               (let [row (int (* i index-multiplier))
+                     col (int (* j index-multiplier))]
+                 (or (get @perturbed-value-cache [row col])
+                     (let [new-value (max 0 (+ (m/mget matrix-or-num b row col) (my-rand-range rand-gen range-min range-max)))]
+                       (swap! perturbed-value-cache assoc [row col] new-value)
+                       new-value)))))
+            (fn
+              ([i j]
+               (or (get @perturbed-value-cache [i j])
+                   (let [new-value (max 0 (+ (m/mget matrix-or-num i j) (my-rand-range rand-gen range-min range-max)))]
+                     (swap! perturbed-value-cache assoc [i j] new-value)
+                     new-value)))
+              ([b i j]
+               (when-not (= b @band-cache)
+                 (reset! band-cache b)
+                 (reset! perturbed-value-cache {}))
+               (or (get @perturbed-value-cache [i j])
+                   (let [new-value (max 0 (+ (m/mget matrix-or-num b i j) (my-rand-range rand-gen range-min range-max)))]
+                     (swap! perturbed-value-cache assoc [i j] new-value)
+                     new-value))))))
+
+        (and (not (number? matrix-or-num)) (= spatial-type :global))
+        (let [offset-cache (atom nil)]
+          (if index-multiplier
+            (fn
+              ([i j]
+               (let [row    (int (* i index-multiplier))
+                     col    (int (* j index-multiplier))
+                     offset (or @offset-cache
+                                (reset! offset-cache (my-rand-range rand-gen range-min range-max)))]
+                 (max 0 (+ (m/mget matrix-or-num row col) offset))))
+              ([b i j]
+               (let [row    (int (* i index-multiplier))
+                     col    (int (* j index-multiplier))
+                     offset (or (get @offset-cache b)
+                                (let [new-offset (my-rand-range rand-gen range-min range-max)]
+                                  (reset! offset-cache {b new-offset})
+                                  new-offset))]
+                 (max 0 (+ (m/mget matrix-or-num b row col) offset)))))
+            (fn
+              ([i j]
+               (let [offset (or @offset-cache
+                                (reset! offset-cache (my-rand-range rand-gen range-min range-max)))]
+                 (max 0 (+ (m/mget matrix-or-num i j) offset))))
+              ([b i j]
+               (let [offset (or (get @offset-cache b)
+                                (let [new-offset (my-rand-range rand-gen range-min range-max)]
+                                  (reset! offset-cache {b new-offset})
+                                  new-offset))]
+                 (max 0 (+ (m/mget matrix-or-num b i j) offset)))))))))))
 
 ;; FIXME: Replace input-variations expression with add-sampled-params
 ;;        and add-weather-params (and remove them from load-inputs).
@@ -190,51 +326,72 @@
   [i
    {:keys
     [output-csvs? envelope ignition-matrix cell-size max-runtime-samples ignition-rows ignition-cols
-     foliar-moisture-samples ellipse-adjustment-factor-samples perturbation-samples random-seed ignition-start-times] :as inputs}]
+     ellipse-adjustment-factor-samples random-seed ignition-start-times] :as inputs}]
   (tufte/profile
    {:id :run-simulation}
-   (let [initial-ignition-site (or ignition-matrix
-                                   [(ignition-rows i) (ignition-cols i)])
-         input-variations      {:rand-gen                      (if random-seed (Random. (+ random-seed i)) (Random.))
-                                :max-runtime                   (max-runtime-samples i)
-                                :foliar-moisture               (* 0.01 (foliar-moisture-samples i))
-                                :ellipse-adjustment-factor     (ellipse-adjustment-factor-samples i)
-                                :perturbations                 (when perturbation-samples (perturbation-samples i))
-                                :temperature                   (matrix-or-i inputs :temperature i)
-                                :relative-humidity             (matrix-or-i inputs :relative-humidity i)
-                                :wind-speed-20ft               (matrix-or-i inputs :wind-speed-20ft i)
-                                :wind-from-direction           (matrix-or-i inputs :wind-from-direction i)
-                                :fuel-moisture-dead-1hr        (matrix-or-i inputs :fuel-moisture-dead-1hr i)
-                                :fuel-moisture-dead-10hr       (matrix-or-i inputs :fuel-moisture-dead-10hr i)
-                                :fuel-moisture-dead-100hr      (matrix-or-i inputs :fuel-moisture-dead-100hr i)
-                                :fuel-moisture-live-herbaceous (matrix-or-i inputs :fuel-moisture-live-herbaceous i)
-                                :fuel-moisture-live-woody      (matrix-or-i inputs :fuel-moisture-live-woody i)
-                                :ignition-start-time           (get ignition-start-times i 0.0)}
-         fire-spread-results   (tufte/p :run-fire-spread
-                                        (run-fire-spread
-                                         (merge inputs
-                                                input-variations
-                                                {:initial-ignition-site initial-ignition-site})))]
+   (let [rand-gen            (if random-seed (Random. (+ random-seed i)) (Random.))
+         input-variations    {:rand-gen                          rand-gen
+                              :initial-ignition-site             (or ignition-matrix
+                                                                     [(ignition-rows i) (ignition-cols i)])
+                              :ignition-start-time               (get ignition-start-times i 0.0)
+                              :max-runtime                       (max-runtime-samples i)
+                              :get-aspect                        (get-value-fn inputs rand-gen :aspect i)
+                              :get-canopy-height                 (get-value-fn inputs rand-gen :canopy-height i)
+                              :get-canopy-base-height            (get-value-fn inputs rand-gen :canopy-base-height i)
+                              :get-canopy-cover                  (get-value-fn inputs rand-gen :canopy-cover i)
+                              :get-crown-bulk-density            (get-value-fn inputs rand-gen :crown-bulk-density i)
+                              :get-fuel-model                    (get-value-fn inputs rand-gen :fuel-model i)
+                              :get-slope                         (get-value-fn inputs rand-gen :slope i)
+                              :get-elevation                     (get-value-fn inputs rand-gen :elevation i)
+                              :get-temperature                   (get-value-fn inputs rand-gen :temperature i)
+                              :get-relative-humidity             (get-value-fn inputs rand-gen :relative-humidity i)
+                              :get-wind-speed-20ft               (get-value-fn inputs rand-gen :wind-speed-20ft i)
+                              :get-wind-from-direction           (get-value-fn inputs rand-gen :wind-from-direction i)
+                              :get-fuel-moisture-dead-1hr        (get-value-fn inputs rand-gen :fuel-moisture-dead-1hr i)
+                              :get-fuel-moisture-dead-10hr       (get-value-fn inputs rand-gen :fuel-moisture-dead-10hr i)
+                              :get-fuel-moisture-dead-100hr      (get-value-fn inputs rand-gen :fuel-moisture-dead-100hr i)
+                              :get-fuel-moisture-live-herbaceous (get-value-fn inputs rand-gen :fuel-moisture-live-herbaceous i)
+                              :get-fuel-moisture-live-woody      (get-value-fn inputs rand-gen :fuel-moisture-live-woody i)
+                              :get-foliar-moisture               (get-value-fn inputs rand-gen :foliar-moisture i)
+                              :ellipse-adjustment-factor         (ellipse-adjustment-factor-samples i)}
+         fire-spread-results (tufte/p :run-fire-spread
+                                      (run-fire-spread (merge inputs input-variations)))]
      (when fire-spread-results
        (process-output-layers! inputs fire-spread-results envelope i)
        (process-aggregate-output-layers! inputs fire-spread-results)
        (process-binary-output! inputs fire-spread-results i))
      (when output-csvs?
-       (merge
-        input-variations
-        {:simulation       (inc i)
-         :ignition-row     (ignition-rows i)
-         :ignition-col     (ignition-cols i)
-         :foliar-moisture  (foliar-moisture-samples i)
-         :global-clock     (:global-clock fire-spread-results)
-         :exit-condition   (:exit-condition fire-spread-results :no-fire-spread)
-         :crown-fire-count (:crown-fire-count fire-spread-results)}
-        (if fire-spread-results
-          (tufte/p
-           :summarize-fire-spread-results
-           (summarize-fire-spread-results fire-spread-results cell-size))
-          {:fire-size                  0.0
-           :flame-length-mean          0.0
-           :flame-length-stddev        0.0
-           :fire-line-intensity-mean   0.0
-           :fire-line-intensity-stddev 0.0}))))))
+       (-> input-variations
+           (dissoc :get-aspect
+                   :get-canopy-height
+                   :get-canopy-base-height
+                   :get-canopy-cover
+                   :get-crown-bulk-density
+                   :get-fuel-model
+                   :get-slope
+                   :get-elevation
+                   :get-temperature
+                   :get-relative-humidity
+                   :get-wind-speed-20ft
+                   :get-wind-from-direction
+                   :get-fuel-moisture-dead-1hr
+                   :get-fuel-moisture-dead-10hr
+                   :get-fuel-moisture-dead-100hr
+                   :get-fuel-moisture-live-herbaceous
+                   :get-fuel-moisture-live-woody
+                   :get-foliar-moisture)
+           (merge {:simulation       (inc i)
+                   :ignition-row     (ignition-rows i)
+                   :ignition-col     (ignition-cols i)
+                   :global-clock     (:global-clock fire-spread-results)
+                   :exit-condition   (:exit-condition fire-spread-results :no-fire-spread)
+                   :crown-fire-count (:crown-fire-count fire-spread-results)}))
+       (if fire-spread-results
+         (tufte/p
+          :summarize-fire-spread-results
+          (summarize-fire-spread-results fire-spread-results cell-size))
+         {:fire-size                  0.0
+          :flame-length-mean          0.0
+          :flame-length-stddev        0.0
+          :fire-line-intensity-mean   0.0
+          :fire-line-intensity-stddev 0.0})))))

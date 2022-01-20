@@ -3,8 +3,8 @@
   (:import (java.util ArrayList Collection Collections Random)))
 
 (defn my-rand
-  ([^Random rand-generator] (.nextDouble rand-generator))
-  (^double [^Random rand-generator n] (* n (my-rand rand-generator))))
+  (^double [^Random rand-generator] (.nextDouble rand-generator))
+  (^double [^Random rand-generator n] (* n (.nextDouble rand-generator))))
 
 (defn my-rand-int
   ^long
@@ -15,19 +15,11 @@
   [rand-generator coll]
   (nth coll (my-rand-int rand-generator (count coll))))
 
-;; FIXME: This function is redundant with my-rand-range and can be removed.
-(defn random-float
-  [min-val max-val rand-generator]
+(defn my-rand-range
+  ^double
+  [^Random rand-generator min-val max-val]
   (let [range (- max-val min-val)]
     (+ min-val (my-rand rand-generator range))))
-
-;;FIXME remove int logic, unexpected behavior for users.
-(defn my-rand-range
-  [rand-generator [min-val max-val]]
-  (let [range (- max-val min-val)]
-    (+ min-val (if (int? range)
-                 (my-rand-int rand-generator range)
-                 (my-rand rand-generator range)))))
 
 (defn sample-from-list
   [rand-generator n xs]
@@ -35,12 +27,12 @@
 
 (defn sample-from-range
   [rand-generator n [min-val max-val]]
-  (repeatedly n #(my-rand-range rand-generator [min-val max-val])))
+  (repeatedly n #(my-rand-range rand-generator min-val max-val)))
 
 (defn draw-sample
   [rand-generator x]
   (cond (list? x)   (my-rand-nth rand-generator x)
-        (vector? x) (my-rand-range rand-generator x)
+        (vector? x) (my-rand-range rand-generator (x 0) (x 1))
         :else       x))
 
 (defn draw-samples

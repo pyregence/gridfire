@@ -1,36 +1,7 @@
 (ns gridfire.common
-  (:require [clojure.core.matrix :as m]
-            [gridfire.perturbation :as perturbation]))
+  (:require [clojure.core.matrix :as m]))
 
 (m/set-current-implementation :vectorz)
-
-(defn matrix-value-at ^double
-  [[i j] ^double global-clock matrix]
-  (if (> (m/dimensionality matrix) 2)
-    (let [band (int (quot global-clock 60.0))] ;Assuming each band is 1 hour
-      (m/mget matrix band i j))
-    (m/mget matrix i j)))
-
-(defn sample-at
-  ([here global-clock matrix multiplier]
-   (sample-at here global-clock matrix multiplier nil))
-
-  ([here global-clock matrix multiplier perturb-info]
-   (let [cell       (if multiplier
-                      (mapv #(long (* ^long % ^double multiplier)) here)
-                      here)
-         value-here (matrix-value-at cell global-clock matrix)]
-     (if perturb-info
-       (if-let [^long freq (:frequency perturb-info)]
-         (max 0 (+ value-here (perturbation/value-at perturb-info matrix cell (quot ^double global-clock freq))))
-         (max 0 (+ value-here (perturbation/value-at perturb-info matrix cell))))
-       value-here))))
-
-(defn get-value-at
-  [here global-clock matrix-or-val multiplier perturb-info]
-  (if (> (m/dimensionality matrix-or-val) 1)
-    (sample-at here global-clock matrix-or-val multiplier perturb-info)
-    matrix-or-val))
 
 ;; FIXME: unused
 (defn calc-emc
@@ -59,7 +30,7 @@
         (and (= category :dead) (= size :10hr))
         (+ equilibrium-moisture 0.015)
 
-        (and (= category :dead) (= size :10hr))
+        (and (= category :dead) (= size :100hr))
         (+ equilibrium-moisture 0.025)
 
         (and (= category :live) (= size :herbaceous))
