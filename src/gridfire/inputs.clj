@@ -110,7 +110,7 @@
   (if perturbations
     (assoc inputs
            :perturbations (convert-ranges perturbations))
-    perturbations))
+    inputs))
 
 (defn get-weather
   [{:keys [rand-gen simulations] :as inputs} weather-type]
