@@ -465,7 +465,7 @@
 
 (defn- initialize-matrix
   [num-rows num-cols indices]
-  (let [matrix (m/zero-matrix num-rows num-cols)]
+  (let [matrix (t/new-tensor num-rows num-cols)]
     (doseq [[i j] indices
             :when (in-bounds? num-rows num-cols [i j])]
       (t/mset! matrix i j -1.0))
@@ -507,15 +507,15 @@
 (defmethod run-fire-spread :ignition-point
   [{:keys [num-rows num-cols initial-ignition-site spotting trajectory-combination] :as inputs}]
   (let [[i j]                      initial-ignition-site
-        fire-spread-matrix         (m/zero-matrix num-rows num-cols)
-        flame-length-matrix        (m/zero-matrix num-rows num-cols)
-        fire-line-intensity-matrix (m/zero-matrix num-rows num-cols)
-        burn-time-matrix           (m/zero-matrix num-rows num-cols)
-        firebrand-count-matrix     (when spotting (m/zero-matrix num-rows num-cols))
-        spread-rate-matrix         (m/zero-matrix num-rows num-cols)
-        fire-type-matrix           (m/zero-matrix num-rows num-cols)
-        spot-matrix                (m/zero-matrix num-rows num-cols)
-        fractional-distance-matrix (when (= trajectory-combination :sum) (m/zero-matrix num-rows num-cols))]
+        fire-spread-matrix         (t/new-tensor num-rows num-cols)
+        flame-length-matrix        (t/new-tensor num-rows num-cols)
+        fire-line-intensity-matrix (t/new-tensor num-rows num-cols)
+        burn-time-matrix           (t/new-tensor num-rows num-cols)
+        firebrand-count-matrix     (when spotting (t/new-tensor num-rows num-cols))
+        spread-rate-matrix         (t/new-tensor num-rows num-cols)
+        fire-type-matrix           (t/new-tensor num-rows num-cols)
+        spot-matrix                (t/new-tensor num-rows num-cols)
+        fractional-distance-matrix (when (= trajectory-combination :sum) (t/new-tensor num-rows num-cols))]
     (t/mset! fire-spread-matrix i j 1.0)
     (t/mset! flame-length-matrix i j 1.0)
     (t/mset! fire-line-intensity-matrix i j 1.0)
@@ -555,12 +555,12 @@
       (let [flame-length-matrix        (initialize-matrix num-rows num-cols non-zero-indices)
             fire-line-intensity-matrix (initialize-matrix num-rows num-cols non-zero-indices)
             burn-time-matrix           (initialize-matrix num-rows num-cols non-zero-indices)
-            firebrand-count-matrix     (when spotting (m/zero-matrix num-rows num-cols))
+            firebrand-count-matrix     (when spotting (t/new-tensor num-rows num-cols))
             spread-rate-matrix         (initialize-matrix num-rows num-cols non-zero-indices)
             fire-type-matrix           (initialize-matrix num-rows num-cols non-zero-indices)
             fractional-distance-matrix (when (= trajectory-combination :sum)
                                          (initialize-matrix num-rows num-cols non-zero-indices))
-            spot-matrix                (m/zero-matrix num-rows num-cols)
+            spot-matrix                (t/new-tensor num-rows num-cols)
             ignited-cells              (generate-ignited-cells inputs fire-spread-matrix perimeter-indices)]
         (when (seq ignited-cells)
           (run-loop inputs

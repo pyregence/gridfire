@@ -264,12 +264,12 @@
 ;;   [elevation-matrix slope-matrix fuel-model-matrix ignition-site ellipse-adjustment-factor outfile-base]
 ;;   (let [landfire-layers      {:elevation          elevation-matrix
 ;;                               :slope              slope-matrix
-;;                               :aspect             (doto (m/zero-matrix test-num-rows test-num-cols) (mop/+= 270.0)) ; downhill = west
+;;                               :aspect             (doto (t/new-tensor test-num-rows test-num-cols) (mop/+= 270.0)) ; downhill = west
 ;;                               :fuel-model         fuel-model-matrix
-;;                               :canopy-height      (m/zero-matrix test-num-rows test-num-cols)
-;;                               :canopy-base-height (m/zero-matrix test-num-rows test-num-cols)
-;;                               :canopy-cover       (m/zero-matrix test-num-rows test-num-cols)
-;;                               :crown-bulk-density (m/zero-matrix test-num-rows test-num-cols)}
+;;                               :canopy-height      (t/new-tensor test-num-rows test-num-cols)
+;;                               :canopy-base-height (t/new-tensor test-num-rows test-num-cols)
+;;                               :canopy-cover       (t/new-tensor test-num-rows test-num-cols)
+;;                               :crown-bulk-density (t/new-tensor test-num-rows test-num-cols)}
 ;;         foliar-moisture      0.9
 ;;         hfire-results        (run-fire-spread test-duration test-cell-size landfire-layers
 ;;                                               test-wind-speed-20ft test-wind-direction test-fuel-moisture
@@ -282,7 +282,7 @@
 
 ;; (defn elevation-west-aspect
 ;;   [elevation-change]
-;;   (let [elev (m/zero-matrix test-num-rows test-num-cols)]
+;;   (let [elev (t/new-tensor test-num-rows test-num-cols)]
 ;;     (doseq [i (range test-num-rows)
 ;;             j (range test-num-cols)]
 ;;       (t/mset! elev i j (* j elevation-change)))
@@ -290,11 +290,11 @@
 
 ;; (defn make-slope-layer
 ;;   [elevation-change]
-;;   (doto (m/zero-matrix test-num-rows test-num-cols) (mop/+= (/ elevation-change test-cell-size))))
+;;   (doto (t/new-tensor test-num-rows test-num-cols) (mop/+= (/ elevation-change test-cell-size))))
 
 ;; (defn make-fuel-model
 ;;   [fuel-model-number]
-;;   (doto (m/zero-matrix test-num-rows test-num-cols) (mop/+= fuel-model-number)))
+;;   (doto (t/new-tensor test-num-rows test-num-cols) (mop/+= fuel-model-number)))
 
 ;; (let [outfiles {[ 1   0] "grass_fire_slope_W000%"
 ;;                 [ 1  30] "grass_fire_slope_W030%"
@@ -404,8 +404,8 @@
 ;;                 cc           (-> validation-layers tile :canopy-cover)
 ;;                 ffs          (-> validation-layers tile :flammap-fire-spread)
 ;;                 ffl          (-> validation-layers tile :flammap-flame-length)
-;;                 cbd          (m/zero-matrix test-num-rows test-num-cols)
-;;                 cbh          (m/zero-matrix test-num-rows test-num-cols)
+;;                 cbd          (t/new-tensor test-num-rows test-num-cols)
+;;                 cbh          (t/new-tensor test-num-rows test-num-cols)
 ;;                 landfire-layers {:elevation elev
 ;;                                  :slope slp
 ;;                                  :aspect asp
