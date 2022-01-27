@@ -382,8 +382,8 @@
 ;;              :flammap-fire-spread  (postgis-raster-to-matrix db-spec "validation.fire_presence_tile643" nil nil)
 ;;              :flammap-flame-length (postgis-raster-to-matrix db-spec "validation.flame_length_tile643"  nil nil)}})
 
-;; (def validation-num-rows (m/row-count    (-> validation-layers :tile205 :elevation)))
-;; (def validation-num-cols (m/column-count (-> validation-layers :tile205 :elevation)))
+;; (def validation-num-rows (-> (t/tensor->dimensions (-> validation-layers :tile205 :elevation)) :shape first))
+;; (def validation-num-cols (-> (t/tensor->dimensions (-> validation-layers :tile205 :elevation)) :shape second))
 
 ;; (doseq [tile [:tile205 :tile210 :tile281 :tile310 :tile564 :tile643]
 ;;         layer [:elevation :slope :aspect :fuel-model :canopy-height :canopy-cover]]

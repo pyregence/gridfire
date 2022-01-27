@@ -95,7 +95,7 @@
 
 ;; (defn select-lattice-ignition-site
 ;;   [fuel-model-matrix lattice-rows lattice-cols lattice-number]
-;;   (let [num-rows        (m/row-count    fuel-model-matrix)
+;;   (let [num-rows        (-> (t/tensor->dimensions fuel-model-matrix) :shape first)
 ;;         num-cols        (-> (t/tensor->dimensions fuel-model-matrix) :shape second)
 ;;         ignition-matrix (doto (m/zero-matrix num-rows num-cols) (mop/+= 1.0))]
 ;;     (if (and (burnable? ignition-matrix fuel-model-matrix ignition-site)
@@ -115,7 +115,7 @@
 ;;                    (and (burnable? ignition-matrix fuel-model-matrix ignition-site)
 ;;                         (burnable-neighbors? ignition-matrix fuel-model-matrix 67 67 ignition-site)))
 ;;                  (for [i (range 67) j (range 67)] [i j])))
-;;     7 (let [num-rows (m/row-count    fuel-model-matrix)
+;;     7 (let [num-rows (-> (t/tensor->dimensions fuel-model-matrix) :shape first)
 ;;             num-cols (-> (t/tensor->dimensions fuel-model-matrix) :shape second)]
 ;;         (take 1000 (distinct (repeatedly #(random-cell num-rows num-cols)))))))
 ;;             num-cols (-> (t/tensor->dimensions fuel-model-matrix) :shape second)]
