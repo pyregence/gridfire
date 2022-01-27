@@ -3,6 +3,7 @@
 
  :deps {com.nextjournal/beholder            {:mvn/version "1.0.0"}
         com.taoensso/tufte                  {:mvn/version "2.2.0"}
+        cnuernber/dtype-next                {:mvn/version "9.000"}
         kixi/stats                          {:mvn/version "0.5.4"}
         net.mikera/core.matrix              {:mvn/version "0.62.0"}
         net.mikera/vectorz-clj              {:mvn/version "0.48.0"}

@@ -1,49 +1,53 @@
 (ns gridfire.simulations
-  (:require [clojure.core.matrix    :as m]
-            [clojure.java.io        :as io]
+  (:require [clojure.java.io        :as io]
             [gridfire.binary-output :as binary]
             [gridfire.common        :refer [get-neighbors in-bounds?]]
             [gridfire.conversion    :refer [min->hour kebab->snake snake->kebab]]
             [gridfire.fire-spread   :refer [run-fire-spread]]
             [gridfire.outputs       :as outputs]
             [gridfire.utils.random  :refer [my-rand-range]]
-            [taoensso.tufte         :as tufte])
+            [taoensso.tufte         :as tufte]
+            [tech.v3.tensor         :as t]
+            [tech.v3.datatype       :as d])
   (:import java.util.Random))
-
-(m/set-current-implementation :vectorz)
 
 #_(set! *unchecked-math* :warn-on-boxed)
 
 (defn layer-snapshot [burn-time-matrix layer-matrix t]
-  (m/emap (fn [layer-value burn-time]
-            (if (<= burn-time t)
-              layer-value
-              0))
-          layer-matrix
-          burn-time-matrix))
+  (d/clone
+   (d/emap (fn [layer-value burn-time]
+             (if (<= burn-time t)
+               layer-value
+               0))
+           nil
+           layer-matrix
+           burn-time-matrix)))
 
 (defn previous-active-perimeter?
   [[i j :as here] matrix]
-  (let [num-rows (m/row-count matrix)
-        num-cols (m/column-count matrix)]
+  (let [num-rows (-> (t/tensor->dimensions matrix) :shape first)
+        num-cols (-> (t/tensor->dimensions matrix) :shape second)]
     (and
-     (= (m/mget matrix i j) -1.0)
+     (= (t/mget matrix i j) -1.0)
      (->> (get-neighbors here)
           (filter #(in-bounds? num-rows num-cols %))
-          (map #(apply m/mget matrix %))
+          (map #(apply t/mget matrix %))
           (some pos?)))))
 
 (defn to-color-map-values [burn-time-matrix current-clock]
-  (m/emap-indexed (fn [here burn-time]
-                    (let [delta-hours (->> (- current-clock burn-time)
-                                           min->hour)]
-                      (cond
-                        (previous-active-perimeter? here burn-time-matrix) 201
-                        (= burn-time -1.0)                                 200
-                        (< 0 delta-hours 5)                                delta-hours
-                        (>= delta-hours 5)                                 5
-                        :else                                              0)))
-                  burn-time-matrix))
+  (t/compute-tensor
+   (:shape (t/tensor->dimensions burn-time-matrix))
+   (fn [i j]
+     (let [burn-time   (t/mget burn-time-matrix i j)
+           delta-hours (->> (- current-clock burn-time)
+                            min->hour)]
+       (cond
+         (previous-active-perimeter? [i j] burn-time-matrix) 201
+         (= burn-time -1.0)                                  200
+         (< 0 delta-hours 5)                                 delta-hours
+         (>= delta-hours 5)                                  5
+         :else                                               0)))
+   :int64))
 
 (defn process-output-layers-timestepped
   [{:keys [simulation-id] :as config}
@@ -101,12 +105,13 @@
    timestep]
   (if (int? timestep)
     (doseq [clock (range 0 (inc global-clock) timestep)]
-      (let [filtered-fire-spread (m/emap (fn [layer-value burn-time]
-                                           (if (<= burn-time clock)
-                                             layer-value
-                                             0))
-                                         fire-spread-matrix
-                                         burn-time-matrix)
+      (let [filtered-fire-spread (d/clone
+                                  (d/emap (fn [layer-value burn-time]
+                                            (if (<= burn-time clock)
+                                              layer-value
+                                              0))
+                                          fire-spread-matrix
+                                          burn-time-matrix))
             band                 (int (quot clock timestep))]
         (m/add! (nth (seq burn-count-matrix) band) filtered-fire-spread)))
     (m/add! burn-count-matrix fire-spread-matrix)))
@@ -119,7 +124,9 @@
   (when flame-length-sum-matrix
     (m/add! flame-length-sum-matrix (:flame-length-matrix fire-spread-results)))
   (when flame-length-max-matrix
-    (m/emap! #(max %1 %2) flame-length-max-matrix (:flame-length-matrix fire-spread-results)))
+    (d/copy! (d/emap #(max %1 %2) nil flame-length-max-matrix (:flame-length-matrix fire-spread-results))
+             flame-length-max-matrix
+             flame-length-max-matrix))
   (when spot-count-matrix
     (m/add! spot-count-matrix (:spot-matrix fire-spread-results))))
 
@@ -134,7 +141,7 @@
                         output-name)]
       (binary/write-matrices-as-binary output-path
                                        [:float :float :float :int]
-                                       [(m/emap #(if (pos? %) (* 60 %) %) burn-time-matrix)
+                                       [(d/clone (d/emap #(if (pos? %) (* 60 %) %) nil burn-time-matrix))
                                         flame-length-matrix
                                         spread-rate-matrix
                                         fire-type-matrix]))))
@@ -146,20 +153,22 @@
 
 (defn summarize-fire-spread-results
   [fire-spread-results cell-size]
-  (let [flame-lengths              (filterv pos? (m/eseq (:flame-length-matrix fire-spread-results)))
-        fire-line-intensities      (filterv pos? (m/eseq (:fire-line-intensity-matrix fire-spread-results)))
+  (let [flame-lengths              (filterv pos? (d/-> (:flame-length-matrix fire-spread-results)))
+        fire-line-intensities      (filterv pos? (d/-> (:fire-line-intensity-matrix fire-spread-results)))
         burned-cells               (count flame-lengths)
         fire-size                  (cells-to-acres cell-size burned-cells)
         crown-fire-size            (cells-to-acres cell-size (:crown-fire-count fire-spread-results))
         flame-length-mean          (/ (m/esum flame-lengths) burned-cells)
         fire-line-intensity-mean   (/ (m/esum fire-line-intensities) burned-cells)
         flame-length-stddev        (->> flame-lengths
-                                        (m/emap #(Math/pow (- flame-length-mean %) 2.0))
+                                        (d/emap #(Math/pow (- flame-length-mean %) 2.0) nil)
+                                        (d/clone)
                                         (m/esum)
                                         (#(/ % burned-cells))
                                         (Math/sqrt))
         fire-line-intensity-stddev (->> fire-line-intensities
-                                        (m/emap #(Math/pow (- fire-line-intensity-mean %) 2.0))
+                                        (d/emap #(Math/pow (- fire-line-intensity-mean %) 2.0) nil)
+                                        (d/clone)
                                         (m/esum)
                                         (#(/ % burned-cells))
                                         (Math/sqrt))]
@@ -206,16 +215,16 @@
             ([i j]
              (let [row (int (* i index-multiplier))
                    col (int (* j index-multiplier))]
-               (m/mget matrix-or-num row col)))
+               (t/mget matrix-or-num row col)))
             ([b i j]
              (let [row (int (* i index-multiplier))
                    col (int (* j index-multiplier))]
-               (m/mget matrix-or-num b row col))))
+               (t/mget matrix-or-num b row col))))
           (fn
             ([i j]
-             (m/mget matrix-or-num i j))
+             (t/mget matrix-or-num i j))
             ([b i j]
-             (m/mget matrix-or-num b i j))))
+             (t/mget matrix-or-num b i j))))
 
         (and (number? matrix-or-num) (= spatial-type :pixel))
         (let [band-cache            (atom 0)
@@ -258,7 +267,7 @@
                (let [row (int (* i index-multiplier))
                      col (int (* j index-multiplier))]
                  (or (get @perturbed-value-cache [row col])
-                     (let [new-value (max 0 (+ (m/mget matrix-or-num row col) (my-rand-range rand-gen range-min range-max)))]
+                     (let [new-value (max 0 (+ (t/mget matrix-or-num row col) (my-rand-range rand-gen range-min range-max)))]
                        (swap! perturbed-value-cache assoc [row col] new-value)
                        new-value))))
               ([b i j]
@@ -268,13 +277,13 @@
                (let [row (int (* i index-multiplier))
                      col (int (* j index-multiplier))]
                  (or (get @perturbed-value-cache [row col])
-                     (let [new-value (max 0 (+ (m/mget matrix-or-num b row col) (my-rand-range rand-gen range-min range-max)))]
+                     (let [new-value (max 0 (+ (t/mget matrix-or-num b row col) (my-rand-range rand-gen range-min range-max)))]
                        (swap! perturbed-value-cache assoc [row col] new-value)
                        new-value)))))
             (fn
               ([i j]
                (or (get @perturbed-value-cache [i j])
-                   (let [new-value (max 0 (+ (m/mget matrix-or-num i j) (my-rand-range rand-gen range-min range-max)))]
+                   (let [new-value (max 0 (+ (t/mget matrix-or-num i j) (my-rand-range rand-gen range-min range-max)))]
                      (swap! perturbed-value-cache assoc [i j] new-value)
                      new-value)))
               ([b i j]
@@ -282,7 +291,7 @@
                  (reset! band-cache b)
                  (reset! perturbed-value-cache {}))
                (or (get @perturbed-value-cache [i j])
-                   (let [new-value (max 0 (+ (m/mget matrix-or-num b i j) (my-rand-range rand-gen range-min range-max)))]
+                   (let [new-value (max 0 (+ (t/mget matrix-or-num b i j) (my-rand-range rand-gen range-min range-max)))]
                      (swap! perturbed-value-cache assoc [i j] new-value)
                      new-value))))))
 
@@ -295,7 +304,7 @@
                      col    (int (* j index-multiplier))
                      offset (or @offset-cache
                                 (reset! offset-cache (my-rand-range rand-gen range-min range-max)))]
-                 (max 0 (+ (m/mget matrix-or-num row col) offset))))
+                 (max 0 (+ (t/mget matrix-or-num row col) offset))))
               ([b i j]
                (let [row    (int (* i index-multiplier))
                      col    (int (* j index-multiplier))
@@ -303,18 +312,18 @@
                                 (let [new-offset (my-rand-range rand-gen range-min range-max)]
                                   (reset! offset-cache {b new-offset})
                                   new-offset))]
-                 (max 0 (+ (m/mget matrix-or-num b row col) offset)))))
+                 (max 0 (+ (t/mget matrix-or-num b row col) offset)))))
             (fn
               ([i j]
                (let [offset (or @offset-cache
                                 (reset! offset-cache (my-rand-range rand-gen range-min range-max)))]
-                 (max 0 (+ (m/mget matrix-or-num i j) offset))))
+                 (max 0 (+ (t/mget matrix-or-num i j) offset))))
               ([b i j]
                (let [offset (or (get @offset-cache b)
                                 (let [new-offset (my-rand-range rand-gen range-min range-max)]
                                   (reset! offset-cache {b new-offset})
                                   new-offset))]
-                 (max 0 (+ (m/mget matrix-or-num b i j) offset)))))))))))
+                 (max 0 (+ (t/mget matrix-or-num b i j) offset)))))))))))
 
 ;; FIXME: Replace input-variations expression with add-sampled-params
 ;;        and add-weather-params (and remove them from load-inputs).

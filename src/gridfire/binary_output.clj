@@ -2,21 +2,21 @@
   (:import (java.io DataInputStream DataOutputStream)
            (java.nio ByteBuffer))
   (:require [clojure.java.io     :as io]
-            [clojure.core.matrix :as m]
+            [tech.v3.tensor :as t]
             [taoensso.tufte      :as tufte]))
 
-(m/set-current-implementation :vectorz)
+
 
 ;; We assume that matrix[0,0] is the upper left corner.
 (defn non-zero-data [matrix]
-  (let [row-count (m/row-count matrix)]
+  (let [row-count (-> (t/tensor->dimensions matrix) :shape first)]
     (transduce
      (comp (map-indexed (fn [row cols]
                           (when (pos? (count cols))
                             (let [y (- row-count row)]
                               {:x (mapv inc cols) ; 1 -> m left to right
                                :y (into [] (repeat (count cols) y)) ; n -> 1 top to bottom
-                               :v (mapv (fn [col] (m/mget matrix row col)) cols)}))))
+                               :v (mapv (fn [col] (t/mget matrix row col)) cols)}))))
            (remove nil?))
      (completing
       (fn [m1 m2]
@@ -41,14 +41,14 @@
           (let [true-row (- max-row (aget rows i))
                 true-col (dec (aget cols i))]
             (aset matrix true-row true-col (aget values i))))
-        (m/matrix matrix))
+        (t/->tensor matrix))
       (let [^floats values (indices :v)
             matrix         (make-array Float/TYPE max-row max-col)]
         (dotimes [i (count values)]
           (let [true-row (- max-row (aget rows i))
                 true-col (dec (aget cols i))]
             (aset matrix true-row true-col (aget values i))))
-        (m/matrix matrix)))))
+        (t/->tensor matrix)))))
 
 ;;FIXME optimize
 (defn write-matrix-as-binary [matrix file-name]

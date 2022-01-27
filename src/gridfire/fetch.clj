@@ -1,16 +1,16 @@
 ;; [[file:../../org/GridFire.org::fetch.clj][fetch.clj]]
 (ns gridfire.fetch
-  (:require [clojure.core.matrix      :as m]
-            [clojure.java.io          :as io]
+  (:require [clojure.java.io          :as io]
             [gridfire.conversion      :as convert]
             [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
             [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]
             [magellan.core            :refer [make-envelope
-                                              register-new-crs-definitions-from-properties-file!]]))
+                                              register-new-crs-definitions-from-properties-file!]]
+            [tech.v3.datatype           :as d]))
 
 (register-new-crs-definitions-from-properties-file! "CUSTOM" (io/resource "custom_projections.properties"))
 
-(m/set-current-implementation :vectorz)
+
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -54,10 +54,12 @@
 ;;-----------------------------------------------------------------------------
 
 (defn convert-burn-values [matrix {:keys [burned unburned]}]
-  (m/emap! #(condp = %
-              (double burned)   1.0
-              (double unburned) 0.0
-              -1.0)
+  (d/copy! (d/emap #(condp = %
+                      (double burned)   1.0
+                      (double unburned) 0.0
+                      -1.0)
+                   matrix)
+           matrix
            matrix))
 
 (defn ignition-layer
@@ -126,7 +128,10 @@
         (-> (if (= type :postgis)
               (postgis-raster-to-matrix db-spec source)
               (geotiff-raster-to-matrix source))
-            (update :matrix #(m/emap! convert/percent->dec %)))))))
+            (update :matrix (fn [matrix]
+                              (d/copy! (d/emap convert/percent->dec nil matrix)
+                                       matrix
+                                       matrix))))))))
 
 (defn fuel-moisture-matrix
   "Returns a matrix values for the given fuel category and size

@@ -1,10 +1,11 @@
 (ns gridfire.fetch-fuel-moisture-test
-  (:require [clojure.core.matrix       :as m]
+  (:require [tech.v3.tensor       :as t]
             [clojure.test              :refer [deftest are]]
             [gridfire.fetch            :as fetch]
             [gridfire.magellan-bridge  :refer [geotiff-raster-to-matrix]]
             [gridfire.utils.test       :as utils]
-            [gridfire.conversion :as convert]))
+            [gridfire.conversion :as convert]
+            [tech.v3.datatype :as d]))
 
 (def resources-path "test/gridfire/resources/weather-test")
 
@@ -19,7 +20,7 @@
                      :matrix
                      first))]
     (= (fetch/fuel-moisture-matrix inputs category size)
-       (m/emap convert/percent->dec matrix))))
+       (d/clone (d/emap convert/percent->dec nil matrix)))))
 
 (deftest ^:unit fuel-moisture-test
   (let [inputs {:fuel-moisture

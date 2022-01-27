@@ -1,6 +1,6 @@
 ;; [[file:../../org/GridFire.org::sardoy-firebrand-dispersal][sardoy-firebrand-dispersal]]
 (ns gridfire.spotting
-  (:require [clojure.core.matrix :as m]
+  (:require [tech.v3.tensor :as t]
             [gridfire.common :refer [distance-3d
                                      calc-fuel-moisture
                                      in-bounds?
@@ -9,7 +9,7 @@
             [gridfire.conversion :as convert]
             [kixi.stats.distribution :as distribution]))
 
-(m/set-current-implementation :vectorz)
+
 
 ;;-----------------------------------------------------------------------------
 ;; Formulas
@@ -61,7 +61,7 @@
    fire-line-intensity-matrix
    wind-speed-20ft [i j]]
   (let [num-firebrands          (sample-spotting-params (:num-firebrands spotting) rand-gen)
-        intensity               (convert/Btu-ft-s->kW-m (m/mget fire-line-intensity-matrix i j))
+        intensity               (convert/Btu-ft-s->kW-m (t/mget fire-line-intensity-matrix i j))
         {:keys [mean variance]} (mean-variance spotting rand-gen intensity wind-speed-20ft)
         mu                      (normalized-mean mean variance)
         sd                      (standard-deviation mean variance)
@@ -234,8 +234,8 @@
                                          fuel-model-matrix
                                          source
                                          here))
-          :let           [new-count (inc ^double (m/mget firebrand-count-matrix x y))]]
-    (m/mset! firebrand-count-matrix x y new-count)))
+          :let           [new-count (inc ^double (t/mget firebrand-count-matrix x y))]]
+    (t/mset! firebrand-count-matrix x y new-count)))
 
 (defn- in-range?
   [[min max] fuel-model-number]
@@ -273,7 +273,7 @@
            surface-fire-spotting
            (> fire-line-intensity ^double (:critical-fire-line-intensity surface-fire-spotting)))
       (let [fuel-range-percents (:spotting-percent surface-fire-spotting)
-            fuel-model-number   (int (m/mget fuel-model-matrix i j))
+            fuel-model-number   (int (t/mget fuel-model-matrix i j))
             spot-percent        (surface-spot-percent fuel-range-percents fuel-model-number rand-gen)]
         (>= spot-percent (my-rand-range rand-gen 0.0 1.0))))))
 
@@ -332,7 +332,7 @@
                                                                          (double cell-size)
                                                                          [x y]
                                                                          cell))
-                        firebrand-count      (m/mget firebrand-count-matrix x y)
+                        firebrand-count      (t/mget firebrand-count-matrix x y)
                         spot-ignition-p      (spot-ignition-probability ignition-probability
                                                                         decay-constant
                                                                         spotting-distance
@@ -340,7 +340,7 @@
              (when (spot-ignition? rand-gen spot-ignition-p)
                (let [[i j] cell
                      t     (spot-ignition-time global-clock
-                                               (convert/ft->m (m/mget flame-length-matrix i j)))]
+                                               (convert/ft->m (t/mget flame-length-matrix i j)))]
                  [[x y] [t spot-ignition-p]])))
            (remove nil?)))))
 ;; spread-firebrands ends here

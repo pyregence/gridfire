@@ -1,6 +1,6 @@
 (ns gridfire.spotting-test
   (:require [clojure.test        :refer [are deftest is testing use-fixtures run-tests]]
-            [clojure.core.matrix :as m]
+            [tech.v3.tensor :as t]
             [gridfire.conversion :as c]
             [gridfire.spotting   :as spotting])
   (:import java.util.Random))

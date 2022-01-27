@@ -1,9 +1,10 @@
 (ns gridfire.conversion-test
-  (:require [clojure.core.matrix      :as m]
+  (:require [tech.v3.tensor      :as t]
             [clojure.test             :refer [deftest is testing]]
             [gridfire.conversion      :as convert]
             [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
-            [gridfire.utils.test      :as utils]))
+            [gridfire.utils.test      :as utils]
+            [tech.v3.datatype :as d]))
 
 (def resources-path "test/gridfire/resources/conversion_test")
 
@@ -15,19 +16,19 @@
     (testing "convert metric"
       (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
             layer-after  (convert/to-imperial! layer-before {:units :metric} :canopy-height)]
-        (is (= (:matrix layer-after) (m/emap unit-fn (:matrix layer))))))
+        (is (= (:matrix layer-after) (d/clone (d/emap unit-fn nil (:matrix layer)))))))
 
     (testing "scale with multiplier"
       (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
             layer-after  (convert/to-imperial! layer-before {:multiplier 100} :canopy-height)]
 
-        (is (= (:matrix layer-after) (m/emap multiplier-fn (:matrix layer))))))
+        (is (= (:matrix layer-after) (d/clone (d/emap multiplier-fn nil (:matrix layer)))))))
 
     (testing "convert metric and scale with multiplier"
         (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
               layer-after  (convert/to-imperial! layer-before {:units :metric :multiplier 100} :canopy-height)]
 
-          (is (= (:matrix layer-after) (m/emap (comp unit-fn multiplier-fn) (:matrix layer))))))
+          (is (= (:matrix layer-after) (d/clone (d/emap (comp unit-fn multiplier-fn) nil (:matrix layer)))))))
 
     (testing "no conversion, already in imperial"
         (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
@@ -44,19 +45,19 @@
       (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
             layer-after  (convert/to-imperial! layer-before {:units :metric} :elevation)]
 
-        (is (= (:matrix layer-after) (m/emap unit-fn (:matrix layer))))))
+        (is (= (:matrix layer-after) (d/clone (d/emap unit-fn nil (:matrix layer)))))))
 
     (testing "scale with multiplier"
       (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
             layer-after  (convert/to-imperial! layer-before {:multiplier 100} :elevation)]
 
-        (is (= (:matrix layer-after) (m/emap multiplier-fn (:matrix layer))))))
+        (is (= (:matrix layer-after) (d/clone (d/emap multiplier-fn nil (:matrix layer)))))))
 
     (testing "convert metric and scale with multiplier"
       (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
             layer-after  (convert/to-imperial! layer-before {:units :metric :multiplier 100} :elevation)]
 
-        (is (= (:matrix layer-after) (m/emap (comp unit-fn multiplier-fn) (:matrix layer))))))
+        (is (= (:matrix layer-after) (d/clone (d/emap (comp unit-fn multiplier-fn) nil (:matrix layer)))))))
 
     (testing "no conversion, already in imperial"
       (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
@@ -73,19 +74,19 @@
       (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
             layer-after  (convert/to-imperial! layer-before {:units :metric} :canopy-base-height)]
 
-        (is (= (:matrix layer-after) (m/emap unit-fn (:matrix layer))))))
+        (is (= (:matrix layer-after) (d/clone (d/emap unit-fn nil (:matrix layer)))))))
 
     (testing "scale with multiplier"
       (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
             layer-after  (convert/to-imperial! layer-before {:multiplier 100} :canopy-base-height)]
 
-        (is (= (:matrix layer-after) (m/emap multiplier-fn (:matrix layer))))))
+        (is (= (:matrix layer-after) (d/clone (d/emap multiplier-fn nil (:matrix layer)))))))
 
     (testing "convert metric and scale with multiplier"
       (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
             layer-after  (convert/to-imperial! layer-before {:units :metric :multiplier 100} :canopy-base-height)]
 
-        (is (= (:matrix layer-after) (m/emap (comp unit-fn multiplier-fn) (:matrix layer))))))
+        (is (= (:matrix layer-after) (d/clone (d/emap (comp unit-fn multiplier-fn) nil (:matrix layer)))))))
 
     (testing "no conversion, already in imperial"
       (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
@@ -102,19 +103,19 @@
       (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
             layer-after  (convert/to-imperial! layer-before {:units :metric} :crown-bulk-density)]
 
-        (is (= (:matrix layer-after) (m/emap unit-fn (:matrix layer))))))
+        (is (= (:matrix layer-after) (d/clone (d/emap unit-fn nil (:matrix layer)))))))
 
     (testing "scale with multiplier"
       (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
             layer-after  (convert/to-imperial! layer-before {:multiplier 100} :crown-bulk-density)]
 
-        (is (= (:matrix layer-after) (m/emap multiplier-fn (:matrix layer))))))
+        (is (= (:matrix layer-after) (d/clone (d/emap multiplier-fn nil (:matrix layer)))))))
 
     (testing "convert metric and scale with multiplier"
       (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
             layer-after  (convert/to-imperial! layer-before {:units :metric :multiplier 100} :crown-bulk-density)]
 
-        (is (= (:matrix layer-after) (m/emap (comp unit-fn multiplier-fn) (:matrix layer))))))
+        (is (= (:matrix layer-after) (d/clone (d/emap (comp unit-fn multiplier-fn) nil (:matrix layer)))))))
 
     (testing "no conversion, already in imperial"
       (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
@@ -131,19 +132,19 @@
       (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
             layer-after  (convert/to-imperial! layer-before {:units :metric} :wind-speed-20ft)]
 
-        (is (= (:matrix layer-after) (m/emap unit-fn (:matrix layer))))))
+        (is (= (:matrix layer-after) (d/clone (d/emap unit-fn nil (:matrix layer)))))))
 
     (testing "scale with multiplier"
       (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
             layer-after  (convert/to-imperial! layer-before {:multiplier 100} :wind-speed-20ft)]
 
-        (is (= (:matrix layer-after) (m/emap multiplier-fn (:matrix layer))))))
+        (is (= (:matrix layer-after) (d/clone (d/emap multiplier-fn nil (:matrix layer)))))))
 
     (testing "convert metric and scale with multiplier"
       (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
             layer-after  (convert/to-imperial! layer-before {:units :metric :multiplier 100} :wind-speed-20ft)]
 
-        (is (= (:matrix layer-after) (m/emap (comp unit-fn multiplier-fn) (:matrix layer))))))
+        (is (= (:matrix layer-after) (d/clone (d/emap (comp unit-fn multiplier-fn) nil (:matrix layer)))))))
 
     (testing "no conversion, already in imperial"
       (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
@@ -160,27 +161,27 @@
             layer-after  (convert/to-imperial! layer-before {:units :metric} :temperature)
             unit-fn      convert/C->F]
 
-        (is (= (:matrix layer-after) (m/emap unit-fn (:matrix layer))))))
+        (is (= (:matrix layer-after) (d/clone (d/emap unit-fn nil (:matrix layer)))))))
 
     (testing "convert absolute"
       (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
             layer-after  (convert/to-imperial! layer-before {:units :absolute} :temperature)
             unit-fn      convert/K->F]
 
-        (is (= (:matrix layer-after) (m/emap unit-fn (:matrix layer))))))
+        (is (= (:matrix layer-after) (d/clone (d/emap unit-fn nil (:matrix layer)))))))
 
     (testing "scale with multiplier"
       (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
             layer-after  (convert/to-imperial! layer-before {:multiplier 100} :temperature)]
 
-        (is (= (:matrix layer-after) (m/emap multiplier-fn (:matrix layer))))))
+        (is (= (:matrix layer-after) (d/clone (d/emap multiplier-fn nil (:matrix layer)))))))
 
     (testing "convert metric and scale with multiplier"
       (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))
             layer-after  (convert/to-imperial! layer-before {:units :metric :multiplier 100} :temperature)
             unit-fn      convert/C->F]
 
-        (is (= (:matrix layer-after) (m/emap (comp unit-fn multiplier-fn) (:matrix layer))))))
+        (is (= (:matrix layer-after) (d/clone (d/emap (comp unit-fn multiplier-fn) nil (:matrix layer)))))))
 
     (testing "no conversion, already in imperial"
       (let [layer-before (assoc layer :matrix (m/mutable (:matrix layer)))

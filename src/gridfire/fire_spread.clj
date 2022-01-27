@@ -1,6 +1,6 @@
 ;; [[file:../../org/GridFire.org::fire-spread-algorithm][fire-spread-algorithm]]
 (ns gridfire.fire-spread
-  (:require [clojure.core.matrix           :as m]
+  (:require [tech.v3.tensor                :as t]
             [clojure.core.reducers         :as r]
             [gridfire.common               :refer [burnable-fuel-model?
                                                    burnable?
@@ -26,7 +26,7 @@
             [gridfire.utils.random        :as random])
   (:import java.util.Random))
 
-(m/set-current-implementation :vectorz)
+
 
 ;; for surface fire, tau = 10 mins, t0 = 0, and t = global-clock
 ;; for crown fire, tau = 20 mins, t0 = time of first torch, t = global-clock
@@ -207,7 +207,7 @@
 (defn- get-old-fractional-distance
   [{:keys [trajectory-combination]} {:keys [fractional-distance]} fractional-distance-matrix [i j]]
   (if (= trajectory-combination :sum)
-    (m/mget fractional-distance-matrix i j)
+    (t/mget fractional-distance-matrix i j)
     @fractional-distance))
 
 (defn- update-fractional-distance-matrix!
@@ -215,7 +215,7 @@
   [fractional-distance-matrix max-fractionals]
   (doseq [[cell fractional-distance] @max-fractionals]
     (let [[i j] cell]
-      (m/mset! fractional-distance-matrix i j fractional-distance))))
+      (t/mset! fractional-distance-matrix i j fractional-distance))))
 
 (defn- update-fractional-distance!
   "Update fractional distance for given trajectory into the current cell. Return a tuple of [old-value new-value]"
@@ -235,7 +235,7 @@
   [{:keys [num-rows num-cols]} fractional-distance-matrix {:keys [cell trajectory]} fractional-distance]
   (let [[i j :as target] (mapv + cell trajectory)]
     (when (in-bounds? num-rows num-cols target)
-      (m/mset! fractional-distance-matrix i j (- fractional-distance 1.0)))))
+      (t/mset! fractional-distance-matrix i j (- fractional-distance 1.0)))))
 
 (defn ignition-event-reducer
   [inputs max-fractionals fractional-distance-matrix timestep trajectory-combination fire-spread-matrix
@@ -255,7 +255,7 @@
           (assoc! acc cell (merge trajectory {:fractional-distance  new-total
                                               :dt-adjusted          (* (/ (- 1.0 old-total) (- new-total old-total))
                                                                        timestep)
-                                              :ignition-probability (m/mget fire-spread-matrix i j)})))
+                                              :ignition-probability (t/mget fire-spread-matrix i j)})))
       acc)))
 
 (defn identify-ignition-events
@@ -340,7 +340,7 @@
   (let [ignited?        (fn [[k v]]
                           (let [[i j] k
                                 [_ p] v]
-                            (> ^double (m/mget fire-spread-matrix i j) ^double p)))
+                            (> ^double (t/mget fire-spread-matrix i j) ^double p)))
         spot-ignite-now (remove ignited? spot-ignite-now)
         ignited-cells   (generate-ignited-cells constants
                                                 fire-spread-matrix
@@ -348,13 +348,13 @@
     (doseq [cell spot-ignite-now
             :let [[i j]                    (key cell)
                   [_ ignition-probability] (val cell)]]
-      (m/mset! fire-spread-matrix i j ignition-probability)
-      (m/mset! burn-time-matrix i j global-clock)
-      (m/mset! flame-length-matrix i j 1.0)
-      (m/mset! fire-line-intensity-matrix i j 1.0)
-      (m/mset! spread-rate-matrix i j -1.0)
-      (m/mset! fire-type-matrix i j -1.0)
-      (m/mset! spot-matrix i j 1.0))
+      (t/mset! fire-spread-matrix i j ignition-probability)
+      (t/mset! burn-time-matrix i j global-clock)
+      (t/mset! flame-length-matrix i j 1.0)
+      (t/mset! fire-line-intensity-matrix i j 1.0)
+      (t/mset! spread-rate-matrix i j -1.0)
+      (t/mset! fire-type-matrix i j -1.0)
+      (t/mset! spot-matrix i j 1.0))
     ignited-cells))
 
 (defn new-spot-ignitions
@@ -425,12 +425,12 @@
             (let [[i j]       cell
                   dt-adjusted (double dt-adjusted)]
               (when crown-fire? (swap! crown-fire-count inc))
-              (m/mset! fire-spread-matrix         i j ignition-probability)
-              (m/mset! flame-length-matrix        i j flame-length)
-              (m/mset! fire-line-intensity-matrix i j fire-line-intensity)
-              (m/mset! burn-time-matrix           i j (+ global-clock dt-adjusted))
-              (m/mset! spread-rate-matrix         i j spread-rate)
-              (m/mset! fire-type-matrix           i j (fire-type fire-type-to-value))))
+              (t/mset! fire-spread-matrix         i j ignition-probability)
+              (t/mset! flame-length-matrix        i j flame-length)
+              (t/mset! fire-line-intensity-matrix i j fire-line-intensity)
+              (t/mset! burn-time-matrix           i j (+ global-clock dt-adjusted))
+              (t/mset! spread-rate-matrix         i j spread-rate)
+              (t/mset! fire-type-matrix           i j (fire-type fire-type-to-value))))
           (let [new-spot-ignitions (new-spot-ignitions (assoc inputs :global-clock global-clock)
                                                        matrices
                                                        ignition-events)
@@ -468,7 +468,7 @@
   (let [matrix (m/zero-matrix num-rows num-cols)]
     (doseq [[i j] indices
             :when (in-bounds? num-rows num-cols [i j])]
-      (m/mset! matrix i j -1.0))
+      (t/mset! matrix i j -1.0))
     matrix))
 
 (defn- get-non-zero-indices [m]
@@ -516,12 +516,12 @@
         fire-type-matrix           (m/zero-matrix num-rows num-cols)
         spot-matrix                (m/zero-matrix num-rows num-cols)
         fractional-distance-matrix (when (= trajectory-combination :sum) (m/zero-matrix num-rows num-cols))]
-    (m/mset! fire-spread-matrix i j 1.0)
-    (m/mset! flame-length-matrix i j 1.0)
-    (m/mset! fire-line-intensity-matrix i j 1.0)
-    (m/mset! burn-time-matrix i j -1.0)
-    (m/mset! spread-rate-matrix i j -1.0)
-    (m/mset! fire-type-matrix i j -1.0)
+    (t/mset! fire-spread-matrix i j 1.0)
+    (t/mset! flame-length-matrix i j 1.0)
+    (t/mset! fire-line-intensity-matrix i j 1.0)
+    (t/mset! burn-time-matrix i j -1.0)
+    (t/mset! spread-rate-matrix i j -1.0)
+    (t/mset! fire-type-matrix i j -1.0)
     (let [ignited-cells (compute-neighborhood-fire-spread-rates!
                          inputs
                          fire-spread-matrix

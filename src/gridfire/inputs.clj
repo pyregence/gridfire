@@ -1,5 +1,5 @@
 (ns gridfire.inputs
-  (:require [clojure.core.matrix   :as m]
+  (:require [tech.v3.tensor   :as t]
             [clojure.data.csv      :as csv]
             [clojure.java.io       :as io]
             [clojure.string        :as str]
@@ -7,11 +7,8 @@
             [gridfire.conversion   :refer [conversion-table percent->dec]]
             [gridfire.fetch        :as fetch]
             [gridfire.utils.random :refer [draw-samples my-shuffle my-rand-nth]]
-            [gridfire.utils.server :refer [throw-message]]
-            [tech.v3.tensor        :as t])
+            [gridfire.utils.server :refer [throw-message]])
   (:import java.util.Random))
-
-(m/set-current-implementation :vectorz)
 
 (defn add-input-layers
   [config]
@@ -38,14 +35,14 @@
          :fuel-moisture-live-woody-matrix      (fetch/fuel-moisture-matrix config :live :woody)))
 
 (defn- multi-band? [matrix]
-  (> (m/dimensionality matrix) 2))
+  (> (:n-dims (t/tensor->dimensions matrix)) 2))
 
 ;;TODO Document: using higher resolution layers than fuel model will choose upper left corner cell of the layer from the higher resolution grid within each fuel model grid cell. Recommend to use layers at or below resolution of fuel model matrix if you want to avoid loss of information.
 (defn calc-multiplier
   [inputs fuel-model-matrix-height matrix-kw]
   (when-let [matrix (get inputs matrix-kw)]
     (let [height-dimension (if (multi-band? matrix) 1 0)
-          matrix-height    (m/dimension-count matrix height-dimension)
+          matrix-height    (-> (t/tensor->dimensions matrix) :shape (get height-dimension))
           multiplier       (double (/ matrix-height fuel-model-matrix-height))]
       (when (not= multiplier 1.0)
         multiplier))))
@@ -53,10 +50,12 @@
 ;;TODO Document fuel-model as the resolution of the computational space. Cell size must also match fuel model.
 (defn add-misc-params
   [{:keys [random-seed fuel-model-matrix] :as inputs}]
-  (let [num-rows (m/row-count fuel-model-matrix)]
+  (let [num-rows (-> (t/tensor->dimensions fuel-model-matrix)
+                     :shape
+                     first)]
     (assoc inputs
            :num-rows                                       num-rows
-           :num-cols                                       (m/column-count fuel-model-matrix)
+           :num-cols                                       (-> (t/tensor->dimensions fuel-model-matrix) :shape second)
            :rand-gen                                       (if random-seed (Random. random-seed) (Random.))
            :aspect-index-multiplier                        (calc-multiplier inputs num-rows :aspect-matrix)
            :canopy-base-height-index-multiplier            (calc-multiplier inputs num-rows :canopy-base-height-matrix)
@@ -180,10 +179,10 @@
    ignition-cols]
   (let [ignitable-cell? (if ignition-mask-matrix
                           (fn [row col]
-                            (and (pos? (m/mget ignition-mask-matrix row col))
-                                 (burnable-fuel-model? (m/mget fuel-model-matrix row col))))
+                            (and (pos? (t/mget ignition-mask-matrix row col))
+                                 (burnable-fuel-model? (t/mget fuel-model-matrix row col))))
                           (fn [row col]
-                            (burnable-fuel-model? (m/mget fuel-model-matrix row col))))
+                            (burnable-fuel-model? (t/mget fuel-model-matrix row col))))
         ignitable-sites (my-shuffle rand-gen
                                     (for [row   ignition-rows
                                           col   ignition-cols
@@ -197,10 +196,10 @@
    ignition-cols]
   (let [ignitable-cell? (if ignition-mask-matrix
                           (fn [row col]
-                            (and (pos? (m/mget ignition-mask-matrix row col))
-                                 (burnable-fuel-model? (m/mget fuel-model-matrix row col))))
+                            (and (pos? (t/mget ignition-mask-matrix row col))
+                                 (burnable-fuel-model? (t/mget fuel-model-matrix row col))))
                           (fn [row col]
-                            (burnable-fuel-model? (m/mget fuel-model-matrix row col))))
+                            (burnable-fuel-model? (t/mget fuel-model-matrix row col))))
         total-cells     (* (count ignition-rows) (count ignition-cols))]
     (loop [[i j :as cell]    (vector (my-rand-nth rand-gen ignition-rows) (my-rand-nth rand-gen ignition-cols))
            ignitable-cells   #{}
@@ -221,10 +220,10 @@
   [{:keys [num-rows num-cols ignition-mask-matrix fuel-model-matrix]} ignition-rows ignition-cols]
   (let [ignitable-cell? (if ignition-mask-matrix
                           (fn [row col]
-                            (and (pos? (m/mget ignition-mask-matrix row col))
-                                 (burnable-fuel-model? (m/mget fuel-model-matrix row col))))
+                            (and (pos? (t/mget ignition-mask-matrix row col))
+                                 (burnable-fuel-model? (t/mget fuel-model-matrix row col))))
                           (fn [row col]
-                            (burnable-fuel-model? (m/mget fuel-model-matrix row col))))
+                            (burnable-fuel-model? (t/mget fuel-model-matrix row col))))
         ratio-threshold (max 1 (int (* 0.0025 num-rows num-cols)))] ; the inflection point from our benchmarks
     (if (= ratio-threshold
            (reduce +

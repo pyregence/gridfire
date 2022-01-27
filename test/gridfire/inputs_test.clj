@@ -1,5 +1,5 @@
 (ns gridfire.inputs-test
-  (:require [clojure.core.matrix :as m]
+  (:require [tech.v3.tensor :as t]
             [clojure.test        :refer [are deftest is testing use-fixtures]]
             [gridfire.inputs     :as inputs])
   (:import java.util.Random))
@@ -11,7 +11,7 @@
 (def ^:dynamic *base-config* {})
 
 (defn- identical-matrix [width height value]
-  (m/matrix
+  (t/->tensor
    (into-array (repeat height (into-array (repeat width value))))))
 
 (defn with-base-config [test-fn]
@@ -53,13 +53,13 @@
       (let [ignition-mask-matrix (identical-matrix 256 256 0.0)
             _                    (doseq [i (range 0 10)
                                          j (range 0 10)]
-                                   (m/mset! ignition-mask-matrix i j 1.0))
+                                   (t/mset! ignition-mask-matrix i j 1.0))
             inputs-before        (-> *base-config*
                                      (assoc :ignition-mask-matrix  ignition-mask-matrix))
             inputs-after         (inputs/add-random-ignition-sites inputs-before)]
 
         (is (true? (valid-ignition-count? inputs-after)))
 
-        (is (every? pos? (map #(m/mget (:ignition-mask-matrix inputs-after) %1 %2)
+        (is (every? pos? (map #(t/mget (:ignition-mask-matrix inputs-after) %1 %2)
                               (:ignition-rows inputs-after) (:ignition-cols inputs-after)))
             "All ignition sites should have positive values in the ignition mask")))))

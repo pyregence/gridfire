@@ -1,12 +1,11 @@
 (ns gridfire.outputs
-  (:require [clojure.core.matrix :as m]
+  (:require [tech.v3.tensor :as t]
             [clojure.data.csv    :as csv]
             [clojure.java.io     :as io]
             [clojure.string      :as str]
             [magellan.core       :refer [matrix-to-raster write-raster]]
-            [matrix-viz.core     :refer [save-matrix-as-png]]))
-
-(m/set-current-implementation :vectorz)
+            [matrix-viz.core     :refer [save-matrix-as-png]]
+            [tech.v3.datatype :as d]))
 
 #_(set! *unchecked-math* :warn-on-boxed)
 
@@ -69,10 +68,10 @@
       (if (int? timestep)
         (doseq [[band matrix] (map-indexed vector burn-count-matrix)]
           (let [output-time        (* band timestep)
-                probability-matrix (m/emap #(/ % simulations) matrix)]
+                probability-matrix (d/clone (d/emap #(/ % simulations) nil matrix))]
             (output-geotiff outputs probability-matrix output-name envelope nil output-time)
             (output-png outputs probability-matrix output-name envelope nil output-time)))
-        (let [probability-matrix (m/emap #(/ % simulations) burn-count-matrix)]
+        (let [probability-matrix (d/clone (d/emap #(/ % simulations) nil burn-count-matrix))]
           (output-geotiff outputs probability-matrix output-name envelope)
           (when output-pngs?
             (output-png outputs probability-matrix output-name envelope)))))))

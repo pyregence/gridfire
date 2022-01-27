@@ -1,10 +1,9 @@
 (ns gridfire.conversion
-  (:require [clojure.core.matrix :as m]
-            [clojure.string      :as str])
+  (:require [clojure.string      :as str]
+            [tech.v3.datatype    :as d]
+            [tech.v3.tensor :as t])
   (:import java.text.SimpleDateFormat
            java.util.TimeZone))
-
-(m/set-current-implementation :vectorz)
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -259,5 +258,5 @@
 (defn to-imperial!
   [layer {:keys [units multiplier] :or {multiplier 1.0}} layer-name]
   (if-let [converter (get-units-converter layer-name units multiplier)]
-    (update layer :matrix #(m/emap! converter %))
+    (update layer :matrix #(d/copy! (d/emap converter nil %)))
     layer))

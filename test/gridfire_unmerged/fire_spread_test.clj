@@ -19,7 +19,8 @@
 ;;                                            degrees-to-radians grass-fuel-model?]]
 ;;             [gridfire.fire-spread :refer [run-fire-spread rothermel-fast-wrapper]]
 ;;             [gridfire.monte-carlo :refer [cells-to-acres]]
-;;             [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]])
+;;             [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]
+;;             [tech.v3.datatype       :as d])
 ;;   (:import org.postgresql.jdbc.PgArray))
 
 ;; (m/set-current-implementation :vectorz)
@@ -276,15 +277,15 @@
 ;;         fire-spread-outfile  (str "org/pics/" outfile-base "_hfire-fire-spread.png")
 ;;         flame-length-outfile (str "org/pics/" outfile-base "_hfire-flame-length.png")
 ;;         [i j] ignition-site]
-;;     (save-matrix-as-png :color 4 -1.0 (doto (:fire-spread-matrix  hfire-results) (m/mset! i j 2.0)) fire-spread-outfile)
-;;     (save-matrix-as-png :color 4 -1.0 (doto (:flame-length-matrix hfire-results) (m/mset! i j 2.0)) flame-length-outfile)))
+;;     (save-matrix-as-png :color 4 -1.0 (doto (:fire-spread-matrix  hfire-results) (t/mset! i j 2.0)) fire-spread-outfile)
+;;     (save-matrix-as-png :color 4 -1.0 (doto (:flame-length-matrix hfire-results) (t/mset! i j 2.0)) flame-length-outfile)))
 
 ;; (defn elevation-west-aspect
 ;;   [elevation-change]
 ;;   (let [elev (m/zero-matrix test-num-rows test-num-cols)]
 ;;     (doseq [i (range test-num-rows)
 ;;             j (range test-num-cols)]
-;;       (m/mset! elev i j (* j elevation-change)))
+;;       (t/mset! elev i j (* j elevation-change)))
 ;;     elev))
 
 ;; (defn make-slope-layer
@@ -388,18 +389,18 @@
 ;;         layer [:elevation :slope :aspect :fuel-model :canopy-height :canopy-cover]]
 ;;   (let [[i j]  (-> validation-layers tile :ignition)
 ;;         matrix (-> validation-layers tile layer)]
-;;     (save-matrix-as-png :color 4 -1.0 (doto (m/clone matrix) (m/mset! i j -1.0))
+;;     (save-matrix-as-png :color 4 -1.0 (doto (m/clone matrix) (t/mset! i j -1.0))
 ;;                         (str "org/pics/validation/" (name tile) "_" (name layer) ".png"))))
 
 ;; (def validation-outputs
 ;;   (into {}
 ;;         (for [tile [:tile205 :tile210 :tile281 :tile310 :tile564 :tile643]]
 ;;           (let [[i j]        (-> validation-layers tile :ignition)
-;;                 elev         (m/emap #(* % 3.28) (-> validation-layers tile :elevation)) ; m -> ft
-;;                 slp          (m/emap #(Math/tan (degrees-to-radians %)) (-> validation-layers tile :slope)) ; degrees -> %
+;;                 elev         (d/clone (d/emap #(* % 3.28) (-> validation-layers tile :elevation))) ; m -> ft
+;;                 slp          (d/clone (d/emap #(Math/tan (degrees-to-radians %)) (-> validation-layers tile :slope))) ; degrees -> %
 ;;                 asp          (-> validation-layers tile :aspect)
 ;;                 fm           (-> validation-layers tile :fuel-model)
-;;                 ch           (m/emap #(* % 0.328) (-> validation-layers tile :canopy-height)) ; 10*m -> ft
+;;                 ch           (d/clone (d/emap #(* % 0.328) (-> validation-layers tile :canopy-height))) ; 10*m -> ft
 ;;                 cc           (-> validation-layers tile :canopy-cover)
 ;;                 ffs          (-> validation-layers tile :flammap-fire-spread)
 ;;                 ffl          (-> validation-layers tile :flammap-flame-length)
@@ -420,42 +421,43 @@
 ;;                                               foliar-moisture ellipse-adjustment-factor [i j])
 ;;                 hfs          (-> hfire-output :fire-spread-matrix)
 ;;                 hfl          (-> hfire-output :flame-length-matrix)
-;;                 hfl-global   (m/emap (fn [fm-number slope aspect canopy-height canopy-cover]
-;;                                        (if-not (burnable-fuel-model? fm-number)
-;;                                          0.0
-;;                                          (if (fuel-models (int fm-number))
-;;                                            (let [[fuel-model spread-info-min] (rothermel-fast-wrapper fm-number test-fuel-moisture)
-;;                                                  waf                 (wind-adjustment-factor (:delta fuel-model) canopy-height canopy-cover)
-;;                                                  midflame-wind-speed (* test-wind-speed-20ft 88.0 waf)
-;;                                                  spread-info-max     (rothermel-surface-fire-spread-max spread-info-min
-;;                                                                                                         midflame-wind-speed
-;;                                                                                                         test-wind-direction
-;;                                                                                                         slope
-;;                                                                                                         aspect
-;;                                                                                                         1.0)
-;;                                                  flame-depth         (anderson-flame-depth (:max-spread-rate spread-info-max)
-;;                                                                                            (:residence-time spread-info-min))
-;;                                                  fire-line-intensity (byram-fire-line-intensity (:reaction-intensity spread-info-min) flame-depth)
-;;                                                  flame-length        (byram-flame-length fire-line-intensity)]
-;;                                              flame-length)
-;;                                            -1.0)))
-;;                                      fm slp asp ch cc)
-;;                 ffl-clipped (m/emap #(if (pos? %1) %2 0.0) hfs ffl)
-;;                 fl-diff     (m/emap - ffl hfl-global)
+;;                 hfl-global   (d/clone
+;;                               (d/emap (fn [fm-number slope aspect canopy-height canopy-cover]
+;;                                         (if-not (burnable-fuel-model? fm-number)
+;;                                           0.0
+;;                                           (if (fuel-models (int fm-number))
+;;                                             (let [[fuel-model spread-info-min] (rothermel-fast-wrapper fm-number test-fuel-moisture)
+;;                                                   waf                          (wind-adjustment-factor (:delta fuel-model) canopy-height canopy-cover)
+;;                                                   midflame-wind-speed          (* test-wind-speed-20ft 88.0 waf)
+;;                                                   spread-info-max              (rothermel-surface-fire-spread-max spread-info-min
+;;                                                                                                          midflame-wind-speed
+;;                                                                                                          test-wind-direction
+;;                                                                                                          slope
+;;                                                                                                          aspect
+;;                                                                                                          1.0)
+;;                                                   flame-depth                  (anderson-flame-depth (:max-spread-rate spread-info-max)
+;;                                                                                             (:residence-time spread-info-min))
+;;                                                   fire-line-intensity          (byram-fire-line-intensity (:reaction-intensity spread-info-min) flame-depth)
+;;                                                   flame-length                 (byram-flame-length fire-line-intensity)]
+;;                                               flame-length)
+;;                                             -1.0)))
+;;                                       fm slp asp ch cc))
+;;                 ffl-clipped (d/clone (d/emap #(if (pos? %1) %2 0.0) hfs ffl))
+;;                 fl-diff     (d/clone (d/emap - ffl hfl-global))
 ;;                 mfl         (max (m/emax ffl) (m/emax hfl) (m/emax hfl-global))
-;;                 low-fm      (m/emap #(cond (= -1.0 %) -1.0 (low-fuel-models %) 1.0 :else 0.0) fm)
-;;                 error-fm    (m/emap #(cond (= -1.0 %2) -1.0 (> (Math/abs ^double %1) 5.0) %2 :else 0.0) fl-diff fm)]
-;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone hfs) (m/mset! i j -1.0))
+;;                 low-fm      (d/clone (d/emap #(cond (= -1.0 %) -1.0 (low-fuel-models %) 1.0 :else 0.0) fm))
+;;                 error-fm    (d/clone (d/emap #(cond (= -1.0 %2) -1.0 (> (Math/abs ^double %1) 5.0) %2 :else 0.0) fl-diff fm))]
+;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone hfs) (t/mset! i j -1.0))
 ;;                                 (str "org/pics/validation/" (name tile) "_hfire-fire-spread.png"))
-;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone ffs) (m/mset! i j -1.0))
+;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone ffs) (t/mset! i j -1.0))
 ;;                                 (str "org/pics/validation/" (name tile) "_flammap-fire-spread.png"))
-;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone hfl) (m/mset! i j mfl))
+;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone hfl) (t/mset! i j mfl))
 ;;                                 (str "org/pics/validation/" (name tile) "_hfire-flame-length.png"))
-;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone ffl) (m/mset! i j mfl))
+;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone ffl) (t/mset! i j mfl))
 ;;                                 (str "org/pics/validation/" (name tile) "_flammap-flame-length.png"))
-;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone hfl-global) (m/mset! i j mfl))
+;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone hfl-global) (t/mset! i j mfl))
 ;;                                 (str "org/pics/validation/" (name tile) "_hfire-flame-length-global.png"))
-;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone ffl-clipped) (m/mset! i j mfl))
+;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone ffl-clipped) (t/mset! i j mfl))
 ;;                                 (str "org/pics/validation/" (name tile) "_flammap-flame-length-clipped.png"))
 ;;             (save-matrix-as-png :color 4 -1.0 fl-diff
 ;;                                 (str "org/pics/validation/" (name tile) "_flame-length-difference.png"))
@@ -482,7 +484,7 @@
 ;;         target        (count ffs-cells)
 ;;         fl-diff       (-> validation-outputs tile :flame-length-difference)
 ;;         fl-diff-mean  (/ (m/esum fl-diff) (m/ecount fl-diff))
-;;         fl-diff-var   (/ (m/esum (m/emap #(Math/pow (- fl-diff-mean %) 2.0) fl-diff)) (m/ecount fl-diff))
+;;         fl-diff-var   (/ (m/esum (d/clone (d/emap #(Math/pow (- fl-diff-mean %) 2.0) fl-diff))) (m/ecount fl-diff))
 ;;         fl-diff-stdev (Math/sqrt fl-diff-var)]
 ;;     (println (format "| %s | %3d%%(%3d) | %3d%%(%3d) | %3d%%(%3d) | %4.1f | %4.1f |"
 ;;                      (subs (name tile) 4)

@@ -1,9 +1,9 @@
 ;; [[file:../../org/GridFire.org::random_ignition.clj][random_ignition.clj]]
 (ns gridfire.random-ignition
-  (:require [clojure.core.matrix :as m]
+  (:require [tech.v3.tensor :as t]
             [gridfire.common     :refer [burnable-fuel-model?]]))
 
-(m/set-current-implementation :vectorz)
+
 
 (defn- in-edge-buffer?
   "Returns true if give [row col] is within the buffer region defined
@@ -21,5 +21,5 @@
            (let [buffer-size (int (Math/ceil (/ edge-buffer cell-size)))]
              (not (in-edge-buffer? num-rows num-cols buffer-size row col)))
            true)
-         (burnable-fuel-model? (m/mget fuel-model-matrix row col)))))
+         (burnable-fuel-model? (t/mget fuel-model-matrix row col)))))
 ;; random_ignition.clj ends here
