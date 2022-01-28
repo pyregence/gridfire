@@ -1,7 +1,6 @@
 ;; [[file:../../org/GridFire.org::fire-spread-algorithm][fire-spread-algorithm]]
 (ns gridfire.fire-spread
-  (:require [tech.v3.tensor                :as t]
-            [clojure.core.reducers         :as r]
+  (:require [clojure.core.reducers         :as r]
             [gridfire.common               :refer [burnable-fuel-model?
                                                    burnable?
                                                    calc-fuel-moisture
@@ -23,7 +22,9 @@
                                                   rothermel-surface-fire-spread-max
                                                   rothermel-surface-fire-spread-no-wind-no-slope
                                                   wind-adjustment-factor]]
-            [gridfire.utils.random        :as random])
+            [gridfire.utils.random        :as random]
+            [tech.v3.datatype             :as d]
+            [tech.v3.tensor               :as t])
   (:import java.util.Random))
 
 
@@ -543,7 +544,7 @@
 
 (defmethod run-fire-spread :ignition-perimeter
   [{:keys [num-rows num-cols initial-ignition-site fuel-model-matrix spotting trajectory-combination] :as inputs}]
-  (let [fire-spread-matrix (first (m/mutable (:matrix initial-ignition-site)))
+  (let [fire-spread-matrix (first (d/clone (:matrix initial-ignition-site)))
         non-zero-indices   (get-non-zero-indices fire-spread-matrix)
         perimeter-indices  (filter #(burnable-neighbors? fire-spread-matrix
                                                          fuel-model-matrix

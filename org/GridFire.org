@@ -1857,8 +1857,7 @@ pseudo-code lays out the steps taken in this procedure:
 #+name: fire-spread-algorithm
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fire_spread.clj :padline no :no-expand :comments link
 (ns gridfire.fire-spread
-  (:require [tech.v3.tensor           :as t]
-            [clojure.core.reducers         :as r]
+  (:require [clojure.core.reducers         :as r]
             [gridfire.common               :refer [burnable-fuel-model?
                                                    burnable?
                                                    calc-fuel-moisture
@@ -1880,7 +1879,9 @@ pseudo-code lays out the steps taken in this procedure:
                                                   rothermel-surface-fire-spread-max
                                                   rothermel-surface-fire-spread-no-wind-no-slope
                                                   wind-adjustment-factor]]
-            [gridfire.utils.random        :as random])
+            [gridfire.utils.random        :as random]
+            [tech.v3.datatype             :as d]
+            [tech.v3.tensor               :as t])
   (:import java.util.Random))
 
 
@@ -2359,18 +2360,10 @@ pseudo-code lays out the steps taken in this procedure:
   (fn [{:keys [initial-ignition-site]}]
     (condp = (type initial-ignition-site)
       clojure.lang.PersistentHashMap :ignition-perimeter
-      clojure.lang.PersistentVector  :ignition-point
-      :random-ignition-point)))
-
-(defmethod run-fire-spread :random-ignition-point
-  [{:keys [ignitable-sites ^Random rand-gen] :as inputs}]
-  (.nextDouble rand-gen)
-  (run-fire-spread (assoc inputs
-                          :initial-ignition-site
-                          (random/my-rand-nth rand-gen ignitable-sites))))
+      clojure.lang.PersistentVector  :ignition-point)))
 
 (defmethod run-fire-spread :ignition-point
-  [{:keys [fuel-model-matrix num-rows num-cols initial-ignition-site spotting trajectory-combination] :as inputs}]
+  [{:keys [num-rows num-cols initial-ignition-site spotting trajectory-combination] :as inputs}]
   (let [[i j]                      initial-ignition-site
         fire-spread-matrix         (t/new-tensor num-rows num-cols)
         flame-length-matrix        (t/new-tensor num-rows num-cols)
@@ -2381,39 +2374,34 @@ pseudo-code lays out the steps taken in this procedure:
         fire-type-matrix           (t/new-tensor num-rows num-cols)
         spot-matrix                (t/new-tensor num-rows num-cols)
         fractional-distance-matrix (when (= trajectory-combination :sum) (t/new-tensor num-rows num-cols))]
-    (when (and (in-bounds? num-rows num-cols initial-ignition-site)
-               (burnable-fuel-model? (t/mget fuel-model-matrix i j))
-               (burnable-neighbors? fire-spread-matrix fuel-model-matrix
-                                    num-rows num-cols initial-ignition-site))
-      ;; initialize the ignition site
-      (t/mset! fire-spread-matrix i j 1.0)
-      (t/mset! flame-length-matrix i j 1.0)
-      (t/mset! fire-line-intensity-matrix i j 1.0)
-      (t/mset! burn-time-matrix i j -1.0)
-      (t/mset! spread-rate-matrix i j -1.0)
-      (t/mset! fire-type-matrix i j -1.0)
-      (let [ignited-cells (compute-neighborhood-fire-spread-rates!
-                           inputs
-                           fire-spread-matrix
-                           initial-ignition-site
-                           nil
-                           0.0
-                           0.0)]
-        (run-loop inputs
-                  {:fire-spread-matrix         fire-spread-matrix
-                   :spread-rate-matrix         spread-rate-matrix
-                   :flame-length-matrix        flame-length-matrix
-                   :fire-line-intensity-matrix fire-line-intensity-matrix
-                   :firebrand-count-matrix     firebrand-count-matrix
-                   :burn-time-matrix           burn-time-matrix
-                   :fire-type-matrix           fire-type-matrix
-                   :fractional-distance-matrix fractional-distance-matrix
-                   :spot-matrix                spot-matrix}
-                  ignited-cells)))))
+    (t/mset! fire-spread-matrix i j 1.0)
+    (t/mset! flame-length-matrix i j 1.0)
+    (t/mset! fire-line-intensity-matrix i j 1.0)
+    (t/mset! burn-time-matrix i j -1.0)
+    (t/mset! spread-rate-matrix i j -1.0)
+    (t/mset! fire-type-matrix i j -1.0)
+    (let [ignited-cells (compute-neighborhood-fire-spread-rates!
+                         inputs
+                         fire-spread-matrix
+                         initial-ignition-site
+                         nil
+                         0.0
+                         0.0)]
+      (run-loop inputs
+                {:fire-spread-matrix         fire-spread-matrix
+                 :spread-rate-matrix         spread-rate-matrix
+                 :flame-length-matrix        flame-length-matrix
+                 :fire-line-intensity-matrix fire-line-intensity-matrix
+                 :firebrand-count-matrix     firebrand-count-matrix
+                 :burn-time-matrix           burn-time-matrix
+                 :fire-type-matrix           fire-type-matrix
+                 :fractional-distance-matrix fractional-distance-matrix
+                 :spot-matrix                spot-matrix}
+                ignited-cells))))
 
 (defmethod run-fire-spread :ignition-perimeter
   [{:keys [num-rows num-cols initial-ignition-site fuel-model-matrix spotting trajectory-combination] :as inputs}]
-  (let [fire-spread-matrix (first (m/mutable (:matrix initial-ignition-site)))
+  (let [fire-spread-matrix (first (d/clone (:matrix initial-ignition-site)))
         non-zero-indices   (get-non-zero-indices fire-spread-matrix)
         perimeter-indices  (filter #(burnable-neighbors? fire-spread-matrix
                                                          fuel-model-matrix
