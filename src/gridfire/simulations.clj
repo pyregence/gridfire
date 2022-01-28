@@ -1,14 +1,15 @@
 (ns gridfire.simulations
-  (:require [clojure.java.io        :as io]
-            [gridfire.binary-output :as binary]
-            [gridfire.common        :refer [get-neighbors in-bounds?]]
-            [gridfire.conversion    :refer [min->hour kebab->snake snake->kebab]]
-            [gridfire.fire-spread   :refer [run-fire-spread]]
-            [gridfire.outputs       :as outputs]
-            [gridfire.utils.random  :refer [my-rand-range]]
-            [taoensso.tufte         :as tufte]
-            [tech.v3.tensor         :as t]
-            [tech.v3.datatype       :as d])
+  (:require [clojure.java.io             :as io]
+            [gridfire.binary-output      :as binary]
+            [gridfire.common             :refer [get-neighbors in-bounds?]]
+            [gridfire.conversion         :refer [min->hour kebab->snake snake->kebab]]
+            [gridfire.fire-spread        :refer [run-fire-spread]]
+            [gridfire.outputs            :as outputs]
+            [gridfire.utils.random       :refer [my-rand-range]]
+            [taoensso.tufte              :as tufte]
+            [tech.v3.tensor              :as t]
+            [tech.v3.datatype            :as d]
+            [tech.v3.datatype.functional :as dfn])
   (:import java.util.Random))
 
 #_(set! *unchecked-math* :warn-on-boxed)
@@ -158,18 +159,16 @@
         burned-cells               (count flame-lengths)
         fire-size                  (cells-to-acres cell-size burned-cells)
         crown-fire-size            (cells-to-acres cell-size (:crown-fire-count fire-spread-results))
-        flame-length-mean          (/ (m/esum flame-lengths) burned-cells)
-        fire-line-intensity-mean   (/ (m/esum fire-line-intensities) burned-cells)
+        flame-length-mean          (/ (dfn/sum flame-lengths) burned-cells)
+        fire-line-intensity-mean   (/ (dfn/sum fire-line-intensities) burned-cells)
         flame-length-stddev        (->> flame-lengths
                                         (d/emap #(Math/pow (- flame-length-mean %) 2.0) nil)
-                                        (d/clone)
-                                        (m/esum)
+                                        (dfn/sum)
                                         (#(/ % burned-cells))
                                         (Math/sqrt))
         fire-line-intensity-stddev (->> fire-line-intensities
                                         (d/emap #(Math/pow (- fire-line-intensity-mean %) 2.0) nil)
-                                        (d/clone)
-                                        (m/esum)
+                                        (dfn/sum)
                                         (#(/ % burned-cells))
                                         (Math/sqrt))]
     {:fire-size                  fire-size

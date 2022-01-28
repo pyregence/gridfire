@@ -9,9 +9,8 @@
             [gridfire.surface-fire :refer [degrees-to-radians]]
             [gridfire.fire-spread :refer [random-cell run-fire-spread]]
             [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]
-            [tech.v3.datatype :as d]))
-
-
+            [tech.v3.datatype :as d]
+            [tech.v3.datatype.functional :as dfn]))
 
 (defn postprocess-simulation-results
   [wrf-cell-id lon lat cell-offset-in-neighborhood output-directory results-table]
@@ -78,11 +77,10 @@
       (let [flame-lengths       (filterv pos? (d/-> (:flame-length-matrix fire-results)))
             burned-cells        (count flame-lengths)
             fire-size           (cells-to-acres cell-size burned-cells)
-            flame-length-mean   (/ (m/esum flame-lengths) burned-cells)
+            flame-length-mean   (/ (dfn/sum flame-lengths) burned-cells)
             ;; flame-length-stddev (->> flame-lengths
             ;;                          (d/emap #(Math/pow (- flame-length-mean %) 2.0) nil)
-            ;;                          (d/clone)
-            ;;                          (m/esum)
+            ;;                          (dfn/sum)
             ;;                          (#(/ % burned-cells))
             ;;                          (Math/sqrt))]
             ]

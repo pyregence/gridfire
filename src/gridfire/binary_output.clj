@@ -5,8 +5,6 @@
             [tech.v3.tensor :as t]
             [taoensso.tufte      :as tufte]))
 
-
-
 ;; We assume that matrix[0,0] is the upper left corner.
 (defn non-zero-data [matrix]
   (let [row-count (-> (t/tensor->dimensions matrix) :shape first)]
