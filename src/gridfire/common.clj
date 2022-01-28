@@ -1,5 +1,7 @@
 (ns gridfire.common
-  (:require [tech.v3.tensor :as t]))
+  (:require [tech.v3.tensor :as t]
+            [tech.v3.datatype.argops :as da]
+            [tech.v3.datatype.functional :as dfn]))
 
 ;; FIXME: unused
 (defn calc-emc
@@ -97,3 +99,11 @@
         dz (- ^double (t/mget elevation-matrix i1 j1)
               ^double (t/mget elevation-matrix i2 j2))]
     (Math/sqrt (+ (* di di) (* dj dj) (* dz dz)))))
+
+(defn non-zero-indices [tensor]
+  (let [[_ cols] (:shape (t/tensor->dimensions tensor))
+        indices  (da/argfilter pos? tensor)
+        row-idxs (dfn/quot indices cols)
+        col-idxs (dfn/rem indices cols)]
+    {:rows row-idxs
+     :cols col-idxs}))

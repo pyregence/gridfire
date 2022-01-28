@@ -5,7 +5,8 @@
             [gridfire.conversion    :refer [m->ft]]
             [gridfire.core          :as core]
             [gridfire.fetch         :as fetch]
-            [gridfire.utils.test    :as utils]))
+            [gridfire.utils.test    :as utils]
+            [tech.v3.datatype.functional :as dfn]))
 
 ;;-----------------------------------------------------------------------------
 ;; Config
@@ -107,8 +108,8 @@
                                             :slope              {:type   :geotiff
                                                                  :source (in-file-path "slp.tif")}}}]
 
-      (is (= (fetch/landfire-matrix postgis-config :aspect)
-             (fetch/landfire-matrix geotiff-config :aspect)))
+      (is (dfn/equals (fetch/landfire-matrix postgis-config :aspect)
+                      (fetch/landfire-matrix geotiff-config :aspect)))
 
       (is (= (fetch/landfire-matrix postgis-config :canopy-cover)
              (fetch/landfire-matrix geotiff-config :canopy-cover)))

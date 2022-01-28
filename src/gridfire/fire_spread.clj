@@ -7,7 +7,8 @@
                                                    in-bounds?
                                                    burnable-neighbors?
                                                    get-neighbors
-                                                   distance-3d]]
+                                                   distance-3d
+                                                   non-zero-indices]]
             [gridfire.conversion          :refer [mph->fpm]]
             [gridfire.crown-fire          :refer [crown-fire-eccentricity
                                                   crown-fire-line-intensity
@@ -473,9 +474,8 @@
     matrix))
 
 (defn- get-non-zero-indices [m]
-  (for [[r cols] (map-indexed vector (m/non-zero-indices m))
-        c        cols]
-    [r c]))
+  (let [{:keys [rows cols]} (non-zero-indices m)]
+    (map vector rows cols)))
 
 (defmulti run-fire-spread
   "Runs the raster-based fire spread model with a map of these arguments:

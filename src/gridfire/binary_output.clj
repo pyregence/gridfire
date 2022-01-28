@@ -2,31 +2,20 @@
   (:import (java.io DataInputStream DataOutputStream)
            (java.nio ByteBuffer))
   (:require [clojure.java.io :as io]
+            [gridfire.common :refer [non-zero-indices]]
             [tech.v3.tensor  :as t]
             [taoensso.tufte  :as tufte]
-            [tech.v3.datatype :as d]
             [tech.v3.datatype.functional :as dfn]))
 
 ;; We assume that matrix[0,0] is the upper left corner.
 (defn non-zero-data [matrix]
-  (let [row-count (-> (t/tensor->dimensions matrix) :shape first)]
-    (transduce
-     (comp (map-indexed (fn [row cols]
-                          (when (pos? (count cols))
-                            (let [y (- row-count row)]
-                              {:x (mapv inc cols) ; 1 -> m left to right
-                               :y (into [] (repeat (count cols) y)) ; n -> 1 top to bottom
-                               :v (mapv (fn [col] (t/mget matrix row col)) cols)}))))
-           (remove nil?))
-     (completing
-      (fn [m1 m2]
-        {:x (into (:x m1) (:x m2))
-         :y (into (:y m1) (:y m2))
-         :v (into (:v m1) (:v m2))}))
-     {:x []
-      :y []
-      :v []}
-     (m/non-zero-indices matrix))))
+  (let [[rows _]     (:shape (t/tensor->dimensions matrix))
+        {:keys
+         [row-idxs
+          col-idxs]} (non-zero-indices matrix)]
+    {:x (mapv inc col-idxs)
+     :y (mapv #(- rows %) row-idxs)
+     :v (mapv (fn [row col] (t/mget matrix row col)) row-idxs col-idxs)}))
 
 ;;FIXME max-row max-col is not correct. Need dimensions in binary file.
 (defn indices-to-matrix [indices ttype]
