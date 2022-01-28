@@ -260,8 +260,8 @@
   [output-burn-probability max-runtimes ^long num-rows ^long num-cols]
   (if (number? output-burn-probability)
     (let [num-bands (long (Math/ceil (/ (reduce max max-runtimes) output-burn-probability)))]
-      (m/zero-array [num-bands num-rows num-cols]))
-    (m/zero-array [num-rows num-cols])))
+      (t/new-tensor [num-bands num-rows num-cols]))
+    (t/new-tensor [num-rows num-cols])))
 
 (defn add-aggregate-matrices
   [{:keys
@@ -270,6 +270,6 @@
   (assoc inputs
          :burn-count-matrix       (when (or output-burn-count? output-burn-probability)
                                     (initialize-burn-count-matrix output-burn-probability max-runtimes num-rows num-cols))
-         :flame-length-sum-matrix (when output-flame-length-sum? (m/zero-array [num-rows num-cols]))
-         :flame-length-max-matrix (when output-flame-length-max? (m/zero-array [num-rows num-cols]))
-         :spot-count-matrix       (when output-spot-count? (m/zero-array [num-rows num-cols]))))
+         :flame-length-sum-matrix (when output-flame-length-sum? (t/new-tensor [num-rows num-cols]))
+         :flame-length-max-matrix (when output-flame-length-max? (t/new-tensor [num-rows num-cols]))
+         :spot-count-matrix       (when output-spot-count? (t/new-tensor [num-rows num-cols]))))
