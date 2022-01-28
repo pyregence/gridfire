@@ -59,7 +59,6 @@
                       (double unburned) 0.0
                       -1.0)
                    matrix)
-           matrix
            matrix))
 
 (defn ignition-layer
@@ -130,7 +129,6 @@
               (geotiff-raster-to-matrix source))
             (update :matrix (fn [matrix]
                               (d/copy! (d/emap convert/percent->dec nil matrix)
-                                       matrix
                                        matrix))))))))
 
 (defn fuel-moisture-matrix

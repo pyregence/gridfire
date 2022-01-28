@@ -113,8 +113,8 @@
                                               0))
                                           fire-spread-matrix
                                           burn-time-matrix))
-            burn-count-matrix-i  (nth (seq burn-count-matrix) band)
-            band                 (int (quot clock timestep))]
+            band                 (int (quot clock timestep))
+            burn-count-matrix-i  (nth (seq burn-count-matrix) band)]
         (d/copy! (dfn/+ burn-count-matrix-i filtered-fire-spread) burn-count-matrix-i)))
     (d/copy! (dfn/+ burn-count-matrix fire-spread-matrix) burn-count-matrix)))
 
@@ -128,7 +128,6 @@
              flame-length-sum-matrix))
   (when flame-length-max-matrix
     (d/copy! (d/emap #(max %1 %2) nil flame-length-max-matrix (:flame-length-matrix fire-spread-results))
-             flame-length-max-matrix
              flame-length-max-matrix))
   (when spot-count-matrix
     (d/copy! (dfn/+ spot-count-matrix (:spot-matrix fire-spread-results))
