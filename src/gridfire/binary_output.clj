@@ -3,7 +3,9 @@
            (java.nio ByteBuffer))
   (:require [clojure.java.io :as io]
             [tech.v3.tensor  :as t]
-            [taoensso.tufte  :as tufte]))
+            [taoensso.tufte  :as tufte]
+            [tech.v3.datatype :as d]
+            [tech.v3.datatype.functional :as dfn]))
 
 ;; We assume that matrix[0,0] is the upper left corner.
 (defn non-zero-data [matrix]
@@ -50,7 +52,7 @@
 
 ;;FIXME optimize
 (defn write-matrix-as-binary [matrix file-name]
-  (let [num-burned-cells (m/non-zero-count matrix)
+  (let [num-burned-cells (-> matrix first dfn/pos? dfn/sum)
         burned-data      (non-zero-data matrix)]
     (with-open [out (DataOutputStream. (io/output-stream file-name))]
       (.writeInt out (int num-burned-cells))               ; Int32
@@ -74,7 +76,7 @@
   [file-name types matrices]
   (tufte/p
    :write-matrices-as-binary
-   (let [num-burned-cells (m/non-zero-count (first matrices))
+   (let [num-burned-cells (-> matrices first dfn/pos? dfn/sum)
          data             (mapv non-zero-data matrices)]
      (with-open [out (DataOutputStream. (io/output-stream file-name))]
        (.writeInt out (int num-burned-cells)) ; Int32
