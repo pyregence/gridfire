@@ -74,7 +74,7 @@
                                               fuel-moisture foliar-moisture
                                               ellipse-adjustment-factor ignition-site)]
     (if fire-results
-      (let [flame-lengths       (filterv pos? (d/-> (:flame-length-matrix fire-results)))
+      (let [flame-lengths       (filterv pos? (d/as-buffer (:flame-length-matrix fire-results)))
             burned-cells        (count flame-lengths)
             fire-size           (cells-to-acres cell-size burned-cells)
             flame-length-mean   (/ (dfn/sum flame-lengths) burned-cells)

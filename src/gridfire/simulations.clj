@@ -156,8 +156,8 @@
 
 (defn summarize-fire-spread-results
   [fire-spread-results cell-size]
-  (let [flame-lengths              (filterv pos? (d/-> (:flame-length-matrix fire-spread-results)))
-        fire-line-intensities      (filterv pos? (d/-> (:fire-line-intensity-matrix fire-spread-results)))
+  (let [flame-lengths              (filterv pos? (d/as-buffer (:flame-length-matrix fire-spread-results)))
+        fire-line-intensities      (filterv pos? (d/as-buffer (:fire-line-intensity-matrix fire-spread-results)))
         burned-cells               (count flame-lengths)
         fire-size                  (cells-to-acres cell-size burned-cells)
         crown-fire-size            (cells-to-acres cell-size (:crown-fire-count fire-spread-results))
