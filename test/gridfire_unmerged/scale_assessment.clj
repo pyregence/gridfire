@@ -198,7 +198,7 @@
 ;;                           :legend true)
 ;;      (str "org/pics/scale_assessment/" (name tile) "_scatterplot-scenario-" scenario ".png"))
 ;;     (spit (str "org/pics/scale_assessment/" (name tile) "_burn-prob-matrix-scenario-" scenario ".clj")
-;;           (mapv vec (m/rows burn-prob-matrix)))
+;;           (mapv vec (t/rows burn-prob-matrix)))
 ;;     (save-matrix-as-png :color 4 -1.0 burn-prob-matrix
 ;;                         (str "org/pics/scale_assessment/" (name tile) "_burn-prob-scenario-" scenario ".png"))))
 
