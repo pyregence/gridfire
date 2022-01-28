@@ -24,8 +24,6 @@
 ;;             [tech.v3.datatype.functional :as dfn])
 ;;   (:import org.postgresql.jdbc.PgArray))
 
-;; (m/set-current-implementation :vectorz)
-
 ;; (defn combine-into-map
 ;;   ([] {})
 ;;   ([r1] r1)
@@ -390,7 +388,7 @@
 ;;         layer [:elevation :slope :aspect :fuel-model :canopy-height :canopy-cover]]
 ;;   (let [[i j]  (-> validation-layers tile :ignition)
 ;;         matrix (-> validation-layers tile layer)]
-;;     (save-matrix-as-png :color 4 -1.0 (doto (m/clone matrix) (t/mset! i j -1.0))
+;;     (save-matrix-as-png :color 4 -1.0 (doto (d/clone matrix) (t/mset! i j -1.0))
 ;;                         (str "org/pics/validation/" (name tile) "_" (name layer) ".png"))))
 
 ;; (def validation-outputs
@@ -445,20 +443,20 @@
 ;;                                                    fm slp asp ch cc))
 ;;                 ffl-clipped               (d/clone (d/emap #(if (pos? %1) %2 0.0) hfs ffl))
 ;;                 fl-diff                   (d/clone (d/emap - ffl hfl-global))
-;;                 mfl                       (max (m/emax ffl) (m/emax hfl) (m/emax hfl-global))
+;;                 mfl                       (max (dfn/reduce-max ffl) (dfn/reduce-max hfl) (dfn/reduce-max hfl-global))
 ;;                 low-fm                    (d/clone (d/emap #(cond (= -1.0 %) -1.0 (low-fuel-models %) 1.0 :else 0.0) fm))
 ;;                 error-fm                  (d/clone (d/emap #(cond (= -1.0 %2) -1.0 (> (Math/abs ^double %1) 5.0) %2 :else 0.0) fl-diff fm))]
-;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone hfs) (t/mset! i j -1.0))
+;;             (save-matrix-as-png :color 4 -1.0 (doto (d/clone hfs) (t/mset! i j -1.0))
 ;;                                 (str "org/pics/validation/" (name tile) "_hfire-fire-spread.png"))
-;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone ffs) (t/mset! i j -1.0))
+;;             (save-matrix-as-png :color 4 -1.0 (doto (d/clone ffs) (t/mset! i j -1.0))
 ;;                                 (str "org/pics/validation/" (name tile) "_flammap-fire-spread.png"))
-;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone hfl) (t/mset! i j mfl))
+;;             (save-matrix-as-png :color 4 -1.0 (doto (d/clone hfl) (t/mset! i j mfl))
 ;;                                 (str "org/pics/validation/" (name tile) "_hfire-flame-length.png"))
-;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone ffl) (t/mset! i j mfl))
+;;             (save-matrix-as-png :color 4 -1.0 (doto (d/clone ffl) (t/mset! i j mfl))
 ;;                                 (str "org/pics/validation/" (name tile) "_flammap-flame-length.png"))
-;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone hfl-global) (t/mset! i j mfl))
+;;             (save-matrix-as-png :color 4 -1.0 (doto (d/clone hfl-global) (t/mset! i j mfl))
 ;;                                 (str "org/pics/validation/" (name tile) "_hfire-flame-length-global.png"))
-;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone ffl-clipped) (t/mset! i j mfl))
+;;             (save-matrix-as-png :color 4 -1.0 (doto (d/clone ffl-clipped) (t/mset! i j mfl))
 ;;                                 (str "org/pics/validation/" (name tile) "_flammap-flame-length-clipped.png"))
 ;;             (save-matrix-as-png :color 4 -1.0 fl-diff
 ;;                                 (str "org/pics/validation/" (name tile) "_flame-length-difference.png"))
@@ -477,8 +475,8 @@
 ;;   (let [fm            (-> validation-layers  tile :fuel-model)
 ;;         ffs           (-> validation-layers  tile :flammap-fire-spread)
 ;;         hfs           (-> validation-outputs tile :hfire-fire-spread)
-;;         ffs-cells     (set (filter (fn [[i j]] (pos? (m/mget ffs i j))) (m/index-seq ffs)))
-;;         hfs-cells     (set (filter (fn [[i j]] (pos? (m/mget hfs i j))) (m/index-seq hfs)))
+;;         ffs-cells     (set (filter (fn [[i j]] (pos? (d/mget ffs i j))) (m/index-seq ffs)))
+;;         hfs-cells     (set (filter (fn [[i j]] (pos? (d/mget hfs i j))) (m/index-seq hfs)))
 ;;         agreement     (count (set/intersection ffs-cells hfs-cells))
 ;;         overpred      (count (set/difference hfs-cells ffs-cells))
 ;;         underpred     (count (set/difference ffs-cells hfs-cells))
