@@ -20,6 +20,7 @@
 ;;             [gridfire.fire-spread :refer [run-fire-spread rothermel-fast-wrapper]]
 ;;             [gridfire.monte-carlo :refer [cells-to-acres]]
 ;;             [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]
+;;             [tech.v3.tensor         :as t]
 ;;             [tech.v3.datatype       :as d]
 ;;             [tech.v3.datatype.functional :as dfn])
 ;;   (:import org.postgresql.jdbc.PgArray))
@@ -498,17 +499,17 @@
 
 ;; (doseq [tile [:tile205 :tile210 :tile281 :tile310 :tile564 :tile643]]
 ;;   (let [hfire-fire-size   (->> (-> validation-outputs tile :hfire-fire-spread)
-;;                                (m/eseq)
+;;                                (t/tensor->buffer)
 ;;                                (filter #(= % 1.0))
 ;;                                (count)
 ;;                                (cells-to-acres test-cell-size))
 ;;         flammap-fire-size (->> (-> validation-layers tile :flammap-fire-spread)
-;;                                (m/eseq)
+;;                                (t/tensor->buffer)
 ;;                                (filter #(= % 1.0))
 ;;                                (count)
 ;;                                (cells-to-acres test-cell-size))
 ;;         grass-area        (->> (-> validation-layers tile :fuel-model)
-;;                                (m/eseq)
+;;                                (t/tensor->buffer)
 ;;                                (filter grass-fuel-model?)
 ;;                                (count)
 ;;                                (cells-to-acres test-cell-size))
@@ -517,12 +518,12 @@
 
 ;; (for [tile [:tile205 :tile210 :tile281 :tile310 :tile564 :tile643]]
 ;;   (let [error-fm (-> validation-outputs tile :error-fuel-models)]
-;;     [tile (sort (distinct (filter pos? (m/eseq error-fm))))]))
+;;     [tile (sort (distinct (filter pos? (t/tensor->buffer error-fm))))]))
 
 ;; (sort (distinct (apply concat (vals (into {} (for [tile [:tile205 :tile210 :tile281 :tile310 :tile564 :tile643]]
 ;;                                                (let [fm (-> validation-layers tile :fuel-model)]
-;;                                                  [tile (sort (distinct (filter pos? (m/eseq fm))))])))))))
+;;                                                  [tile (sort (distinct (filter pos? (t/tensor->buffer fm))))])))))))
 
 ;; (sort (distinct (apply concat (vals (into {} (for [tile [:tile205 :tile210 :tile281 :tile310 :tile564 :tile643]]
 ;;                                                (let [error-fm (-> validation-outputs tile :error-fuel-models)]
-;;                                                  [tile (sort (distinct (filter pos? (m/eseq error-fm))))])))))))
+;;                                                  [tile (sort (distinct (filter pos? (t/tensor->buffer error-fm))))])))))))
