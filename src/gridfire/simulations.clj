@@ -48,7 +48,7 @@
          (< 0 delta-hours 5)                                 delta-hours
          (>= delta-hours 5)                                  5
          :else                                               0)))
-   :int64))
+   :object))
 
 (defn process-output-layers-timestepped
   [{:keys [simulation-id] :as config}
@@ -113,9 +113,10 @@
                                               0))
                                           fire-spread-matrix
                                           burn-time-matrix))
+            burn-count-matrix-i  (nth (seq burn-count-matrix) band)
             band                 (int (quot clock timestep))]
-        (m/add! (nth (seq burn-count-matrix) band) filtered-fire-spread)))
-    (m/add! burn-count-matrix fire-spread-matrix)))
+        (d/copy! (dfn/+ burn-count-matrix-i filtered-fire-spread) burn-count-matrix-i)))
+    (d/copy! (dfn/+ burn-count-matrix fire-spread-matrix) burn-count-matrix)))
 
 (defn process-aggregate-output-layers!
   [{:keys [burn-count-matrix flame-length-max-matrix flame-length-sum-matrix
@@ -123,13 +124,15 @@
   (when-let [timestep output-burn-probability]
     (process-burn-count! fire-spread-results burn-count-matrix timestep))
   (when flame-length-sum-matrix
-    (m/add! flame-length-sum-matrix (:flame-length-matrix fire-spread-results)))
+    (d/copy! (dfn/+ flame-length-sum-matrix (:flame-length-matrix fire-spread-results))
+             flame-length-sum-matrix))
   (when flame-length-max-matrix
     (d/copy! (d/emap #(max %1 %2) nil flame-length-max-matrix (:flame-length-matrix fire-spread-results))
              flame-length-max-matrix
              flame-length-max-matrix))
   (when spot-count-matrix
-    (m/add! spot-count-matrix (:spot-matrix fire-spread-results))))
+    (d/copy! (dfn/+ spot-count-matrix (:spot-matrix fire-spread-results))
+             spot-count-matrix)))
 
 (defn process-binary-output!
   [{:keys [output-binary? output-directory]}

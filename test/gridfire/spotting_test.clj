@@ -2,7 +2,9 @@
   (:require [clojure.test        :refer [are deftest is testing use-fixtures run-tests]]
             [tech.v3.tensor :as t]
             [gridfire.conversion :as c]
-            [gridfire.spotting   :as spotting])
+            [gridfire.spotting   :as spotting]
+            [tech.v3.datatype.functional :as dfn]
+            [tech.v3.datatype :as d])
   (:import java.util.Random))
 
 (def ^:private seed 123456789)
@@ -197,7 +199,7 @@
 
 (deftest ^:unit test-surface-fire-spot-fire?
   (testing "Whether spotting from surface fire occurs based on a single or range of probabilities."
-    (let [fuel-model (m/add! (t/new-tensor 10 10) 10)
+    (let [fuel-model (d/clone (dfn/+ (t/new-tensor 10 10) 10))
           ->argmap   (fn [crit-fire-line-intensity spotting]
                        {:rand-gen          *rand-gen*
                         :fuel-model-matrix fuel-model

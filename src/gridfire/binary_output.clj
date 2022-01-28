@@ -1,9 +1,9 @@
 (ns gridfire.binary-output
   (:import (java.io DataInputStream DataOutputStream)
            (java.nio ByteBuffer))
-  (:require [clojure.java.io     :as io]
-            [tech.v3.tensor :as t]
-            [taoensso.tufte      :as tufte]))
+  (:require [clojure.java.io :as io]
+            [tech.v3.tensor  :as t]
+            [taoensso.tufte  :as tufte]))
 
 ;; We assume that matrix[0,0] is the upper left corner.
 (defn non-zero-data [matrix]
