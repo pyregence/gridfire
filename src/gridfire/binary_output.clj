@@ -41,7 +41,7 @@
 
 ;;FIXME optimize
 (defn write-matrix-as-binary [matrix file-name]
-  (let [num-burned-cells (-> matrix first dfn/pos? dfn/sum)
+  (let [num-burned-cells (-> matrix dfn/pos? dfn/sum)
         burned-data      (non-zero-data matrix)]
     (with-open [out (DataOutputStream. (io/output-stream file-name))]
       (.writeInt out (int num-burned-cells))               ; Int32
