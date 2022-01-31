@@ -12,6 +12,7 @@
   (->> result
        :matrix
        (#(.getArray ^PgArray %))
+       t/->tensor
        (d/emap #(or % -1.0) nil)
        t/clone))
 

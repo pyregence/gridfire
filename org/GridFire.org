@@ -2941,8 +2941,9 @@ command line interface.
 #+name: postgis-bridge
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/postgis_bridge.clj :padline no :no-expand :comments link
 (ns gridfire.postgis-bridge
-  (:require [tech.v3.tensor :as t]
-            [clojure.java.jdbc   :as jdbc])
+  (:require [clojure.java.jdbc   :as jdbc]
+            [tech.v3.tensor :as t]
+            [tech.v3.datatype :as d])
   (:import org.postgresql.jdbc.PgArray
            java.util.UUID))
 
@@ -2952,8 +2953,9 @@ command line interface.
   (->> result
        :matrix
        (#(.getArray ^PgArray %))
+       t/->tensor
        (d/emap #(or % -1.0) nil)
-       t/->tensor))
+       t/clone))
 
 (defn build-rescale-query [rescaled-table-name resolution table-name]
   (format (str "CREATE TEMPORARY TABLE %s "

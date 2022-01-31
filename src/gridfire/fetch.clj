@@ -31,11 +31,9 @@
 
 (defn landfire-matrix
   [config layer-name]
-  (let [layer  (landfire-layer config layer-name)
-        matrix (:matrix landfire-layer)]
-    (-> (landfire-layer config layer-name)
-        :matrix
-        first)))
+  (-> (landfire-layer config layer-name)
+      :matrix
+      first))
 
 (defn landfire-envelope
   [config layer-name]
