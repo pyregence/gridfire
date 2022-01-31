@@ -105,5 +105,5 @@
         indices  (da/argfilter pos? tensor)
         row-idxs (dfn/quot indices cols)
         col-idxs (dfn/rem indices cols)]
-    {:rows row-idxs
-     :cols col-idxs}))
+    {:row-idxs row-idxs
+     :col-idxs col-idxs}))

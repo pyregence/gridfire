@@ -199,7 +199,7 @@
 
 (deftest ^:unit test-surface-fire-spot-fire?
   (testing "Whether spotting from surface fire occurs based on a single or range of probabilities."
-    (let [fuel-model (d/clone (dfn/+ (t/new-tensor 10 10) 10))
+    (let [fuel-model (d/clone (dfn/+ (t/new-tensor [10 10]) 10))
           ->argmap   (fn [crit-fire-line-intensity spotting]
                        {:rand-gen          *rand-gen*
                         :fuel-model-matrix fuel-model

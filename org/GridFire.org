@@ -1864,7 +1864,8 @@ pseudo-code lays out the steps taken in this procedure:
                                                    in-bounds?
                                                    burnable-neighbors?
                                                    get-neighbors
-                                                   distance-3d]]
+                                                   distance-3d
+                                                   non-zero-indices]]
             [gridfire.conversion          :refer [mph->fpm]]
             [gridfire.crown-fire          :refer [crown-fire-eccentricity
                                                   crown-fire-line-intensity
@@ -2323,16 +2324,15 @@ pseudo-code lays out the steps taken in this procedure:
 
 (defn- initialize-matrix
   [num-rows num-cols indices]
-  (let [matrix (t/new-tensor num-rows num-cols)]
+  (let [matrix (t/new-tensor [num-rows num-cols])]
     (doseq [[i j] indices
             :when (in-bounds? num-rows num-cols [i j])]
       (t/mset! matrix i j -1.0))
     matrix))
 
 (defn- get-non-zero-indices [m]
-  (for [[r cols] (map-indexed vector (m/non-zero-indices m))
-        c        cols]
-    [r c]))
+  (let [{:keys [rows cols]} (non-zero-indices m)]
+    (map vector rows cols)))
 
 (defmulti run-fire-spread
   "Runs the raster-based fire spread model with a map of these arguments:
@@ -2365,15 +2365,15 @@ pseudo-code lays out the steps taken in this procedure:
 (defmethod run-fire-spread :ignition-point
   [{:keys [num-rows num-cols initial-ignition-site spotting trajectory-combination] :as inputs}]
   (let [[i j]                      initial-ignition-site
-        fire-spread-matrix         (t/new-tensor num-rows num-cols)
-        flame-length-matrix        (t/new-tensor num-rows num-cols)
-        fire-line-intensity-matrix (t/new-tensor num-rows num-cols)
-        burn-time-matrix           (t/new-tensor num-rows num-cols)
-        firebrand-count-matrix     (when spotting (t/new-tensor num-rows num-cols))
-        spread-rate-matrix         (t/new-tensor num-rows num-cols)
-        fire-type-matrix           (t/new-tensor num-rows num-cols)
-        spot-matrix                (t/new-tensor num-rows num-cols)
-        fractional-distance-matrix (when (= trajectory-combination :sum) (t/new-tensor num-rows num-cols))]
+        fire-spread-matrix         (t/new-tensor [num-rows num-cols])
+        flame-length-matrix        (t/new-tensor [num-rows num-cols])
+        fire-line-intensity-matrix (t/new-tensor [num-rows num-cols])
+        burn-time-matrix           (t/new-tensor [num-rows num-cols])
+        firebrand-count-matrix     (when spotting (t/new-tensor [num-rows num-cols]))
+        spread-rate-matrix         (t/new-tensor [num-rows num-cols])
+        fire-type-matrix           (t/new-tensor [num-rows num-cols])
+        spot-matrix                (t/new-tensor [num-rows num-cols])
+        fractional-distance-matrix (when (= trajectory-combination :sum) (t/new-tensor [num-rows num-cols]))]
     (t/mset! fire-spread-matrix i j 1.0)
     (t/mset! flame-length-matrix i j 1.0)
     (t/mset! fire-line-intensity-matrix i j 1.0)
@@ -2413,12 +2413,12 @@ pseudo-code lays out the steps taken in this procedure:
       (let [flame-length-matrix        (initialize-matrix num-rows num-cols non-zero-indices)
             fire-line-intensity-matrix (initialize-matrix num-rows num-cols non-zero-indices)
             burn-time-matrix           (initialize-matrix num-rows num-cols non-zero-indices)
-            firebrand-count-matrix     (when spotting (t/new-tensor num-rows num-cols))
+            firebrand-count-matrix     (when spotting (t/new-tensor [num-rows num-cols]))
             spread-rate-matrix         (initialize-matrix num-rows num-cols non-zero-indices)
             fire-type-matrix           (initialize-matrix num-rows num-cols non-zero-indices)
             fractional-distance-matrix (when (= trajectory-combination :sum)
                                          (initialize-matrix num-rows num-cols non-zero-indices))
-            spot-matrix                (t/new-tensor num-rows num-cols)
+            spot-matrix                (t/new-tensor [num-rows num-cols])
             ignited-cells              (generate-ignited-cells inputs fire-spread-matrix perimeter-indices)]
         (when (seq ignited-cells)
           (run-loop inputs
