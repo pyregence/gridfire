@@ -258,5 +258,5 @@
 (defn to-imperial!
   [layer {:keys [units multiplier] :or {multiplier 1.0}} layer-name]
   (if-let [converter (get-units-converter layer-name units multiplier)]
-    (update layer :matrix #(d/copy! (d/emap converter nil %)))
+    (update layer :matrix #(d/copy! (d/emap converter nil %) %))
     layer))
