@@ -55,12 +55,12 @@
     (is (= geotiff-results postgis-results))
 
     (let [numbands (count (:bands (read-raster (in-file-path geotiff-file))))]
-      (is (= numbands (-> (t/tensor->dimensions geotiff-results) :shape first)))
+      (is (= numbands (-> (t/tensor->dimensions geotiff-results) :shape first))))
 
     (let [results  (jdbc/with-db-connection [conn (:db-spec test-config-base)]
                      (jdbc/query conn [(str "SELECT (ST_Metadata(rast)).numbands FROM " postgis-table)]))
           numbands (:numbands (first results))]
-      (is (= numbands (-> (t/tensor->dimensions geotiff-results) :shape first)))))
+      (is (= numbands (-> (t/tensor->dimensions geotiff-results) :shape first))))))
 
 (deftest ^:database fetch-relative-humidity-test
   (let [geotiff-file    "rh_to_sample.tif"
@@ -81,12 +81,12 @@
     (is (= geotiff-results postgis-results))
 
     (let [numbands (count (:bands (read-raster (in-file-path geotiff-file))))]
-      (is (= numbands (-> (t/tensor->dimensions geotiff-results) :shape first)))
+      (is (= numbands (-> (t/tensor->dimensions geotiff-results) :shape first))))
 
     (let [results  (jdbc/with-db-connection [conn (:db-spec test-config-base)]
                      (jdbc/query conn [(str "SELECT (ST_Metadata(rast)).numbands FROM " postgis-table)]))
           numbands (:numbands (first results))]
-      (is (= numbands (-> (t/tensor->dimensions postgis-results) :shape first)))))
+      (is (= numbands (-> (t/tensor->dimensions postgis-results) :shape first))))))
 
 (deftest ^:database fetch-wind-speed-20ft-test
   (let [geotiff-file    "ws_to_sample.tif"
@@ -107,12 +107,12 @@
     (is (= geotiff-results postgis-results))
 
     (let [numbands (count (:bands (read-raster (in-file-path geotiff-file))))]
-      (is (= numbands (-> (t/tensor->dimensions geotiff-results) :shape first)))
+      (is (= numbands (-> (t/tensor->dimensions geotiff-results) :shape first))))
 
     (let [results  (jdbc/with-db-connection [conn (:db-spec test-config-base)]
                      (jdbc/query conn [(str "SELECT (ST_Metadata(rast)).numbands FROM " postgis-table)]))
           numbands (:numbands (first results))]
-      (is (= numbands (-> (t/tensor->dimensions postgis-results) :shape first)))))
+      (is (= numbands (-> (t/tensor->dimensions postgis-results) :shape first))))))
 
 (deftest ^:database fetch-wind-from-direction-test
   (let [geotiff-file    "wd_to_sample.tif"
@@ -133,44 +133,44 @@
     (is (= geotiff-results postgis-results))
 
     (let [numbands (count (:bands (read-raster (in-file-path geotiff-file))))]
-      (is (= numbands (-> (t/tensor->dimensions geotiff-results) :shape first)))
+      (is (= numbands (-> (t/tensor->dimensions geotiff-results) :shape first))))
 
     (let [results  (jdbc/with-db-connection [conn (:db-spec test-config-base)]
                      (jdbc/query conn [(str "SELECT (ST_Metadata(rast)).numbands FROM " postgis-table)]))
           numbands (:numbands (first results))]
-      (is (= numbands (-> (t/tensor->dimensions postgis-results) :shape first)))))
+      (is (= numbands (-> (t/tensor->dimensions postgis-results) :shape first))))))
 
 (deftest ^:database get-weather-from-range-test
-  (let [config  (assoc test-config-base
-                       :temperature [0 100]
-                       :simulations 10)
-        results (inputs/get-weather config :temperature)]
+(let [config  (assoc test-config-base
+                     :temperature [0 100]
+                     :simulations 10)
+      results (inputs/get-weather config :temperature)]
 
-    (is (vector results))
+  (is (vector results))
 
-    (is (every? int? results))))
+  (is (every? int? results))))
 
 (deftest ^:database get-weather-from-list-test
-  (let [tmp-list (list 0 10 20 30)
-        config   (assoc test-config-base
-                        :temperature tmp-list
-                        :simulations 10)
-        results  (inputs/get-weather config :temperature)]
+(let [tmp-list (list 0 10 20 30)
+      config   (assoc test-config-base
+                      :temperature tmp-list
+                      :simulations 10)
+      results  (inputs/get-weather config :temperature)]
 
-    (is (vector results))
+  (is (vector results))
 
-    (is (every? int? results))
+  (is (every? int? results))
 
-    (is (= (set results) (set tmp-list)))))
+  (is (= (set results) (set tmp-list)))))
 
 (deftest ^:database get-weather-scalar-from-test
-  (let [config  (assoc test-config-base
-                       :temperature 42
-                       :simulations 10)
-        results (inputs/get-weather config :temperature)]
+(let [config  (assoc test-config-base
+                     :temperature 42
+                     :simulations 10)
+      results (inputs/get-weather config :temperature)]
 
-    (is (vector results))
+  (is (vector results))
 
-    (is (every? int? results))
+  (is (every? int? results))
 
-    (is (apply = results))))
+  (is (apply = results))))
