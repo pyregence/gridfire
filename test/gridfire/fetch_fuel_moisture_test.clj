@@ -12,13 +12,9 @@
 
 (defn- equal-matrix?
   [inputs category size]
-  (let [matrix (if (= category :dead)
-                 (-> (get-in inputs [:fuel-moisture category size :source])
-                     geotiff-raster-to-matrix
-                     :matrix)
-                 (-> (get-in inputs [:fuel-moisture category size :source])
-                     geotiff-raster-to-matrix
-                     :matrix))]
+  (let [matrix (-> (get-in inputs [:fuel-moisture category size :source])
+                   geotiff-raster-to-matrix
+                   :matrix)]
     (dfn/equals (fetch/fuel-moisture-matrix inputs category size)
                 (d/clone (d/emap convert/percent->dec nil matrix)))))
 
