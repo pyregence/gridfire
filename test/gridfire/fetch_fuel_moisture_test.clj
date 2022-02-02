@@ -18,8 +18,7 @@
                      :matrix)
                  (-> (get-in inputs [:fuel-moisture category size :source])
                      geotiff-raster-to-matrix
-                     :matrix
-                     first))]
+                     :matrix))]
     (dfn/equals (fetch/fuel-moisture-matrix inputs category size)
                 (d/clone (d/emap convert/percent->dec nil matrix)))))
 
