@@ -1,4 +1,5 @@
 ;; [[file:../../org/GridFire.org::postgis-bridge][postgis-bridge]]
+
 (ns gridfire.postgis-bridge
   (:require [clojure.java.jdbc :as jdbc]
             [tech.v3.datatype  :as d]
@@ -75,6 +76,8 @@
           threshold-query (build-threshold-query threshold)
           data-query      (build-data-query threshold threshold-query metadata table-name)
           matrix          (when-let [results (seq (jdbc/query conn [data-query]))]
-                            (t/->tensor (mapv extract-matrix results)))]
+                            (if (= (count results) 1)
+                              (extract-matrix (first results))
+                              (t/->tensor (mapv extract-matrix results))))]
       (assoc metadata :matrix matrix))))
 ;; postgis-bridge ends here
