@@ -1,9 +1,9 @@
 (ns gridfire.conversion-test
-  (:require [clojure.test             :refer [deftest is testing]]
-            [gridfire.conversion      :as convert]
-            [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
-            [gridfire.utils.test      :as utils]
-            [tech.v3.datatype :as d]
+  (:require [clojure.test                :refer [deftest is testing]]
+            [gridfire.conversion         :as convert]
+            [gridfire.magellan-bridge    :refer [geotiff-raster-to-matrix]]
+            [gridfire.utils.test         :as utils]
+            [tech.v3.datatype            :as d]
             [tech.v3.datatype.functional :as dfn]))
 
 (def resources-path "test/gridfire/resources/conversion_test")

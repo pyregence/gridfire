@@ -1,11 +1,11 @@
 (ns gridfire.binary-output
   (:import (java.io DataInputStream DataOutputStream)
            (java.nio ByteBuffer))
-  (:require [clojure.java.io :as io]
-            [gridfire.common :refer [non-zero-indices]]
-            [tech.v3.tensor  :as t]
-            [taoensso.tufte  :as tufte]
-            [tech.v3.datatype.functional :as dfn]))
+  (:require [clojure.java.io             :as io]
+            [gridfire.common             :refer [non-zero-indices]]
+            [taoensso.tufte              :as tufte]
+            [tech.v3.datatype.functional :as dfn]
+            [tech.v3.tensor              :as t]))
 
 ;; We assume that matrix[0,0] is the upper left corner.
 (defn non-zero-data [matrix]

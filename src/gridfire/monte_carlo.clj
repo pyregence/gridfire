@@ -3,14 +3,13 @@
   (:require [clojure.java.io :as io]
             [clojure.data.csv :as csv]
             [clojure.java.jdbc :as jdbc]
-            [tech.v3.tensor :as t]
-            [tech.v3.tensor.operators :as top]
             [clojure.core.reducers :as r]
             [gridfire.surface-fire :refer [degrees-to-radians]]
             [gridfire.fire-spread :refer [random-cell run-fire-spread]]
             [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]
             [tech.v3.datatype :as d]
-            [tech.v3.datatype.functional :as dfn]))
+            [tech.v3.datatype.functional :as dfn]
+            [tech.v3.tensor :as t]))
 
 (defn postprocess-simulation-results
   [wrf-cell-id lon lat cell-offset-in-neighborhood output-directory results-table]

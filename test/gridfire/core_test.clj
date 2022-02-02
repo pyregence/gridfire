@@ -1,11 +1,11 @@
 (ns gridfire.core-test
-  (:require [clojure.string         :as str]
-            [clojure.test           :refer [deftest is testing use-fixtures are]]
-            [gridfire.binary-output :as binary]
-            [gridfire.conversion    :refer [m->ft]]
-            [gridfire.core          :as core]
-            [gridfire.fetch         :as fetch]
-            [gridfire.utils.test    :as utils]
+  (:require [clojure.string              :as str]
+            [clojure.test                :refer [deftest is testing use-fixtures are]]
+            [gridfire.binary-output      :as binary]
+            [gridfire.conversion         :refer [m->ft]]
+            [gridfire.core               :as core]
+            [gridfire.fetch              :as fetch]
+            [gridfire.utils.test         :as utils]
             [tech.v3.datatype.functional :as dfn]))
 
 ;;-----------------------------------------------------------------------------

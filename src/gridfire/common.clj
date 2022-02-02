@@ -1,7 +1,7 @@
 (ns gridfire.common
-  (:require [tech.v3.tensor :as t]
-            [tech.v3.datatype.argops :as da]
-            [tech.v3.datatype.functional :as dfn]))
+  (:require [tech.v3.datatype.argops     :as da]
+            [tech.v3.datatype.functional :as dfn]
+            [tech.v3.tensor              :as t]))
 
 ;; FIXME: unused
 (defn calc-emc

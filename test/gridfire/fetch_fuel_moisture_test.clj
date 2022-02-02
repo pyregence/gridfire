@@ -1,11 +1,11 @@
 (ns gridfire.fetch-fuel-moisture-test
-  (:require [tech.v3.tensor       :as t]
-            [clojure.test              :refer [deftest are]]
-            [gridfire.fetch            :as fetch]
-            [gridfire.magellan-bridge  :refer [geotiff-raster-to-matrix]]
-            [gridfire.utils.test       :as utils]
-            [gridfire.conversion :as convert]
-            [tech.v3.datatype :as d]
+  (:require 
+            [clojure.test                :refer [deftest are]]
+            [gridfire.fetch              :as fetch]
+            [gridfire.magellan-bridge    :refer [geotiff-raster-to-matrix]]
+            [gridfire.utils.test         :as utils]
+            [gridfire.conversion         :as convert]
+            [tech.v3.datatype            :as d]
             [tech.v3.datatype.functional :as dfn]))
 
 (def resources-path "test/gridfire/resources/weather-test")

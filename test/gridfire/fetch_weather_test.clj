@@ -1,10 +1,10 @@
 (ns gridfire.fetch-weather-test
-  (:require [tech.v3.tensor :as t]
-            [clojure.java.jdbc   :as jdbc]
-            [clojure.test        :refer [deftest is]]
-            [gridfire.fetch      :as fetch]
-            [gridfire.inputs     :as inputs]
-            [magellan.core       :refer [read-raster]])
+  (:require [clojure.java.jdbc :as jdbc]
+            [clojure.test      :refer [deftest is]]
+            [gridfire.fetch    :as fetch]
+            [gridfire.inputs   :as inputs]
+            [magellan.core     :refer [read-raster]]
+            [tech.v3.tensor    :as t])
   (:import java.util.Random))
 
 ;;-----------------------------------------------------------------------------

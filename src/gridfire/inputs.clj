@@ -1,13 +1,13 @@
 (ns gridfire.inputs
-  (:require [tech.v3.tensor   :as t]
-            [clojure.data.csv      :as csv]
+  (:require [clojure.data.csv      :as csv]
             [clojure.java.io       :as io]
             [clojure.string        :as str]
             [gridfire.common       :refer [burnable-fuel-model?]]
             [gridfire.conversion   :refer [conversion-table percent->dec]]
             [gridfire.fetch        :as fetch]
             [gridfire.utils.random :refer [draw-samples my-shuffle my-rand-nth]]
-            [gridfire.utils.server :refer [throw-message]])
+            [gridfire.utils.server :refer [throw-message]]
+            [tech.v3.tensor        :as t])
   (:import java.util.Random))
 
 (defn add-input-layers

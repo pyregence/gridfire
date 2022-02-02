@@ -1,9 +1,9 @@
 (ns gridfire.binary-output-test
-  (:require [tech.v3.tensor :as t]
-            [clojure.test :refer [deftest is use-fixtures]]
-            [gridfire.utils.test :as utils]
-            [gridfire.binary-output :as binary]
-            [tech.v3.datatype.functional :as dfn]))
+  (:require [clojure.test                :refer [deftest is use-fixtures]]
+            [gridfire.utils.test         :as utils]
+            [gridfire.binary-output      :as binary]
+            [tech.v3.datatype.functional :as dfn]
+            [tech.v3.tensor              :as t]))
 
 ;;-----------------------------------------------------------------------------
 ;; Fixtures

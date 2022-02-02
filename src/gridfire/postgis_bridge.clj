@@ -1,12 +1,10 @@
 ;; [[file:../../org/GridFire.org::postgis-bridge][postgis-bridge]]
 (ns gridfire.postgis-bridge
-  (:require [clojure.java.jdbc   :as jdbc]
-            [tech.v3.tensor :as t]
-            [tech.v3.datatype :as d])
+  (:require [clojure.java.jdbc :as jdbc]
+            [tech.v3.datatype  :as d]
+            [tech.v3.tensor    :as t])
   (:import org.postgresql.jdbc.PgArray
            java.util.UUID))
-
-
 
 (defn extract-matrix [result]
   (->> result

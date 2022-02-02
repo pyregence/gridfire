@@ -1880,12 +1880,8 @@ pseudo-code lays out the steps taken in this procedure:
                                                   rothermel-surface-fire-spread-max
                                                   rothermel-surface-fire-spread-no-wind-no-slope
                                                   wind-adjustment-factor]]
-            [gridfire.utils.random        :as random]
             [tech.v3.datatype             :as d]
-            [tech.v3.tensor               :as t])
-  (:import java.util.Random))
-
-
+            [tech.v3.tensor               :as t]))
 
 ;; for surface fire, tau = 10 mins, t0 = 0, and t = global-clock
 ;; for crown fire, tau = 20 mins, t0 = time of first torch, t = global-clock
@@ -2511,16 +2507,14 @@ the direction perpendicular to the wind.
 #+name: sardoy-firebrand-dispersal
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting.clj :padline no :no-expand :comments link
 (ns gridfire.spotting
-  (:require [tech.v3.tensor :as t]
-            [gridfire.common :refer [distance-3d
-                                     calc-fuel-moisture
-                                     in-bounds?
-                                     burnable?]]
-            [gridfire.utils.random :refer [my-rand-range]]
-            [gridfire.conversion :as convert]
-            [kixi.stats.distribution :as distribution]))
-
-
+  (:require [gridfire.common         :refer [distance-3d
+                                             calc-fuel-moisture
+                                             in-bounds?
+                                             burnable?]]
+            [gridfire.utils.random   :refer [my-rand-range]]
+            [gridfire.conversion     :as convert]
+            [kixi.stats.distribution :as distribution]
+            [tech.v3.tensor          :as t]))
 
 ;;-----------------------------------------------------------------------------
 ;; Formulas
@@ -2941,13 +2935,11 @@ command line interface.
 #+name: postgis-bridge
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/postgis_bridge.clj :padline no :no-expand :comments link
 (ns gridfire.postgis-bridge
-  (:require [clojure.java.jdbc   :as jdbc]
-            [tech.v3.tensor :as t]
-            [tech.v3.datatype :as d])
+  (:require [clojure.java.jdbc :as jdbc]
+            [tech.v3.datatype  :as d]
+            [tech.v3.tensor    :as t])
   (:import org.postgresql.jdbc.PgArray
            java.util.UUID))
-
-
 
 (defn extract-matrix [result]
   (->> result
@@ -4255,14 +4247,13 @@ This concludes our discussion of GridFire's command line interface.
   (:require [clojure.java.io :as io]
             [clojure.data.csv :as csv]
             [clojure.java.jdbc :as jdbc]
-            [tech.v3.tensor :as t]
-            [tech.v3.tensor.operators :as top]
             [clojure.core.reducers :as r]
             [gridfire.surface-fire :refer [degrees-to-radians]]
             [gridfire.fire-spread :refer [random-cell run-fire-spread]]
             [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]
             [tech.v3.datatype :as d]
-            [tech.v3.datatype.functional :as dfn]))
+            [tech.v3.datatype.functional :as dfn]
+            [tech.v3.tensor :as t]))
 
 (defn postprocess-simulation-results
   [wrf-cell-id lon lat cell-offset-in-neighborhood output-directory results-table]

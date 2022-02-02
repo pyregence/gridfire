@@ -1,7 +1,7 @@
 ;; [[file:../../org/GridFire.org::random_ignition.clj][random_ignition.clj]]
 (ns gridfire.random-ignition
-  (:require [tech.v3.tensor :as t]
-            [gridfire.common     :refer [burnable-fuel-model?]]))
+  (:require [gridfire.common :refer [burnable-fuel-model?]]
+            [tech.v3.tensor  :as t]))
 
 
 

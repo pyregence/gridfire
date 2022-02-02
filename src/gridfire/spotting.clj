@@ -1,15 +1,13 @@
 ;; [[file:../../org/GridFire.org::sardoy-firebrand-dispersal][sardoy-firebrand-dispersal]]
 (ns gridfire.spotting
-  (:require [tech.v3.tensor :as t]
-            [gridfire.common :refer [distance-3d
-                                     calc-fuel-moisture
-                                     in-bounds?
-                                     burnable?]]
-            [gridfire.utils.random :refer [my-rand-range]]
-            [gridfire.conversion :as convert]
-            [kixi.stats.distribution :as distribution]))
-
-
+  (:require [gridfire.common         :refer [distance-3d
+                                             calc-fuel-moisture
+                                             in-bounds?
+                                             burnable?]]
+            [gridfire.utils.random   :refer [my-rand-range]]
+            [gridfire.conversion     :as convert]
+            [kixi.stats.distribution :as distribution]
+            [tech.v3.tensor          :as t]))
 
 ;;-----------------------------------------------------------------------------
 ;; Formulas

@@ -7,9 +7,9 @@
             [gridfire.outputs            :as outputs]
             [gridfire.utils.random       :refer [my-rand-range]]
             [taoensso.tufte              :as tufte]
-            [tech.v3.tensor              :as t]
             [tech.v3.datatype            :as d]
-            [tech.v3.datatype.functional :as dfn])
+            [tech.v3.datatype.functional :as dfn]
+            [tech.v3.tensor              :as t])
   (:import java.util.Random))
 
 #_(set! *unchecked-math* :warn-on-boxed)

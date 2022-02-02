@@ -1,6 +1,5 @@
 (ns gridfire.outputs
-  (:require [tech.v3.tensor :as t]
-            [clojure.data.csv    :as csv]
+  (:require [clojure.data.csv    :as csv]
             [clojure.java.io     :as io]
             [clojure.string      :as str]
             [magellan.core       :refer [matrix-to-raster write-raster]]

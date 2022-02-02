@@ -1,7 +1,6 @@
 (ns gridfire.conversion
   (:require [clojure.string      :as str]
-            [tech.v3.datatype    :as d]
-            [tech.v3.tensor :as t])
+            [tech.v3.datatype    :as d])
   (:import java.text.SimpleDateFormat
            java.util.TimeZone))
 

@@ -1,7 +1,7 @@
 (ns gridfire.inputs-test
-  (:require [tech.v3.tensor :as t]
-            [clojure.test        :refer [are deftest is testing use-fixtures]]
-            [gridfire.inputs     :as inputs])
+  (:require [clojure.test    :refer [are deftest is testing use-fixtures]]
+            [gridfire.inputs :as inputs]
+            [tech.v3.tensor  :as t])
   (:import java.util.Random))
 
 ;;-----------------------------------------------------------------------------

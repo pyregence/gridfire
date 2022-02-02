@@ -23,12 +23,8 @@
                                                   rothermel-surface-fire-spread-max
                                                   rothermel-surface-fire-spread-no-wind-no-slope
                                                   wind-adjustment-factor]]
-            [gridfire.utils.random        :as random]
             [tech.v3.datatype             :as d]
-            [tech.v3.tensor               :as t])
-  (:import java.util.Random))
-
-
+            [tech.v3.tensor               :as t]))
 
 ;; for surface fire, tau = 10 mins, t0 = 0, and t = global-clock
 ;; for crown fire, tau = 20 mins, t0 = time of first torch, t = global-clock
