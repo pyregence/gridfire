@@ -10,8 +10,6 @@
 
 (register-new-crs-definitions-from-properties-file! "CUSTOM" (io/resource "custom_projections.properties"))
 
-
-
 (set! *unchecked-math* :warn-on-boxed)
 
 ;;-----------------------------------------------------------------------------
@@ -31,9 +29,7 @@
 
 (defn landfire-matrix
   [config layer-name]
-  (-> (landfire-layer config layer-name)
-      :matrix
-      first))
+  (:matrix (landfire-layer config layer-name)))
 
 (defn landfire-envelope
   [config layer-name]
@@ -72,8 +68,8 @@
   (when ignition-layer
    (let [layer (ignition-layer config)]
      (if-let [burn-values (:burn-values layer)]
-       (-> layer :matrix (convert-burn-values burn-values) first)
-       (-> layer :matrix first)))))
+       (-> layer :matrix (convert-burn-values burn-values))
+       (:matrix layer)))))
 
 ;;-----------------------------------------------------------------------------
 ;; Weather
@@ -113,7 +109,7 @@
 (defn ignition-mask-matrix
   [config]
   (when-let [layer (ignition-mask-layer config)]
-   (-> layer :matrix first)))
+   (:matrix layer)))
 
 ;;-----------------------------------------------------------------------------
 ;; Moisture Layers
@@ -136,7 +132,5 @@
   Units are in ratio (0-1)"
   [config category size]
   (when-let [layer (fuel-moisture-layer config category size)]
-    (if (= category :live)
-      (-> layer :matrix first)
-      (-> layer :matrix))))
+    (:matrix layer)))
 ;; fetch.clj ends here
