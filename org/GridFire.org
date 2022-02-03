@@ -897,9 +897,10 @@ where these terms have the meanings shown in Table
 For a full description of each of the subcomponents of Rothermel's
 surface fire spread rate equation, see the Rothermel 1972 reference
 above. In addition to applying the base Rothermel equations, GridFire
-reduces the spread rates for all of the Scott & Burgan 40 fuel models
-of the grass subgroup (101-109) by 50%. This addition was originally
-suggested by Chris Lautenberger of REAX Engineering.
+can reduce the spread rates for all of the Scott & Burgan 40 fuel models
+of the grass subgroup (101-109) by 50% by enabling the ~:grass-suppression?~
+configuration. This addition was originally suggested by Chris Lautenberger
+of REAX Engineering.
 
 For efficiency, the surface fire spread equation given above is
 computed first without introducing the effects of wind and slope

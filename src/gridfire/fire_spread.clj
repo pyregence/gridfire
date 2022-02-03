@@ -61,10 +61,10 @@
    [-1 -1] 315.0}) ; NW
 
 (defn rothermel-fast-wrapper
-  [fuel-model-number fuel-moisture]
+  [fuel-model-number fuel-moisture grass-suppression?]
   (let [fuel-model      (-> (build-fuel-model (int fuel-model-number))
                             (moisturize fuel-moisture))
-        spread-info-min (rothermel-surface-fire-spread-no-wind-no-slope fuel-model)]
+        spread-info-min (rothermel-surface-fire-spread-no-wind-no-slope fuel-model grass-suppression?)]
     [fuel-model spread-info-min]))
 
 (defrecord BurnTrajectory
@@ -139,7 +139,7 @@
    :fractional-distance [0-1]}, one for each cell adjacent to here."
   [{:keys [landfire-rasters multiplier-lookup perturbations wind-speed-20ft wind-from-direction
            temperature relative-humidity foliar-moisture ellipse-adjustment-factor
-           cell-size num-rows num-cols] :as constants}
+           cell-size num-rows num-cols grass-suppression?] :as constants}
    fire-spread-matrix
    here
    overflow-trajectory
@@ -202,7 +202,7 @@
                                                     (:wind-speed-20ft perturbations))
         fuel-moisture                 (or (fuel-moisture-from-raster constants here global-clock)
                                           (get-fuel-moisture relative-humidity temperature))
-        [fuel-model spread-info-min]  (rothermel-fast-wrapper fuel-model fuel-moisture)
+        [fuel-model spread-info-min]  (rothermel-fast-wrapper fuel-model fuel-moisture grass-suppression?)
         midflame-wind-speed           (mph->fpm
                                        (* wind-speed-20ft
                                           (wind-adjustment-factor ^long (:delta fuel-model)

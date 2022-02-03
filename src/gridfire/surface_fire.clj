@@ -24,7 +24,7 @@
    - f_ij [percent of load per size class (%)]
    - f_i [percent of load per category (%)]
    - g_ij [percent of load per size class from Albini_1976_FIREMOD, page 20]"
-  [{:keys [number delta w_o sigma  h rho_p S_T S_e M_x  M_f f_ij f_i g_ij]}]
+  [{:keys [number delta w_o sigma  h rho_p S_T S_e M_x  M_f f_ij f_i g_ij]} & [grass-suppression?]]
   (let [number     (long number)
         delta      (double delta)
         S_e_i      (size-class-sum (fn [i j] (* (-> f_ij i ^double (j)) (-> S_e i ^double (j)))))
@@ -151,7 +151,7 @@
                      0.0)
 
         ;; Addition proposed by Chris Lautenberger (REAX 2015)
-        spread-rate-multiplier (if (grass-fuel-model? number) 0.5 1.0)]
+        spread-rate-multiplier (if (and grass-suppression? (grass-fuel-model? number)) 0.5 1.0)]
 
     {:spread-rate        (* R spread-rate-multiplier)
      :reaction-intensity I_R
