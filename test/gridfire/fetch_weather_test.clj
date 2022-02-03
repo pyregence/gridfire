@@ -4,7 +4,8 @@
             [gridfire.fetch    :as fetch]
             [gridfire.inputs   :as inputs]
             [magellan.core     :refer [read-raster]]
-            [tech.v3.tensor    :as t])
+            [tech.v3.tensor    :as t]
+            [tech.v3.datatype.functional :as dfn])
   (:import java.util.Random))
 
 ;;-----------------------------------------------------------------------------
@@ -52,7 +53,7 @@
 
     (is (every? t/tensor? postgis-results))
 
-    (is (= geotiff-results postgis-results))
+    (is (dfn/equals geotiff-results postgis-results))
 
     (let [numbands (count (:bands (read-raster (in-file-path geotiff-file))))]
       (is (= numbands (-> (t/tensor->dimensions geotiff-results) :shape first))))
@@ -78,7 +79,7 @@
 
     (is (every? t/tensor? postgis-results))
 
-    (is (= geotiff-results postgis-results))
+    (is (dfn/equals geotiff-results postgis-results))
 
     (let [numbands (count (:bands (read-raster (in-file-path geotiff-file))))]
       (is (= numbands (-> (t/tensor->dimensions geotiff-results) :shape first))))
@@ -104,7 +105,7 @@
 
     (is (every? t/tensor? postgis-results))
 
-    (is (= geotiff-results postgis-results))
+    (is (dfn/equals geotiff-results postgis-results))
 
     (let [numbands (count (:bands (read-raster (in-file-path geotiff-file))))]
       (is (= numbands (-> (t/tensor->dimensions geotiff-results) :shape first))))
@@ -130,7 +131,7 @@
 
     (is (every? t/tensor? postgis-results))
 
-    (is (= geotiff-results postgis-results))
+    (is (dfn/equals geotiff-results postgis-results))
 
     (let [numbands (count (:bands (read-raster (in-file-path geotiff-file))))]
       (is (= numbands (-> (t/tensor->dimensions geotiff-results) :shape first))))
@@ -141,36 +142,36 @@
       (is (= numbands (-> (t/tensor->dimensions postgis-results) :shape first))))))
 
 (deftest ^:database get-weather-from-range-test
-(let [config  (assoc test-config-base
-                     :temperature [0 100]
-                     :simulations 10)
-      results (inputs/get-weather config :temperature)]
+  (let [config  (assoc test-config-base
+                       :temperature [0 100]
+                       :simulations 10)
+        results (inputs/get-weather config :temperature)]
 
-  (is (vector results))
+    (is (vector results))
 
-  (is (every? int? results))))
+    (is (every? double? results))))
 
 (deftest ^:database get-weather-from-list-test
-(let [tmp-list (list 0 10 20 30)
-      config   (assoc test-config-base
-                      :temperature tmp-list
-                      :simulations 10)
-      results  (inputs/get-weather config :temperature)]
+  (let [tmp-list (list 0 10 20 30)
+        config   (assoc test-config-base
+                        :temperature tmp-list
+                        :simulations 10)
+        results  (inputs/get-weather config :temperature)]
 
-  (is (vector results))
+    (is (vector results))
 
-  (is (every? int? results))
+    (is (every? int? results))
 
-  (is (= (set results) (set tmp-list)))))
+    (is (= (set results) (set tmp-list)))))
 
 (deftest ^:database get-weather-scalar-from-test
-(let [config  (assoc test-config-base
-                     :temperature 42
-                     :simulations 10)
-      results (inputs/get-weather config :temperature)]
+  (let [config  (assoc test-config-base
+                       :temperature 42
+                       :simulations 10)
+        results (inputs/get-weather config :temperature)]
 
-  (is (vector results))
+    (is (vector results))
 
-  (is (every? int? results))
+    (is (every? int? results))
 
-  (is (apply = results))))
+    (is (apply = results))))
