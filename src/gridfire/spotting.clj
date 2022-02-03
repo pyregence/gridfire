@@ -57,10 +57,10 @@
 (defn- sample-normal
   "Returns sample from normal/gaussian distribution given mu and sd."
   ^double
-  [^Random rng ^double mu ^double sd]
-  (+ mu (* sd (.nextGaussian rng))))
+  [^Random rand-gen ^double mu ^double sd]
+  (+ mu (* sd (.nextGaussian rand-gen))))
 
-(defn sample-lognormal
+(defn- sample-lognormal
   "Returns sample from log-normal distribution given mu and sd."
   ^double
   [^Random rand-gen ^double mu ^double sd]
@@ -74,13 +74,13 @@
   [{:keys [spotting rand-gen]}
    fire-line-intensity-matrix
    wind-speed-20ft [i j]]
-  (let [num-firebrands          (sample-spotting-params (:num-firebrands spotting) rand-gen)
+  (let [num-firebrands          (int (sample-spotting-params (:num-firebrands spotting) rand-gen))
         intensity               (convert/Btu-ft-s->kW-m (m/mget fire-line-intensity-matrix i j))
         {:keys [mean variance]} (mean-variance spotting rand-gen intensity wind-speed-20ft)
         mu                      (normalized-mean mean variance)
         sd                      (standard-deviation mean variance)
-        parallel-values         (repeatedly (int num-firebrands) #(sample-lognormal rand-gen mu sd))
-        perpendicular-values    (repeatedly (int num-firebrands) #(sample-normal rand-gen 0.0 0.92))]
+        parallel-values         (repeatedly num-firebrands #(sample-lognormal rand-gen mu sd))
+        perpendicular-values    (repeatedly num-firebrands #(sample-normal rand-gen 0.0 0.92))]
     (mapv (fn [x y] [(convert/m->ft x) (convert/m->ft y)])
           parallel-values
           perpendicular-values)))
