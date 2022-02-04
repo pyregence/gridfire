@@ -44,3 +44,21 @@
                   :hi [2.0 3.0]}]
       (is (not (s/valid? ::common/number-or-range-map config))
           "should not have overlapping ranges"))))
+
+(deftest ^:unit file-path-test
+  (is (s/valid? ::common/file-path "/absolute/file/path"))
+  (is (s/valid? ::common/file-path "./relative/file/path"))
+  (is (s/valid? ::common/file-path "../relative/file/path"))
+  (is (s/valid? ::common/file-path "../../relative/file/path"))
+  (is (not (s/valid? ::common/file-path "./relative/file/path/")))
+  (is (not (s/valid? ::common/file-path "../relative/file/path/")))
+  (is (not (s/valid? ::common/file-path "./relative/file/path/"))))
+
+(deftest ^:unit directory-path-test
+  (is (s/valid? ::common/directory-path "/absolute/directory/path"))
+  (is (s/valid? ::common/directory-path "/absolute/directory/path/"))
+  (is (s/valid? ::common/directory-path "../relative/directory/path/"))
+  (is (s/valid? ::common/directory-path "../../relative/directory/path/"))
+  (is (s/valid? ::common/directory-path "../relative/directory/path"))
+  (is (s/valid? ::common/directory-path "./relative/directory/path/"))
+  (is (s/valid? ::common/directory-path "./relative/directory/path")))
