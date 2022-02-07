@@ -1,12 +1,10 @@
 ;; [[file:org/GridFire.org::deps.edn][deps.edn]]
 {:paths ["src" "resources"]
 
- :deps {com.nextjournal/beholder            {:mvn/version "1.0.0"}
+ :deps {cnuernber/dtype-next                {:mvn/version "9.000"}
+        com.nextjournal/beholder            {:mvn/version "1.0.0"}
         com.taoensso/tufte                  {:mvn/version "2.2.0"}
-        cnuernber/dtype-next                {:mvn/version "9.000"}
         kixi/stats                          {:mvn/version "0.5.4"}
-        net.mikera/core.matrix              {:mvn/version "0.62.0"}
-        net.mikera/vectorz-clj              {:mvn/version "0.48.0"}
         org.clojars.lambdatronic/matrix-viz {:mvn/version "2022.02.03"}
         org.clojure/clojure                 {:mvn/version "1.10.3"}
         org.clojure/core.async              {:mvn/version "1.3.622"}

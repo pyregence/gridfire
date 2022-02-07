@@ -13,7 +13,7 @@
        (#(.getArray ^PgArray %))
        t/->tensor
        (d/emap #(or % -1.0) nil)
-       t/clone))
+       d/clone))
 
 (defn build-rescale-query [rescaled-table-name resolution table-name]
   (format (str "CREATE TEMPORARY TABLE %s "

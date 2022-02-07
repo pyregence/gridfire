@@ -54,6 +54,7 @@
                       (double burned)   1.0
                       (double unburned) 0.0
                       -1.0)
+                   :float64
                    matrix)
            matrix))
 

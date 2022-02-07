@@ -101,12 +101,10 @@ deps.edn for the current GridFire version is shown below.
 #+begin_src clojure :results silent :exports code :tangle ../deps.edn :padline no :no-expand :comments link
 {:paths ["src" "resources"]
 
- :deps {com.nextjournal/beholder            {:mvn/version "1.0.0"}
+ :deps {cnuernber/dtype-next                {:mvn/version "9.000"}
+        com.nextjournal/beholder            {:mvn/version "1.0.0"}
         com.taoensso/tufte                  {:mvn/version "2.2.0"}
-        cnuernber/dtype-next                {:mvn/version "9.000"}
         kixi/stats                          {:mvn/version "0.5.4"}
-        net.mikera/core.matrix              {:mvn/version "0.62.0"}
-        net.mikera/vectorz-clj              {:mvn/version "0.48.0"}
         org.clojars.lambdatronic/matrix-viz {:mvn/version "2022.02.03"}
         org.clojure/clojure                 {:mvn/version "1.10.3"}
         org.clojure/core.async              {:mvn/version "1.3.622"}
@@ -2328,8 +2326,8 @@ pseudo-code lays out the steps taken in this procedure:
     matrix))
 
 (defn- get-non-zero-indices [m]
-  (let [{:keys [rows cols]} (non-zero-indices m)]
-    (map vector rows cols)))
+  (let [{:keys [rows-idxs col-idxs]} (non-zero-indices m)]
+    (map vector rows-idxs col-idxs)))
 
 (defmulti run-fire-spread
   "Runs the raster-based fire spread model with a map of these arguments:
@@ -2398,7 +2396,7 @@ pseudo-code lays out the steps taken in this procedure:
 
 (defmethod run-fire-spread :ignition-perimeter
   [{:keys [num-rows num-cols initial-ignition-site fuel-model-matrix spotting trajectory-combination] :as inputs}]
-  (let [fire-spread-matrix (first (d/clone (:matrix initial-ignition-site)))
+  (let [fire-spread-matrix (d/clone initial-ignition-site)
         non-zero-indices   (get-non-zero-indices fire-spread-matrix)
         perimeter-indices  (filter #(burnable-neighbors? fire-spread-matrix
                                                          fuel-model-matrix
@@ -2935,6 +2933,7 @@ command line interface.
 
 #+name: postgis-bridge
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/postgis_bridge.clj :padline no :no-expand :comments link
+
 (ns gridfire.postgis-bridge
   (:require [clojure.java.jdbc :as jdbc]
             [tech.v3.datatype  :as d]
@@ -2948,7 +2947,7 @@ command line interface.
        (#(.getArray ^PgArray %))
        t/->tensor
        (d/emap #(or % -1.0) nil)
-       t/clone))
+       d/clone))
 
 (defn build-rescale-query [rescaled-table-name resolution table-name]
   (format (str "CREATE TEMPORARY TABLE %s "
@@ -3011,7 +3010,9 @@ command line interface.
           threshold-query (build-threshold-query threshold)
           data-query      (build-data-query threshold threshold-query metadata table-name)
           matrix          (when-let [results (seq (jdbc/query conn [data-query]))]
-                            (t/->tensor (mapv extract-matrix results)))]
+                            (if (= (count results) 1)
+                              (extract-matrix (first results))
+                              (t/->tensor (mapv extract-matrix results))))]
       (assoc metadata :matrix matrix))))
 #+end_src
 
@@ -3595,35 +3596,6 @@ mask from a geotiff file.
 
 *Note*: ignition-row and ignition-col must be omitted for this feature.
 
-Here's the namespace that implments this functionality.
-
-#+name: random_ignition.clj
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/random_ignition.clj :padline no :no-expand :comments link
-(ns gridfire.random-ignition
-  (:require [tech.v3.tensor :as t]
-            [gridfire.common     :refer [burnable-fuel-model?]]))
-
-
-
-(defn- in-edge-buffer?
-  "Returns true if give [row col] is within the buffer region defined
-  by buffer-size. The buffer size is the thickness (pixel) of the edge
-  buffer region."
-  [num-rows num-cols buffer-size row col]
-  (or  (<= row buffer-size)
-       (> row (- num-rows buffer-size))
-       (<= col buffer-size)
-       (> col (- num-cols buffer-size))))
-
-(defn valid-ignition-site? [{:keys [num-rows num-cols random-ignition cell-size fuel-model-matrix]} row col]
-  (let [{:keys [edge-buffer]} random-ignition]
-    (and (if edge-buffer
-           (let [buffer-size (int (Math/ceil (/ edge-buffer cell-size)))]
-             (not (in-edge-buffer? num-rows num-cols buffer-size row col)))
-           true)
-         (burnable-fuel-model? (t/mget fuel-model-matrix row col)))))
-#+end_src
-
 To initialize an existing burn perimeter from a raster, we have two
 options. We can read rasters from a Postgresql database or a raster
 file on disk. This behavior is controlled as follows:
@@ -3672,8 +3644,6 @@ this functionality.
 
 (register-new-crs-definitions-from-properties-file! "CUSTOM" (io/resource "custom_projections.properties"))
 
-
-
 (set! *unchecked-math* :warn-on-boxed)
 
 ;;-----------------------------------------------------------------------------
@@ -3693,9 +3663,7 @@ this functionality.
 
 (defn landfire-matrix
   [config layer-name]
-  (-> (landfire-layer config layer-name)
-      :matrix
-      first))
+  (:matrix (landfire-layer config layer-name)))
 
 (defn landfire-envelope
   [config layer-name]
@@ -3720,6 +3688,7 @@ this functionality.
                       (double burned)   1.0
                       (double unburned) 0.0
                       -1.0)
+                   :float64
                    matrix)
            matrix))
 
@@ -3734,8 +3703,8 @@ this functionality.
   (when ignition-layer
    (let [layer (ignition-layer config)]
      (if-let [burn-values (:burn-values layer)]
-       (-> layer :matrix (convert-burn-values burn-values) first)
-       (-> layer :matrix first)))))
+       (-> layer :matrix (convert-burn-values burn-values))
+       (:matrix layer)))))
 
 ;;-----------------------------------------------------------------------------
 ;; Weather
@@ -3775,7 +3744,7 @@ this functionality.
 (defn ignition-mask-matrix
   [config]
   (when-let [layer (ignition-mask-layer config)]
-   (-> layer :matrix first)))
+   (:matrix layer)))
 
 ;;-----------------------------------------------------------------------------
 ;; Moisture Layers
@@ -3798,9 +3767,7 @@ this functionality.
   Units are in ratio (0-1)"
   [config category size]
   (when-let [layer (fuel-moisture-layer config category size)]
-    (if (= category :live)
-      (-> layer :matrix first)
-      (-> layer :matrix))))
+    (:matrix layer)))
 #+end_src
 
 ** Section 3: Weather data from which to build simulation inputs

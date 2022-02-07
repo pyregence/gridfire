@@ -1,5 +1,6 @@
 (ns gridfire.common
-  (:require [tech.v3.datatype.argops     :as da]
+  (:require [tech.v3.datatype            :as d]
+            [tech.v3.datatype.argops     :as da]
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.tensor              :as t]))
 
@@ -105,5 +106,8 @@
         indices  (da/argfilter pos? tensor)
         row-idxs (dfn/quot indices cols)
         col-idxs (dfn/rem indices cols)]
-    {:row-idxs row-idxs
-     :col-idxs col-idxs}))
+    {:row-idxs (d/unchecked-cast row-idxs :int64)
+     :col-idxs (d/unchecked-cast col-idxs :int64)}))
+
+(defn non-zero-count [tensor]
+  (-> tensor dfn/pos? dfn/sum (d/unchecked-cast :int64)))

@@ -1,11 +1,10 @@
 (ns gridfire.binary-output
   (:import (java.io DataInputStream DataOutputStream)
            (java.nio ByteBuffer))
-  (:require [clojure.java.io             :as io]
-            [gridfire.common             :refer [non-zero-indices]]
-            [taoensso.tufte              :as tufte]
-            [tech.v3.datatype.functional :as dfn]
-            [tech.v3.tensor              :as t]))
+  (:require [clojure.java.io :as io]
+            [gridfire.common :refer [non-zero-indices non-zero-count]]
+            [taoensso.tufte  :as tufte]
+            [tech.v3.tensor  :as t]))
 
 ;; We assume that matrix[0,0] is the upper left corner.
 (defn non-zero-data [matrix]
@@ -41,7 +40,7 @@
 
 ;;FIXME optimize
 (defn write-matrix-as-binary [matrix file-name]
-  (let [num-burned-cells (-> matrix dfn/pos? dfn/sum)
+  (let [num-burned-cells (non-zero-count matrix)
         burned-data      (non-zero-data matrix)]
     (with-open [out (DataOutputStream. (io/output-stream file-name))]
       (.writeInt out (int num-burned-cells))               ; Int32
@@ -65,7 +64,7 @@
   [file-name types matrices]
   (tufte/p
    :write-matrices-as-binary
-   (let [num-burned-cells (-> matrices first dfn/pos? dfn/sum)
+   (let [num-burned-cells (non-zero-count (first matrices))
          data             (mapv non-zero-data matrices)]
      (with-open [out (DataOutputStream. (io/output-stream file-name))]
        (.writeInt out (int num-burned-cells)) ; Int32
@@ -86,8 +85,8 @@
   (with-open [in (DataInputStream. (io/input-stream file-name))]
     (let [num-burned-cells (.readInt in)] ; Int32
       (indices-to-matrix
-       {:x (into-array Integer/TYPE (repeatedly num-burned-cells #(.readInt in)))  ; Int32
-        :y (into-array Integer/TYPE (repeatedly num-burned-cells #(.readInt in)))  ; Int32
+       {:x (into-array Integer/TYPE (repeatedly num-burned-cells #(.readInt in))) ; Int32
+        :y (into-array Integer/TYPE (repeatedly num-burned-cells #(.readInt in))) ; Int32
         :v (into-array Float/TYPE (repeatedly num-burned-cells #(.readFloat in)))} ; Float32
        :float))))
 
@@ -100,8 +99,8 @@
           _                (.read in ys-bytes)
           xs               (int-array num-burned-cells)
           ys               (int-array num-burned-cells)
-          _               (.get (.asIntBuffer (ByteBuffer/wrap xs-bytes)) xs)
-          _               (.get (.asIntBuffer (ByteBuffer/wrap ys-bytes)) ys)] ; Int32
+          _                (.get (.asIntBuffer (ByteBuffer/wrap xs-bytes)) xs)
+          _                (.get (.asIntBuffer (ByteBuffer/wrap ys-bytes)) ys)] ; Int32
       (mapv (fn [ttype]
               (indices-to-matrix
                {:x xs

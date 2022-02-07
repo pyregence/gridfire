@@ -26,8 +26,7 @@
 
 (defn previous-active-perimeter?
   [[i j :as here] matrix]
-  (let [num-rows (-> (t/tensor->dimensions matrix) :shape first)
-        num-cols (-> (t/tensor->dimensions matrix) :shape second)]
+  (let [[num-rows num-cols] (:shape (t/tensor->dimensions matrix))]
     (and
      (= (t/mget matrix i j) -1.0)
      (->> (get-neighbors here)
@@ -48,7 +47,7 @@
          (< 0 delta-hours 5)                                 delta-hours
          (>= delta-hours 5)                                  5
          :else                                               0)))
-   :object))
+   :int64))
 
 (defn process-output-layers-timestepped
   [{:keys [simulation-id] :as config}
@@ -111,10 +110,11 @@
                                             (if (<= burn-time clock)
                                               layer-value
                                               0))
+                                          nil
                                           fire-spread-matrix
                                           burn-time-matrix))
             band                 (int (quot clock timestep))
-            burn-count-matrix-i  (nth (seq burn-count-matrix) band)]
+            burn-count-matrix-i  (nth burn-count-matrix band)]
         (d/copy! (dfn/+ burn-count-matrix-i filtered-fire-spread) burn-count-matrix-i)))
     (d/copy! (dfn/+ burn-count-matrix fire-spread-matrix) burn-count-matrix)))
 
@@ -127,7 +127,7 @@
     (d/copy! (dfn/+ flame-length-sum-matrix (:flame-length-matrix fire-spread-results))
              flame-length-sum-matrix))
   (when flame-length-max-matrix
-    (d/copy! (d/emap #(max %1 %2) nil flame-length-max-matrix (:flame-length-matrix fire-spread-results))
+    (d/copy! (dfn/max flame-length-max-matrix (:flame-length-matrix fire-spread-results))
              flame-length-max-matrix))
   (when spot-count-matrix
     (d/copy! (dfn/+ spot-count-matrix (:spot-matrix fire-spread-results))

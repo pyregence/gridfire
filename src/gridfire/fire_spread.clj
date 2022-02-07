@@ -470,8 +470,8 @@
     matrix))
 
 (defn- get-non-zero-indices [m]
-  (let [{:keys [rows cols]} (non-zero-indices m)]
-    (map vector rows cols)))
+  (let [{:keys [rows-idxs col-idxs]} (non-zero-indices m)]
+    (map vector rows-idxs col-idxs)))
 
 (defmulti run-fire-spread
   "Runs the raster-based fire spread model with a map of these arguments:
@@ -540,7 +540,7 @@
 
 (defmethod run-fire-spread :ignition-perimeter
   [{:keys [num-rows num-cols initial-ignition-site fuel-model-matrix spotting trajectory-combination] :as inputs}]
-  (let [fire-spread-matrix (first (d/clone (:matrix initial-ignition-site)))
+  (let [fire-spread-matrix (d/clone initial-ignition-site)
         non-zero-indices   (get-non-zero-indices fire-spread-matrix)
         perimeter-indices  (filter #(burnable-neighbors? fire-spread-matrix
                                                          fuel-model-matrix

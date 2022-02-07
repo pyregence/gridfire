@@ -50,12 +50,10 @@
 ;;TODO Document fuel-model as the resolution of the computational space. Cell size must also match fuel model.
 (defn add-misc-params
   [{:keys [random-seed fuel-model-matrix] :as inputs}]
-  (let [num-rows (-> (t/tensor->dimensions fuel-model-matrix)
-                     :shape
-                     first)]
+  (let [[num-rows num-cols] (:shape (t/tensor->dimensions fuel-model-matrix))]
     (assoc inputs
            :num-rows                                       num-rows
-           :num-cols                                       (-> (t/tensor->dimensions fuel-model-matrix) :shape second)
+           :num-cols                                       num-cols
            :rand-gen                                       (if random-seed (Random. random-seed) (Random.))
            :aspect-index-multiplier                        (calc-multiplier inputs num-rows :aspect-matrix)
            :canopy-base-height-index-multiplier            (calc-multiplier inputs num-rows :canopy-base-height-matrix)
