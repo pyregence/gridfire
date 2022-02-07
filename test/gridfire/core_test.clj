@@ -1,11 +1,10 @@
 (ns gridfire.core-test
   (:require [clojure.string         :as str]
-            [clojure.test           :refer [deftest is testing use-fixtures]]
+            [clojure.test           :refer [deftest is testing use-fixtures are]]
             [gridfire.binary-output :as binary]
             [gridfire.conversion    :refer [m->ft]]
             [gridfire.core          :as core]
             [gridfire.fetch         :as fetch]
-            [gridfire.inputs        :as inputs]
             [gridfire.utils.test    :as utils]))
 
 ;;-----------------------------------------------------------------------------
@@ -71,9 +70,6 @@
 ;; Tests
 ;;-----------------------------------------------------------------------------
 
-(deftest ^{:database true :simulation true} fetch-landfire-layers-old-config-test
-  (is (some? (fetch/landfire-layers test-config-base))))
-
 (deftest ^{:database true :simulation true} fetch-landfire-layers-test
   (testing "Fetching layers from postgis and geotiff files"
     (let [postgis-config {:db-spec         db-spec
@@ -109,33 +105,29 @@
                                             :fuel-model         {:type   :geotiff
                                                                  :source (in-file-path "fbfm40.tif")}
                                             :slope              {:type   :geotiff
-                                                                 :source (in-file-path "slp.tif")}}}
-          postgis        (fetch/landfire-layers postgis-config)
-          geotiff        (fetch/landfire-layers geotiff-config)]
+                                                                 :source (in-file-path "slp.tif")}}}]
 
-      (is (= (get-in postgis [:aspect :matrix])
-             (get-in geotiff [:aspect :matrix])))
+      (is (= (fetch/landfire-matrix postgis-config :aspect)
+             (fetch/landfire-matrix geotiff-config :aspect)))
 
-      (is (= (get-in postgis [:canopy-cover :matrix])
-             (get-in geotiff [:canopy-cover :matrix])))
+      (is (= (fetch/landfire-matrix postgis-config :canopy-cover)
+             (fetch/landfire-matrix geotiff-config :canopy-cover)))
 
-      (is (= (get-in postgis [:canopy-height :matrix])
-             (get-in geotiff [:canopy-height :matrix])))
+      (is (= (fetch/landfire-matrix postgis-config :canopy-height)
+             (fetch/landfire-matrix geotiff-config :canopy-height)))
 
-      (is (= (get-in postgis [:crown-bulk-density :matrix])
-             (get-in geotiff [:crown-bulk-density :matrix])))
+      (is (= (fetch/landfire-matrix postgis-config :crown-bulk-density)
+             (fetch/landfire-matrix geotiff-config :crown-bulk-density)))
 
-      (is (= (get-in postgis [:elevation :matrix])
-             (get-in geotiff [:elevation :matrix])))
+      (is (= (fetch/landfire-matrix postgis-config :elevation)
+             (fetch/landfire-matrix geotiff-config :elevation)))
 
-      (is (= (get-in postgis [:fuel-model :matrix])
-             (get-in geotiff [:fuel-model :matrix])))
+      (is (= (fetch/landfire-matrix postgis-config :fuel-model)
+             (fetch/landfire-matrix geotiff-config :fuel-model)))
 
-      (is (= (get-in postgis [:slope :matrix])
-             (get-in geotiff [:slope :matrix])))
-
-      ;; TODO Add test for envelope
-      )))
+      (is (= (fetch/landfire-matrix postgis-config :slope)
+             (fetch/landfire-matrix geotiff-config :slope))))))
+;; TODO Add test for envelope
 
 ;;-----------------------------------------------------------------------------
 ;; Landfire Layer Tests
@@ -185,8 +177,7 @@
 
       (is (valid-exits? geotiff-results))
 
-      (is (= (set postgis-results) (set geotiff-results))))))
-
+      (is (= (mapv :fire-size postgis-results) (mapv :fire-size geotiff-results))))))
 ;;-----------------------------------------------------------------------------
 ;; Ignition Layer Tests
 ;;-----------------------------------------------------------------------------
@@ -284,15 +275,6 @@
 
       (is (valid-exits? (run-test-simulation! config))))))
 
-(deftest ^:unit multiplier-lookup-test
-  (testing "constructing multiplier lookup for weather raster"
-    (let [config {:cell-size   (m->ft 30)
-                  :temperature {:type   :geotiff
-                                :source (in-file-path "weather-test/tmpf_to_sample_lower_res.tif")}}
-          lookup (inputs/create-multiplier-lookup (assoc config :weather-layers (fetch/weather-layers config)))]
-
-      (is (= {:temperature 10.0} lookup)))))
-
 ;;-----------------------------------------------------------------------------
 ;; Perturbation Tests
 ;;-----------------------------------------------------------------------------
@@ -309,6 +291,46 @@
                         {:perturbations {:canopy-height {:spatial-type :pixel
                                                          :range        [-1.0 1.0]}}})]
       (is (valid-exits? (run-test-simulation! config))))))
+
+(deftest ^{:database true :simulation true} run-test-simulation!-with-weather-perturbations
+  (testing "temperature"
+    (are [config] (valid-exits? (run-test-simulation! config))
+      (merge test-config-base
+             {:perturbations {:temperature {:spatial-type :global
+                                            :range        [-1.0 1.0]}}})
+      (merge test-config-base
+             {:perturbations {:temperature {:spatial-type :pixel
+                                            :range        [-1.0 1.0]}}})
+      (merge test-config-base
+             {:perturbations   {:temperature {:spatial-type :global
+                                              :range        [-1.0 1.0]}}
+              :landfire-layers landfire-layers-weather-test
+              :temperature     (:temperature weather-layers)})
+      (merge test-config-base
+             {:perturbations   {:temperature {:spatial-type :pixel
+                                              :range        [-1.0 1.0]}}
+              :landfire-layers landfire-layers-weather-test
+              :temperature     (:temperature weather-layers)}))
+
+    (testing "wind-speed-20ft"
+      (are [config] (valid-exits? (run-test-simulation! config))
+        (merge test-config-base
+               {:perturbations {:wind-speed-20ft {:spatial-type :global
+                                                  :range        [-1.0 1.0]}}})
+        (merge test-config-base
+               {:perturbations {:wind-speed-20ft {:spatial-type :pixel
+                                                  :range        [-1.0 1.0]}}})
+        (merge test-config-base
+               {:perturbations   {:wind-speed-20ft {:spatial-type :global
+                                                    :range        [-1.0 1.0]}}
+                :landfire-layers landfire-layers-weather-test
+                :wind-speed-20ft (:wind-speed-20ft weather-layers)})
+
+        (merge test-config-base
+               {:perturbations   {:wind-speed-20ft {:spatial-type :pixel
+                                                    :range        [-1.0 1.0]}}
+                :landfire-layers landfire-layers-weather-test
+                :wind-speed-20ft (:wind-speed-20ft weather-layers)})))))
 
 ;;-----------------------------------------------------------------------------
 ;; Outputs

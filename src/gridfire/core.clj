@@ -47,12 +47,6 @@
                                    (reducer-fn)))]
       (assoc inputs :summary-stats summary-stats))))
 
-(defn ensure-ignitable-sites
-  [inputs config-file-path]
-  (if (seq (:ignitable-sites inputs))
-    inputs
-    (log-str (format "Invalid config file [%s]: No valid ignition sites." config-file-path))))
-
 (defn load-inputs!
   [config]
   (-> config
@@ -60,15 +54,17 @@
       (inputs/add-misc-params)
       (inputs/add-ignition-csv)
       (inputs/add-sampled-params)
+      (inputs/add-perturbation-params)
       (inputs/add-weather-params)
-      (inputs/add-ignitable-sites)
+      (inputs/add-fuel-moisture-params)
+      (inputs/add-random-ignition-sites)
       (inputs/add-aggregate-matrices)))
 
 (defn load-config!
   [config-file-path]
   (let [config (edn/read-string (slurp config-file-path))]
     (if (spec/valid? ::config-spec/config config)
-      config
+      (assoc config :config-file-path config-file-path)
       (log-str (format "Invalid config file [%s]:\n%s"
                        config-file-path
                        (spec/explain-str ::config-spec/config config))))))
@@ -79,7 +75,6 @@
     (some-> config-file-path
             (load-config!)
             (load-inputs!)
-            (ensure-ignitable-sites config-file-path)
             (run-simulations!)
             (write-outputs!))
     (catch Exception e

@@ -1,36 +1,7 @@
 (ns gridfire.common
-  (:require [clojure.core.matrix :as m]
-            [gridfire.perturbation :as perturbation]))
+  (:require [clojure.core.matrix :as m]))
 
 (m/set-current-implementation :vectorz)
-
-(defn matrix-value-at ^double
-  [[i j] ^double global-clock matrix]
-  (if (> (m/dimensionality matrix) 2)
-    (let [band (int (quot global-clock 60.0))] ;Assuming each band is 1 hour
-      (m/mget matrix band i j))
-    (m/mget matrix i j)))
-
-(defn sample-at
-  ([here global-clock matrix multiplier]
-   (sample-at here global-clock matrix multiplier nil))
-
-  ([here global-clock matrix multiplier perturb-info]
-   (let [cell       (if multiplier
-                      (mapv #(long (quot ^long % ^double multiplier)) here)
-                      here)
-         value-here (matrix-value-at cell global-clock matrix)]
-     (if perturb-info
-       (if-let [^long freq (:frequency perturb-info)]
-         (max 0 (+ value-here (perturbation/value-at perturb-info matrix cell (quot ^double global-clock freq))))
-         (max 0 (+ value-here (perturbation/value-at perturb-info matrix cell))))
-       value-here))))
-
-(defn get-value-at
-  [here global-clock matrix-or-val multiplier perturb-info]
-  (if (> (m/dimensionality matrix-or-val) 1)
-    (sample-at here global-clock matrix-or-val multiplier perturb-info)
-    matrix-or-val))
 
 ;; FIXME: unused
 (defn calc-emc
@@ -39,62 +10,25 @@
   ^double
   [^double rh ^double temp]
   (/ (double
-      (cond (< rh 10)  (+ 0.03229 (* 0.281073 rh) (* -0.000578 rh temp))
-            (< rh 50)  (+ 2.22749 (* 0.160107 rh) (* -0.01478 temp))
-            :else (+ 21.0606 (* 0.005565 rh rh) (* -0.00035 rh temp) (* -0.483199 rh))))
+      (cond (< rh 10) (+ 0.03229 (* 0.281073 rh) (* -0.000578 rh temp))
+            (< rh 50) (+ 2.22749 (* 0.160107 rh) (* -0.01478 temp))
+            :else     (+ 21.0606 (* 0.005565 rh rh) (* -0.00035 rh temp) (* -0.483199 rh))))
      30))
 
-(defn get-fuel-moisture
-  "Returns a map of moisture
-  {:dead {:1hr        (0-1)
-          :10hr       (0-1)
-          :100hr      (0-1)}
-   :live {:herbaceous (0-1)
-          :woody      (0-1)}}"
-  [relative-humidity temperature]
+(def fuel-categories #{:dead :live})
+
+(def fuel-sizes #{:1hr :10hr :100hr :herbaceous :woody})
+
+(defn calc-fuel-moisture
+  [relative-humidity temperature category size]
   (let [equilibrium-moisture (calc-emc relative-humidity temperature)]
-    {:dead {:1hr   (+ equilibrium-moisture 0.002)
-            :10hr  (+ equilibrium-moisture 0.015)
-            :100hr (+ equilibrium-moisture 0.025)}
-     :live {:herbaceous (* equilibrium-moisture 2.0)
-            :woody      (* equilibrium-moisture 0.5)}}))
-
-(defn extract-fuel-moisture
-  "Returns a map of moisture
-  {:dead {:1hr        (0-1)
-          :10hr       (0-1)
-          :100hr      (0-1)}
-   :live {:herbaceous (0-1)
-          :woody      (0-1)}}"
-  [fuel-moisture multiplier-lookup here global-clock]
-  (let [f (fn [path]
-            (fn [spec]
-              (if (map? spec)
-                (sample-at here
-                           global-clock
-                           (:matrix spec)
-                           (get-in multiplier-lookup path))
-                spec)))]
-    (-> fuel-moisture
-        (update-in [:dead :1hr] (f [:dead :1hr]))
-        (update-in [:dead :10hr] (f [:dead :10hr]))
-        (update-in [:dead :100hr] (f [:dead :100hr]))
-        (update-in [:live :herbaceous] (f [:live :herbaceous]))
-        (update-in [:live :woody] (f [:live :woody])))))
-
-(defn fuel-moisture-from-raster
-  "Returns a map of moisture
-  {:dead {:1hr        (0-1)
-          :10hr       (0-1)
-          :100hr      (0-1)}
-   :live {:herbaceous (0-1)
-          :woody      (0-1)}}"
-  ([constants here]
-   (fuel-moisture-from-raster constants here 0))
-
-  ([{:keys [fuel-moisture multiplier-lookup]} here global-clock]
-   (when fuel-moisture
-     (extract-fuel-moisture fuel-moisture multiplier-lookup here global-clock))))
+    (case [category size]
+      [:dead :1hr]        (+ equilibrium-moisture 0.002)
+      [:dead :10hr]       (+ equilibrium-moisture 0.015)
+      [:dead :100hr]      (+ equilibrium-moisture 0.025)
+      [:live :herbaceous] (* equilibrium-moisture 2.0)
+      [:live :woody]      (* equilibrium-moisture 0.5)
+      nil)))
 
 (defn in-bounds?
   "Returns true if the point lies within the bounds [0,rows) by [0,cols)."
@@ -123,8 +57,8 @@
 (defn get-neighbors
   "Returns the eight points adjacent to the passed-in point."
   [[i j]]
-  (let [i (long i)
-        j (long j)
+  (let [i  (long i)
+        j  (long j)
         i- (- i 1)
         i+ (+ i 1)
         j- (- j 1)

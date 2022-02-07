@@ -185,11 +185,11 @@
   (testing "Whether spotting from surface fire occurs based on a single or range of probabilities."
     (let [fuel-model (m/add! (m/zero-matrix 10 10) 10)
           ->argmap   (fn [crit-fire-line-intensity spotting]
-                       {:rand-gen *rand-gen*
-                        :landfire-rasters {:fuel-model fuel-model}
-                        :spotting {:surface-fire-spotting
-                                   {:critical-fire-line-intensity crit-fire-line-intensity
-                                    :spotting-percent spotting}}})]
+                       {:rand-gen          *rand-gen*
+                        :fuel-model-matrix fuel-model
+                        :spotting          {:surface-fire-spotting
+                                            {:critical-fire-line-intensity crit-fire-line-intensity
+                                             :spotting-percent             spotting}}})]
       (are [result args] (= result (apply spotting/surface-fire-spot-fire? args))
            ; Result [crit. fire line intensity (kW/m) surface fire spotting probability (0-1) here (coords) fire line intensity (kW/m)]
            nil      [(->argmap 1500 nil)                     [0 0] 1000]

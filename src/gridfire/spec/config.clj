@@ -98,6 +98,18 @@
    :boolean boolean?
    :map     (common/one-or-more-keys [::ignition-mask ::edge-buffer])))
 
+(s/def ::simulations-or-ignition-csv
+  (fn [{:keys [simulations ignition-csv]}]
+    (or simulations ignition-csv)))
+
+(s/def ::max-runtime-or-ignition-csv
+  (fn [{:keys [max-runtime ignition-csv]}]
+    (or max-runtime ignition-csv)))
+
+(s/def ::ignition-layer-or-ignition-csv
+  (fn [{:keys [ignition-layer ignition-csv]}]
+    (not (and ignition-layer ignition-csv))))
+
 ;; Fuel Moisture
 
 (s/def ::1hr        ::common/ratio-or-layer-coords)
@@ -158,7 +170,13 @@
     ::perturbations/temperature
     ::perturbations/relative-humidity
     ::perturbations/wind-speed-20ft
-    ::perturbations/wind-direction]))
+    ::perturbations/wind-direction
+    ::perturbations/fuel-moisture-dead-1hr
+    ::perturbations/fuel-moisture-dead-10hr
+    ::perturbations/fuel-moisture-dead-100hr
+    ::perturbations/fuel-moisture-live-herbaceous
+    ::perturbations/fuel-moisture-live-woody
+    ::perturbations/foliar-moisture]))
 
 ;; Outputs
 
@@ -201,16 +219,16 @@
 (s/def ::config
   (s/and
    (s/keys
-    :req-un [::max-runtime
-             ::simulations
-             ::srid
+    :req-un [::srid
              ::cell-size
              ::foliar-moisture
              ::temperature
              ::wind-speed-20ft
              ::wind-from-direction
              ::landfire-layers]
-    :opt-un [::random-seed
+    :opt-un [::max-runtime
+             ::simulations
+             ::random-seed
              ::ellipse-adjustment-factor
              ::fractional-distance-combination
              ::parallel-strategy
@@ -237,4 +255,7 @@
              ::output-spot-count?
              ::output-flame-length-max?
              ::output-flame-length-sum?])
+   ::ignition-layer-or-ignition-csv
+   ::max-runtime-or-ignition-csv
+   ::simulations-or-ignition-csv
    ::rh-or-fuel-moisture))
