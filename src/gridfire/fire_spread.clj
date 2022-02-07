@@ -470,8 +470,8 @@
     matrix))
 
 (defn- get-non-zero-indices [m]
-  (let [{:keys [rows-idxs col-idxs]} (non-zero-indices m)]
-    (map vector rows-idxs col-idxs)))
+  (let [{:keys [row-idxs col-idxs]} (non-zero-indices m)]
+    (map vector row-idxs col-idxs)))
 
 (defmulti run-fire-spread
   "Runs the raster-based fire spread model with a map of these arguments:
