@@ -148,25 +148,6 @@
          :fuel-moisture-live-herbaceous-samples (get-fuel-moisture inputs :live :herbaceous)
          :fuel-moisture-live-woody-samples      (get-fuel-moisture inputs :live :woody)))
 
-(defn- filter-ignitions
-  [ignition-param buffer-size limit num-items]
-  (filterv
-   #(<= buffer-size % limit)
-   (cond
-     (vector? ignition-param) (range (first ignition-param) (inc (second ignition-param)))
-     (list? ignition-param)   ignition-param
-     (number? ignition-param) (list ignition-param)
-     :else                    (range 0 num-items))))
-
-(defn- sample-ignition-sites-shuffle
-  [{:keys [rand-gen simulations]} ignitable-cell? ignition-rows ignition-cols]
-  (let [ignitable-sites (my-shuffle rand-gen
-                                    (for [row   ignition-rows
-                                          col   ignition-cols
-                                          :when (ignitable-cell? row col)]
-                                      [row col]))]
-    (subvec ignitable-sites 0 (min simulations (count ignitable-sites)))))
-
 (defn- fill-ignition-sites
   [rand-gen ignition-sites simulations]
   (let [num-sites-available (count ignition-sites)]
@@ -179,6 +160,15 @@
           (recur (- num-sites-needed num-additional-sites)
                  (into final-ignition-sites additional-sites)))
         final-ignition-sites))))
+
+(defn- sample-ignition-sites-shuffle
+  [{:keys [rand-gen simulations]} ignitable-cell? ignition-rows ignition-cols]
+  (let [ignitable-sites (my-shuffle rand-gen
+                                    (for [row   ignition-rows
+                                          col   ignition-cols
+                                          :when (ignitable-cell? row col)]
+                                      [row col]))]
+    (subvec ignitable-sites 0 (min simulations (count ignitable-sites)))))
 
 (defn sample-ignition-sites-darts
   [{:keys [rand-gen simulations]} ignitable-cell? ignition-rows ignition-cols]
@@ -199,14 +189,8 @@
                  (conj unignitable-cells cell)))))))
 
 (defn select-ignition-algorithm
-  [{:keys [num-rows num-cols ignition-mask-matrix fuel-model-matrix]} ignition-rows ignition-cols]
-  (let [ignitable-cell? (if ignition-mask-matrix
-                          (fn [row col]
-                            (and (pos? (m/mget ignition-mask-matrix row col))
-                                 (burnable-fuel-model? (m/mget fuel-model-matrix row col))))
-                          (fn [row col]
-                            (burnable-fuel-model? (m/mget fuel-model-matrix row col))))
-        ratio-threshold (max 1 (int (* 0.0025 num-rows num-cols)))] ; the inflection point from our benchmarks
+  [{:keys [num-rows num-cols]} ignitable-cell? ignition-rows ignition-cols]
+  (let [ratio-threshold (max 1 (int (* 0.0025 num-rows num-cols)))] ; the inflection point from our benchmarks
     (if (= ratio-threshold
            (reduce +
                    (take ratio-threshold
@@ -216,6 +200,16 @@
                            1))))
       :use-darts
       :use-shuffle)))
+
+(defn- filter-ignitions
+  [ignition-param buffer-size limit num-items]
+  (filterv
+   #(<= buffer-size % limit)
+   (cond
+     (vector? ignition-param) (range (first ignition-param) (inc (second ignition-param)))
+     (list? ignition-param)   ignition-param
+     (number? ignition-param) (list ignition-param)
+     :else                    (range 0 num-items))))
 
 (defn add-random-ignition-sites
   [{:keys
@@ -235,7 +229,7 @@
                             0)
           ignition-rows   (filter-ignitions ignition-row buffer-size (- num-rows buffer-size 1) num-rows)
           ignition-cols   (filter-ignitions ignition-col buffer-size (- num-cols buffer-size 1) num-cols)
-          ignition-sites  (if (= :use-darts (select-ignition-algorithm inputs ignition-rows ignition-cols))
+          ignition-sites  (if (= :use-darts (select-ignition-algorithm inputs ignitable-cell? ignition-rows ignition-cols))
                             (sample-ignition-sites-darts inputs ignitable-cell? ignition-rows ignition-cols)
                             (sample-ignition-sites-shuffle inputs ignitable-cell? ignition-rows ignition-cols))]
       (if (seq ignition-sites)

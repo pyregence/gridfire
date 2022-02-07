@@ -498,9 +498,9 @@
   - num-rows: integer
   - num-cols: integer"
   (fn [{:keys [initial-ignition-site]}]
-    (if (m/matrix? initial-ignition-site)
-      :ignition-perimeter
-      :ignition-point)))
+    (if (vector? initial-ignition-site)
+      :ignition-point
+      :ignition-perimeter)))
 
 (defmethod run-fire-spread :ignition-point
   [{:keys [num-rows num-cols initial-ignition-site spotting trajectory-combination] :as inputs}]
