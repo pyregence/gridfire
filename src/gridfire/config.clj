@@ -17,9 +17,7 @@
 
 (defn relative-path?
   [path]
-  (if (re-matches #"^((\.){1,2}/)*" path)
-    true
-    false))
+  (re-matches #"^((\.){1,2}/)*" path))
 
 (defn file-path
   ([file-or-directory]
