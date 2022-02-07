@@ -75,8 +75,8 @@
 ;; File Access
 ;;=============================================================================
 
-(def file-path-regex      #"^(((\.\.){1}/)*|(/){1})?(([\w\-]*)/)*([\w\-\.]+)$")
-(def directory-path-regex #"^(((\.\.){1}/)*|(/){1})?(([\w\-]*)/)*([\w\-]+)/?$")
+(def file-path-regex      #"^(((\.){1,2}/)*|(/){1})?(([\w\-]*)/)*([\w\-\.]+)$")
+(def directory-path-regex #"^(((\.){1,2}/)*|(/){1})?(([\w\-]*)/)*([\w\-]+)/?$")
 
 (s/def ::file-path      (s/and string? #(re-matches file-path-regex %)))
 (s/def ::directory-path (s/and string? #(re-matches directory-path-regex %)))
@@ -102,11 +102,11 @@
 
 (def postgis-sql-regex #"[a-z0-9]+(\.[a-z0-9]+)? WHERE rid=[0-9]+")
 
-(def path-to-geotiff-regex #"[a-z_\-\s0-9\.\/]+(\/[a-z_\-\s0-9\.]+)*\.tif")
+(def geotiff-regex #".*\.tif$")
 
 (s/def ::sql (s/and string? #(re-matches postgis-sql-regex %)))
 
-(s/def ::geotiff (s/and string? #(re-matches path-to-geotiff-regex %) ::readable-file))
+(s/def ::geotiff (s/and ::readable-file #(re-matches geotiff-regex %)))
 
 (s/def ::source (s/or :sql     ::sql
                       :geotiff ::geotiff))

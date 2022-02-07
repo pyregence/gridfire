@@ -15,14 +15,22 @@
 
 (def ^:dynamic *elmfire-directory-path* "")
 
+(defn relative-path?
+  [path]
+  (re-matches #"^((\.){1,2}/)*" path))
+
 (defn file-path
   ([file-or-directory]
-   (-> (io/file *elmfire-directory-path* file-or-directory)
+   (-> (if (relative-path? file-or-directory)
+         (io/file *elmfire-directory-path* file-or-directory)
+         (io/file file-or-directory))
        (.toPath)
        (.normalize)
        (.toString)))
   ([directory tif-file-prefix]
-   (-> (io/file *elmfire-directory-path* directory (str tif-file-prefix ".tif"))
+   (-> (if (relative-path? directory)
+         (io/file *elmfire-directory-path* directory (str tif-file-prefix ".tif"))
+         (io/file directory (str tif-file-prefix ".tif")))
        (.toPath)
        (.normalize)
        (.toString))))
@@ -228,8 +236,13 @@
   [{:strs [NEMBERS NEMBERS_MIN NEMBERS_MIN_LO NEMBERS_MIN_HI NEMBERS_MAX
            NEMBERS_MAX_LO NEMBERS_MAX_HI ENABLE_SPOTTING]}]
   (if ENABLE_SPOTTING
-    {:lo (if NEMBERS_MIN_LO [NEMBERS_MIN_LO NEMBERS_MIN_HI] NEMBERS_MIN)
-     :hi (if NEMBERS_MAX_LO [NEMBERS_MAX_LO NEMBERS_MAX_HI] NEMBERS_MAX)}
+    {:lo (cond
+           (and NEMBERS_MIN_LO (= NEMBERS_MIN_LO NEMBERS_MIN_HI)) NEMBERS_MIN_LO
+           NEMBERS_MIN_LO                                         [NEMBERS_MIN_LO NEMBERS_MIN_HI]
+           :else                                                  NEMBERS_MIN)
+     :hi (cond (and NEMBERS_MAX_LO (= NEMBERS_MAX_LO NEMBERS_MAX_HI)) NEMBERS_MAX_LO
+               NEMBERS_MAX_LO                                         [NEMBERS_MAX_LO NEMBERS_MAX_HI]
+               :else                                                  NEMBERS_MAX)}
     NEMBERS))
 
 ;; FIXME: Is this logic (and return format) right?
