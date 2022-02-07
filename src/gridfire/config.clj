@@ -15,14 +15,24 @@
 
 (def ^:dynamic *elmfire-directory-path* "")
 
+(defn relative-path?
+  [path]
+  (if (re-matches #"^((\.){1,2}/)*" path)
+    true
+    false))
+
 (defn file-path
   ([file-or-directory]
-   (-> (io/file *elmfire-directory-path* file-or-directory)
+   (-> (if (relative-path? file-or-directory)
+         (io/file *elmfire-directory-path* file-or-directory)
+         (io/file file-or-directory))
        (.toPath)
        (.normalize)
        (.toString)))
   ([directory tif-file-prefix]
-   (-> (io/file *elmfire-directory-path* directory (str tif-file-prefix ".tif"))
+   (-> (if (relative-path? directory)
+         (io/file *elmfire-directory-path* directory (str tif-file-prefix ".tif"))
+         (io/file directory (str tif-file-prefix ".tif")))
        (.toPath)
        (.normalize)
        (.toString))))
