@@ -317,11 +317,11 @@
                  :100hr {:type   :geotiff
                          :source (file-path WEATHER_DIRECTORY M100_FILENAME)}}
           :live {:woody      (if USE_CONSTANT_LW
-                               (* 0.01 LW_MOISTURE_CONTENT)
+                               (* 0.01 ^double LW_MOISTURE_CONTENT)
                                {:type   :geotiff
                                 :source (file-path WEATHER_DIRECTORY "mlw")})
                  :herbaceous (if USE_CONSTANT_LH
-                               (* 0.01 LH_MOISTURE_CONTENT)
+                               (* 0.01 ^double LH_MOISTURE_CONTENT)
                                {:type   :geotiff
                                 :source (file-path WEATHER_DIRECTORY "mlh")})}}))
 
