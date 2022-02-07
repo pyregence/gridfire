@@ -44,10 +44,9 @@
   [inputs fuel-model-matrix-height matrix-kw]
   (when-let [matrix (get inputs matrix-kw)]
     (let [height-dimension (if (multi-band? matrix) 1 0)
-          matrix-height    (m/dimension-count matrix height-dimension)
-          multiplier       (double (/ matrix-height fuel-model-matrix-height))]
-      (when (not= multiplier 1.0)
-        multiplier))))
+          matrix-height    (m/dimension-count matrix height-dimension)]
+      (when (not= matrix-height fuel-model-matrix-height)
+        (double (/ matrix-height fuel-model-matrix-height))))))
 
 ;;TODO Document fuel-model as the resolution of the computational space. Cell size must also match fuel model.
 (defn add-misc-params
@@ -101,15 +100,14 @@
   (into config
         (map (fn [[layer {:keys [units range] :as spec}]]
                (if-let [converter (get-in conversion-table [layer units])]
-                 [layer (assoc spec :range (map converter range))]
+                 [layer (assoc spec :range (mapv converter range))]
                  [layer spec])))
         config))
 
 (defn add-perturbation-params
   [{:keys [perturbations] :as inputs}]
   (if perturbations
-    (assoc inputs
-           :perturbations (convert-ranges perturbations))
+    (assoc inputs :perturbations (convert-ranges perturbations))
     inputs))
 
 (defn get-weather
@@ -137,7 +135,7 @@
                                           (name category)
                                           (name size)
                                           "matrix"]))]
-    (when (and fuel-moisture
+    (when (and (get-in fuel-moisture [category size])
                (not (inputs matrix-kw)))
       (draw-samples rand-gen simulations (get-in fuel-moisture [category size])))))
 
@@ -210,19 +208,19 @@
         (throw-message (format "Invalid config file [%s]: No valid ignition sites." config-file-path))))))
 
 (defn initialize-burn-count-matrix
-  [output-burn-probability max-runtimes ^long num-rows ^long num-cols]
+  [output-burn-probability max-runtime-samples ^long num-rows ^long num-cols]
   (if (number? output-burn-probability)
-    (let [num-bands (long (Math/ceil (/ (reduce max max-runtimes) output-burn-probability)))]
+    (let [num-bands (long (Math/ceil (/ (reduce max max-runtime-samples) output-burn-probability)))]
       (m/zero-array [num-bands num-rows num-cols]))
     (m/zero-array [num-rows num-cols])))
 
 (defn add-aggregate-matrices
   [{:keys
-    [max-runtimes num-rows num-cols output-burn-count? output-burn-probability output-flame-length-sum?
+    [max-runtime-samples num-rows num-cols output-burn-count? output-burn-probability output-flame-length-sum?
      output-flame-length-max? output-spot-count?] :as inputs}]
   (assoc inputs
          :burn-count-matrix       (when (or output-burn-count? output-burn-probability)
-                                    (initialize-burn-count-matrix output-burn-probability max-runtimes num-rows num-cols))
+                                    (initialize-burn-count-matrix output-burn-probability max-runtime-samples num-rows num-cols))
          :flame-length-sum-matrix (when output-flame-length-sum? (m/zero-array [num-rows num-cols]))
          :flame-length-max-matrix (when output-flame-length-max? (m/zero-array [num-rows num-cols]))
          :spot-count-matrix       (when output-spot-count? (m/zero-array [num-rows num-cols]))))

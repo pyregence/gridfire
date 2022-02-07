@@ -159,7 +159,7 @@
         ^double wind-from-direction           (get-wind-from-direction band i j)
         ^double fuel-moisture-dead-1hr        (if get-fuel-moisture-dead-1hr
                                                 (get-fuel-moisture-dead-1hr band i j)
-                                                (calc-fuel-moisture relative-humidity temperature :dead :10hr))
+                                                (calc-fuel-moisture relative-humidity temperature :dead :1hr))
         ^double fuel-moisture-dead-10hr       (if get-fuel-moisture-dead-10hr
                                                 (get-fuel-moisture-dead-10hr band i j)
                                                 (calc-fuel-moisture relative-humidity temperature :dead :10hr))
@@ -280,8 +280,7 @@
    ignition-events
    fire-spread-matrix
    global-clock]
-  (let [fuel-model-matrix    fuel-model-matrix
-        parallel-bin-size    (max 1 (quot (count ignition-events) (.availableProcessors (Runtime/getRuntime))))
+  (let [parallel-bin-size    (max 1 (quot (count ignition-events) (.availableProcessors (Runtime/getRuntime))))
         newly-ignited-cells  (into #{} (map :cell) ignition-events)
         pruned-ignited-cells (into [] (remove #(contains? newly-ignited-cells (:cell %))) ignited-cells)
         reducer-fn           (if (= parallel-strategy :within-fires)

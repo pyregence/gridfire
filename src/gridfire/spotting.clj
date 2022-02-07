@@ -306,7 +306,7 @@
    {:keys [firebrand-count-matrix fire-spread-matrix fire-line-intensity-matrix flame-length-matrix]}
    {:keys [cell fire-line-intensity crown-fire?]}]
   (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
-    (let [band              (int (quot global-clock 60.0))
+    (let [band              (int (/ global-clock 60.0))
           [i j]             cell
           tmp               (get-temperature band i j)
           rh                (get-relative-humidity band i j)
@@ -314,7 +314,7 @@
           wd                (get-wind-from-direction band i j)
           m1                (if get-fuel-moisture-dead-1hr
                               (get-fuel-moisture-dead-1hr band i j)
-                              (calc-fuel-moisture rh tmp :dead :10hr))
+                              (calc-fuel-moisture rh tmp :dead :1hr))
           deltas            (sample-wind-dir-deltas inputs
                                                     fire-line-intensity-matrix
                                                     (convert/mph->mps ws)

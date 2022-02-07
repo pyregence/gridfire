@@ -43,12 +43,12 @@
               :else       (repeat n x))))
 
 (defn my-shuffle
-  [^Random seed ^Collection coll]
+  [^Random rand-gen ^Collection coll]
   (if (< (count coll) 2)
     (if (vector? coll)
       coll
       (vec coll))
     (let [al (ArrayList. coll)]
-      (Collections/shuffle al seed)
+      (Collections/shuffle al rand-gen)
       (vec (.toArray al)))))
 ;; utils-random ends here

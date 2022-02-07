@@ -22,4 +22,5 @@
 (s/def ::fuel-moisture-dead-100hr      ::perturbation)
 (s/def ::fuel-moisture-live-herbaceous ::perturbation)
 (s/def ::fuel-moisture-live-woody      ::perturbation)
+(s/def ::foliar-moisture               ::perturbation)
 

@@ -67,12 +67,12 @@
     (geotiff-raster-to-matrix (:source ignition-layer))))
 
 (defn ignition-matrix
-  [{:keys [ignition-layer] :as config}]
-  (when ignition-layer
-   (let [layer (ignition-layer config)]
-     (if-let [burn-values (:burn-values layer)]
-       (-> layer :matrix (convert-burn-values burn-values) first)
-       (-> layer :matrix first)))))
+  [config]
+  (when (:ignition-layer config)
+    (let [matrix (first (:matrix (ignition-layer config)))]
+      (if-let [burn-values (-> config :ignition-layer :burn-values)]
+        (convert-burn-values matrix burn-values)
+        matrix))))
 
 ;;-----------------------------------------------------------------------------
 ;; Weather

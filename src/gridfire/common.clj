@@ -21,27 +21,14 @@
 
 (defn calc-fuel-moisture
   [relative-humidity temperature category size]
-  (when (and (contains? fuel-categories category) (contains? fuel-sizes size))
-    (let [equilibrium-moisture (calc-emc relative-humidity temperature)]
-      (cond
-        (and (= category :dead) (= size :1hr))
-        (+ equilibrium-moisture 0.002)
-
-        (and (= category :dead) (= size :10hr))
-        (+ equilibrium-moisture 0.015)
-
-        (and (= category :dead) (= size :100hr))
-        (+ equilibrium-moisture 0.025)
-
-        (and (= category :live) (= size :herbaceous))
-        (+ equilibrium-moisture 2.0)
-
-
-        (and (= category :live) (= size :woody))
-        (+ equilibrium-moisture 0.5)
-
-        :else
-        nil))))
+  (let [equilibrium-moisture (calc-emc relative-humidity temperature)]
+    (case [category size]
+      [:dead :1hr]        (+ equilibrium-moisture 0.002)
+      [:dead :10hr]       (+ equilibrium-moisture 0.015)
+      [:dead :100hr]      (+ equilibrium-moisture 0.025)
+      [:live :herbaceous] (* equilibrium-moisture 2.0)
+      [:live :woody]      (* equilibrium-moisture 0.5)
+      nil)))
 
 (defn in-bounds?
   "Returns true if the point lies within the bounds [0,rows) by [0,cols)."
