@@ -1,16 +1,14 @@
 (ns gridfire.inputs
-  (:require [clojure.core.matrix   :as m]
-            [clojure.data.csv      :as csv]
+  (:require [clojure.data.csv      :as csv]
             [clojure.java.io       :as io]
             [clojure.string        :as str]
             [gridfire.common       :refer [burnable-fuel-model?]]
             [gridfire.conversion   :refer [conversion-table percent->dec]]
             [gridfire.fetch        :as fetch]
             [gridfire.utils.random :refer [draw-samples my-shuffle my-rand-nth]]
-            [gridfire.utils.server :refer [throw-message]])
+            [gridfire.utils.server :refer [throw-message]]
+            [tech.v3.tensor        :as t])
   (:import java.util.Random))
-
-(m/set-current-implementation :vectorz)
 
 (defn add-input-layers
   [config]
@@ -37,24 +35,24 @@
          :fuel-moisture-live-woody-matrix      (fetch/fuel-moisture-matrix config :live :woody)))
 
 (defn- multi-band? [matrix]
-  (> (m/dimensionality matrix) 2))
+  (> (:n-dims (t/tensor->dimensions matrix)) 2))
 
 ;;TODO Document: using higher resolution layers than fuel model will choose upper left corner cell of the layer from the higher resolution grid within each fuel model grid cell. Recommend to use layers at or below resolution of fuel model matrix if you want to avoid loss of information.
 (defn calc-multiplier
   [inputs fuel-model-matrix-height matrix-kw]
   (when-let [matrix (get inputs matrix-kw)]
     (let [height-dimension (if (multi-band? matrix) 1 0)
-          matrix-height    (m/dimension-count matrix height-dimension)]
+          matrix-height    (-> (t/tensor->dimensions matrix) :shape (get height-dimension))]
       (when (not= matrix-height fuel-model-matrix-height)
         (double (/ matrix-height fuel-model-matrix-height))))))
 
 ;;TODO Document fuel-model as the resolution of the computational space. Cell size must also match fuel model.
 (defn add-misc-params
   [{:keys [random-seed fuel-model-matrix] :as inputs}]
-  (let [num-rows (m/row-count fuel-model-matrix)]
+  (let [[num-rows num-cols] (:shape (t/tensor->dimensions fuel-model-matrix))]
     (assoc inputs
            :num-rows                                       num-rows
-           :num-cols                                       (m/column-count fuel-model-matrix)
+           :num-cols                                       num-cols
            :rand-gen                                       (if random-seed (Random. random-seed) (Random.))
            :aspect-index-multiplier                        (calc-multiplier inputs num-rows :aspect-matrix)
            :canopy-base-height-index-multiplier            (calc-multiplier inputs num-rows :canopy-base-height-matrix)
@@ -148,6 +146,16 @@
          :fuel-moisture-live-herbaceous-samples (get-fuel-moisture inputs :live :herbaceous)
          :fuel-moisture-live-woody-samples      (get-fuel-moisture inputs :live :woody)))
 
+(defn- filter-ignitions
+  [ignition-param buffer-size limit num-items]
+  (filterv
+   #(<= buffer-size % limit)
+   (cond
+     (vector? ignition-param) (range (first ignition-param) (inc (second ignition-param)))
+     (list? ignition-param)   ignition-param
+     (number? ignition-param) (list ignition-param)
+     :else                    (range 0 num-items))))
+
 (defn- fill-ignition-sites
   [rand-gen ignition-sites simulations]
   (let [num-sites-available (count ignition-sites)]
@@ -201,16 +209,6 @@
       :use-darts
       :use-shuffle)))
 
-(defn- filter-ignitions
-  [ignition-param buffer-size limit num-items]
-  (filterv
-   #(<= buffer-size % limit)
-   (cond
-     (vector? ignition-param) (range (first ignition-param) (inc (second ignition-param)))
-     (list? ignition-param)   ignition-param
-     (number? ignition-param) (list ignition-param)
-     :else                    (range 0 num-items))))
-
 (defn add-random-ignition-sites
   [{:keys
     [num-rows num-cols ignition-row ignition-col simulations cell-size random-ignition
@@ -220,10 +218,10 @@
     inputs
     (let [ignitable-cell? (if ignition-mask-matrix
                             (fn [row col]
-                              (and (pos? (m/mget ignition-mask-matrix row col))
-                                   (burnable-fuel-model? (m/mget fuel-model-matrix row col))))
+                              (and (pos? (t/mget ignition-mask-matrix row col))
+                                   (burnable-fuel-model? (t/mget fuel-model-matrix row col))))
                             (fn [row col]
-                              (burnable-fuel-model? (m/mget fuel-model-matrix row col))))
+                              (burnable-fuel-model? (t/mget fuel-model-matrix row col))))
           buffer-size     (if-let [edge-buffer (:edge-buffer random-ignition)]
                             (int (Math/ceil (/ edge-buffer cell-size)))
                             0)
@@ -243,8 +241,8 @@
   [output-burn-probability max-runtime-samples ^long num-rows ^long num-cols]
   (if (number? output-burn-probability)
     (let [num-bands (long (Math/ceil (/ (reduce max max-runtime-samples) output-burn-probability)))]
-      (m/zero-array [num-bands num-rows num-cols]))
-    (m/zero-array [num-rows num-cols])))
+      (t/new-tensor [num-bands num-rows num-cols]))
+    (t/new-tensor [num-rows num-cols])))
 
 (defn add-aggregate-matrices
   [{:keys
@@ -253,6 +251,6 @@
   (assoc inputs
          :burn-count-matrix       (when (or output-burn-count? output-burn-probability)
                                     (initialize-burn-count-matrix output-burn-probability max-runtime-samples num-rows num-cols))
-         :flame-length-sum-matrix (when output-flame-length-sum? (m/zero-array [num-rows num-cols]))
-         :flame-length-max-matrix (when output-flame-length-max? (m/zero-array [num-rows num-cols]))
-         :spot-count-matrix       (when output-spot-count? (m/zero-array [num-rows num-cols]))))
+         :flame-length-sum-matrix (when output-flame-length-sum? (t/new-tensor [num-rows num-cols]))
+         :flame-length-max-matrix (when output-flame-length-max? (t/new-tensor [num-rows num-cols]))
+         :spot-count-matrix       (when output-spot-count? (t/new-tensor [num-rows num-cols]))))

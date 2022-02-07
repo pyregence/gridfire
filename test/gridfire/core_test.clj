@@ -1,11 +1,12 @@
 (ns gridfire.core-test
-  (:require [clojure.string         :as str]
-            [clojure.test           :refer [deftest is testing use-fixtures are]]
-            [gridfire.binary-output :as binary]
-            [gridfire.conversion    :refer [m->ft]]
-            [gridfire.core          :as core]
-            [gridfire.fetch         :as fetch]
-            [gridfire.utils.test    :as utils]))
+  (:require [clojure.string              :as str]
+            [clojure.test                :refer [deftest is testing use-fixtures are]]
+            [gridfire.binary-output      :as binary]
+            [gridfire.conversion         :refer [m->ft]]
+            [gridfire.core               :as core]
+            [gridfire.fetch              :as fetch]
+            [gridfire.utils.test         :as utils]
+            [tech.v3.datatype.functional :as dfn]))
 
 ;;-----------------------------------------------------------------------------
 ;; Config
@@ -107,26 +108,26 @@
                                             :slope              {:type   :geotiff
                                                                  :source (in-file-path "slp.tif")}}}]
 
-      (is (= (fetch/landfire-matrix postgis-config :aspect)
-             (fetch/landfire-matrix geotiff-config :aspect)))
+      (is (dfn/equals (fetch/landfire-matrix postgis-config :aspect)
+                      (fetch/landfire-matrix geotiff-config :aspect)))
 
-      (is (= (fetch/landfire-matrix postgis-config :canopy-cover)
-             (fetch/landfire-matrix geotiff-config :canopy-cover)))
+      (is (dfn/equals (fetch/landfire-matrix postgis-config :canopy-cover)
+                      (fetch/landfire-matrix geotiff-config :canopy-cover)))
 
-      (is (= (fetch/landfire-matrix postgis-config :canopy-height)
-             (fetch/landfire-matrix geotiff-config :canopy-height)))
+      (is (dfn/equals (fetch/landfire-matrix postgis-config :canopy-height)
+                      (fetch/landfire-matrix geotiff-config :canopy-height)))
 
-      (is (= (fetch/landfire-matrix postgis-config :crown-bulk-density)
-             (fetch/landfire-matrix geotiff-config :crown-bulk-density)))
+      (is (dfn/equals (fetch/landfire-matrix postgis-config :crown-bulk-density)
+                      (fetch/landfire-matrix geotiff-config :crown-bulk-density)))
 
-      (is (= (fetch/landfire-matrix postgis-config :elevation)
-             (fetch/landfire-matrix geotiff-config :elevation)))
+      (is (dfn/equals (fetch/landfire-matrix postgis-config :elevation)
+                      (fetch/landfire-matrix geotiff-config :elevation)))
 
-      (is (= (fetch/landfire-matrix postgis-config :fuel-model)
-             (fetch/landfire-matrix geotiff-config :fuel-model)))
+      (is (dfn/equals (fetch/landfire-matrix postgis-config :fuel-model)
+                      (fetch/landfire-matrix geotiff-config :fuel-model)))
 
-      (is (= (fetch/landfire-matrix postgis-config :slope)
-             (fetch/landfire-matrix geotiff-config :slope))))))
+      (is (dfn/equals (fetch/landfire-matrix postgis-config :slope)
+                      (fetch/landfire-matrix geotiff-config :slope))))))
 ;; TODO Add test for envelope
 
 ;;-----------------------------------------------------------------------------

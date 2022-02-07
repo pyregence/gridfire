@@ -1,7 +1,7 @@
 ;; (ns gridfire-unmerged.scale-assessment
 ;;   (:require [clojure.java.io :as io]
-;;             [clojure.core.matrix :as m]
-;;             [clojure.core.matrix.operators :as mop]
+;;             [tech.v3.tensor :as t]
+;;             [tech.v3.tensor.operators :as top]
 ;;             [clojure.core.reducers :as r]
 ;;             [clojure.data.csv :as csv]
 ;;             [incanter.core :as incanter]
@@ -11,8 +11,6 @@
 ;;             [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]
 ;;             [gridfire.fire-spread :refer [random-cell select-random-ignition-site burnable? burnable-neighbors?]]
 ;;             [gridfire.monte-carlo :refer [run-monte-carlo-fire-spread]]))
-
-;; (m/set-current-implementation :vectorz)
 
 ;; (def db-spec {:classname   "org.postgresql.Driver"
 ;;               :subprotocol "postgresql"
@@ -97,10 +95,9 @@
 
 ;; (defn select-lattice-ignition-site
 ;;   [fuel-model-matrix lattice-rows lattice-cols lattice-number]
-;;   (let [num-rows        (m/row-count    fuel-model-matrix)
-;;         num-cols        (m/column-count fuel-model-matrix)
-;;         ignition-matrix (doto (m/zero-matrix num-rows num-cols) (mop/+= 1.0))
-;;         ignition-site   (lattice-cell num-rows num-cols lattice-rows lattice-cols lattice-number)]
+;;   (let [num-rows        (-> (t/tensor->dimensions fuel-model-matrix) :shape first)
+;;         num-cols        (-> (t/tensor->dimensions fuel-model-matrix) :shape second)
+;;         ignition-matrix (doto (t/new-tensor num-rows num-cols) (mop/+= 1.0))]
 ;;     (if (and (burnable? ignition-matrix fuel-model-matrix ignition-site)
 ;;              (burnable-neighbors? ignition-matrix fuel-model-matrix num-rows num-cols ignition-site))
 ;;       ignition-site)))
@@ -113,15 +110,15 @@
 ;;     3 (filterv identity (r/map #(select-lattice-ignition-site fuel-model-matrix 7 7 %) (range 49)))
 ;;     4 (filterv identity (r/map #(select-lattice-ignition-site fuel-model-matrix 14 14 %) (range 196)))
 ;;     5 (filterv identity (r/map #(select-lattice-ignition-site fuel-model-matrix 14 14 %) (range 196)))
-;;     6 (let [ignition-matrix (doto (m/zero-matrix 67 67) (mop/+= 1.0))]
+;;     6 (let [ignition-matrix (doto (t/new-tensor 67 67) (mop/+= 1.0))]
 ;;         (filterv (fn [ignition-site]
 ;;                    (and (burnable? ignition-matrix fuel-model-matrix ignition-site)
 ;;                         (burnable-neighbors? ignition-matrix fuel-model-matrix 67 67 ignition-site)))
 ;;                  (for [i (range 67) j (range 67)] [i j])))
-;;     7 (let [num-rows (m/row-count    fuel-model-matrix)
-;;             num-cols (m/column-count fuel-model-matrix)]
+;;     7 (let [num-rows (-> (t/tensor->dimensions fuel-model-matrix) :shape first)
+;;             num-cols (-> (t/tensor->dimensions fuel-model-matrix) :shape second)]
 ;;         (take 1000 (distinct (repeatedly #(random-cell num-rows num-cols)))))))
-
+;;             num-cols (-> (t/tensor->dimensions fuel-model-matrix) :shape second)]
 ;; (def scenario-samples-per-site
 ;;   {1 #(vector (rand-int 92))
 ;;    2 (constantly [0 45 90])
@@ -201,7 +198,7 @@
 ;;                           :legend true)
 ;;      (str "org/pics/scale_assessment/" (name tile) "_scatterplot-scenario-" scenario ".png"))
 ;;     (spit (str "org/pics/scale_assessment/" (name tile) "_burn-prob-matrix-scenario-" scenario ".clj")
-;;           (mapv vec (m/rows burn-prob-matrix)))
+;;           (mapv vec (t/rows burn-prob-matrix)))
 ;;     (save-matrix-as-png :color 4 -1.0 burn-prob-matrix
 ;;                         (str "org/pics/scale_assessment/" (name tile) "_burn-prob-scenario-" scenario ".png"))))
 

@@ -1,7 +1,8 @@
 (ns gridfire.common
-  (:require [clojure.core.matrix :as m]))
-
-(m/set-current-implementation :vectorz)
+  (:require [tech.v3.datatype            :as d]
+            [tech.v3.datatype.argops     :as da]
+            [tech.v3.datatype.functional :as dfn]
+            [tech.v3.tensor              :as t]))
 
 ;; FIXME: unused
 (defn calc-emc
@@ -47,12 +48,12 @@
 (defn burnable?
   "Returns true if cell [x y] has not yet been ignited (but could be)."
   [fire-spread-matrix fuel-model-matrix [i j :as source] [x y :as here]]
-  (let [^double ignition-probability-here   (m/mget fire-spread-matrix x y)
-        ^double source-ignition-probability (m/mget fire-spread-matrix i j)]
+  (let [^double ignition-probability-here   (t/mget fire-spread-matrix x y)
+        ^double source-ignition-probability (t/mget fire-spread-matrix i j)]
     (and (< ignition-probability-here ^double (if (= source-ignition-probability 0.0)
                                                 1.0
                                                 source-ignition-probability))
-         (burnable-fuel-model? (m/mget fuel-model-matrix x y)))))
+         (burnable-fuel-model? (t/mget fuel-model-matrix x y)))))
 
 (defn get-neighbors
   "Returns the eight points adjacent to the passed-in point."
@@ -83,6 +84,17 @@
         j2 (long j2)
         di (* cell-size (- i1 i2))
         dj (* cell-size (- j1 j2))
-        dz (- ^double (m/mget elevation-matrix i1 j1)
-              ^double (m/mget elevation-matrix i2 j2))]
+        dz (- ^double (t/mget elevation-matrix i1 j1)
+              ^double (t/mget elevation-matrix i2 j2))]
     (Math/sqrt (+ (* di di) (* dj dj) (* dz dz)))))
+
+(defn non-zero-indices [tensor]
+  (let [[_ cols] (:shape (t/tensor->dimensions tensor))
+        indices  (da/argfilter pos? tensor)
+        row-idxs (dfn/quot indices cols)
+        col-idxs (dfn/rem indices cols)]
+    {:row-idxs (d/unchecked-cast row-idxs :int64)
+     :col-idxs (d/unchecked-cast col-idxs :int64)}))
+
+(defn non-zero-count [tensor]
+  (-> tensor dfn/pos? dfn/sum (d/unchecked-cast :int64)))

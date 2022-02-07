@@ -19,10 +19,11 @@
 ;;                                            degrees-to-radians grass-fuel-model?]]
 ;;             [gridfire.fire-spread :refer [run-fire-spread rothermel-fast-wrapper]]
 ;;             [gridfire.monte-carlo :refer [cells-to-acres]]
-;;             [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]])
+;;             [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]
+;;             [tech.v3.tensor         :as t]
+;;             [tech.v3.datatype       :as d]
+;;             [tech.v3.datatype.functional :as dfn])
 ;;   (:import org.postgresql.jdbc.PgArray))
-
-;; (m/set-current-implementation :vectorz)
 
 ;; (defn combine-into-map
 ;;   ([] {})
@@ -48,16 +49,16 @@
 ;; ;; Largest error is: +6.5 ft/min, -9.6 in
 ;; (for [fuel-model-number (range 1 14)]
 ;;   (let [[anderson-spread-rate anderson-flame-length] (anderson-sample-values (dec fuel-model-number))
-;;         sample-fuel-moisture {:dead {:1hr 0.08 :10hr 0.08 :100hr 0.08} :live {:herbaceous 1.0 :woody 1.0}}
-;;         spread-info-min      (-> (build-fuel-model fuel-model-number)
-;;                                  (moisturize sample-fuel-moisture)
-;;                                  (rothermel-surface-fire-spread-no-wind-no-slope))
-;;         spread-info-max      (rothermel-surface-fire-spread-max spread-info-min 440.0 0.0 0.0 0.0 1.0)
-;;         spread-rate          (:max-spread-rate spread-info-max)
-;;         flame-depth          (anderson-flame-depth spread-rate (:residence-time spread-info-min))
-;;         fire-line-intensity  (byram-fire-line-intensity (:reaction-intensity spread-info-min)
-;;                                                         flame-depth)
-;;         flame-length         (byram-flame-length fire-line-intensity)]
+;;         sample-fuel-moisture                         {:dead {:1hr 0.08 :10hr 0.08 :100hr 0.08} :live {:herbaceous 1.0 :woody 1.0}}
+;;         spread-info-min                              (-> (build-fuel-model fuel-model-number)
+;;                                                          (moisturize sample-fuel-moisture)
+;;                                                          (rothermel-surface-fire-spread-no-wind-no-slope))
+;;         spread-info-max                              (rothermel-surface-fire-spread-max spread-info-min 440.0 0.0 0.0 0.0 1.0)
+;;         spread-rate                                  (:max-spread-rate spread-info-max)
+;;         flame-depth                                  (anderson-flame-depth spread-rate (:residence-time spread-info-min))
+;;         fire-line-intensity                          (byram-fire-line-intensity (:reaction-intensity spread-info-min)
+;;                                                                                 flame-depth)
+;;         flame-length                                 (byram-flame-length fire-line-intensity)]
 ;;     (format "%3d %5.1f %5.1f %4.1f(%4.1f) %4.1f %4.1f %4.1f(%4.1f)" fuel-model-number
 ;;             (/ spread-rate 1.1) anderson-spread-rate
 ;;             (- (/ spread-rate 1.1) anderson-spread-rate)
@@ -131,16 +132,16 @@
 ;; ;; Compare with tables in Scott & Burgan 2005
 ;; (for [fuel-model-number (drop 18 (sort (keys fuel-models)))]
 ;;   (let [[sb-spread-rate sb-flame-length] (scott-burgan-sample-values fuel-model-number)
-;;         sample-fuel-moisture {:dead {:1hr 0.06 :10hr 0.07 :100hr 0.08} :live {:herbaceous 0.60 :woody 0.90}}
-;;         spread-info-min      (-> (build-fuel-model fuel-model-number)
-;;                                  (moisturize sample-fuel-moisture)
-;;                                  (rothermel-surface-fire-spread-no-wind-no-slope))
-;;         spread-info-max      (rothermel-surface-fire-spread-max spread-info-min 440.0 0.0 0.0 0.0 1.0)
-;;         spread-rate          (:max-spread-rate spread-info-max)
-;;         flame-depth          (anderson-flame-depth spread-rate (:residence-time spread-info-min))
-;;         fire-line-intensity  (byram-fire-line-intensity (:reaction-intensity spread-info-min)
-;;                                                         flame-depth)
-;;         flame-length         (byram-flame-length fire-line-intensity)]
+;;         sample-fuel-moisture             {:dead {:1hr 0.06 :10hr 0.07 :100hr 0.08} :live {:herbaceous 0.60 :woody 0.90}}
+;;         spread-info-min                  (-> (build-fuel-model fuel-model-number)
+;;                                              (moisturize sample-fuel-moisture)
+;;                                              (rothermel-surface-fire-spread-no-wind-no-slope))
+;;         spread-info-max                  (rothermel-surface-fire-spread-max spread-info-min 440.0 0.0 0.0 0.0 1.0)
+;;         spread-rate                      (:max-spread-rate spread-info-max)
+;;         flame-depth                      (anderson-flame-depth spread-rate (:residence-time spread-info-min))
+;;         fire-line-intensity              (byram-fire-line-intensity (:reaction-intensity spread-info-min)
+;;                                                                     flame-depth)
+;;         flame-length                     (byram-flame-length fire-line-intensity)]
 ;;     (format "| %3d | %10s %2s %10s | %10s %2s %10s |" fuel-model-number
 ;;             (qualify-spread-rate (/ spread-rate 1.1))
 ;;             (if (= (qualify-spread-rate (/ spread-rate 1.1)) sb-spread-rate) "==" "!=")
@@ -169,24 +170,24 @@
 ;;             wind-speed-20ft waf (/ midflame-wind-speed 88) (/ spread-rate 1.1) flame-length)))
 
 ;; (def behaveplus5-surface-fire-values
-;;   {1 [1 108.8 5.0]
-;;    2 [2 50.6 7.8]
-;;    3 [3 144.5 15.6]
-;;    4 [4 109.2 24.5]
-;;    5 [5 36.1 7.8]
-;;    6 [6 41.7 7.1]
-;;    7 [7 38.0 7.1]
-;;    8 [8 2.5 1.3]
-;;    9 [9 10.8 3.4]
-;;    10 [10 12.0 6.4]
-;;    11 [11 7.3 3.9]
-;;    12 [12 16.4 9.4]
-;;    13 [13 19.9 12.4]
-;;    91 [91 0.0 0.0]
-;;    92 [92 0.0 0.0]
-;;    93 [93 0.0 0.0]
-;;    98 [98 0.0 0.0]
-;;    99 [99 0.0 0.0]
+;;   {1   [1 108.8 5.0]
+;;    2   [2 50.6 7.8]
+;;    3   [3 144.5 15.6]
+;;    4   [4 109.2 24.5]
+;;    5   [5 36.1 7.8]
+;;    6   [6 41.7 7.1]
+;;    7   [7 38.0 7.1]
+;;    8   [8 2.5 1.3]
+;;    9   [9 10.8 3.4]
+;;    10  [10 12.0 6.4]
+;;    11  [11 7.3 3.9]
+;;    12  [12 16.4 9.4]
+;;    13  [13 19.9 12.4]
+;;    91  [91 0.0 0.0]
+;;    92  [92 0.0 0.0]
+;;    93  [93 0.0 0.0]
+;;    98  [98 0.0 0.0]
+;;    99  [99 0.0 0.0]
 ;;    101 [101 21.7 2.3]
 ;;    102 [102 54.8 5.8]
 ;;    103 [103 77.3 8.8]
@@ -229,22 +230,22 @@
 ;;    204 [204 65.6 14.7]})
 
 ;; (defn surface-fire-check [fuel-model-number fuel-moisture midflame-wind-speed slope]
-;;   (let [spread-info-min (second (rothermel-fast-wrapper fuel-model-number fuel-moisture))
-;;         spread-info-max (rothermel-surface-fire-spread-max
-;;                          spread-info-min midflame-wind-speed 0.0 slope 0.0 1.0)
-;;         flame-depth     (anderson-flame-depth (:max-spread-rate spread-info-max)
-;;                                               (:residence-time spread-info-min))
+;;   (let [spread-info-min     (second (rothermel-fast-wrapper fuel-model-number fuel-moisture))
+;;         spread-info-max     (rothermel-surface-fire-spread-max
+;;                              spread-info-min midflame-wind-speed 0.0 slope 0.0 1.0)
+;;         flame-depth         (anderson-flame-depth (:max-spread-rate spread-info-max)
+;;                                                   (:residence-time spread-info-min))
 ;;         fire-line-intensity (byram-fire-line-intensity (:reaction-intensity spread-info-min) flame-depth)
-;;         flame-length (byram-flame-length fire-line-intensity)
-;;         trim-value #(/ (Math/round (* % 10.0)) 10.0)]
+;;         flame-length        (byram-flame-length fire-line-intensity)
+;;         trim-value          #(/ (Math/round (* % 10.0)) 10.0)]
 ;;     [(int fuel-model-number) (trim-value (/ (:max-spread-rate spread-info-max) 1.1)) (trim-value flame-length)]))
 
 ;; (for [fm-number (sort (keys fuel-models))]
-;;   (let [gridfire-results (surface-fire-check fm-number
-;;                                              {:dead {:1hr 0.04 :10hr 0.04 :100hr 0.06}
-;;                                               :live {:herbaceous 0.40 :woody 0.70}}
-;;                                              440.0
-;;                                              0.1)
+;;   (let [gridfire-results   (surface-fire-check fm-number
+;;                                                {:dead {:1hr 0.04 :10hr 0.04 :100hr 0.06}
+;;                                                 :live {:herbaceous 0.40 :woody 0.70}}
+;;                                                440.0
+;;                                                0.1)
 ;;         behaveplus-results (behaveplus5-surface-fire-values (int fm-number))]
 ;;     (if (= gridfire-results behaveplus-results)
 ;;       [fm-number :matched]
@@ -263,37 +264,37 @@
 ;;   [elevation-matrix slope-matrix fuel-model-matrix ignition-site ellipse-adjustment-factor outfile-base]
 ;;   (let [landfire-layers      {:elevation          elevation-matrix
 ;;                               :slope              slope-matrix
-;;                               :aspect             (doto (m/zero-matrix test-num-rows test-num-cols) (mop/+= 270.0)) ; downhill = west
+;;                               :aspect             (doto (t/new-tensor test-num-rows test-num-cols) (mop/+= 270.0)) ; downhill = west
 ;;                               :fuel-model         fuel-model-matrix
-;;                               :canopy-height      (m/zero-matrix test-num-rows test-num-cols)
-;;                               :canopy-base-height (m/zero-matrix test-num-rows test-num-cols)
-;;                               :canopy-cover       (m/zero-matrix test-num-rows test-num-cols)
-;;                               :crown-bulk-density (m/zero-matrix test-num-rows test-num-cols)}
+;;                               :canopy-height      (t/new-tensor test-num-rows test-num-cols)
+;;                               :canopy-base-height (t/new-tensor test-num-rows test-num-cols)
+;;                               :canopy-cover       (t/new-tensor test-num-rows test-num-cols)
+;;                               :crown-bulk-density (t/new-tensor test-num-rows test-num-cols)}
 ;;         foliar-moisture      0.9
 ;;         hfire-results        (run-fire-spread test-duration test-cell-size landfire-layers
 ;;                                               test-wind-speed-20ft test-wind-direction test-fuel-moisture
 ;;                                               foliar-moisture ellipse-adjustment-factor ignition-site)
 ;;         fire-spread-outfile  (str "org/pics/" outfile-base "_hfire-fire-spread.png")
 ;;         flame-length-outfile (str "org/pics/" outfile-base "_hfire-flame-length.png")
-;;         [i j] ignition-site]
-;;     (save-matrix-as-png :color 4 -1.0 (doto (:fire-spread-matrix  hfire-results) (m/mset! i j 2.0)) fire-spread-outfile)
-;;     (save-matrix-as-png :color 4 -1.0 (doto (:flame-length-matrix hfire-results) (m/mset! i j 2.0)) flame-length-outfile)))
+;;         [i j]                ignition-site]
+;;     (save-matrix-as-png :color 4 -1.0 (doto (:fire-spread-matrix  hfire-results) (t/mset! i j 2.0)) fire-spread-outfile)
+;;     (save-matrix-as-png :color 4 -1.0 (doto (:flame-length-matrix hfire-results) (t/mset! i j 2.0)) flame-length-outfile)))
 
 ;; (defn elevation-west-aspect
 ;;   [elevation-change]
-;;   (let [elev (m/zero-matrix test-num-rows test-num-cols)]
+;;   (let [elev (t/new-tensor test-num-rows test-num-cols)]
 ;;     (doseq [i (range test-num-rows)
 ;;             j (range test-num-cols)]
-;;       (m/mset! elev i j (* j elevation-change)))
+;;       (t/mset! elev i j (* j elevation-change)))
 ;;     elev))
 
 ;; (defn make-slope-layer
 ;;   [elevation-change]
-;;   (doto (m/zero-matrix test-num-rows test-num-cols) (mop/+= (/ elevation-change test-cell-size))))
+;;   (doto (t/new-tensor test-num-rows test-num-cols) (mop/+= (/ elevation-change test-cell-size))))
 
 ;; (defn make-fuel-model
 ;;   [fuel-model-number]
-;;   (doto (m/zero-matrix test-num-rows test-num-cols) (mop/+= fuel-model-number)))
+;;   (doto (t/new-tensor test-num-rows test-num-cols) (mop/+= fuel-model-number)))
 
 ;; (let [outfiles {[ 1   0] "grass_fire_slope_W000%"
 ;;                 [ 1  30] "grass_fire_slope_W030%"
@@ -381,81 +382,83 @@
 ;;              :flammap-fire-spread  (postgis-raster-to-matrix db-spec "validation.fire_presence_tile643" nil nil)
 ;;              :flammap-flame-length (postgis-raster-to-matrix db-spec "validation.flame_length_tile643"  nil nil)}})
 
-;; (def validation-num-rows (m/row-count    (-> validation-layers :tile205 :elevation)))
-;; (def validation-num-cols (m/column-count (-> validation-layers :tile205 :elevation)))
+;; (def validation-num-rows (-> (t/tensor->dimensions (-> validation-layers :tile205 :elevation)) :shape first))
+;; (def validation-num-cols (-> (t/tensor->dimensions (-> validation-layers :tile205 :elevation)) :shape second))
 
-;; (doseq [tile [:tile205 :tile210 :tile281 :tile310 :tile564 :tile643]
+;; (doseq [tile  [:tile205 :tile210 :tile281 :tile310 :tile564 :tile643]
 ;;         layer [:elevation :slope :aspect :fuel-model :canopy-height :canopy-cover]]
 ;;   (let [[i j]  (-> validation-layers tile :ignition)
 ;;         matrix (-> validation-layers tile layer)]
-;;     (save-matrix-as-png :color 4 -1.0 (doto (m/clone matrix) (m/mset! i j -1.0))
+;;     (save-matrix-as-png :color 4 -1.0 (doto (d/clone matrix) (t/mset! i j -1.0))
 ;;                         (str "org/pics/validation/" (name tile) "_" (name layer) ".png"))))
 
 ;; (def validation-outputs
 ;;   (into {}
 ;;         (for [tile [:tile205 :tile210 :tile281 :tile310 :tile564 :tile643]]
-;;           (let [[i j]        (-> validation-layers tile :ignition)
-;;                 elev         (m/emap #(* % 3.28) (-> validation-layers tile :elevation)) ; m -> ft
-;;                 slp          (m/emap #(Math/tan (degrees-to-radians %)) (-> validation-layers tile :slope)) ; degrees -> %
-;;                 asp          (-> validation-layers tile :aspect)
-;;                 fm           (-> validation-layers tile :fuel-model)
-;;                 ch           (m/emap #(* % 0.328) (-> validation-layers tile :canopy-height)) ; 10*m -> ft
-;;                 cc           (-> validation-layers tile :canopy-cover)
-;;                 ffs          (-> validation-layers tile :flammap-fire-spread)
-;;                 ffl          (-> validation-layers tile :flammap-flame-length)
-;;                 cbd          (m/zero-matrix test-num-rows test-num-cols)
-;;                 cbh          (m/zero-matrix test-num-rows test-num-cols)
-;;                 landfire-layers {:elevation elev
-;;                                  :slope slp
-;;                                  :aspect asp
-;;                                  :fuel-model fm
-;;                                  :canopy-height ch
-;;                                  :canopy-base-height cbh
-;;                                  :canopy-cover cc
-;;                                  :crown-bulk-density cbd}
-;;                 foliar-moisture 0.9
+;;           (let [[i j]                     (-> validation-layers tile :ignition)
+;;                 elev                      (d/clone (d/emap #(* % 3.28) nil (-> validation-layers tile :elevation)))                    ; m -> ft
+;;                 slp                       (d/clone (d/emap #(Math/tan (degrees-to-radians %)) nil (-> validation-layers tile :slope))) ; degrees -> %
+;;                 asp                       (-> validation-layers tile :aspect)
+;;                 fm                        (-> validation-layers tile :fuel-model)
+;;                 ch                        (d/clone (d/emap #(* % 0.328) nil (-> validation-layers tile :canopy-height)))               ; 10*m -> ft
+;;                 cc                        (-> validation-layers tile :canopy-cover)
+;;                 ffs                       (-> validation-layers tile :flammap-fire-spread)
+;;                 ffl                       (-> validation-layers tile :flammap-flame-length)
+;;                 cbd                       (t/new-tensor test-num-rows test-num-cols)
+;;                 cbh                       (t/new-tensor test-num-rows test-num-cols)
+;;                 landfire-layers           {:elevation          elev
+;;                                            :slope              slp
+;;                                            :aspect             asp
+;;                                            :fuel-model         fm
+;;                                            :canopy-height      ch
+;;                                            :canopy-base-height cbh
+;;                                            :canopy-cover       cc
+;;                                            :crown-bulk-density cbd}
+;;                 foliar-moisture           0.9
 ;;                 ellipse-adjustment-factor 1.0
-;;                 hfire-output (run-fire-spread test-duration test-cell-size landfire-layers
-;;                                               test-wind-speed-20ft test-wind-direction test-fuel-moisture
-;;                                               foliar-moisture ellipse-adjustment-factor [i j])
-;;                 hfs          (-> hfire-output :fire-spread-matrix)
-;;                 hfl          (-> hfire-output :flame-length-matrix)
-;;                 hfl-global   (m/emap (fn [fm-number slope aspect canopy-height canopy-cover]
-;;                                        (if-not (burnable-fuel-model? fm-number)
-;;                                          0.0
-;;                                          (if (fuel-models (int fm-number))
-;;                                            (let [[fuel-model spread-info-min] (rothermel-fast-wrapper fm-number test-fuel-moisture)
-;;                                                  waf                 (wind-adjustment-factor (:delta fuel-model) canopy-height canopy-cover)
-;;                                                  midflame-wind-speed (* test-wind-speed-20ft 88.0 waf)
-;;                                                  spread-info-max     (rothermel-surface-fire-spread-max spread-info-min
-;;                                                                                                         midflame-wind-speed
-;;                                                                                                         test-wind-direction
-;;                                                                                                         slope
-;;                                                                                                         aspect
-;;                                                                                                         1.0)
-;;                                                  flame-depth         (anderson-flame-depth (:max-spread-rate spread-info-max)
-;;                                                                                            (:residence-time spread-info-min))
-;;                                                  fire-line-intensity (byram-fire-line-intensity (:reaction-intensity spread-info-min) flame-depth)
-;;                                                  flame-length        (byram-flame-length fire-line-intensity)]
-;;                                              flame-length)
-;;                                            -1.0)))
-;;                                      fm slp asp ch cc)
-;;                 ffl-clipped (m/emap #(if (pos? %1) %2 0.0) hfs ffl)
-;;                 fl-diff     (m/emap - ffl hfl-global)
-;;                 mfl         (max (m/emax ffl) (m/emax hfl) (m/emax hfl-global))
-;;                 low-fm      (m/emap #(cond (= -1.0 %) -1.0 (low-fuel-models %) 1.0 :else 0.0) fm)
-;;                 error-fm    (m/emap #(cond (= -1.0 %2) -1.0 (> (Math/abs ^double %1) 5.0) %2 :else 0.0) fl-diff fm)]
-;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone hfs) (m/mset! i j -1.0))
+;;                 hfire-output              (run-fire-spread test-duration test-cell-size landfire-layers
+;;                                                            test-wind-speed-20ft test-wind-direction test-fuel-moisture
+;;                                                            foliar-moisture ellipse-adjustment-factor [i j])
+;;                 hfs                       (-> hfire-output :fire-spread-matrix)
+;;                 hfl                       (-> hfire-output :flame-length-matrix)
+;;                 hfl-global                (d/clone
+;;                                            (d/emap (fn [fm-number slope aspect canopy-height canopy-cover]
+;;                                                      (if-not (burnable-fuel-model? fm-number)
+;;                                                        0.0
+;;                                                        (if (fuel-models (int fm-number))
+;;                                                          (let [[fuel-model spread-info-min] (rothermel-fast-wrapper fm-number test-fuel-moisture)
+;;                                                                waf                          (wind-adjustment-factor (:delta fuel-model) canopy-height canopy-cover)
+;;                                                                midflame-wind-speed          (* test-wind-speed-20ft 88.0 waf)
+;;                                                                spread-info-max              (rothermel-surface-fire-spread-max spread-info-min
+;;                                                                                                                                midflame-wind-speed
+;;                                                                                                                                test-wind-direction
+;;                                                                                                                                slope
+;;                                                                                                                                aspect
+;;                                                                                                                                1.0)
+;;                                                                flame-depth                  (anderson-flame-depth (:max-spread-rate spread-info-max)
+;;                                                                                                                   (:residence-time spread-info-min))
+;;                                                                fire-line-intensity          (byram-fire-line-intensity (:reaction-intensity spread-info-min) flame-depth)
+;;                                                                flame-length                 (byram-flame-length fire-line-intensity)]
+;;                                                            flame-length)
+;;                                                          nil
+;;                                                          -1.0)))
+;;                                                    fm slp asp ch cc))
+;;                 ffl-clipped               (d/clone (d/emap #(if (pos? %1) %2 0.0) nil hfs ffl))
+;;                 fl-diff                   (d/clone (d/emap - nil ffl hfl-global))
+;;                 mfl                       (max (dfn/reduce-max ffl) (dfn/reduce-max hfl) (dfn/reduce-max hfl-global))
+;;                 low-fm                    (d/clone (d/emap #(cond (= -1.0 %)  -1.0 (low-fuel-models %) 1.0 :else 0.0) nil fm))
+;;                 error-fm                  (d/clone (d/emap #(cond (= -1.0 %2) -1.0 (> (Math/abs ^double %1) 5.0) %2 :else 0.0) nil fl-diff fm))]
+;;             (save-matrix-as-png :color 4 -1.0 (doto (d/clone hfs) (t/mset! i j -1.0))
 ;;                                 (str "org/pics/validation/" (name tile) "_hfire-fire-spread.png"))
-;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone ffs) (m/mset! i j -1.0))
+;;             (save-matrix-as-png :color 4 -1.0 (doto (d/clone ffs) (t/mset! i j -1.0))
 ;;                                 (str "org/pics/validation/" (name tile) "_flammap-fire-spread.png"))
-;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone hfl) (m/mset! i j mfl))
+;;             (save-matrix-as-png :color 4 -1.0 (doto (d/clone hfl) (t/mset! i j mfl))
 ;;                                 (str "org/pics/validation/" (name tile) "_hfire-flame-length.png"))
-;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone ffl) (m/mset! i j mfl))
+;;             (save-matrix-as-png :color 4 -1.0 (doto (d/clone ffl) (t/mset! i j mfl))
 ;;                                 (str "org/pics/validation/" (name tile) "_flammap-flame-length.png"))
-;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone hfl-global) (m/mset! i j mfl))
+;;             (save-matrix-as-png :color 4 -1.0 (doto (d/clone hfl-global) (t/mset! i j mfl))
 ;;                                 (str "org/pics/validation/" (name tile) "_hfire-flame-length-global.png"))
-;;             (save-matrix-as-png :color 4 -1.0 (doto (m/clone ffl-clipped) (m/mset! i j mfl))
+;;             (save-matrix-as-png :color 4 -1.0 (doto (d/clone ffl-clipped) (t/mset! i j mfl))
 ;;                                 (str "org/pics/validation/" (name tile) "_flammap-flame-length-clipped.png"))
 ;;             (save-matrix-as-png :color 4 -1.0 fl-diff
 ;;                                 (str "org/pics/validation/" (name tile) "_flame-length-difference.png"))
@@ -463,26 +466,26 @@
 ;;                                 (str "org/pics/validation/" (name tile) "_low-fuel-models.png"))
 ;;             (save-matrix-as-png :color 4 -1.0 error-fm
 ;;                                 (str "org/pics/validation/" (name tile) "_error-fuel-models.png"))
-;;             [tile {:hfire-fire-spread                hfs
-;;                    :hfire-flame-length               hfl
-;;                    :hfire-flame-length-global        hfl-global
-;;                    :flammap-flame-length-clipped     ffl-clipped
-;;                    :flame-length-difference          fl-diff
-;;                    :error-fuel-models                error-fm}]))))
+;;             [tile {:hfire-fire-spread            hfs
+;;                    :hfire-flame-length           hfl
+;;                    :hfire-flame-length-global    hfl-global
+;;                    :flammap-flame-length-clipped ffl-clipped
+;;                    :flame-length-difference      fl-diff
+;;                    :error-fuel-models            error-fm}]))))
 
 ;; (doseq [tile [:tile205 :tile210 :tile281 :tile310 :tile564 :tile643]]
 ;;   (let [fm            (-> validation-layers  tile :fuel-model)
 ;;         ffs           (-> validation-layers  tile :flammap-fire-spread)
 ;;         hfs           (-> validation-outputs tile :hfire-fire-spread)
-;;         ffs-cells     (set (filter (fn [[i j]] (pos? (m/mget ffs i j))) (m/index-seq ffs)))
-;;         hfs-cells     (set (filter (fn [[i j]] (pos? (m/mget hfs i j))) (m/index-seq hfs)))
+;;         ffs-cells     (set (filter (fn [[i j]] (pos? (d/mget ffs i j))) (m/index-seq ffs)))
+;;         hfs-cells     (set (filter (fn [[i j]] (pos? (d/mget hfs i j))) (m/index-seq hfs)))
 ;;         agreement     (count (set/intersection ffs-cells hfs-cells))
 ;;         overpred      (count (set/difference hfs-cells ffs-cells))
 ;;         underpred     (count (set/difference ffs-cells hfs-cells))
 ;;         target        (count ffs-cells)
 ;;         fl-diff       (-> validation-outputs tile :flame-length-difference)
-;;         fl-diff-mean  (/ (m/esum fl-diff) (m/ecount fl-diff))
-;;         fl-diff-var   (/ (m/esum (m/emap #(Math/pow (- fl-diff-mean %) 2.0) fl-diff)) (m/ecount fl-diff))
+;;         fl-diff-mean  (/ (dfn/sum fl-diff) (m/ecount fl-diff))
+;;         fl-diff-var   (/ (dfn/sum (d/emap #(Math/pow (- fl-diff-mean %) 2.0) nil fl-diff)) (m/ecount fl-diff))
 ;;         fl-diff-stdev (Math/sqrt fl-diff-var)]
 ;;     (println (format "| %s | %3d%%(%3d) | %3d%%(%3d) | %3d%%(%3d) | %4.1f | %4.1f |"
 ;;                      (subs (name tile) 4)
@@ -497,17 +500,17 @@
 
 ;; (doseq [tile [:tile205 :tile210 :tile281 :tile310 :tile564 :tile643]]
 ;;   (let [hfire-fire-size   (->> (-> validation-outputs tile :hfire-fire-spread)
-;;                                (m/eseq)
+;;                                (t/tensor->buffer)
 ;;                                (filter #(= % 1.0))
 ;;                                (count)
 ;;                                (cells-to-acres test-cell-size))
 ;;         flammap-fire-size (->> (-> validation-layers tile :flammap-fire-spread)
-;;                                (m/eseq)
+;;                                (t/tensor->buffer)
 ;;                                (filter #(= % 1.0))
 ;;                                (count)
 ;;                                (cells-to-acres test-cell-size))
 ;;         grass-area        (->> (-> validation-layers tile :fuel-model)
-;;                                (m/eseq)
+;;                                (t/tensor->buffer)
 ;;                                (filter grass-fuel-model?)
 ;;                                (count)
 ;;                                (cells-to-acres test-cell-size))
@@ -516,12 +519,12 @@
 
 ;; (for [tile [:tile205 :tile210 :tile281 :tile310 :tile564 :tile643]]
 ;;   (let [error-fm (-> validation-outputs tile :error-fuel-models)]
-;;     [tile (sort (distinct (filter pos? (m/eseq error-fm))))]))
+;;     [tile (sort (distinct (filter pos? (t/tensor->buffer error-fm))))]))
 
 ;; (sort (distinct (apply concat (vals (into {} (for [tile [:tile205 :tile210 :tile281 :tile310 :tile564 :tile643]]
-;;                                                      (let [fm (-> validation-layers tile :fuel-model)]
-;;                                                        [tile (sort (distinct (filter pos? (m/eseq fm))))])))))))
+;;                                                (let [fm (-> validation-layers tile :fuel-model)]
+;;                                                  [tile (sort (distinct (filter pos? (t/tensor->buffer fm))))])))))))
 
 ;; (sort (distinct (apply concat (vals (into {} (for [tile [:tile205 :tile210 :tile281 :tile310 :tile564 :tile643]]
-;;                                                      (let [error-fm (-> validation-outputs tile :error-fuel-models)]
-;;                                                        [tile (sort (distinct (filter pos? (m/eseq error-fm))))])))))))
+;;                                                (let [error-fm (-> validation-outputs tile :error-fuel-models)]
+;;                                                  [tile (sort (distinct (filter pos? (t/tensor->buffer error-fm))))])))))))

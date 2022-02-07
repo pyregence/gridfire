@@ -1,16 +1,14 @@
 ;; [[file:../../org/GridFire.org::fetch.clj][fetch.clj]]
 (ns gridfire.fetch
-  (:require [clojure.core.matrix      :as m]
-            [clojure.java.io          :as io]
+  (:require [clojure.java.io          :as io]
             [gridfire.conversion      :as convert]
             [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
             [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]
             [magellan.core            :refer [make-envelope
-                                              register-new-crs-definitions-from-properties-file!]]))
+                                              register-new-crs-definitions-from-properties-file!]]
+            [tech.v3.datatype           :as d]))
 
 (register-new-crs-definitions-from-properties-file! "CUSTOM" (io/resource "custom_projections.properties"))
-
-(m/set-current-implementation :vectorz)
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -31,9 +29,7 @@
 
 (defn landfire-matrix
   [config layer-name]
-  (-> (landfire-layer config layer-name)
-      :matrix
-      first))
+  (:matrix (landfire-layer config layer-name)))
 
 (defn landfire-envelope
   [config layer-name]
@@ -54,10 +50,12 @@
 ;;-----------------------------------------------------------------------------
 
 (defn convert-burn-values [matrix {:keys [burned unburned]}]
-  (m/emap! #(condp = %
-              (double burned)   1.0
-              (double unburned) 0.0
-              -1.0)
+  (d/copy! (d/emap #(condp = %
+                      (double burned)   1.0
+                      (double unburned) 0.0
+                      -1.0)
+                   :float64
+                   matrix)
            matrix))
 
 (defn ignition-layer
@@ -69,7 +67,7 @@
 (defn ignition-matrix
   [config]
   (when (:ignition-layer config)
-    (let [matrix (first (:matrix (ignition-layer config)))]
+    (let [matrix (:matrix (ignition-layer config))]
       (if-let [burn-values (-> config :ignition-layer :burn-values)]
         (convert-burn-values matrix burn-values)
         matrix))))
@@ -112,7 +110,7 @@
 (defn ignition-mask-matrix
   [config]
   (when-let [layer (ignition-mask-layer config)]
-   (-> layer :matrix first)))
+   (:matrix layer)))
 
 ;;-----------------------------------------------------------------------------
 ;; Moisture Layers
@@ -126,14 +124,14 @@
         (-> (if (= type :postgis)
               (postgis-raster-to-matrix db-spec source)
               (geotiff-raster-to-matrix source))
-            (update :matrix #(m/emap! convert/percent->dec %)))))))
+            (update :matrix (fn [matrix]
+                              (d/copy! (d/emap convert/percent->dec nil matrix)
+                                       matrix))))))))
 
 (defn fuel-moisture-matrix
   "Returns a matrix values for the given fuel category and size
   Units are in ratio (0-1)"
   [config category size]
   (when-let [layer (fuel-moisture-layer config category size)]
-    (if (= category :live)
-      (-> layer :matrix first)
-      (-> layer :matrix))))
+    (:matrix layer)))
 ;; fetch.clj ends here

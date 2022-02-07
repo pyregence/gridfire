@@ -1,12 +1,10 @@
 ;; [[file:../../org/GridFire.org::*Magellan][Magellan:1]]
 (ns gridfire.magellan-bridge
-  (:require [clojure.core.matrix     :as m]
-            [magellan.core           :refer [read-raster]]
-            [magellan.raster.inspect :as inspect])
+  (:require [magellan.core           :refer [read-raster]]
+            [magellan.raster.inspect :as inspect]
+            [tech.v3.tensor          :as t])
   (:import org.geotools.coverage.grid.GridGeometry2D
            org.geotools.referencing.operation.transform.AffineTransform2D))
-
-(m/set-current-implementation :vectorz)
 
 (defn geotiff-raster-to-matrix
   "Reads a raster from a file using the magellan.core library. Returns the
@@ -42,5 +40,5 @@
      :skewx      0.0                    ;FIXME not used?
      :skewy      0.0                    ;FIXME not used?
      :numbands   (:bands image)
-     :matrix     (m/matrix matrix)}))
+     :matrix     (t/->tensor matrix)}))
 ;; Magellan:1 ends here

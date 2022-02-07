@@ -1,11 +1,10 @@
 ;; [[file:org/GridFire.org::deps.edn][deps.edn]]
 {:paths ["src" "resources"]
 
- :deps {com.nextjournal/beholder            {:mvn/version "1.0.0"}
+ :deps {cnuernber/dtype-next                {:mvn/version "9.000"}
+        com.nextjournal/beholder            {:mvn/version "1.0.0"}
         com.taoensso/tufte                  {:mvn/version "2.2.0"}
-        net.mikera/core.matrix              {:mvn/version "0.62.0"}
-        net.mikera/vectorz-clj              {:mvn/version "0.48.0"}
-        org.clojars.lambdatronic/matrix-viz {:mvn/version "0.1.7"}
+        org.clojars.lambdatronic/matrix-viz {:mvn/version "2022.02.03"}
         org.clojure/clojure                 {:mvn/version "1.10.3"}
         org.clojure/core.async              {:mvn/version "1.3.622"}
         org.clojure/data.csv                {:mvn/version "1.0.0"}
@@ -13,7 +12,7 @@
         org.clojure/java.jdbc               {:mvn/version "0.7.12"}
         org.clojure/tools.cli               {:mvn/version "1.0.206"}
         org.postgresql/postgresql           {:mvn/version "42.2.23"}
-        sig-gis/magellan                    {:mvn/version "20210401"}
+        sig-gis/magellan                    {:mvn/version "2022.02.02"}
         sig-gis/triangulum                  {:git/url "https://github.com/sig-gis/triangulum"
                                              :sha     "5b179a97ebd8fbcbff51776db06d9770cb649b9d"}}
 

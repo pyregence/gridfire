@@ -1,6 +1,7 @@
 (ns gridfire.fetch-ignition-test
   (:require [clojure.test   :refer [deftest is testing]]
-            [gridfire.fetch :as fetch]))
+            [gridfire.fetch :as fetch]
+            [tech.v3.datatype.functional :as dfn]))
 
 ;;-----------------------------------------------------------------------------
 ;; Config
@@ -67,5 +68,5 @@
           geotiff-ignition-layer (fetch/ignition-layer postgis-config)
           postgis-ignition-layer (fetch/ignition-layer geotiff-config)]
 
-      (is (= (:matrix geotiff-ignition-layer)
-             (:matrix postgis-ignition-layer))))))
+      (is (dfn/equals (:matrix geotiff-ignition-layer)
+                   (:matrix postgis-ignition-layer))))))
