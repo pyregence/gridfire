@@ -494,14 +494,13 @@
   - ellipse-adjustment-factor: (< 1.0 = more circular, > 1.0 = more elliptical)
   - initial-ignition-site: One of the following:
      - point represented as [row col]
-     - map containing a :matrix field of type core.matrix 2D double array (0-2)
-     - nil (this causes GridFire to select a random ignition-point)
+     - a core.matrix 2D double array (0-2)
   - num-rows: integer
   - num-cols: integer"
   (fn [{:keys [initial-ignition-site]}]
-    (condp = (type initial-ignition-site)
-      clojure.lang.PersistentHashMap :ignition-perimeter
-      clojure.lang.PersistentVector  :ignition-point)))
+    (if (m/matrix? initial-ignition-site)
+      :ignition-perimeter
+      :ignition-point)))
 
 (defmethod run-fire-spread :ignition-point
   [{:keys [num-rows num-cols initial-ignition-site spotting trajectory-combination] :as inputs}]
