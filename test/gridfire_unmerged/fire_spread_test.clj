@@ -396,11 +396,11 @@
 ;;   (into {}
 ;;         (for [tile [:tile205 :tile210 :tile281 :tile310 :tile564 :tile643]]
 ;;           (let [[i j]                     (-> validation-layers tile :ignition)
-;;                 elev                      (d/clone (d/emap #(* % 3.28) (-> validation-layers tile :elevation)))                    ; m -> ft
-;;                 slp                       (d/clone (d/emap #(Math/tan (degrees-to-radians %)) (-> validation-layers tile :slope))) ; degrees -> %
+;;                 elev                      (d/clone (d/emap #(* % 3.28) nil (-> validation-layers tile :elevation)))                    ; m -> ft
+;;                 slp                       (d/clone (d/emap #(Math/tan (degrees-to-radians %)) nil (-> validation-layers tile :slope))) ; degrees -> %
 ;;                 asp                       (-> validation-layers tile :aspect)
 ;;                 fm                        (-> validation-layers tile :fuel-model)
-;;                 ch                        (d/clone (d/emap #(* % 0.328) (-> validation-layers tile :canopy-height)))               ; 10*m -> ft
+;;                 ch                        (d/clone (d/emap #(* % 0.328) nil (-> validation-layers tile :canopy-height)))               ; 10*m -> ft
 ;;                 cc                        (-> validation-layers tile :canopy-cover)
 ;;                 ffs                       (-> validation-layers tile :flammap-fire-spread)
 ;;                 ffl                       (-> validation-layers tile :flammap-flame-length)
@@ -440,13 +440,14 @@
 ;;                                                                fire-line-intensity          (byram-fire-line-intensity (:reaction-intensity spread-info-min) flame-depth)
 ;;                                                                flame-length                 (byram-flame-length fire-line-intensity)]
 ;;                                                            flame-length)
+;;                                                          nil
 ;;                                                          -1.0)))
 ;;                                                    fm slp asp ch cc))
-;;                 ffl-clipped               (d/clone (d/emap #(if (pos? %1) %2 0.0) hfs ffl))
-;;                 fl-diff                   (d/clone (d/emap - ffl hfl-global))
+;;                 ffl-clipped               (d/clone (d/emap #(if (pos? %1) %2 0.0) nil hfs ffl))
+;;                 fl-diff                   (d/clone (d/emap - nil ffl hfl-global))
 ;;                 mfl                       (max (dfn/reduce-max ffl) (dfn/reduce-max hfl) (dfn/reduce-max hfl-global))
-;;                 low-fm                    (d/clone (d/emap #(cond (= -1.0 %) -1.0 (low-fuel-models %) 1.0 :else 0.0) fm))
-;;                 error-fm                  (d/clone (d/emap #(cond (= -1.0 %2) -1.0 (> (Math/abs ^double %1) 5.0) %2 :else 0.0) fl-diff fm))]
+;;                 low-fm                    (d/clone (d/emap #(cond (= -1.0 %)  -1.0 (low-fuel-models %) 1.0 :else 0.0) nil fm))
+;;                 error-fm                  (d/clone (d/emap #(cond (= -1.0 %2) -1.0 (> (Math/abs ^double %1) 5.0) %2 :else 0.0) nil fl-diff fm))]
 ;;             (save-matrix-as-png :color 4 -1.0 (doto (d/clone hfs) (t/mset! i j -1.0))
 ;;                                 (str "org/pics/validation/" (name tile) "_hfire-fire-spread.png"))
 ;;             (save-matrix-as-png :color 4 -1.0 (doto (d/clone ffs) (t/mset! i j -1.0))
@@ -484,7 +485,7 @@
 ;;         target        (count ffs-cells)
 ;;         fl-diff       (-> validation-outputs tile :flame-length-difference)
 ;;         fl-diff-mean  (/ (dfn/sum fl-diff) (m/ecount fl-diff))
-;;         fl-diff-var   (/ (dfn/sum (d/emap #(Math/pow (- fl-diff-mean %) 2.0) fl-diff)) (m/ecount fl-diff))
+;;         fl-diff-var   (/ (dfn/sum (d/emap #(Math/pow (- fl-diff-mean %) 2.0) nil fl-diff)) (m/ecount fl-diff))
 ;;         fl-diff-stdev (Math/sqrt fl-diff-var)]
 ;;     (println (format "| %s | %3d%%(%3d) | %3d%%(%3d) | %3d%%(%3d) | %4.1f | %4.1f |"
 ;;                      (subs (name tile) 4)
