@@ -102,9 +102,11 @@
 
 (def postgis-sql-regex #"[a-z0-9]+(\.[a-z0-9]+)? WHERE rid=[0-9]+")
 
+(def geotiff-regex #".*\.tif$")
+
 (s/def ::sql (s/and string? #(re-matches postgis-sql-regex %)))
 
-(s/def ::geotiff ::readable-file)
+(s/def ::geotiff (s/and ::readable-file #(re-matches geotiff-regex %)))
 
 (s/def ::source (s/or :sql     ::sql
                       :geotiff ::geotiff))
