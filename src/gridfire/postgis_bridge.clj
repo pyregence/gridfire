@@ -1,5 +1,4 @@
 ;; [[file:../../org/GridFire.org::postgis-bridge][postgis-bridge]]
-
 (ns gridfire.postgis-bridge
   (:require [clojure.java.jdbc :as jdbc]
             [tech.v3.datatype  :as d]
