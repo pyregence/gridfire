@@ -2017,7 +2017,7 @@ pseudo-code lays out the steps taken in this procedure:
         ^double wind-from-direction           (get-wind-from-direction band i j)
         ^double fuel-moisture-dead-1hr        (if get-fuel-moisture-dead-1hr
                                                 (get-fuel-moisture-dead-1hr band i j)
-                                                (calc-fuel-moisture relative-humidity temperature :dead :10hr))
+                                                (calc-fuel-moisture relative-humidity temperature :dead :1hr))
         ^double fuel-moisture-dead-10hr       (if get-fuel-moisture-dead-10hr
                                                 (get-fuel-moisture-dead-10hr band i j)
                                                 (calc-fuel-moisture relative-humidity temperature :dead :10hr))
@@ -2138,8 +2138,7 @@ pseudo-code lays out the steps taken in this procedure:
    ignition-events
    fire-spread-matrix
    global-clock]
-  (let [fuel-model-matrix    fuel-model-matrix
-        parallel-bin-size    (max 1 (quot (count ignition-events) (.availableProcessors (Runtime/getRuntime))))
+  (let [parallel-bin-size    (max 1 (quot (count ignition-events) (.availableProcessors (Runtime/getRuntime))))
         newly-ignited-cells  (into #{} (map :cell) ignition-events)
         pruned-ignited-cells (into [] (remove #(contains? newly-ignited-cells (:cell %))) ignited-cells)
         reducer-fn           (if (= parallel-strategy :within-fires)
@@ -2877,7 +2876,7 @@ ignition probability.
    {:keys [firebrand-count-matrix fire-spread-matrix fire-line-intensity-matrix flame-length-matrix]}
    {:keys [cell fire-line-intensity crown-fire?]}]
   (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
-    (let [band              (int (quot global-clock 60.0))
+    (let [band              (int (/ global-clock 60.0))
           [i j]             cell
           tmp               (get-temperature band i j)
           rh                (get-relative-humidity band i j)
@@ -2885,7 +2884,7 @@ ignition probability.
           wd                (get-wind-from-direction band i j)
           m1                (if get-fuel-moisture-dead-1hr
                               (get-fuel-moisture-dead-1hr band i j)
-                              (calc-fuel-moisture rh tmp :dead :10hr))
+                              (calc-fuel-moisture rh tmp :dead :1hr))
           deltas            (sample-wind-dir-deltas inputs
                                                     fire-line-intensity-matrix
                                                     (convert/mph->mps ws)
@@ -3374,13 +3373,13 @@ or false:
               :else       (repeat n x))))
 
 (defn my-shuffle
-  [^Random seed ^Collection coll]
+  [^Random rand-gen ^Collection coll]
   (if (< (count coll) 2)
     (if (vector? coll)
       coll
       (vec coll))
     (let [al (ArrayList. coll)]
-      (Collections/shuffle al seed)
+      (Collections/shuffle al rand-gen)
       (vec (.toArray al)))))
 #+end_src
 
@@ -3747,12 +3746,12 @@ this functionality.
     (geotiff-raster-to-matrix (:source ignition-layer))))
 
 (defn ignition-matrix
-  [{:keys [ignition-layer] :as config}]
-  (when ignition-layer
-   (let [layer (ignition-layer config)]
-     (if-let [burn-values (:burn-values layer)]
-       (-> layer :matrix (convert-burn-values burn-values) first)
-       (-> layer :matrix first)))))
+  [config]
+  (when (:ignition-layer config)
+    (let [matrix (first (:matrix (ignition-layer config)))]
+      (if-let [burn-values (-> config :ignition-layer :burn-values)]
+        (convert-burn-values matrix burn-values)
+        matrix))))
 
 ;;-----------------------------------------------------------------------------
 ;; Weather
