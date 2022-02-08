@@ -34,7 +34,7 @@
         fuel-moisture-live-herbaceous-matrix (future (fetch/fuel-moisture-matrix config :live :herbaceous))
         fuel-moisture-live-woody-matrix      (future (fetch/fuel-moisture-matrix config :live :woody))]
     (assoc config
-           :envelope                             (future-or-matrix envelope)
+           :envelope                             (if (future? envelope) @envelope envelope)
            :aspect-matrix                        (future-or-matrix aspect-matrix)
            :canopy-base-height-matrix            (future-or-matrix canopy-base-height-matrix)
            :canopy-cover-matrix                  (future-or-matrix canopy-cover-matrix)
