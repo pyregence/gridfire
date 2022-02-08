@@ -12,8 +12,7 @@
 
 (defn add-input-layers
   [config]
-  (let [future-or-matrix                     (fn [f] (if (future? f) @f f))
-        envelope                             (future (fetch/landfire-envelope config :aspect))
+  (let [envelope                             (future (fetch/landfire-envelope config :aspect))
         aspect-matrix                        (future (fetch/landfire-matrix config :aspect))
         canopy-base-height-matrix            (future (fetch/landfire-matrix config :canopy-base-height))
         canopy-cover-matrix                  (future (fetch/landfire-matrix config :canopy-cover))
@@ -34,26 +33,26 @@
         fuel-moisture-live-herbaceous-matrix (future (fetch/fuel-moisture-matrix config :live :herbaceous))
         fuel-moisture-live-woody-matrix      (future (fetch/fuel-moisture-matrix config :live :woody))]
     (assoc config
-           :envelope                             (if (future? envelope) @envelope envelope)
-           :aspect-matrix                        (future-or-matrix aspect-matrix)
-           :canopy-base-height-matrix            (future-or-matrix canopy-base-height-matrix)
-           :canopy-cover-matrix                  (future-or-matrix canopy-cover-matrix)
-           :canopy-height-matrix                 (future-or-matrix canopy-height-matrix)
-           :crown-bulk-density-matrix            (future-or-matrix crown-bulk-density-matrix)
-           :elevation-matrix                     (future-or-matrix elevation-matrix)
-           :fuel-model-matrix                    (future-or-matrix fuel-model-matrix)
-           :slope-matrix                         (future-or-matrix slope-matrix)
-           :ignition-matrix                      (future-or-matrix ignition-matrix)
-           :ignition-mask-matrix                 (future-or-matrix ignition-mask-matrix)
-           :temperature-matrix                   (future-or-matrix temperature-matrix)
-           :relative-humidity-matrix             (future-or-matrix relative-humidity-matrix)
-           :wind-speed-20ft-matrix               (future-or-matrix wind-speed-20ft-matrix)
-           :wind-from-direction-matrix           (future-or-matrix wind-from-direction-matrix)
-           :fuel-moisture-dead-1hr-matrix        (future-or-matrix fuel-moisture-dead-1hr-matrix)
-           :fuel-moisture-dead-10hr-matrix       (future-or-matrix fuel-moisture-dead-10hr-matrix)
-           :fuel-moisture-dead-100hr-matrix      (future-or-matrix fuel-moisture-dead-100hr-matrix)
-           :fuel-moisture-live-herbaceous-matrix (future-or-matrix fuel-moisture-live-herbaceous-matrix)
-           :fuel-moisture-live-woody-matrix      (future-or-matrix fuel-moisture-live-woody-matrix))))
+           :envelope                             @envelope
+           :aspect-matrix                        @aspect-matrix
+           :canopy-base-height-matrix            @canopy-base-height-matrix
+           :canopy-cover-matrix                  @canopy-cover-matrix
+           :canopy-height-matrix                 @canopy-height-matrix
+           :crown-bulk-density-matrix            @crown-bulk-density-matrix
+           :elevation-matrix                     @elevation-matrix
+           :fuel-model-matrix                    @fuel-model-matrix
+           :slope-matrix                         @slope-matrix
+           :ignition-matrix                      @ignition-matrix
+           :ignition-mask-matrix                 @ignition-mask-matrix
+           :temperature-matrix                   @temperature-matrix
+           :relative-humidity-matrix             @relative-humidity-matrix
+           :wind-speed-20ft-matrix               @wind-speed-20ft-matrix
+           :wind-from-direction-matrix           @wind-from-direction-matrix
+           :fuel-moisture-dead-1hr-matrix        @fuel-moisture-dead-1hr-matrix
+           :fuel-moisture-dead-10hr-matrix       @fuel-moisture-dead-10hr-matrix
+           :fuel-moisture-dead-100hr-matrix      @fuel-moisture-dead-100hr-matrix
+           :fuel-moisture-live-herbaceous-matrix @fuel-moisture-live-herbaceous-matrix
+           :fuel-moisture-live-woody-matrix      @fuel-moisture-live-woody-matrix)))
 
 (defn- multi-band? [matrix]
   (> (:n-dims (t/tensor->dimensions matrix)) 2))
