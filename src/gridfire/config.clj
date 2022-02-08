@@ -164,6 +164,11 @@
    "CBD"    :crown-bulk-density
    "WS"     :wind-speed-20ft
    "WD"     :wind-direction
+   "M1"     :fuel-moisture-dead-1hr
+   "M10"    :fuel-moisture-dead-10hr
+   "M100"   :fuel-moisture-dead-100hr
+   "MLH"    :fuel-moisture-live-herbaceous
+   "MLW"    :fuel-moisture-live-woody
    "GLOBAL" :global
    "PIXEL"  :pixel})
 
