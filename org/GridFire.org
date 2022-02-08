@@ -3747,12 +3747,12 @@ this functionality.
     (let [spec (:ignition-mask random-ignition)]
       (if (= (:type spec) :postgis)
         (postgis-raster-to-matrix db-spec (:source spec))
-        (geotiff-raster-to-matrix (:source spec))))))
+        (future (geotiff-raster-to-matrix (:source spec)))))))
 
 (defn ignition-mask-matrix
   [config]
   (when-let [layer (ignition-mask-layer config)]
-   (:matrix layer)))
+    (:matrix layer)))
 
 ;;-----------------------------------------------------------------------------
 ;; Moisture Layers
