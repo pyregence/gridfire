@@ -170,15 +170,15 @@
                                                                          :source (in-file-path "fbfm40.tif")}
                                                     :slope              {:type   :geotiff
                                                                          :source (in-file-path "slp.tif")}}})
-          ;; postgis-results (run-test-simulation! postgis-config)
+          postgis-results (run-test-simulation! postgis-config)
 
           geotiff-results (run-test-simulation! geotiff-config)]
 
-      ;; (is (valid-exits? postgis-results))
+      (is (valid-exits? postgis-results))
 
       (is (valid-exits? geotiff-results))
 
-      #_(is (= (mapv :fire-size postgis-results) (mapv :fire-size geotiff-results))))))
+      (is (= (mapv :fire-size postgis-results) (mapv :fire-size geotiff-results))))))
 ;;-----------------------------------------------------------------------------
 ;; Ignition Layer Tests
 ;;-----------------------------------------------------------------------------
@@ -311,27 +311,66 @@
              {:perturbations   {:temperature {:spatial-type :pixel
                                               :range        [-1.0 1.0]}}
               :landfire-layers landfire-layers-weather-test
-              :temperature     (:temperature weather-layers)}))
+              :temperature     (:temperature weather-layers)})))
 
-    (testing "wind-speed-20ft"
-      (are [config] (valid-exits? (run-test-simulation! config))
-        (merge test-config-base
-               {:perturbations {:wind-speed-20ft {:spatial-type :global
-                                                  :range        [-1.0 1.0]}}})
-        (merge test-config-base
-               {:perturbations {:wind-speed-20ft {:spatial-type :pixel
-                                                  :range        [-1.0 1.0]}}})
-        (merge test-config-base
-               {:perturbations   {:wind-speed-20ft {:spatial-type :global
-                                                    :range        [-1.0 1.0]}}
-                :landfire-layers landfire-layers-weather-test
-                :wind-speed-20ft (:wind-speed-20ft weather-layers)})
+  (testing "wind-speed-20ft"
+    (are [config] (valid-exits? (run-test-simulation! config))
+      (merge test-config-base
+             {:perturbations {:wind-speed-20ft {:spatial-type :global
+                                                :range        [-1.0 1.0]}}})
+      (merge test-config-base
+             {:perturbations {:wind-speed-20ft {:spatial-type :pixel
+                                                :range        [-1.0 1.0]}}})
+      (merge test-config-base
+             {:perturbations   {:wind-speed-20ft {:spatial-type :global
+                                                  :range        [-1.0 1.0]}}
+              :landfire-layers landfire-layers-weather-test
+              :wind-speed-20ft (:wind-speed-20ft weather-layers)})
 
-        (merge test-config-base
-               {:perturbations   {:wind-speed-20ft {:spatial-type :pixel
-                                                    :range        [-1.0 1.0]}}
-                :landfire-layers landfire-layers-weather-test
-                :wind-speed-20ft (:wind-speed-20ft weather-layers)})))))
+      (merge test-config-base
+             {:perturbations   {:wind-speed-20ft {:spatial-type :pixel
+                                                  :range        [-1.0 1.0]}}
+              :landfire-layers landfire-layers-weather-test
+              :wind-speed-20ft (:wind-speed-20ft weather-layers)})))
+
+  (testing "fuel-moisture"
+    (are [config] (valid-exits? (run-test-simulation! config))
+      (merge test-config-base
+             {:perturbations {:fuel-moisture-dead-1hr        {:spatial-type :global
+                                                              :range        [-1.0 1.0]}
+                              :fuel-moisture-dead-10hr       {:spatial-type :global
+                                                              :range        [-1.0 1.0]}
+                              :fuel-moisture-dead-100hr      {:spatial-type :global
+                                                              :range        [-1.0 1.0]}
+                              :fuel-moisture-live-herbaceous {:spatial-type :global
+                                                              :range        [-1.0 1.0]}
+                              :fuel-moisture-live-woody      {:spatial-type :global
+                                                              :range        [-1.0 1.0]}}
+              :fuel-moisture {:dead {:1hr   0.2
+                                     :10hr  0.2
+                                     :100hr 0.2}
+                              :live {:herbaceous 0.3
+                                     :woody      0.6}}})
+      (merge test-config-base
+             {:perturbations   {:fuel-moisture-dead-1hr        {:spatial-type :global
+                                                                :range        [-1.0 1.0]}
+                                :fuel-moisture-dead-10hr       {:spatial-type :global
+                                                                :range        [-1.0 1.0]}
+                                :fuel-moisture-dead-100hr      {:spatial-type :global
+                                                                :range        [-1.0 1.0]}
+                                :fuel-moisture-live-herbaceous {:spatial-type :global
+                                                                :range        [-1.0 1.0]}
+                                :fuel-moisture-live-woody      {:spatial-type :global
+                                                                :range        [-1.0 1.0]}}
+              :landfire-layers landfire-layers-weather-test
+              :fuel-moisture   {:dead {:1hr   {:type   :geotiff
+                                               :source (in-file-path "weather-test/m1_to_sample.tif")}
+                                       :10hr  {:type   :geotiff
+                                               :source (in-file-path "weather-test/m10_to_sample.tif")}
+                                       :100hr {:type   :geotiff
+                                               :source (in-file-path "weather-test/m100_to_sample.tif")}}
+                                :live {:herbaceous 0.3
+                                       :woody      0.6}}}))))
 
 ;;-----------------------------------------------------------------------------
 ;; Outputs
