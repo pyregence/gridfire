@@ -110,7 +110,7 @@
 (defn ignition-mask-matrix
   [config]
   (when-let [layer (ignition-mask-layer config)]
-   (:matrix layer)))
+    (:matrix layer)))
 
 ;;-----------------------------------------------------------------------------
 ;; Moisture Layers
