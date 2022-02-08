@@ -22,7 +22,7 @@
     (if (map? layer-spec)
       (-> (if (= (:type layer-spec) :postgis)
             (postgis-raster-to-matrix db-spec (:source layer-spec))
-            (future (geotiff-raster-to-matrix (:source layer-spec))))
+            (geotiff-raster-to-matrix (:source layer-spec)))
           (convert/to-imperial! layer-spec layer-name))
       (-> (postgis-raster-to-matrix db-spec layer-spec)
           (convert/to-imperial! {:units :metric} layer-name)))))
@@ -62,7 +62,7 @@
   [{:keys [db-spec ignition-layer]}]
   (if (= (:type ignition-layer) :postgis)
     (postgis-raster-to-matrix db-spec (:source ignition-layer))
-    (future (geotiff-raster-to-matrix (:source ignition-layer)))))
+    (geotiff-raster-to-matrix (:source ignition-layer))))
 
 (defn ignition-matrix
   [config]
@@ -83,7 +83,7 @@
       (let [{:keys [type source]} weather-spec]
         (-> (if (= type :postgis)
               (postgis-raster-to-matrix db-spec source)
-              (future (geotiff-raster-to-matrix source)))
+              (geotiff-raster-to-matrix source))
             (convert/to-imperial! weather-spec weather-name))))))
 
 (defn weather-matrix
@@ -105,7 +105,7 @@
     (let [spec (:ignition-mask random-ignition)]
       (if (= (:type spec) :postgis)
         (postgis-raster-to-matrix db-spec (:source spec))
-        (future (geotiff-raster-to-matrix (:source spec)))))))
+        (geotiff-raster-to-matrix (:source spec))))))
 
 (defn ignition-mask-matrix
   [config]
@@ -123,7 +123,7 @@
       (let [{:keys [type source]} spec]
         (-> (if (= type :postgis)
               (postgis-raster-to-matrix db-spec source)
-              (future (geotiff-raster-to-matrix source)))
+              (geotiff-raster-to-matrix source))
             (update :matrix (fn [matrix]
                               (d/copy! (d/emap convert/percent->dec nil matrix)
                                        matrix))))))))

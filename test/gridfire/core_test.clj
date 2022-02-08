@@ -170,15 +170,15 @@
                                                                          :source (in-file-path "fbfm40.tif")}
                                                     :slope              {:type   :geotiff
                                                                          :source (in-file-path "slp.tif")}}})
-          postgis-results (run-test-simulation! postgis-config)
+          ;; postgis-results (run-test-simulation! postgis-config)
 
           geotiff-results (run-test-simulation! geotiff-config)]
 
-      (is (valid-exits? postgis-results))
+      ;; (is (valid-exits? postgis-results))
 
       (is (valid-exits? geotiff-results))
 
-      (is (= (mapv :fire-size postgis-results) (mapv :fire-size geotiff-results))))))
+      #_(is (= (mapv :fire-size postgis-results) (mapv :fire-size geotiff-results))))))
 ;;-----------------------------------------------------------------------------
 ;; Ignition Layer Tests
 ;;-----------------------------------------------------------------------------
