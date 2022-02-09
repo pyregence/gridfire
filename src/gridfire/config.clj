@@ -155,6 +155,11 @@
 (def unused-perturbations #{:crown-bulk-density :canopy-base-height})
 
 (def layers-in-metric #{:crown-bulk-density :canopy-base-height :canopy-height})
+(def layers-in-percent #{:fuel-moisture-layer-1hr
+                         :fuel-moisture-layer-10hr
+                         :fuel-moisture-layer-100hr
+                         :fuel-moisture-live-herbaceous
+                         :fuel-moisture-live-woody})
 
 (def elmfire->gridfire
   "A mapping of ELMFIRE string names to GridFire keywords"
@@ -179,7 +184,8 @@
                               (get elmfire->gridfire))
            :range        [(get config (str "PDF_LOWER_LIMIT-" index))
                           (get config (str "PDF_UPPER_LIMIT-" index))]}
-    (layers-in-metric key) (assoc :units :metric))) ; FIXME: :units is not in gridfire.spec.config/::perturbation
+    (layers-in-metric key)  (assoc :units :metric) ; FIXME: :units is not in gridfire.spec.config/::perturbation
+    (layers-in-percent key) (assoc :units :percent)))
 
 (defn perturbation-key
   [config index]
