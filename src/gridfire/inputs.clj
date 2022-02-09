@@ -7,8 +7,20 @@
             [gridfire.fetch        :as fetch]
             [gridfire.utils.random :refer [draw-samples my-shuffle my-rand-nth]]
             [gridfire.utils.server :refer [throw-message]]
+            [gridfire.postgis-bridge :refer [db-pool-cache make-db-pool]]
+            [hikari-cp.core    :as h]
             [tech.v3.tensor        :as t])
   (:import java.util.Random))
+
+(defn init-db-pool-cache
+  [{:keys [db-spec] :as config}]
+  (make-db-pool db-spec)
+  config)
+
+(defn close-db-pool [config]
+  (h/close-datasource @db-pool-cache)
+  (reset! db-pool-cache nil)
+  config)
 
 (defn add-input-layers
   [config]

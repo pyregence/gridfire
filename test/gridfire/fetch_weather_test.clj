@@ -1,10 +1,11 @@
 (ns gridfire.fetch-weather-test
-  (:require [clojure.java.jdbc :as jdbc]
-            [clojure.test      :refer [deftest is]]
-            [gridfire.fetch    :as fetch]
-            [gridfire.inputs   :as inputs]
-            [magellan.core     :refer [read-raster]]
-            [tech.v3.tensor    :as t]
+  (:require [clojure.java.jdbc           :as jdbc]
+            [clojure.test                :refer [deftest is use-fixtures]]
+            [gridfire.fetch              :as fetch]
+            [gridfire.inputs             :as inputs]
+            [gridfire.utils.test         :as utils]
+            [magellan.core               :refer [read-raster]]
+            [tech.v3.tensor              :as t]
             [tech.v3.datatype.functional :as dfn])
   (:import java.util.Random))
 
@@ -32,6 +33,13 @@
 
 (defn in-file-path [filename]
   (str resources-path filename))
+
+
+;;-----------------------------------------------------------------------------
+;; Fixtures
+;;-----------------------------------------------------------------------------
+
+(use-fixtures :once utils/with-reset-db-pool)
 
 ;;-----------------------------------------------------------------------------
 ;; Tests

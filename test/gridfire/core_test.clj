@@ -1,6 +1,6 @@
 (ns gridfire.core-test
   (:require [clojure.string              :as str]
-            [clojure.test                :refer [deftest is testing use-fixtures are]]
+            [clojure.test                :refer [deftest is testing use-fixtures are compose-fixtures]]
             [gridfire.binary-output      :as binary]
             [gridfire.conversion         :refer [m->ft]]
             [gridfire.core               :as core]
@@ -65,7 +65,7 @@
 ;; Fixtures
 ;;-----------------------------------------------------------------------------
 
-(use-fixtures :once utils/with-temp-output-dir)
+(use-fixtures :once (compose-fixtures utils/with-temp-output-dir utils/with-reset-db-pool))
 
 ;;-----------------------------------------------------------------------------
 ;; Tests

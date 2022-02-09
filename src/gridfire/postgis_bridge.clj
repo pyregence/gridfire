@@ -1,8 +1,8 @@
 ;; [[file:../../org/GridFire.org::postgis-bridge][postgis-bridge]]
 (ns gridfire.postgis-bridge
   (:require [clojure.java.jdbc :as jdbc]
-            [tech.v3.datatype  :as d]
             [hikari-cp.core    :as h]
+            [tech.v3.datatype  :as d]
             [tech.v3.tensor    :as t])
   (:import org.postgresql.jdbc.PgArray
            java.util.UUID))
@@ -44,53 +44,35 @@
   (format "SELECT (ST_Metadata(rast)).* FROM %s" table-name))
 
 (defn- parse-subname [subname]
-  {:database (re-find #"(?<=:)[0-9]*[0-9](?=\/)" subname)
+  {:database (re-find #"(?<=\/)[\w]*$" subname)
    :port     (re-find #"(?<=:)[0-9]*[0-9](?=\/)" subname)
-   :server   (re-find #"(?<=:)[0-9]*[0-9](?=\/)" subname)})
+   :server   (re-find #"(?<=\/)[\w]*(?=:)" subname)})
 
-(defn- build-datasource-options [{:keys [user password subname]}]
-  #_(let [{:keys [database port server]} (parse-subname subname)]
-    {:auto-commit        true
-     :read-only          false
-     :connection-timeout 30000
-     :validation-timeout 5000
-     :idle-timeout       600000
-     :max-lifetime       1800000
-     :minimum-idle       10
-     :maximum-pool-size  10
-     :pool-name          "db-pool"
-     :adapter            "postgresql"
-     :username           user
-     :password           password
-     :database-name      database
-     :server-name        server
-     :port-number        port
-     :register-mbeans    false})
-  {:auto-commit        true
-   :read-only          false
-   :connection-timeout 30000
-   :validation-timeout 5000
-   :idle-timeout       600000
-   :max-lifetime       1800000
-   :minimum-idle       1
-   :maximum-pool-size  1
-   :pool-name          "db-pool"
-   :adapter            "postgresql"
-   :username           "gridfire_test"
-   :password           "gridfire_test"
-   :database-name      "gridfire_test"
-   :server-name        "localhost"
-   :port-number        5432
-   :register-mbeans    false})
+(defn build-datasource-options [{:keys [user password subname]}]
+  (let [{:keys [database port server]} (parse-subname subname)]
+      {:auto-commit        true
+       :read-only          false
+       :connection-timeout 30000
+       :validation-timeout 5000
+       :idle-timeout       600000
+       :max-lifetime       1800000
+       :minimum-idle       10
+       :maximum-pool-size  10
+       :pool-name          "db-pool"
+       :adapter            "postgresql"
+       :username           user
+       :password           password
+       :database-name      database
+       :server-name        server
+       :port-number        port
+       :register-mbeans    false}))
 
-(defonce db-pool-cache (atom {}))
+(defonce db-pool-cache (atom nil))
 
 (defn make-db-pool
   [db-spec]
-  (or (@db-pool-cache db-spec)
-      (let [db-pool (h/make-datasource (build-datasource-options db-spec))]
-        (reset! db-pool-cache {db-spec db-pool})
-        db-pool)))
+  (or @db-pool-cache
+      (reset! db-pool-cache (h/make-datasource (build-datasource-options db-spec)))))
 
 (defn postgis-raster-to-matrix
   "Send a SQL query to the PostGIS database given by db-spec for a
@@ -112,23 +94,22 @@
    :matrix #vectorz/matrix Large matrix with shape: [10,534,486]}"
   [db-spec table-name & [resolution threshold]]
   (let [db-pool (make-db-pool db-spec)]
-   (jdbc/with-db-transaction [conn {:datasource db-pool}]
-     (let [table-name      (if-not resolution
-                             table-name
-                             (let [rescaled-table-name (str "gridfire_" (subs (str (UUID/randomUUID)) 0 8))
-                                   rescale-query       (build-rescale-query rescaled-table-name resolution table-name)]
-                               ;; Create a temporary table to hold the rescaled raster.
-                               ;; It will be dropped when the transaction completes.
-                               (jdbc/db-do-commands conn [rescale-query])
-                               rescaled-table-name))
-           meta-query      (build-meta-query table-name)
-           metadata        (first (jdbc/query conn [meta-query]))
-           threshold-query (build-threshold-query threshold)
-           data-query      (build-data-query threshold threshold-query metadata table-name)
-           matrix          (when-let [results (seq (jdbc/query conn [data-query]))]
-                             (if (= (count results) 1)
-                               (extract-matrix (first results))
-                               (t/->tensor (mapv extract-matrix results))))]
-       (h/close-datasource db-pool)
-       (assoc metadata :matrix matrix)))))
+    (jdbc/with-db-transaction [conn {:datasource db-pool}]
+      (let [table-name      (if-not resolution
+                              table-name
+                              (let [rescaled-table-name (str "gridfire_" (subs (str (UUID/randomUUID)) 0 8))
+                                    rescale-query       (build-rescale-query rescaled-table-name resolution table-name)]
+                                ;; Create a temporary table to hold the rescaled raster.
+                                ;; It will be dropped when the transaction completes.
+                                (jdbc/db-do-commands conn [rescale-query])
+                                rescaled-table-name))
+            meta-query      (build-meta-query table-name)
+            metadata        (first (jdbc/query conn [meta-query]))
+            threshold-query (build-threshold-query threshold)
+            data-query      (build-data-query threshold threshold-query metadata table-name)
+            matrix          (when-let [results (seq (jdbc/query conn [data-query]))]
+                              (if (= (count results) 1)
+                                (extract-matrix (first results))
+                                (t/->tensor (mapv extract-matrix results))))]
+        (assoc metadata :matrix matrix)))))
 ;; postgis-bridge ends here

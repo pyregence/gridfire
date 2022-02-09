@@ -1,7 +1,9 @@
 (ns gridfire.utils.test
-  (:require [clojure.java.io :as io]
-            [clojure.string  :as str]
-            [gridfire.core   :as core]))
+  (:require [clojure.java.io         :as io]
+            [clojure.string          :as str]
+            [gridfire.postgis-bridge :refer [db-pool-cache]]
+            [gridfire.core           :as core]
+            [hikari-cp.core          :as h]))
 
 ;;-----------------------------------------------------------------------------
 ;; Config
@@ -41,3 +43,9 @@
   (make-directory output-dirname)
   (test-fn)
   (delete-directory output-dirname))
+
+(defn with-reset-db-pool [test-fn]
+  (reset! db-pool-cache nil)
+  (test-fn)
+  (when-let [db-pool @db-pool-cache]
+   (h/close-datasource db-pool)))

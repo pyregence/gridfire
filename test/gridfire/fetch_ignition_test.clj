@@ -1,6 +1,7 @@
 (ns gridfire.fetch-ignition-test
-  (:require [clojure.test   :refer [deftest is testing]]
-            [gridfire.fetch :as fetch]
+  (:require [clojure.test                :refer [deftest is testing use-fixtures]]
+            [gridfire.fetch              :as fetch]
+            [gridfire.utils.test         :as utils]
             [tech.v3.datatype.functional :as dfn]))
 
 ;;-----------------------------------------------------------------------------
@@ -52,6 +53,12 @@
 
 (defn in-file-path [filename]
   (str resources-path filename))
+
+;;-----------------------------------------------------------------------------
+;; Fixtures
+;;-----------------------------------------------------------------------------
+
+(use-fixtures :once utils/with-reset-db-pool)
 
 ;;-----------------------------------------------------------------------------
 ;; Tests

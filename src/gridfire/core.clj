@@ -50,7 +50,9 @@
 (defn load-inputs!
   [config]
   (-> config
+      (inputs/init-db-pool-cache)
       (inputs/add-input-layers)
+      (inputs/close-db-pool)
       (inputs/add-misc-params)
       (inputs/add-ignition-csv)
       (inputs/add-sampled-params)
