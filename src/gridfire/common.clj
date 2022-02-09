@@ -93,8 +93,8 @@
         indices  (da/argfilter pos? tensor)
         row-idxs (dfn/quot indices cols)
         col-idxs (dfn/rem indices cols)]
-    {:row-idxs (d/unchecked-cast row-idxs :int64)
-     :col-idxs (d/unchecked-cast col-idxs :int64)}))
+    {:row-idxs (mapv #(d/unchecked-cast % :int64) row-idxs)
+     :col-idxs (mapv #(d/unchecked-cast % :int64) col-idxs)}))
 
 (defn non-zero-count [tensor]
   (-> tensor dfn/pos? dfn/sum (d/unchecked-cast :int64)))
