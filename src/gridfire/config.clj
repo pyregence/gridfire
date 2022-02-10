@@ -155,6 +155,7 @@
 (def unused-perturbations #{:crown-bulk-density :canopy-base-height})
 
 (def layers-in-metric #{:crown-bulk-density :canopy-base-height :canopy-height})
+
 (def layers-in-percent #{:fuel-moisture-dead-1hr
                          :fuel-moisture-dead-10hr
                          :fuel-moisture-dead-100hr

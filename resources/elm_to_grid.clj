@@ -179,6 +179,12 @@
 
 (def layers-in-metric #{:crown-bulk-density :canopy-base-height :canopy-height})
 
+(def layers-in-percent #{:fuel-moisture-dead-1hr
+                         :fuel-moisture-dead-10hr
+                         :fuel-moisture-dead-100hr
+                         :fuel-moisture-live-herbaceous
+                         :fuel-moisture-live-woody})
+
 (def elmfire->gridfire
   "A mapping of ELMFIRE string names to GridFire keywords"
   {"CBH"    :canopy-base-height
@@ -202,7 +208,8 @@
                               (get elmfire->gridfire))
            :range        [(get config (str "PDF_LOWER_LIMIT-" index))
                           (get config (str "PDF_UPPER_LIMIT-" index))]}
-    (layers-in-metric key) (assoc :units :metric)))
+    (layers-in-metric key)  (assoc :units :metric)
+    (layers-in-percent key) (assoc :units :percent)))
 
 (defn perturbation-key
   [config index]
