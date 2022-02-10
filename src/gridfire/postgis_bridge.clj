@@ -79,7 +79,7 @@
 
 (defmacro with-db-connection-pool [db-spec & body]
   `(if-let [db-spec# ~db-spec]
-     (let [_       (make-db-pool db-spec#)
+     (let [_#      (make-db-pool db-spec#)
            result# (do ~@body)]
        (close-db-pool)
        result#)

@@ -391,8 +391,8 @@
                    :get-fuel-moisture-live-woody
                    :get-foliar-moisture)
            (merge {:simulation       (inc i)
-                   :ignition-row     (ignition-rows i)
-                   :ignition-col     (ignition-cols i)
+                   :ignition-row     (or ignition-matrix (ignition-rows i))
+                   :ignition-col     (or ignition-matrix (ignition-cols i))
                    :global-clock     (:global-clock fire-spread-results)
                    :exit-condition   (:exit-condition fire-spread-results :no-fire-spread)
                    :crown-fire-count (:crown-fire-count fire-spread-results)})
