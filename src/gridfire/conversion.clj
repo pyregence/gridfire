@@ -231,14 +231,19 @@
   (str/replace kebab-string #"-" "_"))
 
 (def conversion-table
-  {:elevation          {:metric m->ft}
-   :slope              {nil deg->ratio}
-   :canopy-height      {:metric m->ft}
-   :canopy-base-height {:metric m->ft}
-   :crown-bulk-density {:metric kg-m3->lb-ft3}
-   :wind-speed-20ft    {:metric mps->mph}
-   :temperature        {:metric C->F
-                        :absolute K->F}})
+  {:elevation                     {:metric m->ft}
+   :slope                         {nil deg->ratio}
+   :canopy-height                 {:metric m->ft}
+   :canopy-base-height            {:metric m->ft}
+   :crown-bulk-density            {:metric kg-m3->lb-ft3}
+   :wind-speed-20ft               {:metric mps->mph}
+   :temperature                   {:metric   C->F
+                                   :absolute K->F}
+   :fuel-moisture-dead-1hr        {:percent percent->dec}
+   :fuel-moisture-dead-10hr       {:percent percent->dec}
+   :fuel-moisture-dead-100hr      {:percent percent->dec}
+   :fuel-moisture-live-herbaceous {:percent percent->dec}
+   :fuel-moisture-live-woody      {:percent percent->dec}})
 
 (defn valid-multiplier?
   [x]
