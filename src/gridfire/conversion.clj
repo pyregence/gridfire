@@ -239,9 +239,9 @@
    :wind-speed-20ft               {:metric mps->mph}
    :temperature                   {:metric   C->F
                                    :absolute K->F}
-   :fuel-moisture-layer-1hr       {:percent percent->dec}
-   :fuel-moisture-layer-10hr      {:percent percent->dec}
-   :fuel-moisture-layer-100hr     {:percent percent->dec}
+   :fuel-moisture-dead-1hr        {:percent percent->dec}
+   :fuel-moisture-dead-10hr       {:percent percent->dec}
+   :fuel-moisture-dead-100hr      {:percent percent->dec}
    :fuel-moisture-live-herbaceous {:percent percent->dec}
    :fuel-moisture-live-woody      {:percent percent->dec}})
 
