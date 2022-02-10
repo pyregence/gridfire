@@ -1,70 +1,60 @@
 (ns gridfire.inputs
-  (:require [clojure.data.csv      :as csv]
-            [clojure.java.io       :as io]
-            [clojure.string        :as str]
-            [gridfire.common       :refer [burnable-fuel-model?]]
-            [gridfire.conversion   :refer [conversion-table percent->dec]]
-            [gridfire.fetch        :as fetch]
-            [gridfire.utils.random :refer [draw-samples my-shuffle my-rand-nth]]
-            [gridfire.utils.server :refer [throw-message]]
-            [gridfire.postgis-bridge :refer [db-pool-cache make-db-pool]]
-            [hikari-cp.core    :as h]
-            [tech.v3.tensor        :as t])
+  (:require [clojure.data.csv        :as csv]
+            [clojure.java.io         :as io]
+            [clojure.string          :as str]
+            [gridfire.common         :refer [burnable-fuel-model?]]
+            [gridfire.conversion     :refer [conversion-table percent->dec]]
+            [gridfire.fetch          :as fetch]
+            [gridfire.postgis-bridge :refer [with-db-connection-pool]]
+            [gridfire.utils.random   :refer [draw-samples my-shuffle my-rand-nth]]
+            [gridfire.utils.server   :refer [throw-message]]
+            [tech.v3.tensor          :as t])
   (:import java.util.Random))
-
-(defn init-db-pool-cache
-  [{:keys [db-spec] :as config}]
-  (make-db-pool db-spec)
-  config)
-
-(defn close-db-pool [config]
-  (h/close-datasource @db-pool-cache)
-  (reset! db-pool-cache nil)
-  config)
 
 (defn add-input-layers
   [config]
-  (let [envelope                             (future (fetch/landfire-envelope config :aspect))
-        aspect-matrix                        (future (fetch/landfire-matrix config :aspect))
-        canopy-base-height-matrix            (future (fetch/landfire-matrix config :canopy-base-height))
-        canopy-cover-matrix                  (future (fetch/landfire-matrix config :canopy-cover))
-        canopy-height-matrix                 (future (fetch/landfire-matrix config :canopy-height))
-        crown-bulk-density-matrix            (future (fetch/landfire-matrix config :crown-bulk-density))
-        elevation-matrix                     (future (fetch/landfire-matrix config :elevation))
-        fuel-model-matrix                    (future (fetch/landfire-matrix config :fuel-model))
-        slope-matrix                         (future (fetch/landfire-matrix config :slope))
-        ignition-matrix                      (future (fetch/ignition-matrix config))
-        ignition-mask-matrix                 (future (fetch/ignition-mask-matrix config))
-        temperature-matrix                   (future (fetch/weather-matrix config :temperature))
-        relative-humidity-matrix             (future (fetch/weather-matrix config :relative-humidity))
-        wind-speed-20ft-matrix               (future (fetch/weather-matrix config :wind-speed-20ft))
-        wind-from-direction-matrix           (future (fetch/weather-matrix config :wind-from-direction))
-        fuel-moisture-dead-1hr-matrix        (future (fetch/fuel-moisture-matrix config :dead :1hr))
-        fuel-moisture-dead-10hr-matrix       (future (fetch/fuel-moisture-matrix config :dead :10hr))
-        fuel-moisture-dead-100hr-matrix      (future (fetch/fuel-moisture-matrix config :dead :100hr))
-        fuel-moisture-live-herbaceous-matrix (future (fetch/fuel-moisture-matrix config :live :herbaceous))
-        fuel-moisture-live-woody-matrix      (future (fetch/fuel-moisture-matrix config :live :woody))]
-    (assoc config
-           :envelope                             @envelope
-           :aspect-matrix                        @aspect-matrix
-           :canopy-base-height-matrix            @canopy-base-height-matrix
-           :canopy-cover-matrix                  @canopy-cover-matrix
-           :canopy-height-matrix                 @canopy-height-matrix
-           :crown-bulk-density-matrix            @crown-bulk-density-matrix
-           :elevation-matrix                     @elevation-matrix
-           :fuel-model-matrix                    @fuel-model-matrix
-           :slope-matrix                         @slope-matrix
-           :ignition-matrix                      @ignition-matrix
-           :ignition-mask-matrix                 @ignition-mask-matrix
-           :temperature-matrix                   @temperature-matrix
-           :relative-humidity-matrix             @relative-humidity-matrix
-           :wind-speed-20ft-matrix               @wind-speed-20ft-matrix
-           :wind-from-direction-matrix           @wind-from-direction-matrix
-           :fuel-moisture-dead-1hr-matrix        @fuel-moisture-dead-1hr-matrix
-           :fuel-moisture-dead-10hr-matrix       @fuel-moisture-dead-10hr-matrix
-           :fuel-moisture-dead-100hr-matrix      @fuel-moisture-dead-100hr-matrix
-           :fuel-moisture-live-herbaceous-matrix @fuel-moisture-live-herbaceous-matrix
-           :fuel-moisture-live-woody-matrix      @fuel-moisture-live-woody-matrix)))
+  (with-db-connection-pool (:db-spec config)
+    (let [envelope                             (future (fetch/landfire-envelope config :aspect))
+          aspect-matrix                        (future (fetch/landfire-matrix config :aspect))
+          canopy-base-height-matrix            (future (fetch/landfire-matrix config :canopy-base-height))
+          canopy-cover-matrix                  (future (fetch/landfire-matrix config :canopy-cover))
+          canopy-height-matrix                 (future (fetch/landfire-matrix config :canopy-height))
+          crown-bulk-density-matrix            (future (fetch/landfire-matrix config :crown-bulk-density))
+          elevation-matrix                     (future (fetch/landfire-matrix config :elevation))
+          fuel-model-matrix                    (future (fetch/landfire-matrix config :fuel-model))
+          slope-matrix                         (future (fetch/landfire-matrix config :slope))
+          ignition-matrix                      (future (fetch/ignition-matrix config))
+          ignition-mask-matrix                 (future (fetch/ignition-mask-matrix config))
+          temperature-matrix                   (future (fetch/weather-matrix config :temperature))
+          relative-humidity-matrix             (future (fetch/weather-matrix config :relative-humidity))
+          wind-speed-20ft-matrix               (future (fetch/weather-matrix config :wind-speed-20ft))
+          wind-from-direction-matrix           (future (fetch/weather-matrix config :wind-from-direction))
+          fuel-moisture-dead-1hr-matrix        (future (fetch/fuel-moisture-matrix config :dead :1hr))
+          fuel-moisture-dead-10hr-matrix       (future (fetch/fuel-moisture-matrix config :dead :10hr))
+          fuel-moisture-dead-100hr-matrix      (future (fetch/fuel-moisture-matrix config :dead :100hr))
+          fuel-moisture-live-herbaceous-matrix (future (fetch/fuel-moisture-matrix config :live :herbaceous))
+          fuel-moisture-live-woody-matrix      (future (fetch/fuel-moisture-matrix config :live :woody))]
+      (assoc config
+             :envelope                             @envelope
+             :aspect-matrix                        @aspect-matrix
+             :canopy-base-height-matrix            @canopy-base-height-matrix
+             :canopy-cover-matrix                  @canopy-cover-matrix
+             :canopy-height-matrix                 @canopy-height-matrix
+             :crown-bulk-density-matrix            @crown-bulk-density-matrix
+             :elevation-matrix                     @elevation-matrix
+             :fuel-model-matrix                    @fuel-model-matrix
+             :slope-matrix                         @slope-matrix
+             :ignition-matrix                      @ignition-matrix
+             :ignition-mask-matrix                 @ignition-mask-matrix
+             :temperature-matrix                   @temperature-matrix
+             :relative-humidity-matrix             @relative-humidity-matrix
+             :wind-speed-20ft-matrix               @wind-speed-20ft-matrix
+             :wind-from-direction-matrix           @wind-from-direction-matrix
+             :fuel-moisture-dead-1hr-matrix        @fuel-moisture-dead-1hr-matrix
+             :fuel-moisture-dead-10hr-matrix       @fuel-moisture-dead-10hr-matrix
+             :fuel-moisture-dead-100hr-matrix      @fuel-moisture-dead-100hr-matrix
+             :fuel-moisture-live-herbaceous-matrix @fuel-moisture-live-herbaceous-matrix
+             :fuel-moisture-live-woody-matrix      @fuel-moisture-live-woody-matrix))))
 
 (defn- multi-band? [matrix]
   (> (:n-dims (t/tensor->dimensions matrix)) 2))
