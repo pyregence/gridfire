@@ -1,9 +1,8 @@
 (ns gridfire.utils.test
   (:require [clojure.java.io         :as io]
             [clojure.string          :as str]
-            [gridfire.postgis-bridge :refer [db-pool-cache]]
-            [gridfire.core           :as core]
-            [hikari-cp.core          :as h]))
+            [gridfire.postgis-bridge :refer [db-pool-cache close-db-pool]]
+            [gridfire.core           :as core]))
 
 ;;-----------------------------------------------------------------------------
 ;; Config
@@ -48,4 +47,4 @@
   (reset! db-pool-cache nil)
   (test-fn)
   (when-let [db-pool @db-pool-cache]
-   (h/close-datasource db-pool)))
+    (close-db-pool)))
