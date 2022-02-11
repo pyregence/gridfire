@@ -21,7 +21,8 @@ clojure -M -e "(compile 'gridfire.cli)"
     --verbose \
     --no-fallback \
     --no-server \
-    gridfire.cli
+    gridfire.gen-raster
+    # gridfire.cli
 
     # "-J-Xmx100G" \
     # --report-unsupported-elements-at-runtime \
