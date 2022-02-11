@@ -29,7 +29,7 @@ clojure -M -e "(compile 'gridfire.gen-raster)"
     --trace-object-instantiation=java.util.TimerThread \
     --trace-object-instantiation=java.io.RandomAccessFile \
     --trace-object-instantiation=org.geotools.util.WeakCollectionCleaner \
-    --trace-object-instantiation=java.util.zip.Inflater
+    --trace-object-instantiation=java.util.zip.Inflater \
     gridfire.gen_raster
 
     # "-J-Dclojure.compiler.direct-linking=true" \
