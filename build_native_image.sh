@@ -20,10 +20,16 @@ clojure -M -e "(compile 'gridfire.gen-raster)"
     --verbose \
     --no-fallback \
     --allow-incomplete-classpath \
-    --initialize-at-build-time \
     "-J-Dclojure.compiler.direct-linking=true" \
     gridfire.gen_raster
 
+    # --initialize-at-build-time \
+    # --diagnostics-mode \
     # --no-server
     # --report-unsupported-elements-at-runtime \
     # "-J-Xmx100G" \
+    # --initialize-at-run-time=com.sun.media.imageioimpl.plugins.tiff.TIFFCodecLibFaxDecompressor
+    # --initialize-at-run-time=com.sun.media.imageioimpl.plugins.pnm.PNMImageReader
+    # --trace-object-instantiate=java.util.TimerThread
+    # --trace-object-instantiate=java.io.RandomAccessFile
+    # --trace-object-instantiation=org.geotools.util.WeakCollectionCleaner
