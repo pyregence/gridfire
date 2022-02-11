@@ -20,7 +20,9 @@ clojure -M -e "(compile 'gridfire.gen-raster)"
     --verbose \
     --no-fallback \
     --initialize-at-build-time=java.awt.image.Raster,org.geotools.coverage.grid.GridGeometry2D,sun.java2d.StateTrackableDelegate$2,java.awt.image.DataBuffer,java.awt.Image,org.geotools.referencing.operation.transform.AbstractMathTransform,org.geotools.coverage.grid.AbstractGridCoverage,javax.media.jai.RenderedOp,java.awt.RenderingHints,java.awt.Toolkit,sun.awt.image.SunWritableRaster,java.awt.image.WritableRaster,java.awt.color.ColorSpace$BuiltInSpace,org.opengis.referencing.datum.PixelInCell,org.geotools.referencing.operation.projection.MapProjection,org.geotools.coverage.grid.GridCoverage2D,org.geotools.coverage.GridSampleDimension,org.geotools.coverage.grid.RenderedSampleDimension,java.awt.image.DataBufferByte,org.geotools.util.logging.Logging,java.awt.Dimension,java.awt.image.ColorModel,org.geotools.referencing.wkt.Formattable,java.awt.image.IndexColorModel,javax.media.jai.JAI,sun.java2d.StateTrackableDelegate,org.geotools.coverage.grid.GeneralGridGeometry,java.awt.image.SampleModel \
-    --trace-class-initialization=sun.java2d.StateTrackableDelegate$2,javax.media.jai.JAI$RenderingKey,java.awt.color.ColorSpace$BuiltInSpace \
+    --trace-class-initialization=sun.java2d.StateTrackableDelegate$2 \
+    --trace-class-initialization=javax.media.jai.JAI$RenderingKey \
+    --trace-class-initialization=java.awt.color.ColorSpace$BuiltInSpace \
     gridfire.gen_raster
 
 
