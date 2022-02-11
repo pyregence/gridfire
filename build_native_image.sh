@@ -25,8 +25,8 @@ clojure -M -e "(compile 'gridfire.gen-raster)"
     --initialize-at-run-time=com.sun.media.imageioimpl.plugins.tiff.TIFFCodecLibFaxDecompressor \
     --initialize-at-run-time=com.sun.media.imageioimpl.plugins.pnm.PNMImageReader \
     --enable-all-security-services \
-    --trace-object-instantiate=java.util.TimerThread \
-    --trace-object-instantiate=java.io.RandomAccessFile \
+    --trace-object-instantiation=java.util.TimerThread \
+    --trace-object-instantiation=java.io.RandomAccessFile \
     --trace-object-instantiation=org.geotools.util.WeakCollectionCleaner \
     gridfire.gen_raster
 
