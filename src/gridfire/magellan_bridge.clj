@@ -7,6 +7,8 @@
   (:import org.geotools.coverage.grid.GridGeometry2D
            org.geotools.referencing.operation.transform.AffineTransform2D))
 
+(set! *unchecked-math* :warn-on-boxed)
+
 (defn register-custom-projections! []
   (register-new-crs-definitions-from-properties-file! "CUSTOM" (io/resource "custom_projections.properties")))
 
@@ -41,8 +43,8 @@
      :height     (:height image)
      :scalex     (.getScaleX crs2d)
      :scaley     (.getScaleY crs2d)
-     :skewx      0.0                    ;FIXME not used?
-     :skewy      0.0                    ;FIXME not used?
+     :skewx      0.0 ; FIXME not used?
+     :skewy      0.0 ; FIXME not used?
      :numbands   (:bands image)
      :matrix     (t/->tensor matrix)}))
 ;; Magellan:1 ends here

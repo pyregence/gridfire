@@ -7,6 +7,8 @@
   (:import java.util.UUID
            org.postgresql.jdbc.PgArray))
 
+(set! *unchecked-math* :warn-on-boxed)
+
 (defn extract-matrix [result]
   (->> result
        :matrix
