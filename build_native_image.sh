@@ -17,6 +17,7 @@ clojure -M -e "(compile 'gridfire.gen-raster)"
     -cp "$(clojure -Spath)":classes \
     -H:Name=gridfire-native-image \
     -H:+ReportExceptionStackTraces \
+    -H:ConfigurationFileDirectories=. \
     --verbose \
     --no-fallback \
     --allow-incomplete-classpath \
