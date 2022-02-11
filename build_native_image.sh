@@ -11,7 +11,7 @@ if [ ! -e "$GRAALVM_HOME/bin/native-image" ]; then
 fi
 
 echo "Compiling Clojure to Java bytecode..."
-clojure -M -e "(compile 'gridfire.gen-raster)"
+clojure -M -e "(compile 'gridfire.cli)"
 
 "$GRAALVM_HOME/bin/native-image" \
     -cp "$(clojure -Spath)":classes \
@@ -23,7 +23,7 @@ clojure -M -e "(compile 'gridfire.gen-raster)"
     --trace-class-initialization=sun.java2d.StateTrackableDelegate$2 \
     --trace-class-initialization=javax.media.jai.JAI$RenderingKey \
     --trace-class-initialization=java.awt.color.ColorSpace$BuiltInSpace \
-    gridfire.gen_raster
+    gridfire.cli
 
 
 
