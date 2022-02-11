@@ -11,7 +11,7 @@ if [ ! -e "$GRAALVM_HOME/bin/native-image" ]; then
 fi
 
 echo "Compiling Clojure to Java bytecode..."
-clojure -M -e "(compile 'gridfire.cli)"
+clojure -M -e "(compile 'gridfire.gen-raster)"
 
 "$GRAALVM_HOME/bin/native-image" \
     -cp "$(clojure -Spath)":classes \
@@ -22,7 +22,6 @@ clojure -M -e "(compile 'gridfire.cli)"
     --no-fallback \
     --no-server \
     gridfire.gen-raster
-    # gridfire.cli
 
     # "-J-Xmx100G" \
     # --report-unsupported-elements-at-runtime \
