@@ -7,7 +7,9 @@
                                               make-envelope
                                               matrix-to-raster]]))
 
-(defn- matrix->raster [raster-name matrix {:keys [size srid xmin ymax] :or {srid "EPSG:32610"}}]
+(set! *unchecked-math* :warn-on-boxed)
+
+(defn- matrix->raster [raster-name matrix {:keys [^long size srid xmin ymax] :or {srid "EPSG:32610"}}]
   (let [width    (count matrix)
         height   (count (first matrix))
         envelope (make-envelope srid
@@ -20,9 +22,9 @@
 (defn- identical-matrix [width height value]
   (into-array (repeat height (into-array (repeat width value)))))
 
-(defn- dem-matrix [size degrees height width]
+(defn- dem-matrix [^long size degrees height width]
   (let [slope (deg->ratio degrees)]
-    (into-array (for [row (range height)]
+    (into-array (for [^long row (range height)]
                   (into-array (repeat width (* row size slope)))))))
 
 (defn- generate-dems []
