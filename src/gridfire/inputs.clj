@@ -14,14 +14,13 @@
 (defn add-input-layers
   [config]
   (with-db-connection-pool (:db-spec config)
-    (let [envelope                             (future (fetch/landfire-envelope config :aspect))
-          aspect-matrix                        (future (fetch/landfire-matrix config :aspect))
+    (let [aspect-matrix                        (future (fetch/landfire-matrix config :aspect))
           canopy-base-height-matrix            (future (fetch/landfire-matrix config :canopy-base-height))
           canopy-cover-matrix                  (future (fetch/landfire-matrix config :canopy-cover))
           canopy-height-matrix                 (future (fetch/landfire-matrix config :canopy-height))
           crown-bulk-density-matrix            (future (fetch/landfire-matrix config :crown-bulk-density))
           elevation-matrix                     (future (fetch/landfire-matrix config :elevation))
-          fuel-model-matrix                    (future (fetch/landfire-matrix config :fuel-model))
+          fuel-model-layer                     (future (fetch/landfire-layer config :fuel-model)) ; Use its envelope
           slope-matrix                         (future (fetch/landfire-matrix config :slope))
           ignition-matrix                      (future (fetch/ignition-matrix config))
           ignition-mask-matrix                 (future (fetch/ignition-mask-matrix config))
@@ -35,14 +34,14 @@
           fuel-moisture-live-herbaceous-matrix (future (fetch/fuel-moisture-matrix config :live :herbaceous))
           fuel-moisture-live-woody-matrix      (future (fetch/fuel-moisture-matrix config :live :woody))]
       (assoc config
-             :envelope                             @envelope
+             :envelope                             (fetch/layer->envelope @fuel-model-layer (:srid config))
              :aspect-matrix                        @aspect-matrix
              :canopy-base-height-matrix            @canopy-base-height-matrix
              :canopy-cover-matrix                  @canopy-cover-matrix
              :canopy-height-matrix                 @canopy-height-matrix
              :crown-bulk-density-matrix            @crown-bulk-density-matrix
              :elevation-matrix                     @elevation-matrix
-             :fuel-model-matrix                    @fuel-model-matrix
+             :fuel-model-matrix                    (:matrix @fuel-model-layer)
              :slope-matrix                         @slope-matrix
              :ignition-matrix                      @ignition-matrix
              :ignition-mask-matrix                 @ignition-mask-matrix

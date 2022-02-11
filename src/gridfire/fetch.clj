@@ -9,6 +9,24 @@
 (set! *unchecked-math* :warn-on-boxed)
 
 ;;-----------------------------------------------------------------------------
+;; Utilities
+;;-----------------------------------------------------------------------------
+
+(defn layer->envelope
+  [{:keys [^double upperleftx
+           ^double upperlefty
+           ^double width
+           ^double height
+           ^double scalex
+           ^double scaley]}
+   srid]
+  (make-envelope srid
+                 upperleftx
+                 (+ upperlefty (* height scaley))
+                 (* width scalex)
+                 (* -1.0 height scaley)))
+
+;;-----------------------------------------------------------------------------
 ;; LANDFIRE
 ;;-----------------------------------------------------------------------------
 
@@ -26,20 +44,6 @@
 (defn landfire-matrix
   [config layer-name]
   (:matrix (landfire-layer config layer-name)))
-
-(defn landfire-envelope
-  [config layer-name]
-  (let [{:keys [^double upperleftx
-                ^double upperlefty
-                ^double width
-                ^double height
-                ^double scalex
-                ^double scaley]} (landfire-layer config layer-name)]
-    (make-envelope (:srid config)
-                   upperleftx
-                   (+ upperlefty (* height scaley))
-                   (* width scalex)
-                   (* -1.0 height scaley))))
 
 ;;-----------------------------------------------------------------------------
 ;; Initial Ignition
