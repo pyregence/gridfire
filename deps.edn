@@ -2,6 +2,7 @@
 {:paths ["src" "resources"]
 
  :deps {cnuernber/dtype-next                {:mvn/version "9.000"}
+        com.github.clj-easy/graal-build-time {:mvn/version "0.1.4"}
         com.nextjournal/beholder            {:mvn/version "1.0.0"}
         com.taoensso/tufte                  {:mvn/version "2.2.0"}
         hikari-cp/hikari-cp                 {:mvn/version "2.13.0"}

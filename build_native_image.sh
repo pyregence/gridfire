@@ -19,34 +19,41 @@ clojure -M -e "(compile 'gridfire.gen-raster)"
     -H:+ReportExceptionStackTraces \
     --verbose \
     --no-fallback \
-    --allow-incomplete-classpath \
-    --initialize-at-build-time="" \
-    --diagnostics-mode \
-    --initialize-at-run-time=com.sun.media.imageioimpl.plugins.tiff.TIFFCodecLibFaxDecompressor \
-    --initialize-at-run-time=com.sun.media.imageioimpl.plugins.pnm.PNMImageReader \
-    --initialize-at-run-time=org.geotools.referencing.factory.DeferredAuthorityFactory \
-    --enable-all-security-services \
-    --trace-object-instantiation=java.util.TimerThread \
-    --trace-object-instantiation=java.io.RandomAccessFile \
-    --trace-object-instantiation=org.geotools.util.WeakCollectionCleaner \
-    --trace-object-instantiation=it.geosolutions.imageio.utilities.WeakCollectionCleaner \
-    --initialize-at-run-time=it.geosolutions.imageio.utilities.SoftValueHashMap \
-    --trace-object-instantiation=java.util.zip.Inflater \
-    --initialize-at-run-time=org.apache.logging.log4j.core.async.AsyncLoggerContext \
-    --initialize-at-run-time=org.apache.logging.log4j.core.config.yaml.YamlConfiguration \
-    --initialize-at-run-time=org.apache.logging.log4j.core.pattern.JAnsiTextRenderer \
-    --initialize-at-run-time=com.sun.media.imageioimpl.plugins.pnm.PNMImageWriter \
-    --trace-object-instantiation=com.sun.jmx.mbeanserver.JmxMBeanServer \
-    --trace-object-instantiation=java.util.Random \
-    --initialize-at-run-time=org.geotools.referencing.crs.DefaultGeographicCRS \
-    --initialize-at-run-time=org.geotools.referencing.operation.transform.ProjectiveTransform$Affine \
-    --initialize-at-run-time=javax.management.MBeanServerFactory \
-    --initialize-at-run-time=org.geotools.util.WeakValueHashMap \
-    --trace-class-initialization=org.geotools.util.WeakValueHashMap \
-    --initialize-at-run-time=com.sun.jmx.mbeanserver.JmxMBeanServer \
-    --initialize-at-run-time=org.geotools.referencing.datum.DefaultGeodeticDatum \
     gridfire.gen_raster
 
+
+
+
+
+    # Used with errors:
+    # --allow-incomplete-classpath \
+    # --initialize-at-build-time="" \
+    # --diagnostics-mode \
+    # --initialize-at-run-time=com.sun.media.imageioimpl.plugins.tiff.TIFFCodecLibFaxDecompressor \
+    # --initialize-at-run-time=com.sun.media.imageioimpl.plugins.pnm.PNMImageReader \
+    # --initialize-at-run-time=org.geotools.referencing.factory.DeferredAuthorityFactory \
+    # --enable-all-security-services \
+    # --trace-object-instantiation=java.util.TimerThread \
+    # --trace-object-instantiation=java.io.RandomAccessFile \
+    # --trace-object-instantiation=org.geotools.util.WeakCollectionCleaner \
+    # --trace-object-instantiation=it.geosolutions.imageio.utilities.WeakCollectionCleaner \
+    # --initialize-at-run-time=it.geosolutions.imageio.utilities.SoftValueHashMap \
+    # --trace-object-instantiation=java.util.zip.Inflater \
+    # --initialize-at-run-time=org.apache.logging.log4j.core.async.AsyncLoggerContext \
+    # --initialize-at-run-time=org.apache.logging.log4j.core.config.yaml.YamlConfiguration \
+    # --initialize-at-run-time=org.apache.logging.log4j.core.pattern.JAnsiTextRenderer \
+    # --initialize-at-run-time=com.sun.media.imageioimpl.plugins.pnm.PNMImageWriter \
+    # --trace-object-instantiation=com.sun.jmx.mbeanserver.JmxMBeanServer \
+    # --trace-object-instantiation=java.util.Random \
+    # --initialize-at-run-time=org.geotools.referencing.crs.DefaultGeographicCRS \
+    # --initialize-at-run-time=org.geotools.referencing.operation.transform.ProjectiveTransform$Affine \
+    # --initialize-at-run-time=javax.management.MBeanServerFactory \
+    # --initialize-at-run-time=org.geotools.util.WeakValueHashMap \
+    # --trace-class-initialization=org.geotools.util.WeakValueHashMap \
+    # --initialize-at-run-time=com.sun.jmx.mbeanserver.JmxMBeanServer \
+    # --initialize-at-run-time=org.geotools.referencing.datum.DefaultGeodeticDatum \
+
+    # Unused:
     # "-J-Dclojure.compiler.direct-linking=true" \
     # --no-server
     # --report-unsupported-elements-at-runtime \
