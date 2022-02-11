@@ -1,4 +1,5 @@
 (ns gridfire.gen-raster
+  (:gen-class)
   (:require [clojure.string      :as str]
             [clojure.tools.cli   :refer [parse-opts]]
             [gridfire.conversion :refer [deg->ratio]]
