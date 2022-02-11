@@ -3,6 +3,6 @@
         "name": "clojure.core",
         "allPublicConstructors": true,
         "allPublicMethods": true,
-        "allPublicFields": true,
+        "allPublicFields": true
     }
 ]
