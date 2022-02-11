@@ -1,10 +1,11 @@
 (ns gridfire.gen-raster
-  (:require [clojure.string      :as str]
-            [clojure.tools.cli   :refer [parse-opts]]
-            [gridfire.conversion :refer [deg->ratio]]
-            [magellan.core       :refer [write-raster
-                                         make-envelope
-                                         matrix-to-raster]]))
+  (:require [clojure.string           :as str]
+            [clojure.tools.cli        :refer [parse-opts]]
+            [gridfire.conversion      :refer [deg->ratio]]
+            [gridfire.magellan-bridge :refer [register-custom-projections!]]
+            [magellan.core            :refer [write-raster
+                                              make-envelope
+                                              matrix-to-raster]]))
 
 (defn- matrix->raster [raster-name matrix {:keys [size srid xmin ymax] :or {srid "EPSG:32610"}}]
   (let [width    (count matrix)
@@ -112,5 +113,6 @@
 
       :else
       (do (println "Creating raster" (:output options) "...")
+          (register-custom-projections!)
           (inputs->output-raster options)))
     (System/exit 0)))

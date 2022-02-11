@@ -1,14 +1,10 @@
 ;; [[file:../../org/GridFire.org::fetch.clj][fetch.clj]]
 (ns gridfire.fetch
-  (:require [clojure.java.io          :as io]
-            [gridfire.conversion      :as convert]
+  (:require [gridfire.conversion      :as convert]
             [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
             [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]
-            [magellan.core            :refer [make-envelope
-                                              register-new-crs-definitions-from-properties-file!]]
-            [tech.v3.datatype           :as d]))
-
-(register-new-crs-definitions-from-properties-file! "CUSTOM" (io/resource "custom_projections.properties"))
+            [magellan.core            :refer [make-envelope]]
+            [tech.v3.datatype         :as d]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
