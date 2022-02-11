@@ -17,20 +17,21 @@ clojure -M -e "(compile 'gridfire.gen-raster)"
     -cp "$(clojure -Spath)":classes \
     -H:Name=gridfire-native-image \
     -H:+ReportExceptionStackTraces \
-    -H:ConfigurationFileDirectories=. \
     --verbose \
     --no-fallback \
     --allow-incomplete-classpath \
-    "-J-Dclojure.compiler.direct-linking=true" \
+    --initialize-at-build-time="" \
+    --diagnostics-mode \
+    --initialize-at-run-time=com.sun.media.imageioimpl.plugins.tiff.TIFFCodecLibFaxDecompressor
+    --initialize-at-run-time=com.sun.media.imageioimpl.plugins.pnm.PNMImageReader
+    --enable-all-security-services
+    --trace-object-instantiate=java.util.TimerThread
+    --trace-object-instantiate=java.io.RandomAccessFile
+    --trace-object-instantiation=org.geotools.util.WeakCollectionCleaner
     gridfire.gen_raster
 
-    # --initialize-at-build-time \
-    # --diagnostics-mode \
+    # "-J-Dclojure.compiler.direct-linking=true" \
     # --no-server
     # --report-unsupported-elements-at-runtime \
     # "-J-Xmx100G" \
-    # --initialize-at-run-time=com.sun.media.imageioimpl.plugins.tiff.TIFFCodecLibFaxDecompressor
-    # --initialize-at-run-time=com.sun.media.imageioimpl.plugins.pnm.PNMImageReader
-    # --trace-object-instantiate=java.util.TimerThread
-    # --trace-object-instantiate=java.io.RandomAccessFile
-    # --trace-object-instantiation=org.geotools.util.WeakCollectionCleaner
+    # -H:ConfigurationFileDirectories=. \
