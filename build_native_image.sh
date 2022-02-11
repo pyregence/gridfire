@@ -22,12 +22,12 @@ clojure -M -e "(compile 'gridfire.gen-raster)"
     --allow-incomplete-classpath \
     --initialize-at-build-time="" \
     --diagnostics-mode \
-    --initialize-at-run-time=com.sun.media.imageioimpl.plugins.tiff.TIFFCodecLibFaxDecompressor
-    --initialize-at-run-time=com.sun.media.imageioimpl.plugins.pnm.PNMImageReader
-    --enable-all-security-services
-    --trace-object-instantiate=java.util.TimerThread
-    --trace-object-instantiate=java.io.RandomAccessFile
-    --trace-object-instantiation=org.geotools.util.WeakCollectionCleaner
+    --initialize-at-run-time=com.sun.media.imageioimpl.plugins.tiff.TIFFCodecLibFaxDecompressor \
+    --initialize-at-run-time=com.sun.media.imageioimpl.plugins.pnm.PNMImageReader \
+    --enable-all-security-services \
+    --trace-object-instantiate=java.util.TimerThread \
+    --trace-object-instantiate=java.io.RandomAccessFile \
+    --trace-object-instantiation=org.geotools.util.WeakCollectionCleaner \
     gridfire.gen_raster
 
     # "-J-Dclojure.compiler.direct-linking=true" \
