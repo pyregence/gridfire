@@ -51,8 +51,8 @@
 
 (defn convert-burn-values [matrix {:keys [burned unburned]}]
   (d/copy! (d/emap #(condp = %
-                      (double burned)   1.0
-                      (double unburned) 0.0
+                      burned   1.0
+                      unburned 0.0
                       -1.0)
                    :float64
                    matrix)
@@ -116,6 +116,7 @@
 ;; Moisture Layers
 ;;-----------------------------------------------------------------------------
 
+;; FIXME: Use convert/to-imperial! here instead of custom `update :matrix` logic
 (defn fuel-moisture-layer
   [{:keys [db-spec fuel-moisture]} category size]
   (let [spec (get-in fuel-moisture [category size])]
