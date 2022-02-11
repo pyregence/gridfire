@@ -38,12 +38,10 @@ clojure -M -e "(compile 'gridfire.gen-raster)"
     --initialize-at-run-time=com.sun.media.imageioimpl.plugins.pnm.PNMImageWriter \
     --trace-object-instantiation=com.sun.jmx.mbeanserver.JmxMBeanServer \
     --initialize-at-run-time=com.sun.jmx.mbeanserver.JmxMBeanServer \
-    --initialize-at-run-time=org.geotools.util.WeakValueHashMap \
-    --trace-class-initialization=org.geotools.util.WeakValueHashMap \
     --trace-object-instantiation=java.util.Random \
     --initialize-at-run-time=org.geotools.referencing.crs.DefaultGeographicCRS \
     --initialize-at-run-time=org.geotools.referencing.datum.DefaultGeodeticDatum \
-    --initialize-at-run-time=org.geotools.referencing.operation.transform.ProjectiveTransform \
+    --initialize-at-run-time=org.geotools.referencing.operation.transform.ProjectiveTransform$Affine \
     gridfire.gen_raster
     # "-J-Dclojure.compiler.direct-linking=true" \
     # --no-server
@@ -54,3 +52,6 @@ clojure -M -e "(compile 'gridfire.gen-raster)"
     # --initialize-at-run-time=org.geotools.referencing.factory.DeferredAuthorityFactory.TIMER \
     # --initialize-at-run-time=javax.management.MBeanServerFactory \
     # --trace-class-initialization=javax.management.MBeanServerFactory \
+
+    # --initialize-at-run-time=org.geotools.util.WeakValueHashMap \
+    # --trace-class-initialization=org.geotools.util.WeakValueHashMap \
