@@ -38,10 +38,8 @@ clojure -M -e "(compile 'gridfire.gen-raster)"
     --initialize-at-run-time=com.sun.media.imageioimpl.plugins.pnm.PNMImageWriter \
     --trace-object-instantiation=com.sun.jmx.mbeanserver.JmxMBeanServer \
     --initialize-at-run-time=com.sun.jmx.mbeanserver.JmxMBeanServer \
-    --initialize-at-run-time=javax.management.MBeanServerFactory \
     --initialize-at-run-time=org.geotools.util.WeakValueHashMap \
     --trace-object-instantiation=java.util.Random \
-    --trace-class-initialization=javax.management.MBeanServerFactory \
     gridfire.gen_raster
     # "-J-Dclojure.compiler.direct-linking=true" \
     # --no-server
@@ -50,3 +48,5 @@ clojure -M -e "(compile 'gridfire.gen-raster)"
     # -H:ConfigurationFileDirectories=. \
     # org.geotools.util.SoftValueHashMap
     # --initialize-at-run-time=org.geotools.referencing.factory.DeferredAuthorityFactory.TIMER \
+    # --initialize-at-run-time=javax.management.MBeanServerFactory \
+    # --trace-class-initialization=javax.management.MBeanServerFactory \
