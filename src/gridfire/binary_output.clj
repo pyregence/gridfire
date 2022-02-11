@@ -1,27 +1,29 @@
 (ns gridfire.binary-output
-  (:import (java.io DataInputStream DataOutputStream)
-           (java.nio ByteBuffer))
   (:require [clojure.java.io :as io]
             [gridfire.common :refer [non-zero-indices non-zero-count]]
             [taoensso.tufte  :as tufte]
-            [tech.v3.tensor  :as t]))
+            [tech.v3.tensor  :as t])
+  (:import (java.io DataInputStream DataOutputStream)
+           (java.nio ByteBuffer)))
+
+(set! *unchecked-math* :warn-on-boxed)
 
 ;; We assume that matrix[0,0] is the upper left corner.
 (defn non-zero-data [matrix]
-  (let [[rows _]     (:shape (t/tensor->dimensions matrix))
+  (let [[^long rows _] (:shape (t/tensor->dimensions matrix))
         {:keys
          [row-idxs
           col-idxs]} (non-zero-indices matrix)]
     {:x (mapv inc col-idxs)
-     :y (mapv #(- rows %) row-idxs)
+     :y (mapv #(- rows ^long %) row-idxs)
      :v (mapv (fn [row col] (t/mget matrix row col)) row-idxs col-idxs)}))
 
 ;;FIXME max-row max-col is not correct. Need dimensions in binary file.
 (defn indices-to-matrix [indices ttype]
-  (let [^ints rows (indices :y)
-        ^ints cols (indices :x)
-        max-row    (apply max rows)
-        max-col    (apply max cols)]
+  (let [^ints rows   (indices :y)
+        ^ints cols   (indices :x)
+        ^int max-row (reduce max rows)
+        ^int max-col (reduce max cols)]
     (if (= ttype :int)
       (let [^ints values (indices :v)
             matrix       (make-array Integer/TYPE max-row max-col)]

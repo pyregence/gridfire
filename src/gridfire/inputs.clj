@@ -11,17 +11,18 @@
             [tech.v3.tensor          :as t])
   (:import java.util.Random))
 
+(set! *unchecked-math* :warn-on-boxed)
+
 (defn add-input-layers
   [config]
   (with-db-connection-pool (:db-spec config)
-    (let [envelope                             (future (fetch/landfire-envelope config :aspect))
-          aspect-matrix                        (future (fetch/landfire-matrix config :aspect))
+    (let [aspect-matrix                        (future (fetch/landfire-matrix config :aspect))
           canopy-base-height-matrix            (future (fetch/landfire-matrix config :canopy-base-height))
           canopy-cover-matrix                  (future (fetch/landfire-matrix config :canopy-cover))
           canopy-height-matrix                 (future (fetch/landfire-matrix config :canopy-height))
           crown-bulk-density-matrix            (future (fetch/landfire-matrix config :crown-bulk-density))
           elevation-matrix                     (future (fetch/landfire-matrix config :elevation))
-          fuel-model-matrix                    (future (fetch/landfire-matrix config :fuel-model))
+          fuel-model-layer                     (future (fetch/landfire-layer config :fuel-model)) ; Use its envelope
           slope-matrix                         (future (fetch/landfire-matrix config :slope))
           ignition-matrix                      (future (fetch/ignition-matrix config))
           ignition-mask-matrix                 (future (fetch/ignition-mask-matrix config))
@@ -35,14 +36,14 @@
           fuel-moisture-live-herbaceous-matrix (future (fetch/fuel-moisture-matrix config :live :herbaceous))
           fuel-moisture-live-woody-matrix      (future (fetch/fuel-moisture-matrix config :live :woody))]
       (assoc config
-             :envelope                             @envelope
+             :envelope                             (fetch/layer->envelope @fuel-model-layer (:srid config))
              :aspect-matrix                        @aspect-matrix
              :canopy-base-height-matrix            @canopy-base-height-matrix
              :canopy-cover-matrix                  @canopy-cover-matrix
              :canopy-height-matrix                 @canopy-height-matrix
              :crown-bulk-density-matrix            @crown-bulk-density-matrix
              :elevation-matrix                     @elevation-matrix
-             :fuel-model-matrix                    @fuel-model-matrix
+             :fuel-model-matrix                    (:matrix @fuel-model-layer)
              :slope-matrix                         @slope-matrix
              :ignition-matrix                      @ignition-matrix
              :ignition-mask-matrix                 @ignition-mask-matrix
@@ -57,18 +58,18 @@
              :fuel-moisture-live-woody-matrix      @fuel-moisture-live-woody-matrix))))
 
 (defn- multi-band? [matrix]
-  (> (:n-dims (t/tensor->dimensions matrix)) 2))
+  (> ^long (:n-dims (t/tensor->dimensions matrix)) 2))
 
-;;TODO Document: using higher resolution layers than fuel model will choose upper left corner cell of the layer from the higher resolution grid within each fuel model grid cell. Recommend to use layers at or below resolution of fuel model matrix if you want to avoid loss of information.
+;; TODO Document: using higher resolution layers than fuel model will choose upper left corner cell of the layer from the higher resolution grid within each fuel model grid cell. Recommend to use layers at or below resolution of fuel model matrix if you want to avoid loss of information.
 (defn calc-multiplier
-  [inputs fuel-model-matrix-height matrix-kw]
+  [inputs ^long fuel-model-matrix-height matrix-kw]
   (when-let [matrix (get inputs matrix-kw)]
-    (let [height-dimension (if (multi-band? matrix) 1 0)
-          matrix-height    (-> (t/tensor->dimensions matrix) :shape (get height-dimension))]
+    (let [height-dimension    (if (multi-band? matrix) 1 0)
+          ^long matrix-height (-> (t/tensor->dimensions matrix) :shape (get height-dimension))]
       (when (not= matrix-height fuel-model-matrix-height)
         (double (/ matrix-height fuel-model-matrix-height))))))
 
-;;TODO Document fuel-model as the resolution of the computational space. Cell size must also match fuel model.
+;; TODO Document fuel-model as the resolution of the computational space. Cell size must also match fuel model.
 (defn add-misc-params
   [{:keys [random-seed fuel-model-matrix] :as inputs}]
   (let [[num-rows num-cols] (:shape (t/tensor->dimensions fuel-model-matrix))]
@@ -140,7 +141,6 @@
                (not (inputs matrix-kw)))
       (draw-samples rand-gen simulations (inputs weather-type)))))
 
-;; FIXME: Try using draw-sample within run-simulation instead of get-weather here.
 (defn add-weather-params
   [inputs]
   (assoc inputs
@@ -173,13 +173,13 @@
   (filterv
    #(<= buffer-size % limit)
    (cond
-     (vector? ignition-param) (range (first ignition-param) (inc (second ignition-param)))
+     (vector? ignition-param) (range (first ignition-param) (inc ^long (second ignition-param)))
      (list? ignition-param)   ignition-param
      (number? ignition-param) (list ignition-param)
      :else                    (range 0 num-items))))
 
 (defn- fill-ignition-sites
-  [rand-gen ignition-sites simulations]
+  [rand-gen ignition-sites ^long simulations]
   (let [num-sites-available (count ignition-sites)]
     (loop [num-sites-needed     (- simulations num-sites-available)
            final-ignition-sites ignition-sites]
@@ -192,7 +192,7 @@
         final-ignition-sites))))
 
 (defn- sample-ignition-sites-shuffle
-  [{:keys [rand-gen simulations]} ignitable-cell? ignition-rows ignition-cols]
+  [{:keys [rand-gen ^long simulations]} ignitable-cell? ignition-rows ignition-cols]
   (let [ignitable-sites (my-shuffle rand-gen
                                     (for [row   ignition-rows
                                           col   ignition-cols
@@ -219,7 +219,7 @@
                  (conj unignitable-cells cell)))))))
 
 (defn select-ignition-algorithm
-  [{:keys [num-rows num-cols]} ignitable-cell? ignition-rows ignition-cols]
+  [{:keys [^long num-rows ^long num-cols]} ignitable-cell? ignition-rows ignition-cols]
   (let [ratio-threshold (max 1 (int (* 0.0025 num-rows num-cols)))] ; the inflection point from our benchmarks
     (if (= ratio-threshold
            (reduce +
@@ -233,25 +233,25 @@
 
 (defn add-random-ignition-sites
   [{:keys
-    [num-rows num-cols ignition-row ignition-col simulations cell-size random-ignition
+    [^long num-rows ^long num-cols ignition-row ignition-col simulations ^double cell-size random-ignition
      rand-gen ignition-matrix ignition-csv config-file-path ignition-mask-matrix
      fuel-model-matrix] :as inputs}]
   (if (or ignition-matrix ignition-csv)
     inputs
-    (let [ignitable-cell? (if ignition-mask-matrix
-                            (fn [row col]
-                              (and (pos? (t/mget ignition-mask-matrix row col))
-                                   (burnable-fuel-model? (t/mget fuel-model-matrix row col))))
-                            (fn [row col]
-                              (burnable-fuel-model? (t/mget fuel-model-matrix row col))))
-          buffer-size     (if-let [edge-buffer (:edge-buffer random-ignition)]
-                            (int (Math/ceil (/ edge-buffer cell-size)))
-                            0)
-          ignition-rows   (filter-ignitions ignition-row buffer-size (- num-rows buffer-size 1) num-rows)
-          ignition-cols   (filter-ignitions ignition-col buffer-size (- num-cols buffer-size 1) num-cols)
-          ignition-sites  (if (= :use-darts (select-ignition-algorithm inputs ignitable-cell? ignition-rows ignition-cols))
-                            (sample-ignition-sites-darts inputs ignitable-cell? ignition-rows ignition-cols)
-                            (sample-ignition-sites-shuffle inputs ignitable-cell? ignition-rows ignition-cols))]
+    (let [ignitable-cell?   (if ignition-mask-matrix
+                              (fn [row col]
+                                (and (pos? ^double (t/mget ignition-mask-matrix row col))
+                                     (burnable-fuel-model? (t/mget fuel-model-matrix row col))))
+                              (fn [row col]
+                                (burnable-fuel-model? (t/mget fuel-model-matrix row col))))
+          ^long buffer-size (if-let [^double edge-buffer (:edge-buffer random-ignition)]
+                              (int (Math/ceil (/ edge-buffer cell-size)))
+                              0)
+          ignition-rows     (filter-ignitions ignition-row buffer-size (- num-rows buffer-size 1) num-rows)
+          ignition-cols     (filter-ignitions ignition-col buffer-size (- num-cols buffer-size 1) num-cols)
+          ignition-sites    (if (= :use-darts (select-ignition-algorithm inputs ignitable-cell? ignition-rows ignition-cols))
+                              (sample-ignition-sites-darts inputs ignitable-cell? ignition-rows ignition-cols)
+                              (sample-ignition-sites-shuffle inputs ignitable-cell? ignition-rows ignition-cols))]
       (if (seq ignition-sites)
         (let [ignition-sites* (fill-ignition-sites rand-gen ignition-sites simulations)]
           (assoc inputs
@@ -260,9 +260,9 @@
         (throw-message (format "Invalid config file [%s]: No valid ignition sites." config-file-path))))))
 
 (defn initialize-burn-count-matrix
-  [output-burn-probability max-runtime-samples ^long num-rows ^long num-cols]
+  [^double output-burn-probability max-runtime-samples ^long num-rows ^long num-cols]
   (if (number? output-burn-probability)
-    (let [num-bands (long (Math/ceil (/ (reduce max max-runtime-samples) output-burn-probability)))]
+    (let [num-bands (long (Math/ceil (/ ^double (reduce max max-runtime-samples) output-burn-probability)))]
       (t/new-tensor [num-bands num-rows num-cols]))
     (t/new-tensor [num-rows num-cols])))
 

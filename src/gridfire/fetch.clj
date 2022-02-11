@@ -1,16 +1,30 @@
 ;; [[file:../../org/GridFire.org::fetch.clj][fetch.clj]]
 (ns gridfire.fetch
-  (:require [clojure.java.io          :as io]
-            [gridfire.conversion      :as convert]
+  (:require [gridfire.conversion      :as convert]
             [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
             [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]
-            [magellan.core            :refer [make-envelope
-                                              register-new-crs-definitions-from-properties-file!]]
-            [tech.v3.datatype           :as d]))
-
-(register-new-crs-definitions-from-properties-file! "CUSTOM" (io/resource "custom_projections.properties"))
+            [magellan.core            :refer [make-envelope]]
+            [tech.v3.datatype         :as d]))
 
 (set! *unchecked-math* :warn-on-boxed)
+
+;;-----------------------------------------------------------------------------
+;; Utilities
+;;-----------------------------------------------------------------------------
+
+(defn layer->envelope
+  [{:keys [^double upperleftx
+           ^double upperlefty
+           ^double width
+           ^double height
+           ^double scalex
+           ^double scaley]}
+   srid]
+  (make-envelope srid
+                 upperleftx
+                 (+ upperlefty (* height scaley))
+                 (* width scalex)
+                 (* -1.0 height scaley)))
 
 ;;-----------------------------------------------------------------------------
 ;; LANDFIRE
@@ -31,28 +45,14 @@
   [config layer-name]
   (:matrix (landfire-layer config layer-name)))
 
-(defn landfire-envelope
-  [config layer-name]
-  (let [{:keys [^double upperleftx
-                ^double upperlefty
-                ^double width
-                ^double height
-                ^double scalex
-                ^double scaley]} (landfire-layer config layer-name)]
-    (make-envelope (:srid config)
-                   upperleftx
-                   (+ upperlefty (* height scaley))
-                   (* width scalex)
-                   (* -1.0 height scaley))))
-
 ;;-----------------------------------------------------------------------------
 ;; Initial Ignition
 ;;-----------------------------------------------------------------------------
 
 (defn convert-burn-values [matrix {:keys [burned unburned]}]
   (d/copy! (d/emap #(condp = %
-                      (double burned)   1.0
-                      (double unburned) 0.0
+                      burned   1.0
+                      unburned 0.0
                       -1.0)
                    :float64
                    matrix)
@@ -116,6 +116,7 @@
 ;; Moisture Layers
 ;;-----------------------------------------------------------------------------
 
+;; FIXME: Use convert/to-imperial! here instead of custom `update :matrix` logic
 (defn fuel-moisture-layer
   [{:keys [db-spec fuel-moisture]} category size]
   (let [spec (get-in fuel-moisture [category size])]

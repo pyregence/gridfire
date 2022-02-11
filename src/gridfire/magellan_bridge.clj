@@ -1,10 +1,16 @@
 ;; [[file:../../org/GridFire.org::*Magellan][Magellan:1]]
 (ns gridfire.magellan-bridge
-  (:require [magellan.core           :refer [read-raster]]
+  (:require [clojure.java.io         :as io]
+            [magellan.core           :refer [read-raster register-new-crs-definitions-from-properties-file!]]
             [magellan.raster.inspect :as inspect]
             [tech.v3.tensor          :as t])
   (:import org.geotools.coverage.grid.GridGeometry2D
            org.geotools.referencing.operation.transform.AffineTransform2D))
+
+(set! *unchecked-math* :warn-on-boxed)
+
+(defn register-custom-projections! []
+  (register-new-crs-definitions-from-properties-file! "CUSTOM" (io/resource "custom_projections.properties")))
 
 (defn geotiff-raster-to-matrix
   "Reads a raster from a file using the magellan.core library. Returns the
@@ -37,8 +43,8 @@
      :height     (:height image)
      :scalex     (.getScaleX crs2d)
      :scaley     (.getScaleY crs2d)
-     :skewx      0.0                    ;FIXME not used?
-     :skewy      0.0                    ;FIXME not used?
+     :skewx      0.0 ; FIXME not used?
+     :skewy      0.0 ; FIXME not used?
      :numbands   (:bands image)
      :matrix     (t/->tensor matrix)}))
 ;; Magellan:1 ends here

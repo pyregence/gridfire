@@ -1,13 +1,16 @@
 (ns gridfire.gen-raster
   (:gen-class)
-  (:require [clojure.string      :as str]
-            [clojure.tools.cli   :refer [parse-opts]]
-            [gridfire.conversion :refer [deg->ratio]]
-            [magellan.core       :refer [write-raster
-                                         make-envelope
-                                         matrix-to-raster]]))
+  (:require [clojure.string           :as str]
+            [clojure.tools.cli        :refer [parse-opts]]
+            [gridfire.conversion      :refer [deg->ratio]]
+            [gridfire.magellan-bridge :refer [register-custom-projections!]]
+            [magellan.core            :refer [write-raster
+                                              make-envelope
+                                              matrix-to-raster]]))
 
-(defn- matrix->raster [raster-name matrix {:keys [size srid xmin ymax] :or {srid "EPSG:32610"}}]
+(set! *unchecked-math* :warn-on-boxed)
+
+(defn- matrix->raster [raster-name matrix {:keys [^long size srid xmin ymax] :or {srid "EPSG:32610"}}]
   (let [width    (count matrix)
         height   (count (first matrix))
         envelope (make-envelope srid
@@ -20,9 +23,9 @@
 (defn- identical-matrix [width height value]
   (into-array (repeat height (into-array (repeat width value)))))
 
-(defn- dem-matrix [size degrees height width]
+(defn- dem-matrix [^long size degrees height width]
   (let [slope (deg->ratio degrees)]
-    (into-array (for [row (range height)]
+    (into-array (for [^long row (range height)]
                   (into-array (repeat width (* row size slope)))))))
 
 (defn- generate-dems []
@@ -113,5 +116,6 @@
 
       :else
       (do (println "Creating raster" (:output options) "...")
+          (register-custom-projections!)
           (inputs->output-raster options)))
     (System/exit 0)))

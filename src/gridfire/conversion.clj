@@ -186,7 +186,7 @@
   "Converts minutes to hours. (rounds down)"
   ^long
   [^double minutes]
-  (long (quot minutes 60.0)))
+  (long (/ minutes 60.0)))
 
 (defn convert-date-string
   "Convert a date string between two formats."
@@ -262,5 +262,5 @@
 (defn to-imperial!
   [layer {:keys [units multiplier] :or {multiplier 1.0}} layer-name]
   (if-let [converter (get-units-converter layer-name units multiplier)]
-    (update layer :matrix #(d/copy! (d/emap converter nil %) %))
+    (update layer :matrix #(d/copy! (d/emap converter :float64 %) %))
     layer))
