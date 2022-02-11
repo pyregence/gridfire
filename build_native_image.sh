@@ -17,12 +17,13 @@ clojure -M -e "(compile 'gridfire.gen-raster)"
     -cp "$(clojure -Spath)":classes \
     -H:Name=gridfire-native-image \
     -H:+ReportExceptionStackTraces \
-    --initialize-at-build-time \
     --verbose \
     --no-fallback \
-    --no-server \
+    --allow-incomplete-classpath \
     gridfire.gen_raster
 
-    # "-J-Xmx100G" \
+    # --no-server
+    # --initialize-at-build-time \
     # --report-unsupported-elements-at-runtime \
+    # "-J-Xmx100G" \
     # "-J-Dclojure.compiler.direct-linking=true" \
