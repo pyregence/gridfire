@@ -20,10 +20,10 @@ clojure -M -e "(compile 'gridfire.gen-raster)"
     --verbose \
     --no-fallback \
     --allow-incomplete-classpath \
+    --initialize-at-build-time \
+    "-J-Dclojure.compiler.direct-linking=true" \
     gridfire.gen_raster
 
     # --no-server
-    # --initialize-at-build-time \
     # --report-unsupported-elements-at-runtime \
     # "-J-Xmx100G" \
-    # "-J-Dclojure.compiler.direct-linking=true" \
