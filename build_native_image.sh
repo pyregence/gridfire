@@ -24,10 +24,12 @@ clojure -M -e "(compile 'gridfire.gen-raster)"
     --diagnostics-mode \
     --initialize-at-run-time=com.sun.media.imageioimpl.plugins.tiff.TIFFCodecLibFaxDecompressor \
     --initialize-at-run-time=com.sun.media.imageioimpl.plugins.pnm.PNMImageReader \
+    --initialize-at-run-time=org.geotools.referencing.factory.DeferredAuthorityFactory \
     --enable-all-security-services \
     --trace-object-instantiation=java.util.TimerThread \
     --trace-object-instantiation=java.io.RandomAccessFile \
     --trace-object-instantiation=org.geotools.util.WeakCollectionCleaner \
+    --trace-object-instantiation=java.util.zip.Inflater
     gridfire.gen_raster
 
     # "-J-Dclojure.compiler.direct-linking=true" \
@@ -35,3 +37,6 @@ clojure -M -e "(compile 'gridfire.gen-raster)"
     # --report-unsupported-elements-at-runtime \
     # "-J-Xmx100G" \
     # -H:ConfigurationFileDirectories=. \
+
+# org.geotools.util.SoftValueHashMap
+    # --initialize-at-run-time=org.geotools.referencing.factory.DeferredAuthorityFactory.TIMER \
