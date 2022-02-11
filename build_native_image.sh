@@ -41,6 +41,7 @@ clojure -M -e "(compile 'gridfire.gen-raster)"
     --initialize-at-run-time=javax.management.MBeanServerFactory \
     --initialize-at-run-time=org.geotools.util.WeakValueHashMap \
     --trace-object-instantiation=java.util.Random \
+    --trace-class-initialization=javax.management.MBeanServerFactory \
     gridfire.gen_raster
     # "-J-Dclojure.compiler.direct-linking=true" \
     # --no-server
