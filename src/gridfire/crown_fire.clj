@@ -109,6 +109,7 @@
       (* heat-of-combustion)
       (/ 60.0)))
 
+;; FIXME: unused
 (defn crown-fire-line-intensity-elmfire
   "Returns the crown fire line intensity in kW/m, given:
    - surface-fire-line-intensity (kW/m)
@@ -160,6 +161,7 @@
         (Math/sqrt)
         (/ length-width-ratio))))
 
+;; FIXME: unused
 (defn elmfire-length-to-width-ratio
   "true/false mph int>0 ft/min
    Crown L/W = min(1.0 + 0.125*U20_mph, L/W_max)

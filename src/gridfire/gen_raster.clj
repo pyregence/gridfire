@@ -27,6 +27,7 @@
     (into-array (for [^long row (range height)]
                   (into-array (repeat width (* row size slope)))))))
 
+;; FIXME: unused
 (defn- generate-dems []
   (for [degree (range 10 60 10)]
     (let [raster (matrix->raster (format "dem-%s-slp" degree)

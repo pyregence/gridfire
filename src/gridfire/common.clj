@@ -45,7 +45,7 @@
 ;; FIXME: This logic doesn't look right.
 (defn burnable?
   "Returns true if cell [x y] has not yet been ignited (but could be)."
-  [fire-spread-matrix fuel-model-matrix [i j :as source] [x y :as here]]
+  [fire-spread-matrix fuel-model-matrix [i j] [x y]]
   (and (burnable-fuel-model? (t/mget fuel-model-matrix x y))
        (let [^double ignition-probability-here   (t/mget fire-spread-matrix x y)
              ^double source-ignition-probability (t/mget fire-spread-matrix i j)]
