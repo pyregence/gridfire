@@ -1,8 +1,8 @@
 (ns gridfire.utils.test
   (:require [clojure.java.io         :as io]
             [clojure.string          :as str]
-            [gridfire.postgis-bridge :refer [db-pool-cache close-db-pool]]
-            [gridfire.core           :as core]))
+            [gridfire.core           :as core]
+            [gridfire.postgis-bridge :refer [db-pool-cache close-db-pool]]))
 
 ;;-----------------------------------------------------------------------------
 ;; Config
