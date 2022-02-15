@@ -66,29 +66,31 @@
     (/ 3.348 (Math/pow sigma' 0.8189))
     1.0))
 
-;; FIXME: Refactor this into two primitive type hinted functions
-(defn calc-reaction-intensity [eta_S_i eta_M_i h_i W_n_i beta sigma' beta_op]
-  (let [sigma'     (double sigma')
-        beta       (double beta)
-        beta_op    (double beta_op)
-        ;; Albini 1976 replaces (/ 1 (- (* 4.774 (Math/pow sigma' 0.1)) 7.27))
+(defn calc-optimum-reaction-velocity ^double [^double beta ^double sigma' ^double beta_op]
+  (let [;; Albini 1976 replaces (/ 1 (- (* 4.774 (Math/pow sigma' 0.1)) 7.27))
         A          (if (pos? sigma')
                      (/ 133.0 (Math/pow sigma' 0.7913))
                      0.0)
+        B          (Math/pow sigma' 1.5)
+        C          (/ beta beta_op)
         ;; Maximum reaction velocity (1/min)
-        Gamma'_max (/ (Math/pow sigma' 1.5)
-                      (+ 495.0 (* 0.0594 (Math/pow sigma' 1.5))))
-        ;; Optimum reaction velocity (1/min)
-        Gamma'     (-> Gamma'_max
-                       (* (Math/pow (/ beta beta_op) A))
-                       (* (Math/exp (* A (- 1.0 (/ beta beta_op))))))]
-    (* Gamma'
-       (category-sum
-        (fn ^double [i] (let [^double W_n   (W_n_i i)
-                              ^double h     (h_i i)
-                              ^double eta_M (eta_M_i i)
-                              ^double eta_S (eta_S_i i)]
-                          (-> W_n (* h) (* eta_M) (* eta_S))))))))
+        Gamma'_max (/ B (+ 495.0 (* 0.0594 B)))]
+    ;; Optimum reaction velocity (1/min)
+    (-> Gamma'_max
+        (* (Math/pow C A))
+        (* (Math/exp (* A (- 1.0 C)))))))
+
+(defn calc-heat-per-unit-area ^double [eta_S_i eta_M_i h_i W_n_i]
+  (category-sum
+   (fn ^double [i]
+     (let [^double W_n   (W_n_i i)
+           ^double h     (h_i i)
+           ^double eta_M (eta_M_i i)
+           ^double eta_S (eta_S_i i)]
+       (-> W_n (* h) (* eta_M) (* eta_S))))))
+
+(defn calc-reaction-intensity ^double [^double Gamma' ^double Btus]
+  (* Gamma' Btus))
 
 (defn calc-propagating-flux-ratio [^double beta ^double sigma']
   (/ (Math/exp (* (+ 0.792 (* 0.681 (Math/pow sigma' 0.5)))
@@ -210,7 +212,9 @@
         beta    (calc-packing-ratio w_o rho_p delta)
         sigma'  (calc-surface-area-to-volume-ratio f_i f_ij sigma)
         beta_op (calc-optimum-packing-ratio sigma')
-        I_R     (calc-reaction-intensity eta_S_i eta_M_i h_i W_n_i beta sigma' beta_op) ; (Btu/ft^2*min)
+        Gamma'  (calc-optimum-reaction-velocity beta sigma' beta_op) ; (1/min)
+        Btus    (calc-heat-per-unit-area eta_S_i eta_M_i h_i W_n_i) ; (Btu/ft^2)
+        I_R     (calc-reaction-intensity Gamma' Btus) ; (Btu/ft^2*min)
         xi      (calc-propagating-flux-ratio beta sigma')
         Q_ig    (calc-heat-of-preignition M_f) ; (Btu/lb)
         foo_i   (calc-mystery-term sigma Q_ig f_ij)
