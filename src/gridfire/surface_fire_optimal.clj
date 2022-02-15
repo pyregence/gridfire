@@ -91,7 +91,7 @@
 (defn calc-reaction-intensity ^double [^double Gamma' ^double Btus]
   (* Gamma' Btus))
 
-(defn calc-propagating-flux-ratio [^double beta ^double sigma']
+(defn calc-propagating-flux-ratio ^double [^double beta ^double sigma']
   (/ (Math/exp (* (+ 0.792 (* 0.681 (Math/pow sigma' 0.5)))
                   (+ beta 0.1)))
      (+ 192.0 (* 0.2595 sigma'))))
@@ -187,7 +187,7 @@
      :get-phi_W      get-phi_W
      :get-wind-speed get-wind-speed}))
 
-;; TODO: Pass fuel-model in as a record instead of a map
+;; TODO: Pass fuel-model in as a typed record instead of a map
 (defn rothermel-surface-fire-spread-no-wind-no-slope
   "Returns the rate of surface fire spread in ft/min and the reaction
    intensity (i.e., amount of heat output) of a fire in Btu/ft^2*min
@@ -205,7 +205,7 @@
    - f_ij [percent of load per size class (%)]
    - f_i [percent of load per category (%)]
    - g_ij [percent of load per size class from Albini_1976_FIREMOD, page 20]"
-  [{:keys [number delta w_o sigma h rho_p S_T S_e M_x M_f f_ij f_i g_ij]} & [grass-suppression?]]
+  [{:keys [^long number ^double delta w_o sigma h rho_p S_T S_e M_x M_f f_ij f_i g_ij]} & [grass-suppression?]]
   (let [eta_S_i   (calc-mineral-damping-coefficients f_ij S_e)
         eta_M_i   (calc-moisture-damping-coefficients f_ij M_f M_x)
         h_i       (calc-low-heat-content f_ij h)
