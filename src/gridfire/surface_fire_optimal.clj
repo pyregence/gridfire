@@ -116,9 +116,11 @@
       (/ (category-sum (fn ^double [i] ^double (rho_b_i i))) delta)
       0.0)))
 
-;; FIXME: Refactor this into two primitive type hinted functions
-(defn calc-surface-fire-spread-rate [I_R xi foo_i rho_b f_i]
-  (let [rho_b-epsilon-Q_ig (* rho_b (category-sum (fn ^double [i] (* ^double (f_i i) ^double (foo_i i)))))]
+(defn calc-mystery-term-sum ^double [f_i foo_i]
+  (category-sum (fn ^double [i] (* ^double (f_i i) ^double (foo_i i)))))
+
+(defn calc-surface-fire-spread-rate ^double [^double I_R ^double xi ^double rho_b ^double foo]
+  (let [rho_b-epsilon-Q_ig (* rho_b foo)]
     (if (pos? rho_b-epsilon-Q_ig)
       (/ (* I_R xi) rho_b-epsilon-Q_ig)
       0.0)))
@@ -219,7 +221,8 @@
         Q_ig    (calc-heat-of-preignition M_f) ; (Btu/lb)
         foo_i   (calc-mystery-term sigma Q_ig f_ij)
         rho_b   (calc-ovendry-bulk-density w_o delta) ; (lb/ft^3)
-        R       (calc-surface-fire-spread-rate I_R xi foo_i rho_b f_i) ; (ft/min)
+        foo     (calc-mystery-term-sum f_i foo_i)
+        R       (calc-surface-fire-spread-rate I_R xi rho_b foo) ; (ft/min)
         R'      (calc-suppressed-spread-rate R number grass-suppression?)
         t_res   (calc-residence-time sigma')]
     (-> (get-wind-and-slope-fns beta beta_op sigma')
