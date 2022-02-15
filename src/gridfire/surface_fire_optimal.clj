@@ -18,50 +18,60 @@
    (+ ^double (f 4) ^double (f 5))])
 
 (defn calc-mineral-damping-coefficients [f_ij S_e]
-  (let [S_e_i (size-class-sum (fn [i j] (* (-> f_ij i j) (-> S_e i j))))]
-    (map-category (fn [i] (let [S_e_i (-> S_e_i i)]
-                            (if (pos? S_e_i)
-                              (/ 0.174 (Math/pow S_e_i 0.19))
-                              1.0))))))
+  (let [S_e_i (size-class-sum (fn ^double [i] (* ^double (f_ij i) ^double (S_e i))))]
+    (map-category (fn ^double [i]
+                    (let [^double S_e_i (S_e_i i)]
+                      (if (pos? S_e_i)
+                        (/ 0.174 (Math/pow S_e_i 0.19))
+                        1.0))))))
 
 (defn calc-moisture-damping-coefficients [f_ij M_f M_x]
-  (let [M_f_i (size-class-sum (fn [i j] (* (-> f_ij i j) (-> M_f i j))))
-        M_x_i (size-class-sum (fn [i j] (* (-> f_ij i j) (-> M_x i j))))
-        r_M_i (map-category (fn [i] (let [M_f (-> M_f_i i)
-                                          M_x (-> M_x_i i)]
-                                      (if (pos? M_x)
-                                        (min 1.0 (/ M_f M_x))
-                                        1.0))))]
-    (map-category (fn [i] (+ 1.0
-                             (* -2.59 (-> r_M_i i))
-                             (* 5.11 (Math/pow (-> r_M_i i) 2))
-                             (* -3.52 (Math/pow (-> r_M_i i) 3)))))))
+  (let [M_f_i (size-class-sum (fn ^double [i] (* ^double (f_ij i) ^double (M_f i))))
+        M_x_i (size-class-sum (fn ^double [i] (* ^double (f_ij i) ^double (M_x i))))]
+    (map-category (fn ^double [i]
+                    (let [^double M_f (M_f_i i)
+                          ^double M_x (M_x_i i)
+                          r_M (if (pos? M_x)
+                                (min 1.0 (/ M_f M_x))
+                                1.0)]
+                      (-> 1.0
+                          (+ (* -2.59 r_M))
+                          (+ (* 5.11 (Math/pow r_M 2.0)))
+                          (+ (* -3.52 (Math/pow r_M 3.0)))))))))
 
 (defn calc-low-heat-content [f_ij h]
-  (size-class-sum (fn [i j] (* (-> f_ij i j) (-> h i j)))))
+  (size-class-sum (fn ^double [i] (* ^double (f_ij i) ^double (h i)))))
 
 (defn calc-net-fuel-loading [g_ij w_o S_T]
-  (size-class-sum (fn [i j] (* (-> g_ij i j)
-                               (-> w_o i j)
-                               (- 1.0 (-> S_T i j))))))
+  (size-class-sum (fn ^double [i]
+                    (let [^double g_ij (g_ij i)
+                          ^double w_o  (w_o i)
+                          ^double S_T  (S_T i)]
+                      (-> g_ij
+                          (* w_o)
+                          (* (- 1.0 S_T)))))))
 
-(defn calc-packing-ratio [w_o rho_p delta]
-  (let [beta_i (size-class-sum (fn [i j] (/ (-> w_o i j) (-> rho_p i j))))]
+(defn calc-packing-ratio ^double [w_o rho_p ^double delta]
+  (let [beta_i (size-class-sum (fn ^double [i] (/ ^double (w_o i) ^double (rho_p i))))]
     (if (pos? delta)
-      (/ (category-sum (fn [i] (-> beta_i i))) delta)
+      (/ (category-sum (fn ^double [i] ^double (beta_i i))) delta)
       0.0)))
 
-(defn calc-surface-area-to-volume-ratio [f_i f_ij sigma]
-  (let [sigma'_i (size-class-sum (fn [i j] (* (-> f_ij i j) (-> sigma i j))))]
-    (category-sum (fn [i] (* (-> f_i i) (-> sigma'_i i))))))
+(defn calc-surface-area-to-volume-ratio ^double [f_i f_ij sigma]
+  (let [sigma'_i (size-class-sum (fn ^double [i] (* ^double (f_ij i) ^double (sigma i))))]
+    (category-sum (fn ^double [i] (* ^double (f_i i) ^double (sigma'_i i))))))
 
-(defn calc-optimum-packing-ratio [sigma']
+(defn calc-optimum-packing-ratio ^double [^double sigma']
   (if (pos? sigma')
     (/ 3.348 (Math/pow sigma' 0.8189))
     1.0))
 
+;; FIXME: Refactor this into two primitive type hinted functions
 (defn calc-reaction-intensity [eta_S_i eta_M_i h_i W_n_i beta sigma' beta_op]
-  (let [;; Albini 1976 replaces (/ 1 (- (* 4.774 (Math/pow sigma' 0.1)) 7.27))
+  (let [sigma'     (double sigma')
+        beta       (double beta)
+        beta_op    (double beta_op)
+        ;; Albini 1976 replaces (/ 1 (- (* 4.774 (Math/pow sigma' 0.1)) 7.27))
         A          (if (pos? sigma')
                      (/ 133.0 (Math/pow sigma' 0.7913))
                      0.0)
@@ -69,82 +79,109 @@
         Gamma'_max (/ (Math/pow sigma' 1.5)
                       (+ 495.0 (* 0.0594 (Math/pow sigma' 1.5))))
         ;; Optimum reaction velocity (1/min)
-        Gamma'     (* Gamma'_max
-                      (Math/pow (/ beta beta_op) A)
-                      (Math/exp (* A (- 1.0 (/ beta beta_op)))))]
-    (* Gamma' (category-sum (fn [i] (* (W_n_i i) (h_i i) (eta_M_i i) (eta_S_i i)))))))
+        Gamma'     (-> Gamma'_max
+                       (* (Math/pow (/ beta beta_op) A))
+                       (* (Math/exp (* A (- 1.0 (/ beta beta_op))))))]
+    (* Gamma'
+       (category-sum
+        (fn ^double [i] (let [^double W_n   (W_n_i i)
+                              ^double h     (h_i i)
+                              ^double eta_M (eta_M_i i)
+                              ^double eta_S (eta_S_i i)]
+                          (-> W_n (* h) (* eta_M) (* eta_S))))))))
 
-(defn calc-propagating-flux-ratio [beta sigma']
+(defn calc-propagating-flux-ratio [^double beta ^double sigma']
   (/ (Math/exp (* (+ 0.792 (* 0.681 (Math/pow sigma' 0.5)))
                   (+ beta 0.1)))
      (+ 192.0 (* 0.2595 sigma'))))
 
 (defn calc-heat-of-preignition [M_f]
-  (map-size-class (fn [i j] (+ 250.0 (* 1116.0 (-> M_f i j))))))
+  (map-size-class (fn ^double [i] (+ 250.0 (* 1116.0 ^double (M_f i))))))
 
 (defn calc-mystery-term [sigma Q_ig f_ij]
-  (size-class-sum (fn [i j] (let [sigma_ij (-> sigma i j)
-                                  Q_ig_ij  (-> Q_ig i j)]
-                              (if (pos? sigma_ij)
-                                (* (-> f_ij i j)
-                                   (Math/exp (/ -138 sigma_ij))
-                                   Q_ig_ij)
-                                0.0)))))
+  (size-class-sum (fn ^double [i]
+                    (let [^double sigma (sigma i)
+                          ^double Q_ig  (Q_ig i)]
+                      (if (pos? sigma)
+                        (-> ^double (f_ij i)
+                            (* (Math/exp (/ -138.0 sigma)))
+                            (* Q_ig))
+                        0.0)))))
 
-(defn calc-ovendry-bulk-density [w_o delta]
-  (let [rho_b_i (size-class-sum (fn [i j] (-> w_o i j)))]
+(defn calc-ovendry-bulk-density ^double [w_o ^double delta]
+  (let [rho_b_i (size-class-sum (fn ^double [i] ^double (w_o i)))]
     (if (pos? delta)
-      (/ (category-sum (fn [i] (-> rho_b_i i))) delta)
+      (/ (category-sum (fn ^double [i] ^double (rho_b_i i))) delta)
       0.0)))
 
+;; FIXME: Refactor this into two primitive type hinted functions
 (defn calc-surface-fire-spread-rate [I_R xi foo_i rho_b f_i]
-  (let [rho_b-epsilon-Q_ig (* rho_b (category-sum (fn [i] (* (-> f_i i) (-> foo_i i)))))]
+  (let [rho_b-epsilon-Q_ig (* rho_b (category-sum (fn ^double [i] (* ^double (f_i i) ^double (foo_i i)))))]
     (if (pos? rho_b-epsilon-Q_ig)
       (/ (* I_R xi) rho_b-epsilon-Q_ig)
       0.0)))
 
-(defn- grass-fuel-model?
-  [^long number]
+(defn- grass-fuel-model? [^long number]
   (and (> number 100) (< number 110)))
 
 ;; Addition proposed by Chris Lautenberger (REAX 2015)
-(defn calc-suppressed-spread-rate [R number grass-suppression?]
-  (let [spread-rate-multiplier (if (and grass-suppression? (grass-fuel-model? number)) 0.5 1.0)]
+(defn calc-suppressed-spread-rate ^double [^double R ^long number grass-suppression?]
+  (let [spread-rate-multiplier (if (and grass-suppression?
+                                        (grass-fuel-model? number))
+                                 0.5
+                                 1.0)]
     (* R spread-rate-multiplier)))
 
-(defn calc-residence-time [sigma']
+(defn calc-residence-time ^double [^double sigma']
   (/ 384.0 sigma'))
 
-(defn get-wind-and-slope-fns [beta beta_op sigma']
+(defn get-wind-and-slope-fns [^double beta ^double beta_op ^double sigma']
   (let [E          (* 0.715 (Math/exp (* -3.59 (/ sigma' 10000.0))))
 
         B          (* 0.02526 (Math/pow sigma' 0.54))
 
         C          (* 7.47 (Math/exp (* -0.133 (Math/pow sigma' 0.55))))
 
+        F          (Math/pow (/ beta beta_op) E)
+
+        G          (* 5.275 (Math/pow beta -0.3))
+
+        C-over-F   (/ C F)
+
+        F-over-C   (/ F C)
+
+        B-inverse  (/ 1.0 B)
+
+        ;; Derive slope factor
+        get-phi_S  (if (pos? beta)
+                     (fn ^double [^double slope]
+                       (if (pos? slope)
+                         (-> slope
+                             (Math/pow 2.0)
+                             (* G))
+                         0.0))
+                     (fn ^double [^double _]
+                       0.0))
+
         ;; Derive wind factor
-        get-phi_W  (fn ^double [^double midflame-wind-speed]
-                     (if (and (pos? beta) (pos? midflame-wind-speed))
-                       (-> midflame-wind-speed
-                           (Math/pow B)
-                           (* C)
-                           (/ (Math/pow (/ beta beta_op) E)))
+        get-phi_W  (if (pos? beta)
+                     (fn ^double [^double midflame-wind-speed]
+                       (if (pos? midflame-wind-speed)
+                         (-> midflame-wind-speed
+                             (Math/pow B)
+                             (* C-over-F))
+                         0.0))
+                     (fn ^double [^double _]
                        0.0))
 
         ;; Derive wind speed from wind factor
-        get-wind-speed (fn [^double phi_W]
+        get-wind-speed (fn ^double [^double phi_W]
                          (-> phi_W
-                             (* (Math/pow (/ beta beta_op) E))
-                             ^double (/ C)
-                             (Math/pow (/ 1.0 B))))
+                             (* F-over-C)
+                             (Math/pow B-inverse)))]
 
-        ;; Derive slope factor
-        get-phi_S  (fn [^double slope]
-                     (if (and (pos? beta) (pos? slope))
-                       (* 5.275 (Math/pow beta -0.3) (Math/pow slope 2.0))
-                       0.0))]
-    {:get-phi_W      get-phi_W
-     :get-phi_S      get-phi_S
+    {:get-phi_S      get-phi_S
+     :get-phi_W      get-phi_W
      :get-wind-speed get-wind-speed}))
 
 ;; TODO: Pass fuel-model in as a record instead of a map
