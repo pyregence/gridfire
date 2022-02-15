@@ -279,19 +279,21 @@
      {:dead {:1hr 0.01, :10hr 0.01, :100hr 0.01, :herbaceous 0.01},
       :live {:herbaceous 0.01, :woody 0.01}}})
 
+  (defn vectorize-fuel-model [fuel-model]
+    (into {}
+          (map (fn [[k {:keys [dead live] :as v}]]
+                 [k (cond (map? dead)    [(dead :1hr)
+                                          (dead :10hr)
+                                          (dead :100hr)
+                                          (dead :herbaceous)
+                                          (live :herbaceous)
+                                          (live :woody)]
+                          (number? dead) [dead live]
+                          :else          v)])
+               fuel-model)))
+
   (def test-fuel-model-vector
-    {:f_ij [0.2920353982300885
-            0.0
-            0.0
-            0.7079646017699115
-            1.0
-            0.0]
-     :S_e  [0.01
-            0.01
-            0.01
-            0.01
-            0.01
-            0.01]})
+    (vectorize-fuel-model test-fuel-model))
 
   ;; 47-63ns
   (let [f_ij (:f_ij test-fuel-model-vector)
