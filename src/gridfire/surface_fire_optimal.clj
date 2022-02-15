@@ -1,7 +1,6 @@
 (ns gridfire.surface-fire-optimal)
 
-#_(set! *unchecked-math* nil)
-#_(set! *unchecked-math* :warn-on-boxed)
+(set! *unchecked-math* :warn-on-boxed)
 
 (defn map-category [f]
   [(f 0) (f 1)])
@@ -100,7 +99,7 @@
 (defn calc-heat-of-preignition [M_f]
   (map-size-class (fn ^double [i] (+ 250.0 (* 1116.0 ^double (M_f i))))))
 
-(defn calc-mystery-term [sigma Q_ig f_ij]
+(defn calc-heat-distribution [sigma Q_ig f_ij]
   (size-class-sum (fn ^double [i]
                     (let [^double sigma (sigma i)
                           ^double Q_ig  (Q_ig i)]
@@ -116,11 +115,11 @@
       (/ (category-sum (fn ^double [i] ^double (rho_b_i i))) delta)
       0.0)))
 
-(defn calc-mystery-term-sum ^double [f_i foo_i]
-  (category-sum (fn ^double [i] (* ^double (f_i i) ^double (foo_i i)))))
+(defn calc-heat-total ^double [f_i epsilon_i]
+  (category-sum (fn ^double [i] (* ^double (f_i i) ^double (epsilon_i i)))))
 
-(defn calc-surface-fire-spread-rate ^double [^double I_R ^double xi ^double rho_b ^double foo]
-  (let [rho_b-epsilon-Q_ig (* rho_b foo)]
+(defn calc-surface-fire-spread-rate ^double [^double I_R ^double xi ^double rho_b ^double epsilon]
+  (let [rho_b-epsilon-Q_ig (* rho_b epsilon)]
     (if (pos? rho_b-epsilon-Q_ig)
       (/ (* I_R xi) rho_b-epsilon-Q_ig)
       0.0)))
@@ -207,24 +206,24 @@
    - f_i [percent of load per category (%)]
    - g_ij [percent of load per size class from Albini_1976_FIREMOD, page 20]"
   [{:keys [number delta w_o sigma h rho_p S_T S_e M_x M_f f_ij f_i g_ij]} & [grass-suppression?]]
-  (let [eta_S_i (calc-mineral-damping-coefficients f_ij S_e)
-        eta_M_i (calc-moisture-damping-coefficients f_ij M_f M_x)
-        h_i     (calc-low-heat-content f_ij h)
-        W_n_i   (calc-net-fuel-loading g_ij w_o S_T) ; (lb/ft^2)
-        beta    (calc-packing-ratio w_o rho_p delta)
-        sigma'  (calc-surface-area-to-volume-ratio f_i f_ij sigma)
-        beta_op (calc-optimum-packing-ratio sigma')
-        Gamma'  (calc-optimum-reaction-velocity beta sigma' beta_op) ; (1/min)
-        Btus    (calc-heat-per-unit-area eta_S_i eta_M_i h_i W_n_i) ; (Btu/ft^2)
-        I_R     (calc-reaction-intensity Gamma' Btus) ; (Btu/ft^2*min)
-        xi      (calc-propagating-flux-ratio beta sigma')
-        Q_ig    (calc-heat-of-preignition M_f) ; (Btu/lb)
-        foo_i   (calc-mystery-term sigma Q_ig f_ij)
-        rho_b   (calc-ovendry-bulk-density w_o delta) ; (lb/ft^3)
-        foo     (calc-mystery-term-sum f_i foo_i)
-        R       (calc-surface-fire-spread-rate I_R xi rho_b foo) ; (ft/min)
-        R'      (calc-suppressed-spread-rate R number grass-suppression?)
-        t_res   (calc-residence-time sigma')]
+  (let [eta_S_i   (calc-mineral-damping-coefficients f_ij S_e)
+        eta_M_i   (calc-moisture-damping-coefficients f_ij M_f M_x)
+        h_i       (calc-low-heat-content f_ij h)
+        W_n_i     (calc-net-fuel-loading g_ij w_o S_T) ; (lb/ft^2)
+        beta      (calc-packing-ratio w_o rho_p delta)
+        sigma'    (calc-surface-area-to-volume-ratio f_i f_ij sigma)
+        beta_op   (calc-optimum-packing-ratio sigma')
+        Gamma'    (calc-optimum-reaction-velocity beta sigma' beta_op) ; (1/min)
+        Btus      (calc-heat-per-unit-area eta_S_i eta_M_i h_i W_n_i) ; (Btu/ft^2)
+        I_R       (calc-reaction-intensity Gamma' Btus) ; (Btu/ft^2*min)
+        xi        (calc-propagating-flux-ratio beta sigma')
+        Q_ig      (calc-heat-of-preignition M_f) ; (Btu/lb)
+        epsilon_i (calc-heat-distribution sigma Q_ig f_ij) ; (Btu/lb)
+        rho_b     (calc-ovendry-bulk-density w_o delta) ; (lb/ft^3)
+        epsilon   (calc-heat-total f_i epsilon_i) ; (Btu/lb)
+        R         (calc-surface-fire-spread-rate I_R xi rho_b epsilon) ; (ft/min)
+        R'        (calc-suppressed-spread-rate R number grass-suppression?)
+        t_res     (calc-residence-time sigma')]
     (-> (get-wind-and-slope-fns beta beta_op sigma')
         (assoc :spread-rate        R'
                :reaction-intensity I_R
@@ -301,9 +300,9 @@
      (size-class-sum (fn ^double [i] (* ^double (f_ij i) ^double (S_e i))))))
 
   ;; 18-43ns
-  (let [f_i   [0.1 0.2]
-        foo_i [0.3 0.4]]
-    (quick-bench (category-sum (fn ^double [i] (* ^double (f_i i) ^double (foo_i i))))))
+  (let [f_i       [0.1 0.2]
+        epsilon_i [0.3 0.4]]
+    (quick-bench (category-sum (fn ^double [i] (* ^double (f_i i) ^double (epsilon_i i))))))
 
   ;; 47-49ns
   (let [M_f [0.1 0.2 0.3 0.1 0.4 0.5]]
