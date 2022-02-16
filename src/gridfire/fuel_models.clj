@@ -1,6 +1,8 @@
 ;; [[file:../../org/GridFire.org::fuel-model-definitions][fuel-model-definitions]]
 (ns gridfire.fuel-models)
 
+#_(set! *unchecked-math* :warn-on-boxed)
+
 (def fuel-models
   "Lookup table including one entry for each of the Anderson 13 and
    Scott & Burgan 40 fuel models. The fields have the following
@@ -85,25 +87,24 @@
 
 ;; [[file:../../org/GridFire.org::fuel-category-and-size-class-functions][fuel-category-and-size-class-functions]]
 (defn map-category [f]
-  {:dead (f :dead) :live (f :live)})
+  [(f 0) (f 1)])
 
 (defn map-size-class [f]
-  {:dead {:1hr        (f :dead :1hr)
-          :10hr       (f :dead :10hr)
-          :100hr      (f :dead :100hr)
-          :herbaceous (f :dead :herbaceous)}
-   :live {:herbaceous (f :live :herbaceous)
-          :woody      (f :live :woody)}})
+  [(f 0) (f 1) (f 2) (f 3) (f 4) (f 5)])
 
 (defn category-sum ^double [f]
-  (+ ^double (f :dead) ^double (f :live)))
+  (+ ^double (f 0) ^double (f 1)))
 
 (defn size-class-sum [f]
-  {:dead (+ ^double (f :dead :1hr) ^double (f :dead :10hr) ^double (f :dead :100hr) ^double (f :dead :herbaceous))
-   :live (+ ^double (f :live :herbaceous) ^double (f :live :woody))})
+  [(+ (+ ^double (f 0) ^double (f 1))
+      (+ ^double (f 2) ^double (f 3)))
+   (+ ^double (f 4) ^double (f 5))])
+
 ;; fuel-category-and-size-class-functions ends here
 
 ;; [[file:../../org/GridFire.org::fuel-model-constructor-functions][fuel-model-constructor-functions]]
+;; FIXME vectorize outputs
+;; 1.17-1.20us
 (defn build-fuel-model
   [fuel-model-number]
   (let [[name delta ^double M_x-dead ^double h
@@ -271,6 +272,7 @@
         (assoc-in [:M_x :live :herbaceous] M_x-live)
         (assoc-in [:M_x :live :woody]      M_x-live))))
 
+;; FIXME: vectorize outputs
 (defn moisturize
   [fuel-model fuel-moisture]
   (-> fuel-model

@@ -1,20 +1,7 @@
-(ns gridfire.surface-fire-optimal)
+(ns gridfire.surface-fire-optimal
+  (:require [gridfire.fuel-models :refer [map-category map-size-class category-sum size-class-sum]]))
 
 (set! *unchecked-math* :warn-on-boxed)
-
-(defn map-category [f]
-  [(f 0) (f 1)])
-
-(defn map-size-class [f]
-  [(f 0) (f 1) (f 2) (f 3) (f 4) (f 5)])
-
-(defn category-sum ^double [f]
-  (+ ^double (f 0) ^double (f 1)))
-
-(defn size-class-sum [f]
-  [(+ (+ ^double (f 0) ^double (f 1))
-      (+ ^double (f 2) ^double (f 3)))
-   (+ ^double (f 4) ^double (f 5))])
 
 (defn calc-mineral-damping-coefficients [f_ij S_e]
   (let [S_e_i (size-class-sum (fn ^double [i] (* ^double (f_ij i) ^double (S_e i))))]
