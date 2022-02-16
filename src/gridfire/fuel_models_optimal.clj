@@ -1,5 +1,7 @@
 ;; [[file:../../org/GridFire.org::fuel-model-definitions][fuel-model-definitions]]
-(ns gridfire.fuel-models)
+(ns gridfire.fuel-models-optimal)
+
+(set! *unchecked-math* :warn-on-boxed)
 
 (def fuel-models
   "Lookup table including one entry for each of the Anderson 13 and
@@ -81,29 +83,50 @@
    203 [:SB3 1.2 25 8 [0.2525 0.1263 0.1377 0.0000 0.0000] [2000.0 109.0 30.0    0.0    0.0]]
    204 [:SB4 2.7 25 8 [0.2410 0.1607 0.2410 0.0000 0.0000] [2000.0 109.0 30.0    0.0    0.0]]
    })
+
+(defn compute-fuel-model
+  [fuel-model-number]
+  (let [[name delta M_x-dead h
+         [w_o-dead-1hr w_o-dead-10hr w_o-dead-100hr
+          w_o-live-herbaceous w_o-live-woody]
+         [sigma-dead-1hr sigma-dead-10hr sigma-dead-100hr
+          sigma-live-herbaceous sigma-live-woody]]
+        (fuel-models fuel-model-number)
+        M_x-dead (* ^long M_x-dead 0.01)
+        h        (* ^long h 1000.0)]
+    {:name   name
+     :number fuel-model-number
+     :delta  delta
+     :M_x    [M_x-dead M_x-dead M_x-dead 0.0 0.0 0.0]
+     :w_o    [w_o-dead-1hr w_o-dead-10hr w_o-dead-100hr 0.0 w_o-live-herbaceous w_o-live-woody]
+     :sigma  [sigma-dead-1hr sigma-dead-10hr sigma-dead-100hr 0.0 sigma-live-herbaceous sigma-live-woody]
+     :h      [h h h h h h]
+     :rho_p  [32.0 32.0 32.0 32.0 32.0 32.0]
+     :S_T    [0.0555 0.0555 0.0555 0.0555 0.0555 0.0555]
+     :S_e    [0.01 0.01 0.01 0.01 0.01 0.01]}))
+
+(def fuel-models-precomputed (into {} (map #(vector % (compute-fuel-model %)) (keys fuel-models))))
 ;; fuel-model-definitions ends here
 
 ;; [[file:../../org/GridFire.org::fuel-category-and-size-class-functions][fuel-category-and-size-class-functions]]
 (defn map-category [f]
-  {:dead (f :dead) :live (f :live)})
+  [(f 0) (f 1)])
 
 (defn map-size-class [f]
-  {:dead {:1hr        (f :dead :1hr)
-          :10hr       (f :dead :10hr)
-          :100hr      (f :dead :100hr)
-          :herbaceous (f :dead :herbaceous)}
-   :live {:herbaceous (f :live :herbaceous)
-          :woody      (f :live :woody)}})
+  [(f 0) (f 1) (f 2) (f 3) (f 4) (f 5)])
 
 (defn category-sum ^double [f]
-  (+ ^double (f :dead) ^double (f :live)))
+  (+ ^double (f 0) ^double (f 1)))
 
 (defn size-class-sum [f]
-  {:dead (+ ^double (f :dead :1hr) ^double (f :dead :10hr) ^double (f :dead :100hr) ^double (f :dead :herbaceous))
-   :live (+ ^double (f :live :herbaceous) ^double (f :live :woody))})
+  [(+ (+ ^double (f 0) ^double (f 1))
+      (+ ^double (f 2) ^double (f 3)))
+   (+ ^double (f 4) ^double (f 5))])
 ;; fuel-category-and-size-class-functions ends here
 
 ;; [[file:../../org/GridFire.org::fuel-model-constructor-functions][fuel-model-constructor-functions]]
+;; FIXME Remove this function after benchmarking
+;; 1.17-1.20us
 (defn build-fuel-model
   [fuel-model-number]
   (let [[name delta ^double M_x-dead ^double h
@@ -271,6 +294,7 @@
         (assoc-in [:M_x :live :herbaceous] M_x-live)
         (assoc-in [:M_x :live :woody]      M_x-live))))
 
+;; FIXME: vectorize outputs
 (defn moisturize
   [fuel-model fuel-moisture]
   (-> fuel-model

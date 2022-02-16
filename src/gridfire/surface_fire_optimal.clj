@@ -1,5 +1,5 @@
 (ns gridfire.surface-fire-optimal
-  (:require [gridfire.fuel-models :refer [map-category map-size-class category-sum size-class-sum]]))
+  (:require [gridfire.fuel-models-optimal :refer [map-category map-size-class category-sum size-class-sum]]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
