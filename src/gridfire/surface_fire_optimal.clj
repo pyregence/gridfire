@@ -205,7 +205,7 @@
    - f_ij [percent of load per size class (%)]
    - f_i [percent of load per category (%)]
    - g_ij [percent of load per size class from Albini_1976_FIREMOD, page 20]"
-  [{:keys [^long number ^double delta w_o sigma h rho_p S_T S_e M_x M_f f_ij f_i g_ij]} & [grass-suppression?]]
+  [{:keys [number delta w_o sigma h rho_p S_T S_e M_x M_f f_ij f_i g_ij]} grass-suppression?]
   (let [eta_S_i   (calc-mineral-damping-coefficients f_ij S_e)
         eta_M_i   (calc-moisture-damping-coefficients f_ij M_f M_x)
         h_i       (calc-low-heat-content f_ij h)
