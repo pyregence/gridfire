@@ -225,9 +225,9 @@
         R'        (calc-suppressed-spread-rate R number grass-suppression?)
         t_res     (calc-residence-time sigma')]
     (-> (get-wind-and-slope-fns beta beta_op sigma')
-        (assoc :spread-rate        R'
-               :reaction-intensity I_R
-               :residence-time     t_res))))
+        (assoc :spread-rate        R')
+        (assoc :reaction-intensity I_R)
+        (assoc :residence-time     t_res))))
 
 (comment
 
