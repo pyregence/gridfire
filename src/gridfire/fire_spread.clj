@@ -192,7 +192,7 @@
                                                      grass-suppression?)
         midflame-wind-speed                   (mph->fpm
                                                (* wind-speed-20ft
-                                                  (wind-adjustment-factor ^long (:delta fuel-model)
+                                                  (wind-adjustment-factor ^double (:delta fuel-model)
                                                                           canopy-height
                                                                           canopy-cover)))
         spread-info-max                       (rothermel-surface-fire-spread-max spread-info-min
