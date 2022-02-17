@@ -233,7 +233,6 @@
                                (assoc 4 M_x-live) ; 4 = live-herbaceous
                                (assoc 5 M_x-live))))) ; 5 = live-woody
 
-;; TODO: Pass fuel-moisture arg in as [d1 d10 d100 0.0 lh lw]
 (defn moisturize
   [fuel-model fuel-moisture]
   (-> fuel-model
