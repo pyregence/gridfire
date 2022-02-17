@@ -142,9 +142,12 @@
             fraction-cured (- 1.0 fraction-green)]
         (-> fuel-model
             (assoc :M_f (assoc M_f 3 (M_f 0))) ; 0 = dead-1hr, 3 = dead-herbaceous
-            (assoc :w_o (-> w_o
-                            (assoc 3 (* live-herbaceous-load fraction-cured)) ; 3 = dead-herbaceous
-                            (assoc 4 (* live-herbaceous-load fraction-green)))))) ; 4 = live-herbaceous
+            (assoc :w_o [(w_o 0)
+                         (w_o 1)
+                         (w_o 2)
+                         (* live-herbaceous-load fraction-cured)
+                         (* live-herbaceous-load fraction-green)
+                         (w_o 5)])))
       ;; static fuel model
       (assoc fuel-model :M_f M_f))))
 ;; add-dynamic-fuel-loading ends here
@@ -229,9 +232,12 @@
                                                      (* (- 1.0 (/ dead-fuel-moisture M_x-dead))))
                                                  0.226))
                                          M_x-dead)]
-    (assoc fuel-model :M_x (-> M_x
-                               (assoc 4 M_x-live) ; 4 = live-herbaceous
-                               (assoc 5 M_x-live))))) ; 5 = live-woody
+    (assoc fuel-model :M_x [(M_x 0)
+                            (M_x 1)
+                            (M_x 2)
+                            (M_x 3)
+                            M_x-live
+                            M_x-live])))
 
 (defn moisturize
   [fuel-model fuel-moisture]
