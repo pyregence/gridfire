@@ -306,4 +306,16 @@
                          (/ 0.174 (Math/pow S_e_i 0.19))
                          1.0))))))
 
+  ;; 2.21-2.25us
+  (quick-bench (rothermel-surface-fire-spread-no-wind-no-slope test-fuel-model-vector false))
+
+  ;; Notes:
+  ;; 1. Stick with longs and doubles. Don't waste time casting to ints and floats.
+  ;; 2. Use Java collections for performance:
+  ;;    - java.util.ArrayList
+  ;;    - java.util.BitSet
+  ;;    - boolean[]
+  ;;    - java.util.PriorityQueue
+  ;;    - primitive arrays (e.g., longs, doubles)
+
   )

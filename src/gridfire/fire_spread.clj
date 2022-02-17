@@ -23,6 +23,8 @@
                                                   rothermel-surface-fire-spread-max
                                                   rothermel-surface-fire-spread-no-wind-no-slope
                                                   wind-adjustment-factor]]
+            [gridfire.fuel-models-optimal  :as f-opt]
+            [gridfire.surface-fire-optimal :as s-opt]
             [tech.v3.datatype             :as d]
             [tech.v3.tensor               :as t]))
 
@@ -59,6 +61,13 @@
   (let [fuel-model      (-> (build-fuel-model (int fuel-model-number))
                             (moisturize fuel-moisture))
         spread-info-min (rothermel-surface-fire-spread-no-wind-no-slope fuel-model grass-suppression?)]
+    [fuel-model spread-info-min]))
+
+(defn rothermel-fast-wrapper-optimal
+  [fuel-model-number fuel-moisture grass-suppression?]
+  (let [fuel-model      (-> (f-opt/fuel-models-precomputed (int fuel-model-number))
+                            (f-opt/moisturize fuel-moisture))
+        spread-info-min (s-opt/rothermel-surface-fire-spread-no-wind-no-slope fuel-model grass-suppression?)]
     [fuel-model spread-info-min]))
 
 (defrecord BurnTrajectory
@@ -171,13 +180,14 @@
                                                 (get-fuel-moisture-live-woody i j)
                                                 (calc-fuel-moisture relative-humidity temperature :live :woody))
         ^double foliar-moisture               (get-foliar-moisture band i j)
-        [fuel-model spread-info-min]          (rothermel-fast-wrapper fuel-model
-                                                                      {:dead {:1hr   fuel-moisture-dead-1hr
-                                                                              :10hr  fuel-moisture-dead-10hr
-                                                                              :100hr fuel-moisture-dead-100hr}
-                                                                       :live {:herbaceous fuel-moisture-live-herbaceous
-                                                                              :woody      fuel-moisture-live-woody}}
-                                                                      grass-suppression?)
+        [fuel-model spread-info-min]          (rothermel-fast-wrapper-optimal fuel-model
+                                                                              [fuel-moisture-dead-1hr
+                                                                               fuel-moisture-dead-10hr
+                                                                               fuel-moisture-dead-100hr
+                                                                               0.0 ; fuel-moisture-dead-herbaceous
+                                                                               fuel-moisture-live-herbaceous
+                                                                               fuel-moisture-live-woody]
+                                                                              grass-suppression?)
         midflame-wind-speed                   (mph->fpm
                                                (* wind-speed-20ft
                                                   (wind-adjustment-factor ^long (:delta fuel-model)
