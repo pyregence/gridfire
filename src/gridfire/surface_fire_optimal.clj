@@ -1,5 +1,6 @@
 (ns gridfire.surface-fire-optimal
-  (:require [gridfire.fuel-models-optimal :refer [map-category map-size-class category-sum size-class-sum]]))
+  (:require [gridfire.conversion          :refer [deg->rad rad->deg]]
+            [gridfire.fuel-models-optimal :refer [map-category map-size-class category-sum size-class-sum]]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -215,6 +216,182 @@
       :reaction-intensity I_R
       :residence-time     t_res}
      (get-wind-and-slope-fns beta beta_op sigma')]))
+
+(defn wind-adjustment-factor
+  "ft ft 0-100"
+  ^double
+  [^double fuel-bed-depth ^double canopy-height ^double canopy-cover]
+  (cond
+    ;; sheltered: equation 2 based on CC and CH, CR=1 (Andrews 2012)
+    (and (pos? canopy-cover)
+         (pos? canopy-height))
+    (/ 0.555 (* (Math/sqrt (* (/ canopy-cover 300.0) canopy-height))
+                (Math/log (/ (+ 20.0 (* 0.36 canopy-height)) (* 0.13 canopy-height)))))
+
+    ;; unsheltered: equation 6 H_F = H (Andrews 2012)
+    (pos? fuel-bed-depth)
+    (/ 1.83 (Math/log (/ (+ 20.0 (* 0.36 fuel-bed-depth)) (* 0.13 fuel-bed-depth))))
+
+    ;; non-burnable fuel model
+    :otherwise
+    0.0))
+
+(defn wind-adjustment-factor-elmfire
+  "ft m 0-1"
+  ^double
+  [^double fuel-bed-depth ^double canopy-height ^double canopy-cover]
+  (cond
+    ;; sheltered WAF
+    (and (pos? canopy-cover)
+         (pos? canopy-height))
+    (* (/ 1.0 (Math/log (/ (+ 20.0 (* 0.36 (/ canopy-height 0.3048)))
+                           (* 0.13 (/ canopy-height 0.3048)))))
+       (/ 0.555 (Math/sqrt (* (/ canopy-cover 3.0) (/ canopy-height 0.3048)))))
+
+    ;; unsheltered WAF
+    (pos? fuel-bed-depth)
+    (* (/ (+ 1.0 (/ 0.36 1.0))
+          (Math/log (/ (+ 20.0 (* 0.36 fuel-bed-depth))
+                       (* 0.13 fuel-bed-depth))))
+       (- (Math/log (/ (+ 1.0 0.36) 0.13)) 1.0))
+
+    ;; non-burnable fuel model
+    :otherwise
+    0.0))
+
+(defn almost-zero? [^double x]
+  (< (Math/abs x) 0.000001))
+
+(defn scale-spread-to-max-wind-speed
+  [{:keys [effective-wind-speed max-spread-direction] :as spread-properties}
+   ^double spread-rate ^double max-wind-speed ^double phi-max]
+  (if (> ^double effective-wind-speed max-wind-speed)
+    {:max-spread-rate      (* spread-rate (+ 1.0 phi-max))
+     :max-spread-direction max-spread-direction
+     :effective-wind-speed max-wind-speed}
+    spread-properties))
+
+;; FIXME: Combine with scale-spread-to-max-wind-speed to remove assoc
+(defn add-eccentricity
+  [{:keys [effective-wind-speed] :as spread-properties} ^double ellipse-adjustment-factor]
+  (let [length-width-ratio (+ 1.0 (-> 0.002840909
+                                      (* ^double effective-wind-speed)
+                                      (* ellipse-adjustment-factor)))
+        eccentricity       (/ (Math/sqrt (- (Math/pow length-width-ratio 2.0) 1.0))
+                              length-width-ratio)]
+    (assoc spread-properties :eccentricity eccentricity)))
+
+(defn smallest-angle-between ^double [^double theta1 ^double theta2]
+  (let [angle (Math/abs (- theta1 theta2))]
+    (if (> angle 180.0)
+      (- 360.0 angle)
+      angle)))
+
+;; FIXME: optimize me
+(defn rothermel-surface-fire-spread-max
+  "Note: fire ellipse adjustment factor, < 1.0 = more circular, > 1.0 = more elliptical"
+  [{:keys [spread-rate reaction-intensity]} {:keys [get-phi_W get-phi_S get-wind-speed]}
+   midflame-wind-speed wind-from-direction slope aspect ellipse-adjustment-factor]
+  (let [^double phi_W             (get-phi_W midflame-wind-speed)
+        ^double phi_S             (get-phi_S slope)
+        ^double slope-direction   (mod (+ ^double aspect 180.0) 360.0)
+        ^double wind-to-direction (mod (+ ^double wind-from-direction 180.0) 360.0)
+        max-wind-speed            (* 0.9 ^double reaction-intensity)
+        ^double phi-max           (get-phi_W max-wind-speed)
+        spread-rate               (double spread-rate)]
+    (->
+     (cond (and (almost-zero? midflame-wind-speed) (almost-zero? slope))
+           ;; no wind, no slope
+           {:max-spread-rate      spread-rate
+            :max-spread-direction 0.0
+            :effective-wind-speed 0.0}
+
+           (almost-zero? slope)
+           ;; wind only
+           {:max-spread-rate      (* spread-rate (+ 1.0 phi_W))
+            :max-spread-direction wind-to-direction
+            :effective-wind-speed midflame-wind-speed}
+
+           (almost-zero? midflame-wind-speed)
+           ;; slope only
+           {:max-spread-rate      (* spread-rate (+ 1.0 phi_S))
+            :max-spread-direction slope-direction
+            :effective-wind-speed (get-wind-speed phi_S)}
+
+           (< (smallest-angle-between wind-to-direction slope-direction) 15.0)
+           ;; wind blows (within 15 degrees of) upslope
+           {:max-spread-rate      (* spread-rate (+ 1.0 phi_W phi_S))
+            :max-spread-direction slope-direction
+            :effective-wind-speed (get-wind-speed (+ phi_W phi_S))}
+
+           :else
+           ;; wind blows across slope
+           (let [slope-magnitude    (* spread-rate phi_S)
+                 wind-magnitude     (* spread-rate phi_W)
+                 difference-angle   (deg->rad
+                                     (mod (- wind-to-direction slope-direction) 360.0))
+                 x                  (+ slope-magnitude
+                                       (* wind-magnitude (Math/cos difference-angle)))
+                 y                  (* wind-magnitude (Math/sin difference-angle))
+                 combined-magnitude (Math/sqrt (+ (* x x) (* y y)))]
+             (if (almost-zero? combined-magnitude)
+               {:max-spread-rate      spread-rate
+                :max-spread-direction 0.0
+                :effective-wind-speed 0.0}
+               (let [max-spread-rate      (+ spread-rate combined-magnitude)
+                     phi-combined         (- (/ max-spread-rate spread-rate) 1.0)
+                     offset               (rad->deg
+                                           (Math/asin (/ (Math/abs y) combined-magnitude)))
+                     offset'              (if (>= x 0.0)
+                                            (if (>= y 0.0)
+                                              offset
+                                              (- 360.0 offset))
+                                            (if (>= y 0.0)
+                                              (- 180.0 offset)
+                                              (+ 180.0 offset)))
+                     max-spread-direction (mod (+ slope-direction offset') 360.0)
+                     effective-wind-speed (get-wind-speed phi-combined)]
+                 {:max-spread-rate      max-spread-rate
+                  :max-spread-direction max-spread-direction
+                  :effective-wind-speed effective-wind-speed}))))
+     (scale-spread-to-max-wind-speed spread-rate max-wind-speed phi-max)
+     (add-eccentricity ellipse-adjustment-factor))))
+
+(defn rothermel-surface-fire-spread-any
+  ^double
+  [{:keys [max-spread-rate max-spread-direction eccentricity]} ^double spread-direction]
+  (let [max-spread-rate (double max-spread-rate)
+        eccentricity    (double eccentricity)
+        theta           (smallest-angle-between ^double max-spread-direction spread-direction)]
+    (if (or (almost-zero? eccentricity) (almost-zero? theta))
+      max-spread-rate
+      (* max-spread-rate (/ (- 1.0 eccentricity)
+                            (- 1.0 (* eccentricity
+                                      (Math/cos (deg->rad theta)))))))))
+
+(defn anderson-flame-depth
+  "Returns the depth, or front-to-back distance, of the actively flaming zone
+   of a free-spreading fire in ft given:
+   - spread-rate (ft/min)
+   - residence-time (min)"
+  ^double
+  [^double spread-rate ^double residence-time]
+  (* spread-rate residence-time))
+
+(defn byram-fire-line-intensity
+  "Returns the rate of heat release per unit of fire edge in Btu/ft*s given:
+   - reaction-intensity (Btu/ft^2*min)
+   - flame-depth (ft)"
+  ^double
+  [^double reaction-intensity ^double flame-depth]
+  (/ (* reaction-intensity flame-depth) 60.0))
+
+(defn byram-flame-length
+  "Returns the average flame length in ft given:
+   - fire-line-intensity (Btu/ft*s)"
+  ^double
+  [^double fire-line-intensity]
+  (* 0.45 (Math/pow fire-line-intensity 0.46)))
 
 (comment
 
