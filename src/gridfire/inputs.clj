@@ -260,9 +260,9 @@
         (throw-message (format "Invalid config file [%s]: No valid ignition sites." config-file-path))))))
 
 (defn initialize-burn-count-matrix
-  [^double output-burn-probability max-runtime-samples ^long num-rows ^long num-cols]
+  [output-burn-probability max-runtime-samples ^long num-rows ^long num-cols]
   (if (number? output-burn-probability)
-    (let [num-bands (long (Math/ceil (/ ^double (reduce max max-runtime-samples) output-burn-probability)))]
+    (let [num-bands (long (Math/ceil (/ ^double (reduce max max-runtime-samples) ^double output-burn-probability)))]
       (t/new-tensor [num-bands num-rows num-cols]))
     (t/new-tensor [num-rows num-cols])))
 
