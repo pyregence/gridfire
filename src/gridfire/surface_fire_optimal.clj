@@ -271,7 +271,6 @@
      :effective-wind-speed max-wind-speed}
     spread-properties))
 
-;; FIXME: Combine with scale-spread-to-max-wind-speed to remove assoc
 (defn add-eccentricity
   [{:keys [effective-wind-speed] :as spread-properties} ^double ellipse-adjustment-factor]
   (let [length-width-ratio (+ 1.0 (-> 0.002840909
@@ -287,73 +286,104 @@
       (- 360.0 angle)
       angle)))
 
-;; FIXME: optimize me
+(defn determine-spread-drivers
+  [^double midflame-wind-speed ^double wind-to-direction ^double slope ^double slope-direction]
+  (if (almost-zero? slope)
+    (if (almost-zero? midflame-wind-speed)
+      :no-wind-no-slope
+      :wind-only)
+    (if (almost-zero? midflame-wind-speed)
+      :slope-only
+      (if (< (smallest-angle-between wind-to-direction slope-direction) 15.0)
+        :wind-blows-upslope
+        :wind-blows-across-slope))))
+
+(defn spread-info-max-no-wind-no-slope
+  [^double spread-rate]
+  {:max-spread-rate      spread-rate
+   :max-spread-direction 0.0
+   :effective-wind-speed 0.0})
+
+(defn spread-info-max-wind-only
+  [^double spread-rate ^double phi_W ^double midflame-wind-speed ^double wind-to-direction]
+  {:max-spread-rate      (* spread-rate (+ 1.0 phi_W))
+   :max-spread-direction wind-to-direction
+   :effective-wind-speed midflame-wind-speed})
+
+(defn spread-info-max-slope-only
+  [^double spread-rate ^double phi_S ^double slope-direction get-wind-speed]
+  {:max-spread-rate      (* spread-rate (+ 1.0 phi_S))
+   :max-spread-direction slope-direction
+   :effective-wind-speed (get-wind-speed phi_S)})
+
+(defn spread-info-max-wind-blows-upslope
+  [^double spread-rate ^double phi-combined ^double slope-direction get-wind-speed]
+  {:max-spread-rate      (* spread-rate (+ 1.0 phi-combined))
+   :max-spread-direction slope-direction
+   :effective-wind-speed (get-wind-speed phi-combined)})
+
+(defn spread-info-max-wind-blows-across-slope
+  [spread-rate phi_W phi_S wind-to-direction slope-direction get-wind-speed]
+  (let [spread-rate        (double spread-rate)
+        wind-to-direction  (double wind-to-direction)
+        slope-direction    (double slope-direction)
+        wind-magnitude     (* spread-rate ^double phi_W)
+        slope-magnitude    (* spread-rate ^double phi_S)
+        difference-angle   (deg->rad
+                            (mod (- wind-to-direction slope-direction) 360.0))
+        x                  (+ slope-magnitude
+                              (* wind-magnitude (Math/cos difference-angle)))
+        y                  (* wind-magnitude (Math/sin difference-angle))
+        combined-magnitude (Math/sqrt (+ (* x x) (* y y)))]
+    (if (almost-zero? combined-magnitude)
+      {:max-spread-rate      spread-rate
+       :max-spread-direction 0.0
+       :effective-wind-speed 0.0}
+      (let [max-spread-rate      (+ spread-rate combined-magnitude)
+            phi-combined         (- (/ max-spread-rate spread-rate) 1.0)
+            offset               (rad->deg
+                                  (Math/asin (/ (Math/abs y) combined-magnitude)))
+            offset'              (if (>= x 0.0)
+                                   (if (>= y 0.0)
+                                     offset
+                                     (- 360.0 offset))
+                                   (if (>= y 0.0)
+                                     (- 180.0 offset)
+                                     (+ 180.0 offset)))
+            max-spread-direction (mod (+ slope-direction offset') 360.0)
+            effective-wind-speed (get-wind-speed phi-combined)]
+        {:max-spread-rate      max-spread-rate
+         :max-spread-direction max-spread-direction
+         :effective-wind-speed effective-wind-speed}))))
+
 (defn rothermel-surface-fire-spread-max
   "Note: fire ellipse adjustment factor, < 1.0 = more circular, > 1.0 = more elliptical"
-  [{:keys [spread-rate reaction-intensity]} {:keys [get-phi_W get-phi_S get-wind-speed]}
-   midflame-wind-speed wind-from-direction slope aspect ellipse-adjustment-factor]
-  (let [^double phi_W             (get-phi_W midflame-wind-speed)
-        ^double phi_S             (get-phi_S slope)
-        ^double slope-direction   (mod (+ ^double aspect 180.0) 360.0)
-        ^double wind-to-direction (mod (+ ^double wind-from-direction 180.0) 360.0)
-        max-wind-speed            (* 0.9 ^double reaction-intensity)
+  [{:keys [spread-rate reaction-intensity]}
+   {:keys [get-phi_W get-phi_S get-wind-speed]}
+   midflame-wind-speed wind-from-direction
+   slope aspect ellipse-adjustment-factor]
+  (let [spread-rate               (double spread-rate)
+        reaction-intensity        (double reaction-intensity)
+        midflame-wind-speed       (double midflame-wind-speed)
+        wind-from-direction       (double wind-from-direction)
+        slope                     (double slope)
+        aspect                    (double aspect)
+        ellipse-adjustment-factor (double ellipse-adjustment-factor)
+        slope-direction           (mod (+ aspect 180.0) 360.0)
+        wind-to-direction         (mod (+ wind-from-direction 180.0) 360.0)
+        max-wind-speed            (* 0.9 reaction-intensity)
         ^double phi-max           (get-phi_W max-wind-speed)
-        spread-rate               (double spread-rate)]
+        ^double phi_W             (get-phi_W midflame-wind-speed)
+        ^double phi_S             (get-phi_S slope)]
     (->
-     (cond (and (almost-zero? midflame-wind-speed) (almost-zero? slope))
-           ;; no wind, no slope
-           {:max-spread-rate      spread-rate
-            :max-spread-direction 0.0
-            :effective-wind-speed 0.0}
-
-           (almost-zero? slope)
-           ;; wind only
-           {:max-spread-rate      (* spread-rate (+ 1.0 phi_W))
-            :max-spread-direction wind-to-direction
-            :effective-wind-speed midflame-wind-speed}
-
-           (almost-zero? midflame-wind-speed)
-           ;; slope only
-           {:max-spread-rate      (* spread-rate (+ 1.0 phi_S))
-            :max-spread-direction slope-direction
-            :effective-wind-speed (get-wind-speed phi_S)}
-
-           (< (smallest-angle-between wind-to-direction slope-direction) 15.0)
-           ;; wind blows (within 15 degrees of) upslope
-           {:max-spread-rate      (* spread-rate (+ 1.0 phi_W phi_S))
-            :max-spread-direction slope-direction
-            :effective-wind-speed (get-wind-speed (+ phi_W phi_S))}
-
-           :else
-           ;; wind blows across slope
-           (let [slope-magnitude    (* spread-rate phi_S)
-                 wind-magnitude     (* spread-rate phi_W)
-                 difference-angle   (deg->rad
-                                     (mod (- wind-to-direction slope-direction) 360.0))
-                 x                  (+ slope-magnitude
-                                       (* wind-magnitude (Math/cos difference-angle)))
-                 y                  (* wind-magnitude (Math/sin difference-angle))
-                 combined-magnitude (Math/sqrt (+ (* x x) (* y y)))]
-             (if (almost-zero? combined-magnitude)
-               {:max-spread-rate      spread-rate
-                :max-spread-direction 0.0
-                :effective-wind-speed 0.0}
-               (let [max-spread-rate      (+ spread-rate combined-magnitude)
-                     phi-combined         (- (/ max-spread-rate spread-rate) 1.0)
-                     offset               (rad->deg
-                                           (Math/asin (/ (Math/abs y) combined-magnitude)))
-                     offset'              (if (>= x 0.0)
-                                            (if (>= y 0.0)
-                                              offset
-                                              (- 360.0 offset))
-                                            (if (>= y 0.0)
-                                              (- 180.0 offset)
-                                              (+ 180.0 offset)))
-                     max-spread-direction (mod (+ slope-direction offset') 360.0)
-                     effective-wind-speed (get-wind-speed phi-combined)]
-                 {:max-spread-rate      max-spread-rate
-                  :max-spread-direction max-spread-direction
-                  :effective-wind-speed effective-wind-speed}))))
+     (case (determine-spread-drivers midflame-wind-speed wind-to-direction slope slope-direction)
+       :no-wind-no-slope        (spread-info-max-no-wind-no-slope spread-rate)
+       :wind-only               (spread-info-max-wind-only spread-rate phi_W midflame-wind-speed wind-to-direction)
+       :slope-only              (spread-info-max-slope-only spread-rate phi_S slope-direction get-wind-speed)
+       :wind-blows-upslope      (spread-info-max-wind-blows-upslope spread-rate (+ phi_W phi_S)
+                                                                    slope-direction get-wind-speed)
+       :wind-blows-across-slope (spread-info-max-wind-blows-across-slope spread-rate phi_W phi_S wind-to-direction
+                                                                         slope-direction get-wind-speed))
      (scale-spread-to-max-wind-speed spread-rate max-wind-speed phi-max)
      (add-eccentricity ellipse-adjustment-factor))))
 
