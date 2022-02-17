@@ -65,10 +65,11 @@
 
 (defn rothermel-fast-wrapper-optimal
   [fuel-model-number fuel-moisture grass-suppression?]
-  (let [fuel-model      (-> (f-opt/fuel-models-precomputed (int fuel-model-number))
-                            (f-opt/moisturize fuel-moisture))
-        spread-info-min (s-opt/rothermel-surface-fire-spread-no-wind-no-slope fuel-model grass-suppression?)]
-    [fuel-model spread-info-min]))
+  (let [fuel-model                       (-> (f-opt/fuel-models-precomputed (long fuel-model-number))
+                                             (f-opt/moisturize fuel-moisture))
+        [spread-info-min wind-slope-fns] (s-opt/rothermel-surface-fire-spread-no-wind-no-slope
+                                          fuel-model grass-suppression?)]
+    [fuel-model spread-info-min wind-slope-fns]))
 
 (defrecord BurnTrajectory
     [cell
@@ -180,20 +181,22 @@
                                                 (get-fuel-moisture-live-woody i j)
                                                 (calc-fuel-moisture relative-humidity temperature :live :woody))
         ^double foliar-moisture               (get-foliar-moisture band i j)
-        [fuel-model spread-info-min]          (rothermel-fast-wrapper-optimal fuel-model
-                                                                              [fuel-moisture-dead-1hr
-                                                                               fuel-moisture-dead-10hr
-                                                                               fuel-moisture-dead-100hr
-                                                                               0.0 ; fuel-moisture-dead-herbaceous
-                                                                               fuel-moisture-live-herbaceous
-                                                                               fuel-moisture-live-woody]
-                                                                              grass-suppression?)
+        [fuel-model spread-info-min wind-slope-fns] (rothermel-fast-wrapper-optimal
+                                                     fuel-model
+                                                     [fuel-moisture-dead-1hr
+                                                      fuel-moisture-dead-10hr
+                                                      fuel-moisture-dead-100hr
+                                                      0.0 ; fuel-moisture-dead-herbaceous
+                                                      fuel-moisture-live-herbaceous
+                                                      fuel-moisture-live-woody]
+                                                     grass-suppression?)
         midflame-wind-speed                   (mph->fpm
                                                (* wind-speed-20ft
                                                   (wind-adjustment-factor ^long (:delta fuel-model)
                                                                           canopy-height
                                                                           canopy-cover)))
         spread-info-max                       (rothermel-surface-fire-spread-max spread-info-min
+                                                                                 wind-slope-fns
                                                                                  midflame-wind-speed
                                                                                  wind-from-direction
                                                                                  slope

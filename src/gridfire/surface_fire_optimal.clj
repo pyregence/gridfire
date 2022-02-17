@@ -211,10 +211,10 @@
         R         (calc-surface-fire-spread-rate I_R xi rho_b epsilon) ; (ft/min)
         R'        (calc-suppressed-spread-rate R number grass-suppression?)
         t_res     (calc-residence-time sigma')]
-    (-> (get-wind-and-slope-fns beta beta_op sigma')
-        (assoc :spread-rate        R')
-        (assoc :reaction-intensity I_R)
-        (assoc :residence-time     t_res))))
+    [{:spread-rate        R'
+      :reaction-intensity I_R
+      :residence-time     t_res}
+     (get-wind-and-slope-fns beta beta_op sigma')]))
 
 (comment
 
