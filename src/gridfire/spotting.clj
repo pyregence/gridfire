@@ -310,11 +310,12 @@
   t: time of ignition
   p: ignition-probability"
   [{:keys
-    [num-rows num-cols cell-size fuel-model-matrix elevation-matrix global-clock spotting rand-gen
+    [num-rows num-cols cell-size fuel-model-matrix elevation-matrix spotting rand-gen
      get-temperature get-relative-humidity get-wind-speed-20ft get-wind-from-direction
      get-fuel-moisture-dead-1hr] :as inputs}
    {:keys [firebrand-count-matrix fire-spread-matrix fire-line-intensity-matrix flame-length-matrix]}
-   {:keys [cell fire-line-intensity crown-fire?]}]
+   {:keys [cell fire-line-intensity crown-fire?]}
+   global-clock]
   (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
     (let [band              (int (/ global-clock 60.0))
           [i j]             cell
