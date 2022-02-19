@@ -612,6 +612,10 @@
 
 (comment
 
+  ;; Problem 1: Efficiently store, update, and query the LOT
+
+  ;; Solution: Store the LOT in a tensor for 23-56x speedups over the alternatives
+
   (def lot (t/new-tensor [10 10] :datatype :byte))
 
   (defn get-n-s? [i j]
@@ -650,30 +654,37 @@
       (bit-set % 0)
       (t/mset! lot i j %)))
 
+  ;; Problem 2: Efficiently update burn trajectories
 
-  (def lot-map (into {} (for [i (range 10) j (range 10)] [[i j] 2r0000])))
+  ;; Solution: Use records. They are ~10% slower than maps to create
+  ;; but they are 2x as fast for querying and updating. Also, prefer
+  ;; to create new records whenever possible because it is 25% faster
+  ;; to create a record than to update it.
 
-  (defn get-n-s-map? [i j]
-    (-> (get lot-map [i j])
-        (bit-test 3)))
+  (defn make-burn-trajectory-map
+    [i j direction spread-rate terrain-distance fractional-distance burn-probability]
+    {:i                   i
+     :j                   j
+     :direction           direction
+     :spread-rate         spread-rate
+     :terrain-distance    terrain-distance
+     :fractional-distance fractional-distance
+     :burn-probability    burn-probability})
 
-  (defn set-n-s-map! [i j]
-    (as-> (get lot-map [i j]) %
-      (bit-set % 3)
-      (assoc lot-map [i j] %)))
+  (defrecord BurnTrajectoryRecord
+      [^long  i
+       ^long  j
+       ^byte  direction
+       ^double spread-rate
+       ^double terrain-distance
+       ^double fractional-distance
+       ^double burn-probability])
 
-  (def lot-atom-map (into {} (for [i (range 10) j (range 10)] [[i j] (atom 2r0000)])))
+  (defn make-burn-trajectory-record
+    [i j direction spread-rate terrain-distance fractional-distance burn-probability]
+    (->BurnTrajectoryRecord i j direction spread-rate terrain-distance fractional-distance burn-probability))
 
-  (defn get-n-s-atom-map? [i j]
-    (-> (get lot-atom-map [i j])
-        (deref)
-        (bit-test 3)))
-
-  (defn set-n-s-atom-map! [i j]
-    (as-> (get lot-atom-map [i j]) %
-      (swap! % bit-set 3)))
-
-  (definterface ABurnTrajectory
+  (definterface IBurnTrajectory
     (^long getI [])
     (^long getJ [])
     (^byte getDirection [])
@@ -684,57 +695,280 @@
     (^void setI [^long i])
     (^void setJ [^long j])
     (^void setDirection [^byte direction])
-    (^void setSpreadRate [^double spread-rate])
-    (^void setTerrainDistance [^double terrain-distance])
-    (^void setFractionalDistance [^double fractional-distance])
-    (^void setBurnProbability [^double burn-probability]))
+    (^void setSpreadRate [^double spreadRate])
+    (^void setTerrainDistance [^double terrainDistance])
+    (^void setFractionalDistance [^double fractionalDistance])
+    (^void setBurnProbability [^double burnProbability]))
 
-  (deftype MutableBurnTrajectory
-      [^:volatile-mutable ^long  i
-       ^:volatile-mutable ^long  j
-       ^:volatile-mutable ^byte  direction
-       ^:volatile-mutable ^double spread-rate
-       ^:volatile-mutable ^double terrain-distance
-       ^:volatile-mutable ^double fractional-distance
-       ^:volatile-mutable ^double burn-probability]
-      ABurnTrajectory
+  (deftype ImmutableBurnTrajectory
+      [^long  i
+       ^long  j
+       ^byte  direction
+       ^double spreadRate
+       ^double terrainDistance
+       ^double fractionalDistance
+       ^double burnProbability]
+      IBurnTrajectory
       (^long getI [this] i)
       (^long getJ [this] j)
       (^byte getDirection [this] direction)
-      (^double getSpreadRate [this] spread-rate)
-      (^double getTerrainDistance [this] terrain-distance)
-      (^double getFractionalDistance [this] fractional-distance)
-      (^double getBurnProbability [this] burn-probability)
-      (^void setI [this ^long new-i] (set! i new-i))
-      (^void setJ [this ^long new-j] (set! j new-j))
-      (^void setDirection [this ^byte new-direction] (set! direction new-direction))
-      (^void setSpreadRate [this ^double new-spread-rate] (set! spread-rate new-spread-rate))
-      (^void setTerrainDistance [this ^double new-terrain-distance] (set! terrain-distance new-terrain-distance))
-      (^void setFractionalDistance [this ^double new-fractional-distance] (set! fractional-distance new-fractional-distance))
-      (^void setBurnProbability [this ^double new-burn-probability] (set! burn-probability new-burn-probability)))
+      (^double getSpreadRate [this] spreadRate)
+      (^double getTerrainDistance [this] terrainDistance)
+      (^double getFractionalDistance [this] fractionalDistance)
+      (^double getBurnProbability [this] burnProbability))
 
-    (deftype MutableBurnTrajectoryNew
+  (defn make-burn-trajectory-itype
+    [i j direction spread-rate terrain-distance fractional-distance burn-probability]
+    (->ImmutableBurnTrajectory i j direction spread-rate terrain-distance fractional-distance burn-probability))
+
+  (deftype VolatileMutableBurnTrajectory
+      [^:volatile-mutable ^long  i
+       ^:volatile-mutable ^long  j
+       ^:volatile-mutable ^byte  direction
+       ^:volatile-mutable ^double spreadRate
+       ^:volatile-mutable ^double terrainDistance
+       ^:volatile-mutable ^double fractionalDistance
+       ^:volatile-mutable ^double burnProbability]
+      IBurnTrajectory
+      (^long getI [this] i)
+      (^long getJ [this] j)
+      (^byte getDirection [this] direction)
+      (^double getSpreadRate [this] spreadRate)
+      (^double getTerrainDistance [this] terrainDistance)
+      (^double getFractionalDistance [this] fractionalDistance)
+      (^double getBurnProbability [this] burnProbability)
+      (^void setI [this ^long newI] (set! i newI))
+      (^void setJ [this ^long newJ] (set! j newJ))
+      (^void setDirection [this ^byte newDirection] (set! direction newDirection))
+      (^void setSpreadRate [this ^double newSpreadRate] (set! spreadRate newSpreadRate))
+      (^void setTerrainDistance [this ^double newTerrainDistance] (set! terrainDistance newTerrainDistance))
+      (^void setFractionalDistance [this ^double newFractionalDistance] (set! fractionalDistance newFractionalDistance))
+      (^void setBurnProbability [this ^double newBurnProbability] (set! burnProbability newBurnProbability)))
+
+  (defn make-burn-trajectory-vmtype
+    [i j direction spread-rate terrain-distance fractional-distance burn-probability]
+    (->VolatileMutableBurnTrajectory i j direction spread-rate terrain-distance fractional-distance burn-probability))
+
+  (deftype UnsynchronizedMutableBurnTrajectory
       [^:unsynchronized-mutable ^long  i
        ^:unsynchronized-mutable ^long  j
        ^:unsynchronized-mutable ^byte  direction
-       ^:unsynchronized-mutable ^double spread-rate
-       ^:unsynchronized-mutable ^double terrain-distance
-       ^:unsynchronized-mutable ^double fractional-distance
-       ^:unsynchronized-mutable ^double burn-probability]
-    ABurnTrajectory
-    (^long getI [this] i)
-    (^long getJ [this] j)
-    (^byte getDirection [this] direction)
-    (^double getSpreadRate [this] spread-rate)
-    (^double getTerrainDistance [this] terrain-distance)
-    (^double getFractionalDistance [this] fractional-distance)
-    (^double getBurnProbability [this] burn-probability)
-    (^void setI [this ^long new-i] (set! i new-i))
-    (^void setJ [this ^long new-j] (set! j new-j))
-    (^void setDirection [this ^byte new-direction] (set! direction new-direction))
-    (^void setSpreadRate [this ^double new-spread-rate] (set! spread-rate new-spread-rate))
-    (^void setTerrainDistance [this ^double new-terrain-distance] (set! terrain-distance new-terrain-distance))
-    (^void setFractionalDistance [this ^double new-fractional-distance] (set! fractional-distance new-fractional-distance))
-    (^void setBurnProbability [this ^double new-burn-probability] (set! burn-probability new-burn-probability)))
+       ^:unsynchronized-mutable ^double spreadRate
+       ^:unsynchronized-mutable ^double terrainDistance
+       ^:unsynchronized-mutable ^double fractionalDistance
+       ^:unsynchronized-mutable ^double burnProbability]
+      IBurnTrajectory
+      (^long getI [this] i)
+      (^long getJ [this] j)
+      (^byte getDirection [this] direction)
+      (^double getSpreadRate [this] spreadRate)
+      (^double getTerrainDistance [this] terrainDistance)
+      (^double getFractionalDistance [this] fractionalDistance)
+      (^double getBurnProbability [this] burnProbability)
+      (^void setI [this ^long newI] (set! i newI))
+      (^void setJ [this ^long newJ] (set! j newJ))
+      (^void setDirection [this ^byte newDirection] (set! direction newDirection))
+      (^void setSpreadRate [this ^double newSpreadRate] (set! spreadRate newSpreadRate))
+      (^void setTerrainDistance [this ^double newTerrainDistance] (set! terrainDistance newTerrainDistance))
+      (^void setFractionalDistance [this ^double newFractionalDistance] (set! fractionalDistance newFractionalDistance))
+      (^void setBurnProbability [this ^double newBurnProbability] (set! burnProbability newBurnProbability)))
+
+  (defn make-burn-trajectory-umtype
+    [i j direction spread-rate terrain-distance fractional-distance burn-probability]
+    (->UnsynchronizedMutableBurnTrajectory i j direction spread-rate terrain-distance
+                                           fractional-distance burn-probability))
+
+  (def i                    4)
+  (def j                    4)
+  (def direction            0)
+  (def spread-rate          10.0)
+  (def terrain-distance     100.0)
+  (def fractional-distance  0.5)
+  (def burn-probability     1.0)
+
+  (require '[criterium.core :refer [quick-bench]])
+
+  (quick-bench
+   (make-burn-trajectory-map i j direction spread-rate terrain-distance fractional-distance burn-probability))
+
+  ;;            Execution time mean : 17.18 ns 18.10 ns
+
+  (quick-bench
+   (make-burn-trajectory-record i j direction spread-rate terrain-distance fractional-distance burn-probability))
+
+  ;;            Execution time mean : 19.16 ns 18.10 ns
+
+  (quick-bench
+   (make-burn-trajectory-itype i j direction spread-rate terrain-distance fractional-distance burn-probability))
+
+  ;;            Execution time mean : 18.14 ns 18.41ns
+
+  (quick-bench
+   (make-burn-trajectory-vmtype i j direction spread-rate terrain-distance fractional-distance burn-probability))
+
+  ;;            Execution time mean : 22.77 ns 23.05 ns
+
+  (quick-bench
+   (make-burn-trajectory-umtype i j direction spread-rate terrain-distance fractional-distance burn-probability))
+
+  ;;            Execution time mean : 18.38 ns 18.44 ns
+
+  (quick-bench
+   (vec (repeatedly 10000
+                    #(make-burn-trajectory-map i j direction spread-rate
+                                               terrain-distance fractional-distance burn-probability))))
+
+  ;;            Execution time mean : 1.86 ms 2.16 ms
+
+  (quick-bench
+   (vec (repeatedly 10000
+                    #(make-burn-trajectory-record i j direction spread-rate
+                                                  terrain-distance fractional-distance burn-probability))))
+
+  ;;            Execution time mean : 2.14 ms 2.14 ms
+
+  (quick-bench
+   (vec (repeatedly 10000
+                    #(make-burn-trajectory-itype i j direction spread-rate
+                                                 terrain-distance fractional-distance burn-probability))))
+
+  ;;            Execution time mean : 2.12 ms 2.10 ms
+
+  (quick-bench
+   (vec (repeatedly 10000
+                    #(make-burn-trajectory-vmtype i j direction spread-rate
+                                                  terrain-distance fractional-distance burn-probability))))
+
+  ;;            Execution time mean : 2.22 ms 2.21 ms
+
+  (quick-bench
+   (vec (repeatedly 10000
+                    #(make-burn-trajectory-umtype i j direction spread-rate
+                                                  terrain-distance fractional-distance burn-probability))))
+
+  ;;            Execution time mean : 2.09 ms 2.14 ms
+
+  (def burn-trajectories-map
+    (vec (repeatedly 10000
+                     #(make-burn-trajectory-map i j direction spread-rate
+                                                terrain-distance fractional-distance burn-probability))))
+
+  (def burn-trajectories-record
+    (vec (repeatedly 10000
+                     #(make-burn-trajectory-record i j direction spread-rate
+                                                   terrain-distance fractional-distance burn-probability))))
+
+  (def burn-trajectories-itype
+    (vec (repeatedly 10000
+                     #(make-burn-trajectory-itype i j direction spread-rate
+                                                  terrain-distance fractional-distance burn-probability))))
+
+  (def burn-trajectories-vmtype
+    (vec (repeatedly 10000
+                     #(make-burn-trajectory-vmtype i j direction spread-rate
+                                                   terrain-distance fractional-distance burn-probability))))
+
+  (def burn-trajectories-umtype
+    (vec (repeatedly 10000
+                     #(make-burn-trajectory-umtype i j direction spread-rate
+                                                   terrain-distance fractional-distance burn-probability))))
+
+  (let [bt-map (make-burn-trajectory-map i j direction spread-rate terrain-distance
+                                         fractional-distance burn-probability)]
+    (quick-bench (:fractional-distance bt-map)))
+
+  ;;            Execution time mean : 17.09 ns 17.48 ns
+
+  (let [bt-map (make-burn-trajectory-map i j direction spread-rate terrain-distance
+                                         fractional-distance burn-probability)]
+    (quick-bench (bt-map :fractional-distance)))
+
+  ;;            Execution time mean : 10.90 ns 9.91 ns
+
+  (let [bt-map (make-burn-trajectory-map i j direction spread-rate terrain-distance
+                                         fractional-distance burn-probability)]
+    (quick-bench (get bt-map :fractional-distance)))
+
+  ;;            Execution time mean : 11.22 ns 16.64 ns
+
+  (let [bt-record (make-burn-trajectory-record i j direction spread-rate terrain-distance
+                                               fractional-distance burn-probability)]
+    (quick-bench (:fractional-distance bt-record)))
+
+  ;;            Execution time mean : 8.21 ns 8.35 ns
+
+  (let [bt-record (make-burn-trajectory-record i j direction spread-rate terrain-distance
+                                               fractional-distance burn-probability)]
+    (quick-bench (get bt-record :fractional-distance)))
+
+  ;;            Execution time mean : 19.20 ns 17.51 ns
+
+  (let [bt-record (make-burn-trajectory-record i j direction spread-rate terrain-distance
+                                               fractional-distance burn-probability)]
+    (quick-bench (.fractional_distance bt-record)))
+
+  ;;            Execution time mean : 2.29 us 2.37 us
+
+  (let [bt-record (make-burn-trajectory-record i j direction spread-rate terrain-distance
+                                               fractional-distance burn-probability)]
+    (quick-bench (.-fractional_distance bt-record)))
+
+  ;;            Execution time mean : 1.25 us 1.31 us
+
+  (let [bt-itype (make-burn-trajectory-itype i j direction spread-rate terrain-distance
+                                             fractional-distance burn-probability)]
+    (quick-bench (.fractionalDistance bt-itype)))
+
+  ;;            Execution time mean : 969.91 ns 1.00 us
+
+  (let [bt-itype (make-burn-trajectory-itype i j direction spread-rate terrain-distance
+                                             fractional-distance burn-probability)]
+    (quick-bench (.-fractionalDistance bt-itype)))
+
+  ;;            Execution time mean : 344.74 ns 364.89 ns
+
+  (let [bt-itype (make-burn-trajectory-itype i j direction spread-rate terrain-distance
+                                             fractional-distance burn-probability)]
+    (quick-bench (.getFractionalDistance bt-itype)))
+
+  ;;            Execution time mean : 1.24 us 1.24 us
+
+  (let [bt-vmtype (make-burn-trajectory-vmtype i j direction spread-rate terrain-distance
+                                               fractional-distance burn-probability)]
+    (quick-bench (.getFractionalDistance bt-vmtype)))
+
+  ;;            Execution time mean : 1.24 us 1.22 us
+
+  (let [bt-umtype (make-burn-trajectory-umtype i j direction spread-rate terrain-distance
+                                               fractional-distance burn-probability)]
+    (quick-bench (.getFractionalDistance bt-umtype)))
+
+  ;;            Execution time mean : 1.33 us 1.24 us
+
+  ;;===================================================================================
+
+  (let [bt-map (make-burn-trajectory-map i j direction spread-rate terrain-distance
+                                         fractional-distance burn-probability)]
+    (quick-bench (assoc bt-map :fractional-distance (+ 0.5 (bt-map :fractional-distance)))))
+
+  ;;            Execution time mean : 44.54 ns 44.76 ns
+
+  (let [bt-record (make-burn-trajectory-record i j direction spread-rate terrain-distance
+                                               fractional-distance burn-probability)]
+    (quick-bench (assoc bt-record :fractional-distance (+ 0.5 (:fractional-distance bt-record)))))
+
+  ;;            Execution time mean : 26.07 ns 26.22 ns
+
+  (let [bt-vmtype (make-burn-trajectory-vmtype i j direction spread-rate terrain-distance
+                                               fractional-distance burn-probability)]
+    (quick-bench (.setFractionalDistance bt-vmtype (+ 0.5 (.getFractionalDistance bt-vmtype)))))
+
+  ;;            Execution time mean : 2.97 us 2.98 us
+
+  (let [bt-umtype (make-burn-trajectory-umtype i j direction spread-rate terrain-distance
+                                               fractional-distance burn-probability)]
+    (quick-bench (.setFractionalDistance bt-umtype (+ 0.5 (.getFractionalDistance bt-umtype)))))
+
+  ;;            Execution time mean : 3.19 us 3.00 us
 
   )
