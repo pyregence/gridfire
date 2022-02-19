@@ -599,3 +599,132 @@
       (let [matrices (initialize-perimeter-ignition-matrices inputs non-zero-indices)]
         (run-loop inputs matrices perimeter-cells)))))
 ;; fire-spread-algorithm ends here
+
+(comment
+
+  (def lot (t/new-tensor [10 10] :datatype :byte))
+
+  (defn get-n-s? [i j]
+    (-> (t/mget lot i j)
+        (bit-test 3)))
+
+  (defn get-ne-sw? [i j]
+    (-> (t/mget lot i j)
+        (bit-test 2)))
+
+  (defn get-e-w? [i j]
+    (-> (t/mget lot i j)
+        (bit-test 1)))
+
+  (defn get-se-nw? [i j]
+    (-> (t/mget lot i j)
+        (bit-test 0)))
+
+  (defn set-n-s! [i j]
+    (as-> (t/mget lot i j) %
+      (bit-set % 3)
+      (t/mset! lot i j %)))
+
+  (defn set-ne-sw! [i j]
+    (as-> (t/mget lot i j) %
+      (bit-set % 2)
+      (t/mset! lot i j %)))
+
+  (defn set-e-w! [i j]
+    (as-> (t/mget lot i j) %
+      (bit-set % 1)
+      (t/mset! lot i j %)))
+
+  (defn set-se-nw! [i j]
+    (as-> (t/mget lot i j) %
+      (bit-set % 0)
+      (t/mset! lot i j %)))
+
+
+  (def lot-map (into {} (for [i (range 10) j (range 10)] [[i j] 2r0000])))
+
+  (defn get-n-s-map? [i j]
+    (-> (get lot-map [i j])
+        (bit-test 3)))
+
+  (defn set-n-s-map! [i j]
+    (as-> (get lot-map [i j]) %
+      (bit-set % 3)
+      (assoc lot-map [i j] %)))
+
+  (def lot-atom-map (into {} (for [i (range 10) j (range 10)] [[i j] (atom 2r0000)])))
+
+  (defn get-n-s-atom-map? [i j]
+    (-> (get lot-atom-map [i j])
+        (deref)
+        (bit-test 3)))
+
+  (defn set-n-s-atom-map! [i j]
+    (as-> (get lot-atom-map [i j]) %
+      (swap! % bit-set 3)))
+
+  (definterface ABurnTrajectory
+    (^long getI [])
+    (^long getJ [])
+    (^byte getDirection [])
+    (^double getSpreadRate [])
+    (^double getTerrainDistance [])
+    (^double getFractionalDistance [])
+    (^double getBurnProbability [])
+    (^void setI [^long i])
+    (^void setJ [^long j])
+    (^void setDirection [^byte direction])
+    (^void setSpreadRate [^double spread-rate])
+    (^void setTerrainDistance [^double terrain-distance])
+    (^void setFractionalDistance [^double fractional-distance])
+    (^void setBurnProbability [^double burn-probability]))
+
+  (deftype MutableBurnTrajectory
+      [^:volatile-mutable ^long  i
+       ^:volatile-mutable ^long  j
+       ^:volatile-mutable ^byte  direction
+       ^:volatile-mutable ^double spread-rate
+       ^:volatile-mutable ^double terrain-distance
+       ^:volatile-mutable ^double fractional-distance
+       ^:volatile-mutable ^double burn-probability]
+      ABurnTrajectory
+      (^long getI [this] i)
+      (^long getJ [this] j)
+      (^byte getDirection [this] direction)
+      (^double getSpreadRate [this] spread-rate)
+      (^double getTerrainDistance [this] terrain-distance)
+      (^double getFractionalDistance [this] fractional-distance)
+      (^double getBurnProbability [this] burn-probability)
+      (^void setI [this ^long new-i] (set! i new-i))
+      (^void setJ [this ^long new-j] (set! j new-j))
+      (^void setDirection [this ^byte new-direction] (set! direction new-direction))
+      (^void setSpreadRate [this ^double new-spread-rate] (set! spread-rate new-spread-rate))
+      (^void setTerrainDistance [this ^double new-terrain-distance] (set! terrain-distance new-terrain-distance))
+      (^void setFractionalDistance [this ^double new-fractional-distance] (set! fractional-distance new-fractional-distance))
+      (^void setBurnProbability [this ^double new-burn-probability] (set! burn-probability new-burn-probability)))
+
+    (deftype MutableBurnTrajectoryNew
+      [^:unsynchronized-mutable ^long  i
+       ^:unsynchronized-mutable ^long  j
+       ^:unsynchronized-mutable ^byte  direction
+       ^:unsynchronized-mutable ^double spread-rate
+       ^:unsynchronized-mutable ^double terrain-distance
+       ^:unsynchronized-mutable ^double fractional-distance
+       ^:unsynchronized-mutable ^double burn-probability]
+    ABurnTrajectory
+    (^long getI [this] i)
+    (^long getJ [this] j)
+    (^byte getDirection [this] direction)
+    (^double getSpreadRate [this] spread-rate)
+    (^double getTerrainDistance [this] terrain-distance)
+    (^double getFractionalDistance [this] fractional-distance)
+    (^double getBurnProbability [this] burn-probability)
+    (^void setI [this ^long new-i] (set! i new-i))
+    (^void setJ [this ^long new-j] (set! j new-j))
+    (^void setDirection [this ^byte new-direction] (set! direction new-direction))
+    (^void setSpreadRate [this ^double new-spread-rate] (set! spread-rate new-spread-rate))
+    (^void setTerrainDistance [this ^double new-terrain-distance] (set! terrain-distance new-terrain-distance))
+    (^void setFractionalDistance [this ^double new-fractional-distance] (set! fractional-distance new-fractional-distance))
+    (^void setBurnProbability [this ^double new-burn-probability] (set! burn-probability new-burn-probability)))
+
+  )
