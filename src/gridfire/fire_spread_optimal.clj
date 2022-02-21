@@ -5,6 +5,8 @@
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.tensor              :as t]))
 
+(set! *unchecked-math* :warn-on-boxed)
+
 ;; QUESTION: What collection is fastest to seq, doseq, first, rest, next, and reduce over?
 ;;           Use this for ignited-cells and burn-vectors.
 ;;
@@ -13,12 +15,15 @@
 ;; first             7.4ns    74ns
 ;; rest              7.4ns    80ns
 ;; next               21ns    85ns
-;; doseq             588us    27us
-;; reduce            555us    48us
-;; reduce+cons       601us
-;; reduce+conj!              245us
-;; loop-recur+cons   236us   364us
-;; loop-recur+conj   320us   792us
+;; cons               14ns
+;; conj               23ns    42ns
+;; conj!                      24ns
+;; doseq             588us    27us   <--- Use vectors with doseq
+;; reduce            555us    48us   <--- Use vectors with reduce
+;; reduce+cons       601us   130us   <--- Use vectors with reduce
+;; reduce+conj!      701us   245us   <--- Use vectors with reduce
+;; loop-recur+cons   236us   375us   <--- Use lists with loop-recur
+;; loop-recur+conj!  308us   444us   <--- Use lists with loop-recur
 
 (defrecord BurnVector
     [^long   i
@@ -30,13 +35,12 @@
      ^double burn-probability])
 
 ;; FIXME: stub
-;; FIXME: Use loop-recur over a transient map
 (defn- progress-spot-ignitions!
   [inputs matrices spot-ignitions ^double timestep]
   spot-ignitions)
 
 ;; FIXME: stub
-;; FIXME: Use loop-recur over a list
+;; FIXME: Use reduce+conj! (vector in, vector out)
 (defn- progress-burn-vectors!
   [inputs matrices burn-vectors ^double timestep]
   burn-vectors)
@@ -45,7 +49,6 @@
   [^double max-spread-rate burn-vector]
   (Math/max max-spread-rate ^double (:spread-rate burn-vector)))
 
-;; FIXME: Optimize the reduce into a loop-recur to eliminate stack-frame (de)allocation
 (defn- compute-dt ^double
   [^double cell-size burn-vectors]
   (if (seq burn-vectors)
@@ -54,9 +57,9 @@
     10.0)) ; Wait 10 minutes for spot ignitions to smolder and catch fire
 
 ;; FIXME: stub
-;; FIXME: Use loop-recur over a list
+;; FIXME: Use reduce+conj! (vector in, vector out)
 ;; FIXME: Store fire-line-intensity, fire-type, flame-length, and spread-rate on matrices for each ignited cell
-;; FIXME: Return a list of BurnTrajectory records for speed
+;; FIXME: Return a vector of BurnTrajectory records for speed
 (defn- generate-burn-vectors!
   [inputs matrices ignited-cells]
   [])
@@ -175,7 +178,7 @@
         burn-time-matrix    (add-ignited-cells! (d/clone negative-burn-scar)
                                                 ignited-cells
                                                 ignition-start-time)
-        travel-lines-matrix (d/clone (d/emap (fn [x] (if (pos? x) 2r1111 2r0000))
+        travel-lines-matrix (d/clone (d/emap (fn ^long [^double x] (if (pos? x) 2r1111 2r0000))
                                              :byte
                                              positive-burn-scar))]
     {:burn-time-matrix           burn-time-matrix
@@ -188,8 +191,8 @@
      :spread-rate-matrix         (d/clone negative-burn-scar)
      :travel-lines-matrix        travel-lines-matrix}))
 
-;; FIXME: Optimize the laziness out of this function and use a loop-recur
-;; FIXME: Return a list for speed
+;; FIXME: Optimize the laziness out of this function and use loop-recur+conj!
+;; FIXME: Return a vector for fast doseq later
 (defn- get-perimeter-cells
   [{:keys [num-rows num-cols initial-ignition-site fuel-model-matrix]}]
   (let [{:keys [row-idxs col-idxs]} (non-zero-indices initial-ignition-site)]
