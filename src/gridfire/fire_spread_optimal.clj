@@ -7,24 +7,6 @@
 
 (set! *unchecked-math* :warn-on-boxed)
 
-;; QUESTION: What collection is fastest to seq, doseq, first, rest, next, and reduce over?
-;;           Use this for ignited-cells and burn-vectors.
-;;
-;;                   list     vector
-;; seq               5.8ns    31ns
-;; first             7.4ns    74ns
-;; rest              7.4ns    80ns
-;; next               21ns    85ns
-;; cons               14ns
-;; conj               23ns    42ns
-;; conj!                      24ns
-;; doseq             588us    27us   <--- Use vectors with doseq
-;; reduce            555us    48us   <--- Use vectors with reduce
-;; reduce+cons       601us   130us   <--- Use vectors with reduce
-;; reduce+conj!      701us   245us   <--- Use vectors with reduce
-;; loop-recur+cons   236us   375us   <--- Use lists with loop-recur
-;; loop-recur+conj!  308us   444us   <--- Use lists with loop-recur
-
 (defrecord BurnVector
     [^long   i
      ^long   j
@@ -41,6 +23,8 @@
 
 ;; FIXME: stub
 ;; FIXME: Use reduce+conj! (vector in, vector out)
+;; FIXME: Store fire-line-intensity, fire-type, flame-length, and spread-rate on matrices for each ignited cell
+;; FIXME: Return a vector of BurnTrajectory records for speed
 (defn- progress-burn-vectors!
   [inputs matrices burn-vectors ^double timestep]
   burn-vectors)
@@ -99,9 +83,8 @@
          :flame-length-matrix        (matrices :flame-length-matrix)
          :spot-matrix                (matrices :spot-matrix)
          :spread-rate-matrix         (matrices :spread-rate-matrix)
-         ;; :crown-fire-count           crown-count ; FIXME: Calculate using tensor ops
-         ;; :spot-count                 spot-count  ; FIXME: Calculate using tensor ops or spot-ignitions
-         }))))
+         :crown-fire-count           0      ; FIXME: Calculate using tensor ops
+         :spot-count                 0})))) ; FIXME: Calculate using tensor ops or spot-ignitions
 
 ;;-----------------------------------------------------------------------------
 ;; Main Simulation Entry Point - Dispatches to Point/Perimeter Ignition
