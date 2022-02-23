@@ -194,8 +194,8 @@
                                                  spread-rate)
                      fractional-distance-delta (/ (* spread-rate timestep) terrain-distance)
                      new-fractional-distance   (+ fractional-distance fractional-distance-delta)
-                     new-acc                   (when (and (< fractional-distance 0.5)
-                                                          (>= new-fractional-distance 0.5))
+                     new-acc                   (if (and (< fractional-distance 0.5)
+                                                        (>= new-fractional-distance 0.5))
                                                  (let [burn-time (-> 0.5
                                                                      (- fractional-distance)
                                                                      (/ fractional-distance-delta)
@@ -212,7 +212,8 @@
                                                        (do
                                                          (t/mset! burn-time-matrix i j burn-time)
                                                          acc)
-                                                       acc))))]
+                                                       acc)))
+                                                 acc)]
                  (if (< new-fractional-distance 1.0)
                    (conj! new-acc
                           (->BurnVector i j direction new-spread-rate terrain-distance
