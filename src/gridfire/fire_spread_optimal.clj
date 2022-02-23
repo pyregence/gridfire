@@ -96,12 +96,11 @@
 
 ;; 27-28ns
 (defn- compute-terrain-distance-slow
-  [cell-size cell-size-diagonal aspect slope i j direction]
+  [{:keys [cell-size cell-size-diagonal get-aspect get-slope]} ^long i ^long j ^double direction]
   (let [cell-size          (double cell-size)
         cell-size-diagonal (double cell-size-diagonal)
-        aspect             (double aspect)
-        slope              (double slope)
-        direction          (double direction)
+        ^double aspect     (get-aspect i j)
+        ^double slope      (get-slope i j)
         theta              (Math/abs (- aspect direction))
         slope-factor       (/
                             (if (<= theta 90.0)
