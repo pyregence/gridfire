@@ -1,22 +1,25 @@
 (ns gridfire.fire-spread-optimal
-  (:require [gridfire.common             :refer [burnable-fuel-model?
-                                                 calc-fuel-moisture
-                                                 non-zero-indices]]
-            [gridfire.conversion          :refer [mph->fpm]]
-            [gridfire.crown-fire          :refer [crown-fire-eccentricity
-                                                  crown-fire-line-intensity
-                                                  cruz-crown-fire-spread
-                                                  van-wagner-crown-fire-initiation?]]
-            [gridfire.fuel-models-optimal  :as f-opt]
-            [gridfire.surface-fire        :refer [anderson-flame-depth
-                                                  byram-fire-line-intensity
-                                                  byram-flame-length
-                                                  wind-adjustment-factor]]
-            [gridfire.surface-fire-optimal :as s-opt]
-            [taoensso.tufte              :as tufte]
-            [tech.v3.datatype            :as d]
-            [tech.v3.datatype.functional :as dfn]
-            [tech.v3.tensor              :as t]))
+  (:require [gridfire.common               :refer [burnable-fuel-model?
+                                                   calc-fuel-moisture
+                                                   non-zero-indices]]
+            [gridfire.conversion           :refer [mph->fpm]]
+            [gridfire.crown-fire           :refer [crown-fire-eccentricity
+                                                   crown-fire-line-intensity
+                                                   cruz-crown-fire-spread
+                                                   van-wagner-crown-fire-initiation?]]
+            [gridfire.fuel-models-optimal  :refer [fuel-models-precomputed
+                                                   moisturize]]
+            [gridfire.surface-fire-optimal :refer [rothermel-surface-fire-spread-no-wind-no-slope
+                                                   rothermel-surface-fire-spread-max
+                                                   rothermel-surface-fire-spread-any
+                                                   anderson-flame-depth
+                                                   byram-fire-line-intensity
+                                                   byram-flame-length
+                                                   wind-adjustment-factor]]
+            [taoensso.tufte                :as tufte]
+            [tech.v3.datatype              :as d]
+            [tech.v3.datatype.functional   :as dfn]
+            [tech.v3.tensor                :as t]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -45,18 +48,19 @@
       (/ cell-size max-spread-rate))
     10.0)) ; Wait 10 minutes for spot ignitions to smolder and catch fire
 
+;; FIXME: Change the args to rothermel-surface-fire-spread-any to take the values directly
+;;        Also, add type hints to this function
 (defn- compute-spread-rate
   [max-spread-rate
    max-spread-direction
    eccentricity
    spread-direction]
-  (s-opt/rothermel-surface-fire-spread-any
+  (rothermel-surface-fire-spread-any
    {:max-spread-rate      max-spread-rate
     :max-spread-direction max-spread-direction
     :eccentricity         eccentricity}
    spread-direction))
 
-;; 17-18ns
 (defn- compute-terrain-distance ^double
   [{:keys [cell-size get-elevation]} ^long i ^long j ^double direction]
   (let [cell-size (double cell-size)
@@ -84,7 +88,6 @@
                      ^double (get-elevation new-i new-j))]
     (Math/sqrt (+ (* di di) (* dj dj) (* dz dz)))))
 
-;; 27-28ns
 (defn- compute-terrain-distance-slow
   [{:keys [cell-size cell-size-diagonal get-aspect get-slope]} ^long i ^long j ^double direction]
   (let [cell-size          (double cell-size)
@@ -115,10 +118,10 @@
 
 (defn- rothermel-fast-wrapper-optimal
   [fuel-model-number fuel-moisture grass-suppression?]
-  (let [fuel-model                       (-> (f-opt/fuel-models-precomputed (long fuel-model-number))
-                                             (f-opt/moisturize fuel-moisture))
-        [spread-info-min wind-slope-fns] (s-opt/rothermel-surface-fire-spread-no-wind-no-slope
-                                          fuel-model grass-suppression?)]
+  (let [fuel-model                       (-> (fuel-models-precomputed (long fuel-model-number))
+                                             (moisturize fuel-moisture))
+        [spread-info-min wind-slope-fns] (rothermel-surface-fire-spread-no-wind-no-slope fuel-model
+                                                                                         grass-suppression?)]
     [fuel-model spread-info-min wind-slope-fns]))
 
 (defn- compute-max-in-situ-values!
@@ -128,14 +131,15 @@
            get-fuel-moisture-dead-10hr get-fuel-moisture-dead-100hr get-fuel-moisture-live-herbaceous
            get-fuel-moisture-live-woody grass-suppression?]}
    {:keys [max-spread-rate-matrix max-spread-direction-matrix spread-rate-matrix flame-length-matrix
-           fire-line-intensity-matrix fire-type-matrix modified-time-matrix max-crown-spread-rate-matrix
-           eccentricity-matrix]}
-   clock i j]
-  (let [band                                  (int (/ ^double clock 60.0))
+           fire-line-intensity-matrix fire-type-matrix modified-time-matrix eccentricity-matrix]}
+   clock
+   i
+   j]
+  (let [band                                  (long (/ ^double clock 60.0))
         ^double aspect                        (get-aspect i j)
         ^double canopy-base-height            (get-canopy-base-height i j)
-        ^double canopy-height                 (get-canopy-height i j)
         ^double canopy-cover                  (get-canopy-cover i j)
+        ^double canopy-height                 (get-canopy-height i j)
         ^double crown-bulk-density            (get-crown-bulk-density i j)
         ^double fuel-model                    (get-fuel-model i j)
         ^double slope                         (get-slope i j)
@@ -176,22 +180,22 @@
                                                                           canopy-cover)))
         {:keys [max-spread-rate
                 max-spread-direction
-                eccentricity]}                (s-opt/rothermel-surface-fire-spread-max spread-info-min
-                                                                                       wind-slope-fns
-                                                                                       midflame-wind-speed
-                                                                                       wind-from-direction
-                                                                                       slope
-                                                                                       aspect
-                                                                                       ellipse-adjustment-factor)
-        residence-time                        (:residence-time spread-info-min)
-        reaction-intensity                    (:reaction-intensity spread-info-min)
-        max-surface-intensity                 (->> (anderson-flame-depth max-spread-rate residence-time)
-                                                   (byram-fire-line-intensity reaction-intensity))]
+                eccentricity]}                (rothermel-surface-fire-spread-max spread-info-min
+                                                                                 wind-slope-fns
+                                                                                 midflame-wind-speed
+                                                                                 wind-from-direction
+                                                                                 slope
+                                                                                 aspect
+                                                                                 ellipse-adjustment-factor)
+        max-surface-intensity                 (->> (anderson-flame-depth max-spread-rate ^double (:residence-time spread-info-min))
+                                                   (byram-fire-line-intensity ^double (:reaction-intensity spread-info-min)))]
     (if (van-wagner-crown-fire-initiation? canopy-cover
                                            canopy-base-height
                                            foliar-moisture
                                            max-surface-intensity)
-      (let [[crown-type ^double crown-spread-max] (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density fuel-moisture-dead-1hr)
+      (let [[crown-type ^double crown-spread-max] (cruz-crown-fire-spread wind-speed-20ft
+                                                                          crown-bulk-density
+                                                                          fuel-moisture-dead-1hr)
             max-crown-intensity                   (crown-fire-line-intensity crown-spread-max
                                                                              crown-bulk-density
                                                                              (- canopy-height canopy-base-height)
@@ -201,30 +205,27 @@
                                                     eccentricity
                                                     (crown-fire-eccentricity wind-speed-20ft ellipse-adjustment-factor))
             max-spread-rate                       (max ^double max-spread-rate crown-spread-max)]
-        (t/mset! fire-line-intensity-matrix   i j (max max-fire-line-intensity
-                                                       ^double (t/mget fire-line-intensity-matrix i j)))
-        (t/mset! flame-length-matrix          i j (max (byram-flame-length max-fire-line-intensity)
-                                                       ^double (t/mget flame-length-matrix i j)))
-        (t/mset! max-crown-spread-rate-matrix i j crown-spread-max)
-        (t/mset! fire-type-matrix             i j (max (if (= crown-type :passive-crown) 2.0 3.0)
-                                                       ^double (t/mget fire-type-matrix i j)))
-
-        (t/mset! max-spread-rate-matrix       i j max-spread-rate)
-        (t/mset! spread-rate-matrix           i j (max max-spread-rate
-                                                       ^double (t/mget spread-rate-matrix i j)))
-        (t/mset! eccentricity-matrix          i j max-eccentricity))
+        (t/mset! fire-type-matrix           i j (max (if (= crown-type :passive-crown) 2.0 3.0) ; FIXME: Make cruz-crown-fire-spread return 2.0 or 3.0
+                                                     ^double (t/mget fire-type-matrix i j)))
+        (t/mset! fire-line-intensity-matrix i j (max max-fire-line-intensity
+                                                     ^double (t/mget fire-line-intensity-matrix i j)))
+        (t/mset! flame-length-matrix        i j (max (byram-flame-length max-fire-line-intensity)
+                                                     ^double (t/mget flame-length-matrix i j)))
+        (t/mset! max-spread-rate-matrix     i j max-spread-rate)
+        (t/mset! spread-rate-matrix         i j (max max-spread-rate
+                                                     ^double (t/mget spread-rate-matrix i j)))
+        (t/mset! eccentricity-matrix        i j max-eccentricity))
       (do
-        (t/mset! flame-length-matrix          i j (max (byram-flame-length max-surface-intensity)
-                                                       ^double (t/mget flame-length-matrix i j)))
-        (t/mset! fire-line-intensity-matrix   i j (max max-surface-intensity
-                                                       ^double (t/mget fire-line-intensity-matrix i j)))
-        (t/mset! fire-type-matrix             i j (max 1.0
-                                                       ^double (t/mget fire-type-matrix i j)))
-        (t/mset! max-spread-rate-matrix       i j max-spread-rate)
-        (t/mset! spread-rate-matrix           i j (max ^double max-spread-rate
-                                                       ^double (t/mget spread-rate-matrix i j)))
-
-        (t/mset! eccentricity-matrix          i j eccentricity)))
+        (t/mset! fire-type-matrix           i j (max 1.0
+                                                     ^double (t/mget fire-type-matrix i j)))
+        (t/mset! fire-line-intensity-matrix i j (max max-surface-intensity
+                                                     ^double (t/mget fire-line-intensity-matrix i j)))
+        (t/mset! flame-length-matrix        i j (max (byram-flame-length max-surface-intensity)
+                                                     ^double (t/mget flame-length-matrix i j)))
+        (t/mset! max-spread-rate-matrix     i j max-spread-rate)
+        (t/mset! spread-rate-matrix         i j (max ^double max-spread-rate
+                                                     ^double (t/mget spread-rate-matrix i j)))
+        (t/mset! eccentricity-matrix        i j eccentricity)))
     (t/mset! max-spread-direction-matrix  i j max-spread-direction)
     (t/mset! modified-time-matrix         i j clock)))
 
@@ -597,7 +598,6 @@
      :fire-type-matrix             (t/new-tensor shape)
      :firebrand-count-matrix       (when spotting (t/new-tensor shape))
      :flame-length-matrix          (t/new-tensor shape)
-     :max-crown-spread-rate-matrix (t/new-tensor shape)
      :max-spread-direction-matrix  (t/new-tensor shape)
      :max-spread-rate-matrix       (t/new-tensor shape)
      :modified-time-matrix         (d/clone burn-time-matrix)
@@ -640,7 +640,6 @@
      :fire-type-matrix             (d/clone negative-burn-scar)
      :firebrand-count-matrix       (when spotting (t/new-tensor shape))
      :flame-length-matrix          (d/clone negative-burn-scar)
-     :max-crown-spread-rate-matrix (d/clone negative-burn-scar)
      :max-spread-direction-matrix  (d/clone negative-burn-scar)
      :max-spread-rate-matrix       (d/clone negative-burn-scar)
      :modified-time-matrix         (d/clone burn-time-matrix)
