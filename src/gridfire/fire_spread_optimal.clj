@@ -180,40 +180,40 @@
                      ^double local-burn-probability (t/mget fire-spread-matrix i j)
                      ^double local-burn-time        (t/mget burn-time-matrix i j)
                      fractional-distance            (if (> burn-probability local-burn-probability)
-                                                 fractional-distance
-                                                 (+ 0.5 (/ (* spread-rate (- global-clock local-burn-time)) terrain-distance)))
+                                                      fractional-distance
+                                                      (+ 0.5 (/ (* spread-rate (- global-clock local-burn-time)) terrain-distance)))
                      burn-probability               (max burn-probability local-burn-probability)
                      new-spread-rate                (if new-hour?
-                                                 (do
-                                                   (when (> new-clock ^double (t/mget modified-time-matrix i j))
-                                                     (compute-max-in-situ-values! inputs matrices new-clock i j))
-                                                   (let [max-spread-rate      (t/mget max-spread-rate-matrix i j)
-                                                         max-spread-direction (t/mget max-spread-direction-matrix i j)]
-                                                     (compute-spread-rate inputs max-spread-rate
-                                                                          max-spread-direction direction)))
-                                                 spread-rate)
+                                                      (do
+                                                        (when (> new-clock ^double (t/mget modified-time-matrix i j))
+                                                          (compute-max-in-situ-values! inputs matrices new-clock i j))
+                                                        (let [max-spread-rate      (t/mget max-spread-rate-matrix i j)
+                                                              max-spread-direction (t/mget max-spread-direction-matrix i j)]
+                                                          (compute-spread-rate inputs max-spread-rate
+                                                                               max-spread-direction direction)))
+                                                      spread-rate)
                      fractional-distance-delta      (/ (* spread-rate timestep) terrain-distance)
                      new-fractional-distance        (+ fractional-distance fractional-distance-delta)
                      new-acc                        (if (and (< fractional-distance 0.5)
-                                                        (>= new-fractional-distance 0.5))
+                                                             (>= new-fractional-distance 0.5))
                                                       (let [burn-time (-> 0.5
                                                                           (- fractional-distance)
                                                                           (/ fractional-distance-delta)
                                                                           (* timestep)
                                                                           (+ global-clock))]
-                                                   (if (> burn-probability local-burn-probability)
-                                                     (do
-                                                       (t/mset! fire-spread-matrix i j burn-probability)
-                                                       (t/mset! burn-time-matrix i j burn-time)
-                                                       (if (> local-burn-time global-clock)
-                                                         acc
-                                                         (create-new-burn-vectors! acc inputs matrices burn-probability i j)))
-                                                     (if (< burn-time local-burn-time)
-                                                       (do
-                                                         (t/mset! burn-time-matrix i j burn-time)
-                                                         acc)
-                                                       acc)))
-                                                 acc)]
+                                                        (if (> burn-probability local-burn-probability)
+                                                          (do
+                                                            (t/mset! fire-spread-matrix i j burn-probability)
+                                                            (t/mset! burn-time-matrix i j burn-time)
+                                                            (if (> local-burn-time global-clock)
+                                                              acc
+                                                              (create-new-burn-vectors! acc inputs matrices burn-probability i j)))
+                                                          (if (< burn-time local-burn-time)
+                                                            (do
+                                                              (t/mset! burn-time-matrix i j burn-time)
+                                                              acc)
+                                                            acc)))
+                                                      acc)]
                  (if (< new-fractional-distance 1.0)
                    (conj! new-acc
                           (->BurnVector i j direction new-spread-rate terrain-distance
