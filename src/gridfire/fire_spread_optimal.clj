@@ -57,10 +57,63 @@
   [inputs max-spread-rate max-spread-direction direction]
   1.0)
 
-;; FIXME: stub
+;; 17-18ns
 (defn- compute-terrain-distance ^double
-  [inputs i j direction]
-  (:cell-size inputs))
+  [{:keys [cell-size get-elevation]} ^long i ^long j ^double direction]
+  (let [cell-size (double cell-size)
+        new-i     (case direction
+                    0.0   (- i 1)
+                    45.0  (- i 1)
+                    90.0  i
+                    135.0 (+ i 1)
+                    180.0 (+ i 1)
+                    225.0 (+ i 1)
+                    270.0 i
+                    315.0 (- i 1))
+        new-j     (case direction
+                    0.0   j
+                    45.0  (+ j 1)
+                    90.0  (+ j 1)
+                    135.0 (+ j 1)
+                    180.0 j
+                    225.0 (- j 1)
+                    270.0 (- j 1)
+                    315.0 (- j 1))
+        di        (* cell-size (- i new-i))
+        dj        (* cell-size (- j new-j))
+        dz        (- ^double (get-elevation i j)
+                     ^double (get-elevation new-i new-j))]
+    (Math/sqrt (+ (* di di) (* dj dj) (* dz dz)))))
+
+;; 27-28ns
+(defn- compute-terrain-distance-slow
+  [cell-size cell-size-diagonal aspect slope i j direction]
+  (let [cell-size          (double cell-size)
+        cell-size-diagonal (double cell-size-diagonal)
+        aspect             (double aspect)
+        slope              (double slope)
+        direction          (double direction)
+        theta              (Math/abs (- aspect direction))
+        slope-factor       (/
+                            (if (<= theta 90.0)
+                              (- 90.0 theta)
+                              (if (<= theta 180.0)
+                                (- theta 90.0)
+                                (if (<= theta 270.0)
+                                  (- 270.0 theta)
+                                  (- theta 270.0))))
+                            90.0)
+        run                (case direction
+                             0.0    cell-size
+                             45.0   cell-size-diagonal
+                             90.0   cell-size
+                             135.0  cell-size-diagonal
+                             180.0  cell-size
+                             225.0  cell-size-diagonal
+                             270.0  cell-size
+                             315.0  cell-size-diagonal)
+        rise               (* run slope slope-factor)]
+    (Math/sqrt (+ (* run run) (* rise rise)))))
 
 (defn- compute-max-in-situ-values!
   [inputs
@@ -475,6 +528,7 @@
      :spread-rate-matrix          (d/clone negative-burn-scar)
      :travel-lines-matrix         travel-lines-matrix}))
 
+;; FIXME: Move this step into run-simulations to avoid running it in every thread
 (defn- get-perimeter-cells
   [{:keys [num-rows num-cols initial-ignition-site fuel-model-matrix]}]
   (let [{:keys [row-idxs col-idxs]} (non-zero-indices initial-ignition-site)
