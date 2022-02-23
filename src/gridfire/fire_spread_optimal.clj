@@ -386,7 +386,7 @@
      :modified-time-matrix        (d/clone burn-time-matrix)
      :spot-matrix                 (when spotting (t/new-tensor shape))
      :spread-rate-matrix          (t/new-tensor shape)
-     :travel-lines-matrix         (-> (t/new-tensor shape :datatype :byte) (t/mset! i j 2r11111111))}))
+     :travel-lines-matrix         (-> (t/new-tensor shape :datatype :short) (t/mset! i j 2r11111111))}))
 
 (defmethod run-fire-spread :ignition-point
   [{:keys [initial-ignition-site] :as inputs}]
@@ -414,7 +414,7 @@
                                                 ignited-cells
                                                 ignition-start-time)
         travel-lines-matrix (d/clone (d/emap (fn ^long [^double x] (if (pos? x) 2r11111111 2r00000000))
-                                             :byte
+                                             :short
                                              positive-burn-scar))]
     {:burn-time-matrix            burn-time-matrix
      :fire-line-intensity-matrix  negative-burn-scar
