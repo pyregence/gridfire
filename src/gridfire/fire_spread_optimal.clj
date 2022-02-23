@@ -48,23 +48,13 @@
 (defn- compute-spread-rate
   [max-spread-rate
    max-spread-direction
-   crown-fire?
-   max-crown-spread-rate
-   crown-eccentricity
    eccentricity
    spread-direction]
-  (let [spread-info-max     {:max-spread-rate      max-spread-rate
-                             :max-spread-direction max-spread-direction
-                             :eccentricity         eccentricity}
-        surface-spread-rate (s-opt/rothermel-surface-fire-spread-any spread-info-max
-                                                                     spread-direction)]
-    (if crown-fire?
-      (max surface-spread-rate  (s-opt/rothermel-surface-fire-spread-any
-                                 (assoc spread-info-max
-                                        :max-spread-rate max-crown-spread-rate
-                                        :eccentricity    crown-eccentricity)
-                                 spread-direction))
-      surface-spread-rate)))
+  (s-opt/rothermel-surface-fire-spread-any
+   {:max-spread-rate      max-spread-rate
+    :max-spread-direction max-spread-direction
+    :eccentricity         eccentricity}
+   spread-direction))
 
 ;; 17-18ns
 (defn- compute-terrain-distance ^double
@@ -112,14 +102,14 @@
                                   (- theta 270.0))))
                             90.0)
         run                (case direction
-                             0.0    cell-size
-                             45.0   cell-size-diagonal
-                             90.0   cell-size
-                             135.0  cell-size-diagonal
-                             180.0  cell-size
-                             225.0  cell-size-diagonal
-                             270.0  cell-size
-                             315.0  cell-size-diagonal)
+                             0.0   cell-size
+                             45.0  cell-size-diagonal
+                             90.0  cell-size
+                             135.0 cell-size-diagonal
+                             180.0 cell-size
+                             225.0 cell-size-diagonal
+                             270.0 cell-size
+                             315.0 cell-size-diagonal)
         rise               (* run slope slope-factor)]
     (Math/sqrt (+ (* run run) (* rise rise)))))
 
@@ -139,7 +129,7 @@
            get-fuel-moisture-live-woody grass-suppression?]}
    {:keys [max-spread-rate-matrix max-spread-direction-matrix spread-rate-matrix flame-length-matrix
            fire-line-intensity-matrix fire-type-matrix modified-time-matrix max-crown-spread-rate-matrix
-           eccentricity-matrix crown-eccentricity-matrix]}
+           eccentricity-matrix]}
    clock i j]
   (let [band                                  (int (/ ^double clock 60.0))
         ^double aspect                        (get-aspect i j)
@@ -184,62 +174,64 @@
                                                   (wind-adjustment-factor ^double (:delta fuel-model)
                                                                           canopy-height
                                                                           canopy-cover)))
-
         {:keys [max-spread-rate
                 max-spread-direction
-                eccentricity]}        (s-opt/rothermel-surface-fire-spread-max spread-info-min
-                                                                               wind-slope-fns
-                                                                               midflame-wind-speed
-                                                                               wind-from-direction
-                                                                               slope
-                                                                               aspect
-                                                                               ellipse-adjustment-factor)
-        [crown-type crown-spread-max] (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density fuel-moisture-dead-1hr)
-        crown-eccentricity            (crown-fire-eccentricity wind-speed-20ft
-                                                               ellipse-adjustment-factor)
+                eccentricity]}                (s-opt/rothermel-surface-fire-spread-max spread-info-min
+                                                                                       wind-slope-fns
+                                                                                       midflame-wind-speed
+                                                                                       wind-from-direction
+                                                                                       slope
+                                                                                       aspect
+                                                                                       ellipse-adjustment-factor)
+        residence-time                        (:residence-time spread-info-min)
+        reaction-intensity                    (:reaction-intensity spread-info-min)
+        max-surface-intensity                 (->> (anderson-flame-depth max-spread-rate residence-time)
+                                                   (byram-fire-line-intensity reaction-intensity))]
+    (if (van-wagner-crown-fire-initiation? canopy-cover
+                                           canopy-base-height
+                                           foliar-moisture
+                                           max-surface-intensity)
+      (let [[crown-type ^double crown-spread-max] (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density fuel-moisture-dead-1hr)
+            max-crown-intensity                   (crown-fire-line-intensity crown-spread-max
+                                                                             crown-bulk-density
+                                                                             (- canopy-height canopy-base-height)
+                                                                             ((fuel-model :h) 0))
+            max-fire-line-intensity               (+ max-surface-intensity max-crown-intensity)
+            max-eccentricity                      (if (> ^double max-spread-rate crown-spread-max)
+                                                    eccentricity
+                                                    (crown-fire-eccentricity wind-speed-20ft ellipse-adjustment-factor))
+            max-spread-rate                       (max ^double max-spread-rate crown-spread-max)]
+        (t/mset! fire-line-intensity-matrix   i j (max max-fire-line-intensity
+                                                       ^double (t/mget fire-line-intensity-matrix i j)))
+        (t/mset! flame-length-matrix          i j (max (byram-flame-length max-fire-line-intensity)
+                                                       ^double (t/mget flame-length-matrix i j)))
+        (t/mset! max-crown-spread-rate-matrix i j crown-spread-max)
+        (t/mset! fire-type-matrix             i j (max (if (= crown-type :passive-crown) 2.0 3.0)
+                                                       ^double (t/mget fire-type-matrix i j)))
 
-        residence-time              (:residence-time spread-info-min)
-        reaction-intensity          (:reaction-intensity spread-info-min)
-        max-surface-intensity       (->> (anderson-flame-depth max-spread-rate residence-time)
-                                         (byram-fire-line-intensity reaction-intensity))
-        crown-fire?                 (van-wagner-crown-fire-initiation? canopy-cover
-                                                                       canopy-base-height
-                                                                       foliar-moisture
-                                                                       max-surface-intensity)
-        ^double max-crown-intensity (when crown-fire?
-                                      (crown-fire-line-intensity crown-spread-max
-                                                                 crown-bulk-density
-                                                                 (- canopy-height canopy-base-height)
-                                                                 ((fuel-model :h) 0)))
-        max-fire-line-intensity     (if crown-fire?
-                                      (+ max-surface-intensity max-crown-intensity)
-                                      max-surface-intensity)
-        max-flame-length            (byram-flame-length max-fire-line-intensity)
-        fire-type                   (if crown-fire?
-                                      (if (= crown-type :passive-crown) 2.0 3.0)
-                                      1.0)]
-    (t/mset! max-spread-rate-matrix       i j max-spread-rate)
+        (t/mset! max-spread-rate-matrix       i j max-spread-rate)
+        (t/mset! spread-rate-matrix           i j (max max-spread-rate
+                                                       ^double (t/mget spread-rate-matrix i j)))
+        (t/mset! eccentricity-matrix          i j max-eccentricity))
+      (do
+        (t/mset! flame-length-matrix          i j (max (byram-flame-length max-surface-intensity)
+                                                       ^double (t/mget flame-length-matrix i j)))
+        (t/mset! fire-line-intensity-matrix   i j (max max-surface-intensity
+                                                       ^double (t/mget fire-line-intensity-matrix i j)))
+        (t/mset! fire-type-matrix             i j (max 1.0
+                                                       ^double (t/mget fire-type-matrix i j)))
+        (t/mset! max-spread-rate-matrix       i j max-spread-rate)
+        (t/mset! spread-rate-matrix           i j (max ^double max-spread-rate
+                                                       ^double (t/mget spread-rate-matrix i j)))
+
+        (t/mset! eccentricity-matrix          i j eccentricity)))
     (t/mset! max-spread-direction-matrix  i j max-spread-direction)
-    (t/mset! max-crown-spread-rate-matrix i j crown-spread-max)
-    (t/mset! eccentricity-matrix          i j eccentricity)
-    (t/mset! crown-eccentricity-matrix    i j crown-eccentricity)
-    (t/mset! spread-rate-matrix           i j (max ^double max-spread-rate
-                                                   ^double (t/mget spread-rate-matrix i j)))
-    (t/mset! flame-length-matrix          i j (max max-flame-length
-                                                   ^double (t/mget flame-length-matrix i j)))
-    (t/mset! fire-line-intensity-matrix   i j (max max-fire-line-intensity
-                                                   ^double (t/mget fire-line-intensity-matrix i j)))
-    (t/mset! fire-type-matrix             i j (max fire-type
-                                                   ^double (t/mget fire-type-matrix i j)))
     (t/mset! modified-time-matrix         i j clock)))
 
 (defn- create-new-burn-vector
-  [inputs burn-probability max-spread-rate max-spread-direction max-crown-spread-rate eccentricity crown-fire? crown-eccentricity direction i j]
+  [inputs burn-probability max-spread-rate max-spread-direction eccentricity direction i j]
   (let [spread-rate      (compute-spread-rate max-spread-rate
                                               max-spread-direction
-                                              crown-fire?
-                                              max-crown-spread-rate
-                                              crown-eccentricity
                                               eccentricity
                                               direction)
         terrain-distance (compute-terrain-distance inputs i j direction)]
@@ -250,16 +242,12 @@
 (defn- create-new-burn-vectors!
   [acc
    inputs
-   {:keys [travel-lines-matrix max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix
-           fire-type-matrix max-crown-spread-rate-matrix crown-eccentricity-matrix]}
+   {:keys [travel-lines-matrix max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix]}
    burn-probability i j]
   (let [travel-lines          (t/mget travel-lines-matrix i j)
         max-spread-rate       (t/mget max-spread-rate-matrix i j)
         max-spread-direction  (t/mget max-spread-direction-matrix i j)
-        max-crown-spread-rate (t/mget max-crown-spread-rate-matrix i j)
-        eccentricity          (t/mget eccentricity-matrix i j)
-        crown-fire?           (> ^double (t/mget fire-type-matrix i j) 1.0)
-        crown-eccentricity    (t/mget crown-eccentricity-matrix i j)]
+        eccentricity          (t/mget eccentricity-matrix i j)]
     (reduce (fn [acc bit]
               (if (bit-test travel-lines bit)
                 acc
@@ -270,48 +258,40 @@
                     (do
                       (t/mset! travel-lines-matrix i j (bit-or ^long (t/mget travel-lines-matrix i j) 2r00010001))
                       (-> acc
-                          (conj! (create-new-burn-vector inputs burn-probability max-spread-rate max-spread-direction
-                                                         max-crown-spread-rate eccentricity crown-fire? crown-eccentricity
-                                                         0.0 i j)) ;; N
-                          (conj! (create-new-burn-vector inputs burn-probability max-spread-rate max-spread-direction
-                                                         max-crown-spread-rate eccentricity crown-fire? crown-eccentricity
-                                                         180.0 i j))))) ; S
+                          (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
+                                                         max-spread-direction eccentricity 0.0 i j)) ;; N
+                          (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
+                                                         max-spread-direction eccentricity 180.0 i j))))) ; S
                   1
                   (if (bit-test travel-lines 5)
                     acc
                     (do
                       (t/mset! travel-lines-matrix i j (bit-or ^long (t/mget travel-lines-matrix i j) 2r00100010))
                       (-> acc
-                          (conj! (create-new-burn-vector inputs burn-probability max-spread-rate max-spread-direction
-                                                         max-crown-spread-rate eccentricity crown-fire? crown-eccentricity
-                                                         45.0 i j)) ; NE
-                          (conj! (create-new-burn-vector inputs burn-probability max-spread-rate max-spread-direction
-                                                         max-crown-spread-rate eccentricity crown-fire? crown-eccentricity
-                                                         225.0 i j))))) ; SW
+                          (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
+                                                         max-spread-direction eccentricity 45.0 i j)) ; NE
+                          (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
+                                                         max-spread-direction eccentricity 225.0 i j))))) ; SW
                   2
                   (if (bit-test travel-lines 6)
                     acc
                     (do
                       (t/mset! travel-lines-matrix i j (bit-or ^long (t/mget travel-lines-matrix i j) 2r01000100))
                       (-> acc
-                          (conj! (create-new-burn-vector inputs burn-probability max-spread-rate max-spread-direction
-                                                         max-crown-spread-rate eccentricity crown-fire? crown-eccentricity
-                                                         90.0 i j)) ; E
-                          (conj! (create-new-burn-vector inputs burn-probability max-spread-rate max-spread-direction
-                                                         max-crown-spread-rate eccentricity crown-fire? crown-eccentricity
-                                                         270.0 i j))))) ; W
+                          (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
+                                                         max-spread-direction eccentricity 90.0 i j)) ; E
+                          (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
+                                                         max-spread-direction eccentricity 270.0 i j))))) ; W
                   3
                   (if (bit-test travel-lines 7)
                     acc
                     (do
                       (t/mset! travel-lines-matrix i j (bit-or ^long (t/mget travel-lines-matrix i j) 2r10001000))
                       (-> acc
-                          (conj! (create-new-burn-vector inputs burn-probability max-spread-rate max-spread-direction
-                                                         max-crown-spread-rate eccentricity crown-fire? crown-eccentricity
-                                                         135.0 i j)) ; SE
-                          (conj! (create-new-burn-vector inputs burn-probability max-spread-rate max-spread-direction
-                                                         max-crown-spread-rate eccentricity crown-fire? crown-eccentricity
-                                                         315.0 i j)))))))) ; NW
+                          (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
+                                                         max-spread-direction eccentricity 135.0 i j)) ; SE
+                          (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
+                                                         max-spread-direction eccentricity 315.0 i j)))))))) ; NW
             acc
             bits)))
 
@@ -350,22 +330,15 @@
   [inputs
    {:keys
     [modified-time-matrix max-spread-rate-matrix max-spread-direction-matrix
-     fire-type-matrix max-crown-spread-rate-matrix crown-eccentricity-matrix
      eccentricity-matrix] :as matrices}
    new-clock direction i j]
   (when (> ^double new-clock ^double (t/mget modified-time-matrix i j))
     (compute-max-in-situ-values! inputs matrices new-clock i j))
-  (let [max-spread-rate       (t/mget max-spread-rate-matrix i j)
-        max-spread-direction  (t/mget max-spread-direction-matrix i j)
-        crown-fire?           (> ^double (t/mget fire-type-matrix i j) 1.0)
-        max-crown-spread-rate (t/mget max-crown-spread-rate-matrix i j)
-        crown-eccentricity    (t/mget crown-eccentricity-matrix i j)
-        eccentricity          (t/mget eccentricity-matrix i j)]
+  (let [max-spread-rate      (t/mget max-spread-rate-matrix i j)
+        max-spread-direction (t/mget max-spread-direction-matrix i j)
+        eccentricity         (t/mget eccentricity-matrix i j)]
     (compute-spread-rate max-spread-rate
                          max-spread-direction
-                         crown-fire?
-                         max-crown-spread-rate
-                         crown-eccentricity
                          eccentricity
                          direction)))
 
@@ -374,7 +347,6 @@
    {:keys
     [fire-spread-matrix modified-time-matrix max-spread-rate-matrix
      max-spread-direction-matrix travel-lines-matrix burn-time-matrix
-     fire-type-matrix max-crown-spread-rate-matrix crown-eccentricity-matrix
      eccentricity-matrix] :as matrices}
    burn-vectors
    global-clock
@@ -477,15 +449,9 @@
                            (compute-max-in-situ-values! inputs matrices new-clock new-i new-j))
                          (let [max-spread-rate                    (t/mget max-spread-rate-matrix new-i new-j)
                                max-spread-direction               (t/mget max-spread-direction-matrix new-i new-j)
-                               crown-fire?                        (> ^double (t/mget fire-type-matrix i j) 1.0)
-                               max-crown-spread-rate              (t/mget max-crown-spread-rate-matrix new-i new-j)
-                               crown-eccentricity                 (t/mget crown-eccentricity-matrix new-i new-j)
                                eccentricity                       (t/mget eccentricity-matrix new-i new-j)
                                new-spread-rate                    (compute-spread-rate max-spread-rate
                                                                                        max-spread-direction
-                                                                                       crown-fire?
-                                                                                       max-crown-spread-rate
-                                                                                       crown-eccentricity
                                                                                        eccentricity
                                                                                        direction)
                                new-terrain-distance               (compute-terrain-distance inputs new-i new-j direction)
@@ -525,24 +491,17 @@
 (defn- generate-burn-vectors!
   [inputs
    {:keys
-    [max-spread-rate-matrix max-spread-direction-matrix fire-type-matrix max-crown-spread-rate-matrix
-     crown-eccentricity-matrix eccentricity-matrix] :as matrices}
+    [max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix] :as matrices}
    ignited-cells clock]
   (persistent!
    (reduce (fn [acc [i j]]
              (compute-max-in-situ-values! inputs matrices clock i j)
-             (let [max-spread-rate       (t/mget max-spread-rate-matrix i j)
-                   max-spread-direction  (t/mget max-spread-direction-matrix i j)
-                   crown-fire?           (> ^double (t/mget fire-type-matrix i j) 1.0)
-                   max-crown-spread-rate (t/mget max-crown-spread-rate-matrix i j)
-                   crown-eccentricity    (t/mget crown-eccentricity-matrix i j)
-                   eccentricity          (t/mget eccentricity-matrix i j)]
+             (let [max-spread-rate      (t/mget max-spread-rate-matrix i j)
+                   max-spread-direction (t/mget max-spread-direction-matrix i j)
+                   eccentricity         (t/mget eccentricity-matrix i j)]
                (reduce (fn [acc direction]
                          (let [spread-rate      (compute-spread-rate max-spread-rate
                                                                      max-spread-direction
-                                                                     crown-fire?
-                                                                     max-crown-spread-rate
-                                                                     crown-eccentricity
                                                                      eccentricity
                                                                      direction)
                                terrain-distance (compute-terrain-distance inputs i j direction)]
@@ -632,7 +591,6 @@
         [i j]            initial-ignition-site
         burn-time-matrix (-> (t/new-tensor shape) (t/mset! i j ignition-start-time))]
     {:burn-time-matrix             burn-time-matrix
-     :crown-eccentricity-matrix    (t/new-tensor shape)
      :eccentricity-matrix          (t/new-tensor shape)
      :fire-line-intensity-matrix   (t/new-tensor shape)
      :fire-spread-matrix           (-> (t/new-tensor shape) (t/mset! i j 1.0))
@@ -676,7 +634,6 @@
                                              :short
                                              positive-burn-scar))]
     {:burn-time-matrix             burn-time-matrix
-     :crown-eccentricity-matrix    (d/clone negative-burn-scar)
      :eccentricity-matrix          (d/clone negative-burn-scar)
      :fire-line-intensity-matrix   negative-burn-scar
      :fire-spread-matrix           (d/clone positive-burn-scar)
