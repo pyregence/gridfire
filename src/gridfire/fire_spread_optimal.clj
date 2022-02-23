@@ -1,5 +1,5 @@
 (ns gridfire.fire-spread-optimal
-  (:require [gridfire.common             :refer [burnable-fuel-model? burnable-neighbors? non-zero-indices]]
+  (:require [gridfire.common             :refer [burnable-fuel-model? non-zero-indices]]
             [taoensso.tufte              :as tufte]
             [tech.v3.datatype            :as d]
             [tech.v3.datatype.functional :as dfn]
@@ -155,6 +155,23 @@
   (and (in-bounds? num-rows num-cols i j)
        (burnable-fuel-model? (t/mget fuel-model-matrix i j))
        (> (double burn-probability) ^double (t/mget fire-spread-matrix i j))))
+
+(defn- burnable-neighbors?
+  [fuel-model-matrix fire-spread-matrix burn-probability num-rows num-cols i j]
+  (let [i  (long i)
+        j  (long j)
+        i- (- i 1)
+        i+ (+ i 1)
+        j- (- j 1)
+        j+ (+ j 1)]
+    (or (burnable-cell? fuel-model-matrix fire-spread-matrix burn-probability num-rows num-cols i- j-)
+        (burnable-cell? fuel-model-matrix fire-spread-matrix burn-probability num-rows num-cols i- j)
+        (burnable-cell? fuel-model-matrix fire-spread-matrix burn-probability num-rows num-cols i- j+)
+        (burnable-cell? fuel-model-matrix fire-spread-matrix burn-probability num-rows num-cols i  j-)
+        (burnable-cell? fuel-model-matrix fire-spread-matrix burn-probability num-rows num-cols i  j+)
+        (burnable-cell? fuel-model-matrix fire-spread-matrix burn-probability num-rows num-cols i+ j-)
+        (burnable-cell? fuel-model-matrix fire-spread-matrix burn-probability num-rows num-cols i+ j)
+        (burnable-cell? fuel-model-matrix fire-spread-matrix burn-probability num-rows num-cols i+ j+))))
 
 (defn- calc-new-spread-rate!
   [inputs {:keys [modified-time-matrix max-spread-rate-matrix max-spread-direction-matrix] :as matrices}
@@ -458,17 +475,27 @@
      :spread-rate-matrix          (d/clone negative-burn-scar)
      :travel-lines-matrix         travel-lines-matrix}))
 
-;; FIXME: Optimize the laziness out of this function and use loop-recur+conj!
-;; FIXME: Return a vector for fast doseq later
 (defn- get-perimeter-cells
   [{:keys [num-rows num-cols initial-ignition-site fuel-model-matrix]}]
-  (let [{:keys [row-idxs col-idxs]} (non-zero-indices initial-ignition-site)]
-    (filterv #(burnable-neighbors? initial-ignition-site
-                                   fuel-model-matrix
+  (let [{:keys [row-idxs col-idxs]} (non-zero-indices initial-ignition-site)
+        non-zero-idxs               (d/ecount row-idxs)]
+    (loop [idx 0
+           acc (transient [])]
+      (if (< idx non-zero-idxs)
+        (let [i (row-idxs idx)
+              j (col-idxs idx)]
+          (if (burnable-neighbors? fuel-model-matrix
+                                   initial-ignition-site
+                                   1.0
                                    num-rows
                                    num-cols
-                                   %)
-             (map vector row-idxs col-idxs))))
+                                   i
+                                   j)
+            (recur (inc idx)
+                   (conj! acc [i j]))
+            (recur (inc idx)
+                   acc)))
+        (persistent! acc)))))
 
 (defmethod run-fire-spread :ignition-perimeter
   [inputs]
