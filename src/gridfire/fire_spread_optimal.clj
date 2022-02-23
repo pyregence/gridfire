@@ -97,31 +97,45 @@
   (let [travel-lines         (t/mget travel-lines-matrix i j)
         max-spread-rate      (t/mget max-spread-rate-matrix i j)
         max-spread-direction (t/mget max-spread-direction-matrix i j)]
-    (t/mset! travel-lines-matrix i j 2r1111)
     (reduce (fn [acc bit]
               (if (bit-test travel-lines bit)
                 acc
                 (case bit
-                  0 (-> acc
-                        (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
-                                                       max-spread-direction 0.0 i j)) ; N
-                        (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
-                                                       max-spread-direction 180.0 i j))) ; S
-                  1 (-> acc
-                        (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
-                                                       max-spread-direction 45.0 i j)) ; NE
-                        (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
-                                                       max-spread-direction 225.0 i j))) ; SW
-                  2 (-> acc
-                        (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
-                                                       max-spread-direction 90.0 i j)) ; E
-                        (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
-                                                       max-spread-direction 270.0 i j))) ; W
-                  3 (-> acc
-                        (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
-                                                       max-spread-direction 135.0 i j)) ; SE
-                        (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
-                                                       max-spread-direction 315.0 i j)))))) ; NW
+                  0 (if (bit-test travel-lines 4)
+                      acc
+                      (do
+                        (t/mset! travel-lines-matrix i j (bit-or (t/mget travel-lines-matrix i j) 2r00010001))
+                        (-> acc
+                            (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
+                                                           max-spread-direction 0.0 i j)) ; N
+                            (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
+                                                           max-spread-direction 180.0 i j))))) ; S
+                  1 (if (bit-test travel-lines 5)
+                      acc
+                      (do
+                       (t/mset! travel-lines-matrix i j (bit-or (t/mget travel-lines-matrix i j) 2r00100010))
+                       (-> acc
+                           (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
+                                                          max-spread-direction 45.0 i j)) ; NE
+                           (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
+                                                          max-spread-direction 225.0 i j))))) ; SW
+                  2 (if (bit-test travel-lines 6)
+                      acc
+                      (do (t/mset! travel-lines-matrix i j (bit-or (t/mget travel-lines-matrix i j) 2r01000100))
+                       (-> acc
+                           (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
+                                                          max-spread-direction 90.0 i j)) ; E
+                           (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
+                                                          max-spread-direction 270.0 i j))))) ; W
+                  3 (if (bit-test travel-lines 7)
+                      acc
+                      (do
+                        (t/mset! travel-lines-matrix i j (bit-or (t/mget travel-lines-matrix i j) 2r10001000))
+                        (-> acc
+                            (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
+                                                           max-spread-direction 135.0 i j)) ; SE
+                            (conj! (create-new-burn-vector inputs burn-probability max-spread-rate
+                                                           max-spread-direction 315.0 i j)))))))) ; NW
             acc
             bits)))
 
@@ -150,47 +164,44 @@
         timestep     (double timestep)
         new-clock    (+ global-clock timestep)
         new-hour?    (> (+ (rem global-clock 60.0) timestep) 60.0)]
+    ;;TODO insert promotion code that returns the same burn vectors with updated fractional-distance
     (persistent!
      (reduce (fn [acc {:keys [i j direction spread-rate terrain-distance fractional-distance burn-probability]}]
-               (let [local-burn-probability (t/mget fire-spread-matrix i j)
-                     ;; FIXME: What do we do about spot vectors that escape the cell before being promoted?
-                     ;;        Can we use the travel-lines-matrix for this?
-                     ;; FIXME: Make sure burn-probability and local-burn-probability are seen as doubles
-                     ;; FIXME: Figure out how to increase fractional-distance for new BurnVectors by
-                     ;;        adding (- global-clock (t/mget burn-time-matrix i j)) to this round's timestep.
-                     ;;        Consider adding a start-time attribute to the BurnVector record for this.
-                     fractional-distance (if (< burn-probability local-burn-probability) 0.5 fractional-distance)
-                     burn-probability    (Math/max burn-probability local-burn-probability)
-                     new-spread-rate     (if new-hour?
-                                           (do
-                                             (when (> new-clock (t/mget modified-time-matrix i j))
-                                               (compute-max-in-situ-values! inputs matrices new-clock i j))
-                                             (let [max-spread-rate      (t/mget max-spread-rate-matrix i j)
-                                                   max-spread-direction (t/mget max-spread-direction-matrix i j)]
-                                               (compute-spread-rate inputs max-spread-rate
-                                                                    max-spread-direction direction)))
-                                           spread-rate)
+               (let [local-burn-probability    (t/mget fire-spread-matrix i j)
+                     fractional-distance       (if (> burn-probability local-burn-probability)
+                                                 fractional-distance
+                                                 (+ 0.5 (/ (* spread-rate (- global-clock (t/mget burn-time-matrix i j))) terrain-distance)))
+                     burn-probability          (Math/max burn-probability local-burn-probability)
+                     new-spread-rate           (if new-hour?
+                                                 (do
+                                                   (when (> new-clock (t/mget modified-time-matrix i j))
+                                                     (compute-max-in-situ-values! inputs matrices new-clock i j))
+                                                   (let [max-spread-rate      (t/mget max-spread-rate-matrix i j)
+                                                         max-spread-direction (t/mget max-spread-direction-matrix i j)]
+                                                     (compute-spread-rate inputs max-spread-rate
+                                                                          max-spread-direction direction)))
+                                                 spread-rate)
                      fractional-distance-delta (/ (* spread-rate timestep) terrain-distance)
                      new-fractional-distance   (+ fractional-distance fractional-distance-delta)
-                     new-acc (when (and (< fractional-distance 0.5)
-                                        (> new-fractional-distance 0.5))
-                               (let [burn-time (-> 0.5
-                                                   (- fractional-distance)
-                                                   (/ fractional-distance-delta)
-                                                   (* timestep)
-                                                   (+ global-clock))]
-                                 (if (> burn-probability local-burn-probability)
-                                   (do
-                                     (t/mset! fire-spread-matrix i j burn-probability)
-                                     (t/mset! burn-time-matrix i j burn-time)
-                                     (if (zero? local-burn-probability)
-                                       (create-new-burn-vectors! acc inputs matrices burn-probability i j)
-                                       acc))
-                                   (if (< burn-time (t/mget burn-time-matrix i j))
-                                     (do
-                                       (t/mset! burn-time-matrix i j burn-time)
-                                       acc)
-                                     acc))))]
+                     new-acc                   (when (and (< fractional-distance 0.5)
+                                                          (>= new-fractional-distance 0.5))
+                                                 (let [burn-time (-> 0.5
+                                                                     (- fractional-distance)
+                                                                     (/ fractional-distance-delta)
+                                                                     (* timestep)
+                                                                     (+ global-clock))]
+                                                   (if (> burn-probability local-burn-probability)
+                                                     (let [local-burn-time (t/mget burn-time-matrix i j)]
+                                                       (t/mset! fire-spread-matrix i j burn-probability)
+                                                       (t/mset! burn-time-matrix i j burn-time)
+                                                       (if (> local-burn-time global-clock)
+                                                         acc
+                                                         (create-new-burn-vectors! acc inputs matrices burn-probability i j)))
+                                                     (if (< burn-time (t/mget burn-time-matrix i j))
+                                                       (do
+                                                         (t/mset! burn-time-matrix i j burn-time)
+                                                         acc)
+                                                       acc))))]
                  (if (< new-fractional-distance 1.0)
                    (conj! new-acc
                           (->BurnVector i j direction new-spread-rate terrain-distance
@@ -213,6 +224,17 @@
                                  225.0 (- j 1)
                                  270.0 (- j 1)
                                  315.0 (- j 1))]
+                     (t/mset! travel-lines-matrix i j
+                              (bit-clear (t/mget travel-lines-matrix i j)
+                                         (case direction
+                                           0.0   0
+                                           45.0  1
+                                           90.0  2
+                                           135.0 3
+                                           180.0 4
+                                           225.0 5
+                                           270.0 6
+                                           315.0 7)))
                      (if (burnable-cell? fuel-model-matrix fire-spread-matrix burn-probability
                                          num-rows num-cols new-i new-j)
                        (do
@@ -224,12 +246,12 @@
                                              45.0  1
                                              90.0  2
                                              135.0 3
-                                             180.0 0
-                                             225.0 1
-                                             270.0 2
-                                             315.0 3)))
+                                             180.0 4
+                                             225.0 5
+                                             270.0 6
+                                             315.0 7)))
                          (when (or (zero? (t/mget modified-time-matrix new-i new-j))
-                                 (and new-hour? (> new-clock (t/mget modified-time-matrix new-i new-j))))
+                                   (and new-hour? (> new-clock (t/mget modified-time-matrix new-i new-j))))
                            (compute-max-in-situ-values! inputs matrices new-clock new-i new-j))
                          (let [max-spread-rate      (t/mget max-spread-rate-matrix new-i new-j)
                                max-spread-direction (t/mget max-spread-direction-matrix new-i new-j)
@@ -243,24 +265,25 @@
              (transient [])
              burn-vectors))))
 
+(def ^:private directions [0.0 45.0 90.0 135.0 180.0 225.0 270.0 315.0])
+
 ;; 662 ns (with all stub compute-* functions)
 (defn- generate-burn-vectors!
   [inputs {:keys [max-spread-rate-matrix max-spread-direction-matrix] :as matrices} ignited-cells clock]
-  (let [directions [0.0 45.0 90.0 135.0 180.0 225.0 270.0 315.0]] ; N NE E SE S SW W NW
-    (persistent!
-     (reduce (fn [acc [i j]]
-               (compute-max-in-situ-values! inputs matrices clock i j)
-               (let [max-spread-rate      (t/mget max-spread-rate-matrix i j)
-                     max-spread-direction (t/mget max-spread-direction-matrix i j)]
-                 (reduce (fn [acc direction]
-                           (let [spread-rate      (compute-spread-rate inputs max-spread-rate
-                                                                       max-spread-direction direction)
-                                 terrain-distance (compute-terrain-distance inputs i j direction)]
-                             (conj! acc (->BurnVector i j direction spread-rate terrain-distance 0.5 1.0))))
-                         acc
-                         directions)))
-             (transient [])
-             ignited-cells))))
+  (persistent!
+   (reduce (fn [acc [i j]]
+             (compute-max-in-situ-values! inputs matrices clock i j)
+             (let [max-spread-rate      (t/mget max-spread-rate-matrix i j)
+                   max-spread-direction (t/mget max-spread-direction-matrix i j)]
+               (reduce (fn [acc direction]
+                         (let [spread-rate      (compute-spread-rate inputs max-spread-rate
+                                                                     max-spread-direction direction)
+                               terrain-distance (compute-terrain-distance inputs i j direction)]
+                           (conj! acc (->BurnVector i j direction spread-rate terrain-distance 0.5 1.0))))
+                       acc
+                       directions)))
+           (transient [])
+           ignited-cells)))
 
 (defn- run-loop
   [{:keys [cell-size ignition-start-time max-runtime] :as inputs} matrices ignited-cells]
@@ -352,7 +375,7 @@
      :modified-time-matrix        (d/clone burn-time-matrix)
      :spot-matrix                 (when spotting (t/new-tensor shape))
      :spread-rate-matrix          (t/new-tensor shape)
-     :travel-lines-matrix         (-> (t/new-tensor shape :datatype :byte) (t/mset! i j 2r1111))}))
+     :travel-lines-matrix         (-> (t/new-tensor shape :datatype :byte) (t/mset! i j 2r11111111))}))
 
 (defmethod run-fire-spread :ignition-point
   [{:keys [initial-ignition-site] :as inputs}]
@@ -379,7 +402,7 @@
         burn-time-matrix    (add-ignited-cells! (d/clone negative-burn-scar)
                                                 ignited-cells
                                                 ignition-start-time)
-        travel-lines-matrix (d/clone (d/emap (fn ^long [^double x] (if (pos? x) 2r1111 2r0000))
+        travel-lines-matrix (d/clone (d/emap (fn ^long [^double x] (if (pos? x) 2r11111111 2r00000000))
                                              :byte
                                              positive-burn-scar))]
     {:burn-time-matrix            burn-time-matrix
