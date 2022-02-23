@@ -124,6 +124,12 @@
                                                                                          grass-suppression?)]
     [fuel-model spread-info-min wind-slope-fns]))
 
+(defn- store-if-max!
+  [^double value matrix i j]
+  (->> value
+       (max ^double (t/mget matrix i j))
+       (t/mset! matrix i j)))
+
 (defn- compute-max-in-situ-values!
   [{:keys [get-aspect get-canopy-base-height get-canopy-cover get-canopy-height get-crown-bulk-density
            get-fuel-model get-slope get-wind-speed-20ft get-wind-from-direction get-temperature
@@ -205,29 +211,40 @@
                                                     eccentricity
                                                     (crown-fire-eccentricity wind-speed-20ft ellipse-adjustment-factor))
             max-spread-rate                       (max ^double max-spread-rate crown-spread-max)]
-        (t/mset! fire-type-matrix           i j (max (if (= crown-type :passive-crown) 2.0 3.0) ; FIXME: Make cruz-crown-fire-spread return 2.0 or 3.0
-                                                     ^double (t/mget fire-type-matrix i j)))
-        (t/mset! fire-line-intensity-matrix i j (max max-fire-line-intensity
-                                                     ^double (t/mget fire-line-intensity-matrix i j)))
-        (t/mset! flame-length-matrix        i j (max (byram-flame-length max-fire-line-intensity)
-                                                     ^double (t/mget flame-length-matrix i j)))
-        (t/mset! max-spread-rate-matrix     i j max-spread-rate)
-        (t/mset! spread-rate-matrix         i j (max max-spread-rate
-                                                     ^double (t/mget spread-rate-matrix i j)))
-        (t/mset! eccentricity-matrix        i j max-eccentricity))
+
+        (t/mset! max-spread-rate-matrix      i j max-spread-rate)
+        (t/mset! max-spread-direction-matrix i j max-spread-direction)
+        (t/mset! eccentricity-matrix         i j max-eccentricity)
+        (t/mset! modified-time-matrix        i j clock)
+
+        (-> max-spread-rate
+            (store-if-max! spread-rate-matrix i j))
+
+        (-> (byram-flame-length max-fire-line-intensity)
+            (store-if-max! flame-length-matrix i j))
+
+        (-> max-fire-line-intensity
+            (store-if-max! fire-line-intensity-matrix i j))
+
+        (-> (if (= crown-type :passive-crown) 2.0 3.0) ; FIXME: Make cruz-crown-fire-spread return 2.0 or 3.0
+            (store-if-max! fire-type-matrix i j)))
       (do
-        (t/mset! fire-type-matrix           i j (max 1.0
-                                                     ^double (t/mget fire-type-matrix i j)))
-        (t/mset! fire-line-intensity-matrix i j (max max-surface-intensity
-                                                     ^double (t/mget fire-line-intensity-matrix i j)))
-        (t/mset! flame-length-matrix        i j (max (byram-flame-length max-surface-intensity)
-                                                     ^double (t/mget flame-length-matrix i j)))
-        (t/mset! max-spread-rate-matrix     i j max-spread-rate)
-        (t/mset! spread-rate-matrix         i j (max ^double max-spread-rate
-                                                     ^double (t/mget spread-rate-matrix i j)))
-        (t/mset! eccentricity-matrix        i j eccentricity)))
-    (t/mset! max-spread-direction-matrix  i j max-spread-direction)
-    (t/mset! modified-time-matrix         i j clock)))
+        (t/mset! max-spread-rate-matrix      i j max-spread-rate)
+        (t/mset! max-spread-direction-matrix i j max-spread-direction)
+        (t/mset! eccentricity-matrix         i j eccentricity)
+        (t/mset! modified-time-matrix        i j clock)
+
+        (-> max-spread-rate
+            (store-if-max! spread-rate-matrix i j))
+
+        (-> (byram-flame-length max-surface-intensity)
+            (store-if-max! flame-length-matrix i j))
+
+        (-> max-surface-intensity
+            (store-if-max! fire-line-intensity-matrix i j))
+
+        (-> 1.0
+            (store-if-max! fire-type-matrix i j))))))
 
 (defn- create-new-burn-vector
   [inputs burn-probability max-spread-rate max-spread-direction eccentricity direction i j]
