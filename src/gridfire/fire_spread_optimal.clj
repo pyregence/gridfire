@@ -60,7 +60,7 @@
 ;; FIXME: stub
 (defn- compute-terrain-distance ^double
   [inputs i j direction]
-  1.0)
+  (:cell-size inputs))
 
 (defn- compute-max-in-situ-values!
   [inputs
