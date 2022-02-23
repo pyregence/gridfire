@@ -478,10 +478,10 @@
 (defn- get-perimeter-cells
   [{:keys [num-rows num-cols initial-ignition-site fuel-model-matrix]}]
   (let [{:keys [row-idxs col-idxs]} (non-zero-indices initial-ignition-site)
-        non-zero-idxs               (d/ecount row-idxs)]
+        num-idxs                    (d/ecount row-idxs)]
     (loop [idx 0
            acc (transient [])]
-      (if (< idx non-zero-idxs)
+      (if (< idx num-idxs)
         (let [i (row-idxs idx)
               j (col-idxs idx)]
           (if (burnable-neighbors? fuel-model-matrix
