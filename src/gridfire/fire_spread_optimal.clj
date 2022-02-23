@@ -156,10 +156,21 @@
        (burnable-fuel-model? (t/mget fuel-model-matrix i j))
        (> (double burn-probability) ^double (t/mget fire-spread-matrix i j))))
 
+(defn- calc-new-spread-rate!
+  [inputs {:keys [modified-time-matrix max-spread-rate-matrix max-spread-direction-matrix] :as matrices}
+   new-clock direction i j]
+  (when (> ^double new-clock ^double (t/mget modified-time-matrix i j))
+    (compute-max-in-situ-values! inputs matrices new-clock i j))
+  (let [max-spread-rate      (t/mget max-spread-rate-matrix i j)
+        max-spread-direction (t/mget max-spread-direction-matrix i j)]
+    (compute-spread-rate inputs max-spread-rate
+                         max-spread-direction direction)))
+
 (defn- progress-burn-vectors!
   [{:keys [num-rows num-cols fuel-model-matrix] :as inputs}
-   {:keys [fire-spread-matrix modified-time-matrix max-spread-rate-matrix
-           max-spread-direction-matrix travel-lines-matrix burn-time-matrix] :as matrices}
+   {:keys
+    [fire-spread-matrix modified-time-matrix max-spread-rate-matrix
+     max-spread-direction-matrix travel-lines-matrix burn-time-matrix] :as matrices}
    burn-vectors
    global-clock
    timestep]
@@ -184,13 +195,7 @@
                                                       (+ 0.5 (/ (* spread-rate (- global-clock local-burn-time)) terrain-distance)))
                      burn-probability               (max burn-probability local-burn-probability)
                      new-spread-rate                (if new-hour?
-                                                      (do
-                                                        (when (> new-clock ^double (t/mget modified-time-matrix i j))
-                                                          (compute-max-in-situ-values! inputs matrices new-clock i j))
-                                                        (let [max-spread-rate      (t/mget max-spread-rate-matrix i j)
-                                                              max-spread-direction (t/mget max-spread-direction-matrix i j)]
-                                                          (compute-spread-rate inputs max-spread-rate
-                                                                               max-spread-direction direction)))
+                                                      (calc-new-spread-rate! inputs matrices new-clock direction i j)
                                                       spread-rate)
                      fractional-distance-delta      (/ (* spread-rate timestep) terrain-distance)
                      new-fractional-distance        (+ fractional-distance fractional-distance-delta)
@@ -265,14 +270,37 @@
                          (when (or (zero? modified-time)
                                    (and new-hour? (> new-clock modified-time)))
                            (compute-max-in-situ-values! inputs matrices new-clock new-i new-j))
-                         (let [max-spread-rate      (t/mget max-spread-rate-matrix new-i new-j)
-                               max-spread-direction (t/mget max-spread-direction-matrix new-i new-j)
-                               new-spread-rate      (compute-spread-rate inputs max-spread-rate
-                                                                         max-spread-direction direction)
-                               new-terrain-distance (compute-terrain-distance inputs new-i new-j direction)]
-                           (conj! new-acc
-                                  (->BurnVector new-i new-j direction new-spread-rate new-terrain-distance
-                                                (- new-fractional-distance 1.0) burn-probability))))
+                         (let [max-spread-rate                    (t/mget max-spread-rate-matrix new-i new-j)
+                               max-spread-direction               (t/mget max-spread-direction-matrix new-i new-j)
+                               new-spread-rate                    (compute-spread-rate inputs max-spread-rate
+                                                                                       max-spread-direction direction)
+                               new-terrain-distance               (compute-terrain-distance inputs new-i new-j direction)
+                               new-fractional-distance            (- new-fractional-distance 1.0)
+                               new-acc                            (conj! new-acc
+                                                                         (->BurnVector new-i new-j direction new-spread-rate new-terrain-distance
+                                                                                       new-fractional-distance burn-probability))
+                               ^double new-local-burn-probability (t/mget fire-spread-matrix new-i new-j)
+                               ^double new-local-burn-time        (t/mget burn-time-matrix new-i new-j)]
+                           (if (>= new-fractional-distance 0.5)
+                             (let [burn-time (-> 1.5
+                                                 (- fractional-distance)
+                                                 (/ fractional-distance-delta)
+                                                 (* timestep)
+                                                 (+ global-clock))]
+                               (if (> burn-probability new-local-burn-probability)
+                                 (do
+                                   (t/mset! fire-spread-matrix new-i new-j burn-probability)
+                                   (t/mset! burn-time-matrix new-i new-j burn-time)
+                                   (if (> new-local-burn-time global-clock)
+                                     new-acc
+                                     (create-new-burn-vectors! new-acc inputs matrices burn-probability new-i new-j)))
+                                 (if (and (= burn-probability new-local-burn-probability)
+                                          (< burn-time new-local-burn-time))
+                                   (do
+                                     (t/mset! burn-time-matrix new-i new-j burn-time)
+                                     new-acc)
+                                   new-acc)))
+                             new-acc)))
                        new-acc)))))
              (transient [])
              burn-vectors))))

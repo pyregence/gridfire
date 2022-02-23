@@ -4,6 +4,7 @@
             [gridfire.common             :refer [get-neighbors in-bounds?]]
             [gridfire.conversion         :refer [min->hour kebab->snake snake->kebab]]
             [gridfire.fire-spread        :refer [run-fire-spread]]
+            [gridfire.fire-spread-optimal :as optimal]
             [gridfire.outputs            :as outputs]
             [gridfire.utils.random       :refer [my-rand-range]]
             [taoensso.tufte              :as tufte]
@@ -365,7 +366,8 @@
                               :get-foliar-moisture               (get-value-fn inputs rand-gen :foliar-moisture i)
                               :ellipse-adjustment-factor         (ellipse-adjustment-factor-samples i)}
          fire-spread-results (tufte/p :run-fire-spread
-                                      (run-fire-spread (merge inputs input-variations)))]
+                                      (optimal/run-fire-spread (merge inputs input-variations))
+                                      #_(run-fire-spread (merge inputs input-variations)))]
      (when fire-spread-results
        (process-output-layers! inputs fire-spread-results envelope i)
        (process-aggregate-output-layers! inputs fire-spread-results)
