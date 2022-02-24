@@ -375,14 +375,14 @@
         new-hour?    (> (+ (rem global-clock 60.0) timestep) 60.0)]
     ;;TODO insert promotion code that returns the same burn vectors with updated fractional-distance
     (persistent!
-     (reduce (fn [acc {:keys [i j direction spread-rate terrain-distance fractional-distance burn-probability]}]
-               (let [i                              (long i)
-                     j                              (long j)
-                     direction                      (double direction)
-                     spread-rate                    (double spread-rate)
-                     terrain-distance               (double terrain-distance)
-                     fractional-distance            (double fractional-distance)
-                     burn-probability               (double burn-probability)
+     (reduce (fn [acc burn-vector]
+               (let [i                              (long (:i burn-vector))
+                     j                              (long (:j burn-vector))
+                     direction                      (double (:direction burn-vector))
+                     spread-rate                    (double (:spread-rate burn-vector))
+                     terrain-distance               (double (:terrain-distance burn-vector))
+                     fractional-distance            (double (:fractional-distance burn-vector))
+                     burn-probability               (double (:burn-probability burn-vector))
                      ^double local-burn-probability (t/mget fire-spread-matrix i j)
                      ^double local-burn-time        (t/mget burn-time-matrix i j)
                      fractional-distance            (if (> burn-probability local-burn-probability)
@@ -543,11 +543,11 @@
       (if (and (< global-clock ignition-stop-time)
                (or (seq burn-vectors) (seq spot-ignitions)))
         (let [timestep       (tufte/p
-                              :calc-timestep ;4%
+                              :calc-timestep ;11%
                               (min (compute-dt cell-size burn-vectors)
                                    (- ignition-stop-time global-clock)))
               burn-vectors   (tufte/p
-                              :progress-burn-vectors ;91%
+                              :progress-burn-vectors ;85%
                               (progress-burn-vectors! inputs matrices burn-vectors global-clock timestep))
               spot-ignitions (tufte/p
                               :progress-spot-ignitions ;0%
