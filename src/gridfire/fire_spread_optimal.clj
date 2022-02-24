@@ -158,7 +158,7 @@
                                                 (calc-fuel-moisture relative-humidity temperature :live :woody))
         ^double foliar-moisture               (get-foliar-moisture band i j)
         [fuel-model
-         surface-fire-min]                      (rothermel-fast-wrapper-optimal fuel-model
+         surface-fire-min]                    (rothermel-fast-wrapper-optimal fuel-model
                                                                               [fuel-moisture-dead-1hr
                                                                                fuel-moisture-dead-10hr
                                                                                fuel-moisture-dead-100hr
@@ -171,14 +171,15 @@
                                                   (wind-adjustment-factor ^double (:delta fuel-model)
                                                                           canopy-height
                                                                           canopy-cover)))
-        {:keys [max-spread-rate
-                max-spread-direction
-                eccentricity]}                (rothermel-surface-fire-spread-max surface-fire-min
+        surface-fire-max                      (rothermel-surface-fire-spread-max surface-fire-min
                                                                                  midflame-wind-speed
                                                                                  wind-from-direction
                                                                                  slope
                                                                                  aspect
                                                                                  ellipse-adjustment-factor)
+        max-spread-rate                       (:max-spread-rate surface-fire-max)
+        max-spread-direction                  (:max-spread-direction surface-fire-max)
+        eccentricity                          (:eccentricity surface-fire-max)
         max-surface-intensity                 (->> (anderson-flame-depth max-spread-rate ^double (:residence-time surface-fire-min))
                                                    (byram-fire-line-intensity ^double (:reaction-intensity surface-fire-min)))]
     (if (van-wagner-crown-fire-initiation? canopy-cover
