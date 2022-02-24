@@ -43,7 +43,7 @@
 
 (defn- compute-dt ^double
   [^double cell-size burn-vectors]
-  (if (seq burn-vectors)
+  (if (pos? (count burn-vectors))
     (let [max-spread-rate (double (reduce find-max-spread-rate 0.0 burn-vectors))]
       (/ cell-size max-spread-rate))
     10.0)) ; Wait 10 minutes for spot ignitions to smolder and catch fire
