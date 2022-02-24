@@ -250,10 +250,10 @@
    inputs
    {:keys [travel-lines-matrix max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix]}
    burn-probability i j]
-  (let [travel-lines          (t/mget travel-lines-matrix i j)
-        max-spread-rate       (t/mget max-spread-rate-matrix i j)
-        max-spread-direction  (t/mget max-spread-direction-matrix i j)
-        eccentricity          (t/mget eccentricity-matrix i j)]
+  (let [travel-lines         (t/mget travel-lines-matrix i j)
+        max-spread-rate      (t/mget max-spread-rate-matrix i j)
+        max-spread-direction (t/mget max-spread-direction-matrix i j)
+        eccentricity         (t/mget eccentricity-matrix i j)]
     (reduce (fn [acc bit]
               (if (bit-test travel-lines bit)
                 acc
@@ -524,14 +524,22 @@
         ignition-start-time (double ignition-start-time)
         ignition-stop-time  (+ ignition-start-time max-runtime)]
     (loop [global-clock   ignition-start-time
-           burn-vectors   (generate-burn-vectors! inputs matrices ignited-cells global-clock)
+           burn-vectors   (tufte/p
+                           :generate-burn-vectors!
+                           (generate-burn-vectors! inputs matrices ignited-cells global-clock))
            spot-ignitions {}]
       (if (and (< global-clock ignition-stop-time)
                (or (seq burn-vectors) (seq spot-ignitions)))
-        (let [timestep       (min (compute-dt cell-size burn-vectors)
-                                  (- ignition-stop-time global-clock))
-              burn-vectors   (progress-burn-vectors! inputs matrices burn-vectors global-clock timestep)
-              spot-ignitions (progress-spot-ignitions! inputs matrices spot-ignitions timestep)]
+        (let [timestep       (tufte/p
+                              :compute-timestep
+                              (min (compute-dt cell-size burn-vectors)
+                                   (- ignition-stop-time global-clock)))
+              burn-vectors   (tufte/p
+                              :progress-burn-vectors!
+                              (progress-burn-vectors! inputs matrices burn-vectors global-clock timestep))
+              spot-ignitions (tufte/p
+                              :progress-spot-ignitions!
+                              (progress-spot-ignitions! inputs matrices spot-ignitions timestep))]
           (recur (+ global-clock timestep)
                  burn-vectors
                  spot-ignitions))
@@ -588,19 +596,19 @@
   (let [shape            [num-rows num-cols]
         [i j]            initial-ignition-site
         burn-time-matrix (-> (t/new-tensor shape) (t/mset! i j ignition-start-time))]
-    {:burn-time-matrix             burn-time-matrix
-     :eccentricity-matrix          (t/new-tensor shape)
-     :fire-line-intensity-matrix   (t/new-tensor shape)
-     :fire-spread-matrix           (-> (t/new-tensor shape) (t/mset! i j 1.0))
-     :fire-type-matrix             (t/new-tensor shape)
-     :firebrand-count-matrix       (when spotting (t/new-tensor shape))
-     :flame-length-matrix          (t/new-tensor shape)
-     :max-spread-direction-matrix  (t/new-tensor shape)
-     :max-spread-rate-matrix       (t/new-tensor shape)
-     :modified-time-matrix         (d/clone burn-time-matrix)
-     :spot-matrix                  (when spotting (t/new-tensor shape))
-     :spread-rate-matrix           (t/new-tensor shape)
-     :travel-lines-matrix          (-> (t/new-tensor shape :datatype :short) (t/mset! i j 2r11111111))}))
+    {:burn-time-matrix            burn-time-matrix
+     :eccentricity-matrix         (t/new-tensor shape)
+     :fire-line-intensity-matrix  (t/new-tensor shape)
+     :fire-spread-matrix          (-> (t/new-tensor shape) (t/mset! i j 1.0))
+     :fire-type-matrix            (t/new-tensor shape)
+     :firebrand-count-matrix      (when spotting (t/new-tensor shape))
+     :flame-length-matrix         (t/new-tensor shape)
+     :max-spread-direction-matrix (t/new-tensor shape)
+     :max-spread-rate-matrix      (t/new-tensor shape)
+     :modified-time-matrix        (d/clone burn-time-matrix)
+     :spot-matrix                 (when spotting (t/new-tensor shape))
+     :spread-rate-matrix          (t/new-tensor shape)
+     :travel-lines-matrix         (-> (t/new-tensor shape :datatype :short) (t/mset! i j 2r11111111))}))
 
 (defmethod run-fire-spread :ignition-point
   [{:keys [initial-ignition-site] :as inputs}]
@@ -630,19 +638,19 @@
         travel-lines-matrix (d/clone (d/emap (fn ^long [^double x] (if (pos? x) 2r11111111 2r00000000))
                                              :short
                                              positive-burn-scar))]
-    {:burn-time-matrix             burn-time-matrix
-     :eccentricity-matrix          (d/clone negative-burn-scar)
-     :fire-line-intensity-matrix   negative-burn-scar
-     :fire-spread-matrix           (d/clone positive-burn-scar)
-     :fire-type-matrix             (d/clone negative-burn-scar)
-     :firebrand-count-matrix       (when spotting (t/new-tensor shape))
-     :flame-length-matrix          (d/clone negative-burn-scar)
-     :max-spread-direction-matrix  (d/clone negative-burn-scar)
-     :max-spread-rate-matrix       (d/clone negative-burn-scar)
-     :modified-time-matrix         (d/clone burn-time-matrix)
-     :spot-matrix                  (when spotting (t/new-tensor shape))
-     :spread-rate-matrix           (d/clone negative-burn-scar)
-     :travel-lines-matrix          travel-lines-matrix}))
+    {:burn-time-matrix            burn-time-matrix
+     :eccentricity-matrix         (d/clone negative-burn-scar)
+     :fire-line-intensity-matrix  negative-burn-scar
+     :fire-spread-matrix          (d/clone positive-burn-scar)
+     :fire-type-matrix            (d/clone negative-burn-scar)
+     :firebrand-count-matrix      (when spotting (t/new-tensor shape))
+     :flame-length-matrix         (d/clone negative-burn-scar)
+     :max-spread-direction-matrix (d/clone negative-burn-scar)
+     :max-spread-rate-matrix      (d/clone negative-burn-scar)
+     :modified-time-matrix        (d/clone burn-time-matrix)
+     :spot-matrix                 (when spotting (t/new-tensor shape))
+     :spread-rate-matrix          (d/clone negative-burn-scar)
+     :travel-lines-matrix         travel-lines-matrix}))
 
 ;; FIXME: Move this step into run-simulations to avoid running it in every thread
 (defn- get-perimeter-cells
