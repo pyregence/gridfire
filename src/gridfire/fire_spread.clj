@@ -256,24 +256,20 @@
    acc trajectory]
   (let [{:keys [source cell]}                 trajectory ;TODO cell -> target
         [i j]                                 source
-        [^double old-total ^double new-total] (tufte/p
-                                               :update-fractional-distance!
-                                               (update-fractional-distance! inputs
-                                                                            max-fractionals
-                                                                            trajectory
-                                                                            fractional-distance-matrix
-                                                                            timestep
-                                                                            cell))]
+        [^double old-total ^double new-total] (update-fractional-distance! inputs
+                                                                           max-fractionals
+                                                                           trajectory
+                                                                           fractional-distance-matrix
+                                                                           timestep
+                                                                           cell)]
     (if (and (>= new-total 1.0)
              (> new-total ^double (get-in acc [cell :fractional-distance] 0.0)))
       (do (when (and (= trajectory-combination :sum) (> new-total 1.0))
             (update-overflow-heat inputs fractional-distance-matrix trajectory new-total))
-          (tufte/p
-           :assoc!-fractional-distance
-           (assoc! acc cell (merge trajectory {:fractional-distance  new-total
-                                               :dt-adjusted          (* (/ (- 1.0 old-total) (- new-total old-total))
-                                                                        timestep)
-                                               :ignition-probability (t/mget fire-spread-matrix i j)}))))
+          (assoc! acc cell (merge trajectory {:fractional-distance  new-total
+                                              :dt-adjusted          (* (/ (- 1.0 old-total) (- new-total old-total))
+                                                                       timestep)
+                                              :ignition-probability (t/mget fire-spread-matrix i j)})))
       acc)))
 
 (defn find-new-ignitions ;51%
@@ -283,19 +279,15 @@
    ^double timestep]
   (let [max-fractionals (atom {})
         reducer-fn      (fn [acc trajectory]
-                          (tufte/p
-                           :ignition-event-reducer ;42%
-                           (ignition-event-reducer inputs max-fractionals fractional-distance-matrix
-                                                   timestep trajectory-combination fire-spread-matrix
-                                                   acc trajectory)))
+                          (ignition-event-reducer inputs max-fractionals fractional-distance-matrix
+                                                  timestep trajectory-combination fire-spread-matrix
+                                                  acc trajectory))
         ignition-events (->> burn-trajectories
                              (reduce reducer-fn (transient {}))
                              persistent!
                              vals)]
     (when (= trajectory-combination :sum)
-      (tufte/p
-       :update-fractional-distance-matrix
-       (update-fractional-distance-matrix! fractional-distance-matrix max-fractionals)))
+      (update-fractional-distance-matrix! fractional-distance-matrix max-fractionals))
     ignition-events))
 
 ;; Tufte 31%
