@@ -106,11 +106,11 @@
 
 (defn- rothermel-fast-wrapper-optimal
   [fuel-model-number fuel-moisture grass-suppression?]
-  (let [fuel-model                       (-> (fuel-models-precomputed (long fuel-model-number))
-                                             (moisturize fuel-moisture))
-        [spread-info-min wind-slope-fns] (rothermel-surface-fire-spread-no-wind-no-slope fuel-model
-                                                                                         grass-suppression?)]
-    [fuel-model spread-info-min wind-slope-fns]))
+  (let [fuel-model       (-> (fuel-models-precomputed (long fuel-model-number))
+                             (moisturize fuel-moisture))
+        surface-fire-min (rothermel-surface-fire-spread-no-wind-no-slope
+                          fuel-model grass-suppression?)]
+    [fuel-model surface-fire-min]))
 
 (defn- store-if-max!
   [^double value matrix i j]
@@ -158,8 +158,7 @@
                                                 (calc-fuel-moisture relative-humidity temperature :live :woody))
         ^double foliar-moisture               (get-foliar-moisture band i j)
         [fuel-model
-         spread-info-min
-         wind-slope-fns]                      (rothermel-fast-wrapper-optimal fuel-model
+         surface-fire-min]                      (rothermel-fast-wrapper-optimal fuel-model
                                                                               [fuel-moisture-dead-1hr
                                                                                fuel-moisture-dead-10hr
                                                                                fuel-moisture-dead-100hr
@@ -174,15 +173,14 @@
                                                                           canopy-cover)))
         {:keys [max-spread-rate
                 max-spread-direction
-                eccentricity]}                (rothermel-surface-fire-spread-max spread-info-min
-                                                                                 wind-slope-fns
+                eccentricity]}                (rothermel-surface-fire-spread-max surface-fire-min
                                                                                  midflame-wind-speed
                                                                                  wind-from-direction
                                                                                  slope
                                                                                  aspect
                                                                                  ellipse-adjustment-factor)
-        max-surface-intensity                 (->> (anderson-flame-depth max-spread-rate ^double (:residence-time spread-info-min))
-                                                   (byram-fire-line-intensity ^double (:reaction-intensity spread-info-min)))]
+        max-surface-intensity                 (->> (anderson-flame-depth max-spread-rate ^double (:residence-time surface-fire-min))
+                                                   (byram-fire-line-intensity ^double (:reaction-intensity surface-fire-min)))]
     (if (van-wagner-crown-fire-initiation? canopy-cover
                                            canopy-base-height
                                            foliar-moisture
