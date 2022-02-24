@@ -5,6 +5,7 @@
             [gridfire.conversion         :refer [min->hour kebab->snake snake->kebab]]
             [gridfire.fire-spread        :refer [run-fire-spread]]
             [gridfire.fire-spread-optimal :as optimal]
+            [gridfire.fire-spread-optimal-2 :as optimal-2]
             [gridfire.outputs            :as outputs]
             [gridfire.utils.random       :refer [my-rand-range]]
             [taoensso.tufte              :as tufte]
@@ -379,6 +380,7 @@
                               :ellipse-adjustment-factor         (ellipse-adjustment-factor-samples i)}
          fire-spread-results (tufte/p :run-fire-spread
                                       (optimal/run-fire-spread (merge inputs input-variations))
+                                      #_(optimal-2/run-fire-spread (merge inputs input-variations))
                                       #_(run-fire-spread (merge inputs input-variations)))]
      (when fire-spread-results
        (process-output-layers! inputs fire-spread-results envelope i)
