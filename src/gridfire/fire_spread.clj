@@ -451,44 +451,28 @@
         ignition-start-time (double ignition-start-time)
         ignition-stop-time  (+ ignition-start-time max-runtime)]
     (loop [global-clock      ignition-start-time
-           burn-trajectories (tufte/p
-                              :generate-burn-trajectories ;0%
-                              (generate-burn-trajectories inputs fire-spread-matrix ignited-cells))
+           burn-trajectories (generate-burn-trajectories inputs fire-spread-matrix ignited-cells)
            spot-ignitions    {}
            spot-count        0
            crown-count       0]
       (if (and (< global-clock ignition-stop-time)
                (or (seq burn-trajectories) (seq spot-ignitions)))
-        (let [timestep        (tufte/p
-                               :calc-timestep ;4%
-                               (Math/min (compute-dt cell-size burn-trajectories)
-                                         (- ignition-stop-time global-clock)))
-              ignition-events (tufte/p
-                               :find-new-ignitions ;51%
-                               (find-new-ignitions inputs matrices burn-trajectories timestep))]
-          (tufte/p
-           :store-ignition-events ;1%
-           (store-ignition-events! matrices global-clock ignition-events))
+        (let [timestep        (Math/min (compute-dt cell-size burn-trajectories)
+                                        (- ignition-stop-time global-clock))
+              ignition-events (find-new-ignitions inputs matrices burn-trajectories timestep)]
+          (store-ignition-events! matrices global-clock ignition-events)
           (let [[spot-ignite-later
-                 spot-burn-trajectories] (tufte/p
-                                          :compute-spot-trajectories ;0%
-                                          (compute-spot-trajectories inputs matrices global-clock
-                                                                     ignition-events spot-ignitions))]
+                 spot-burn-trajectories] (compute-spot-trajectories inputs matrices global-clock
+                                                                    ignition-events spot-ignitions)]
             (recur (+ global-clock timestep)
-                   (tufte/p
-                    :update-burn-trajectories ;40%
-                    (update-burn-trajectories inputs
-                                              (into spot-burn-trajectories burn-trajectories)
-                                              ignition-events
-                                              fire-spread-matrix
-                                              global-clock))
+                   (update-burn-trajectories inputs
+                                             (into spot-burn-trajectories burn-trajectories)
+                                             ignition-events
+                                             fire-spread-matrix
+                                             global-clock)
                    spot-ignite-later
-                   (tufte/p
-                    :spot-count
-                    (+ spot-count (count spot-burn-trajectories)))
-                   (tufte/p
-                    :crown-count
-                    (+ crown-count (count (filterv :crown-fire? ignition-events)))))))
+                   (+ spot-count (count spot-burn-trajectories))
+                   (+ crown-count (count (filterv :crown-fire? ignition-events))))))
         {:global-clock               global-clock
          :exit-condition             (if (>= global-clock ignition-stop-time) :max-runtime-reached :no-burnable-fuels)
          :fire-spread-matrix         fire-spread-matrix
@@ -563,9 +547,7 @@
 
 (defmethod run-fire-spread :ignition-point
   [{:keys [initial-ignition-site] :as inputs}]
-  (run-loop inputs (tufte/p
-                    :initialize-point-ignition-matrices ;0%
-                    (initialize-point-ignition-matrices inputs)) [initial-ignition-site]))
+  (run-loop inputs (initialize-point-ignition-matrices inputs) [initial-ignition-site]))
 
 ;;-----------------------------------------------------------------------------
 ;; Ignition Perimeter
