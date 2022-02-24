@@ -84,6 +84,21 @@
    204 [:SB4 2.7 25 8 [0.2410 0.1607 0.2410 0.0000 0.0000] [2000.0 109.0 30.0    0.0    0.0]]
    })
 
+(defrecord FuelModel
+    [fuel-model-number
+     delta
+     M_x
+     w_o
+     sigma
+     h
+     rho_p
+     S_T
+     S_e
+     M_f
+     f_ij
+     f_i
+     g_ij])
+
 (defn compute-fuel-model
   [^long fuel-model-number]
   (let [[name delta M_x-dead h
@@ -113,7 +128,7 @@
       ;; No dead-herbaceous values
       fuel-model)))
 
-(def fuel-models-precomputed (into {} (map #(vector % (compute-fuel-model %)) (keys fuel-models))))
+(def fuel-models-precomputed (into {} (map #(vector % (map->FuelModel (compute-fuel-model %))) (keys fuel-models))))
 ;; fuel-model-definitions ends here
 
 ;; [[file:../../org/GridFire.org::fuel-category-and-size-class-functions][fuel-category-and-size-class-functions]]

@@ -193,7 +193,7 @@
             max-crown-intensity                   (crown-fire-line-intensity crown-spread-max
                                                                              crown-bulk-density
                                                                              (- canopy-height canopy-base-height)
-                                                                             ((fuel-model :h) 0))
+                                                                             ((:h fuel-model) 0))
             max-fire-line-intensity               (+ max-surface-intensity max-crown-intensity)
             max-eccentricity                      (if (> ^double max-spread-rate crown-spread-max)
                                                     eccentricity
