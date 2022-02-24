@@ -339,7 +339,9 @@
      eccentricity-matrix] :as matrices}
    new-clock direction i j]
   (when (> ^double new-clock ^double (t/mget modified-time-matrix i j))
-    (compute-max-in-situ-values! inputs matrices new-clock i j))
+    (tufte/p
+     :compute-max-in-situ-values!
+     (compute-max-in-situ-values! inputs matrices new-clock i j)))
   (let [max-spread-rate      (t/mget max-spread-rate-matrix i j)
         max-spread-direction (t/mget max-spread-direction-matrix i j)
         eccentricity         (t/mget eccentricity-matrix i j)]
@@ -452,7 +454,9 @@
                                              315.0 7)))
                          (when (or (zero? modified-time)
                                    (and new-hour? (> new-clock modified-time)))
-                           (compute-max-in-situ-values! inputs matrices new-clock new-i new-j))
+                           (tufte/p
+                            :compute-max-in-situ-values!
+                            (compute-max-in-situ-values! inputs matrices new-clock new-i new-j)))
                          (let [max-spread-rate                    (t/mget max-spread-rate-matrix new-i new-j)
                                max-spread-direction               (t/mget max-spread-direction-matrix new-i new-j)
                                eccentricity                       (t/mget eccentricity-matrix new-i new-j)
