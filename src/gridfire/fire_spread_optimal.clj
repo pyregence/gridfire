@@ -524,22 +524,14 @@
         ignition-start-time (double ignition-start-time)
         ignition-stop-time  (+ ignition-start-time max-runtime)]
     (loop [global-clock   ignition-start-time
-           burn-vectors   (tufte/p
-                           :generate-burn-vectors ;0%
-                           (generate-burn-vectors! inputs matrices ignited-cells global-clock))
+           burn-vectors   (generate-burn-vectors! inputs matrices ignited-cells global-clock)
            spot-ignitions {}]
       (if (and (< global-clock ignition-stop-time)
                (or (seq burn-vectors) (seq spot-ignitions)))
-        (let [timestep       (tufte/p
-                              :calc-timestep ;11%
-                              (min (compute-dt cell-size burn-vectors)
-                                   (- ignition-stop-time global-clock)))
-              burn-vectors   (tufte/p
-                              :progress-burn-vectors ;85%
-                              (progress-burn-vectors! inputs matrices burn-vectors global-clock timestep))
-              spot-ignitions (tufte/p
-                              :progress-spot-ignitions ;0%
-                              (progress-spot-ignitions! inputs matrices spot-ignitions timestep))]
+        (let [timestep       (min (compute-dt cell-size burn-vectors)
+                                  (- ignition-stop-time global-clock))
+              burn-vectors   (progress-burn-vectors! inputs matrices burn-vectors global-clock timestep)
+              spot-ignitions (progress-spot-ignitions! inputs matrices spot-ignitions timestep)]
           (recur (+ global-clock timestep)
                  burn-vectors
                  spot-ignitions))
