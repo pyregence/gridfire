@@ -389,10 +389,9 @@
 
 (defn rothermel-surface-fire-spread-any
   ^double
-  [{:keys [max-spread-rate max-spread-direction eccentricity]} ^double spread-direction]
-  (let [max-spread-rate (double max-spread-rate)
-        eccentricity    (double eccentricity)
-        theta           (smallest-angle-between ^double max-spread-direction spread-direction)]
+  [^double max-spread-rate ^double max-spread-direction
+   ^double eccentricity ^double spread-direction]
+  (let [theta (smallest-angle-between max-spread-direction spread-direction)]
     (if (or (almost-zero? eccentricity) (almost-zero? theta))
       max-spread-rate
       (* max-spread-rate (/ (- 1.0 eccentricity)

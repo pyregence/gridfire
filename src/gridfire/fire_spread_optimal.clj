@@ -47,18 +47,7 @@
     (/ cell-size (double (reduce find-max-spread-rate 0.0 burn-vectors)))
     10.0)) ; Wait 10 minutes for spot ignitions to smolder and catch fire
 
-;; FIXME: Change the args to rothermel-surface-fire-spread-any to take the values directly
-;;        Also, add type hints to this function
-(defn- compute-spread-rate
-  [max-spread-rate
-   max-spread-direction
-   eccentricity
-   spread-direction]
-  (rothermel-surface-fire-spread-any
-   {:max-spread-rate      max-spread-rate
-    :max-spread-direction max-spread-direction
-    :eccentricity         eccentricity}
-   spread-direction))
+(def ^:private compute-spread-rate rothermel-surface-fire-spread-any)
 
 (defn- compute-terrain-distance ^double
   [{:keys [cell-size get-elevation]} ^long i ^long j ^double direction]
