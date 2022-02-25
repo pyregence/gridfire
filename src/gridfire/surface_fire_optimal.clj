@@ -195,8 +195,21 @@
    - f_ij [percent of load per size class (%)]
    - f_i [percent of load per category (%)]
    - g_ij [percent of load per size class from Albini_1976_FIREMOD, page 20]"
-  [{:keys [number delta w_o sigma h rho_p S_T S_e M_x M_f f_ij f_i g_ij]} grass-suppression?]
-  (let [eta_S_i        (calc-mineral-damping-coefficients f_ij S_e)
+  [fuel-model grass-suppression?]
+  (let [number         (:number fuel-model)
+        delta          (:delta fuel-model)
+        w_o            (:w_o fuel-model)
+        sigma          (:sigma fuel-model)
+        h              (:h fuel-model)
+        rho_p          (:rho_p fuel-model)
+        S_T            (:S_T fuel-model)
+        S_e            (:S_e fuel-model)
+        M_x            (:M_x fuel-model)
+        M_f            (:M_f fuel-model)
+        f_ij           (:f_ij fuel-model)
+        f_i            (:f_i fuel-model)
+        g_ij           (:g_ij fuel-model)
+        eta_S_i        (calc-mineral-damping-coefficients f_ij S_e)
         eta_M_i        (calc-moisture-damping-coefficients f_ij M_f M_x)
         h_i            (calc-low-heat-content f_ij h)
         W_n_i          (calc-net-fuel-loading g_ij w_o S_T)                 ; (lb/ft^2)

@@ -338,9 +338,7 @@
      eccentricity-matrix] :as matrices}
    new-clock direction i j]
   (when (> ^double new-clock ^double (t/mget modified-time-matrix i j))
-    (tufte/p
-     :compute-max-in-situ-values!
-     (compute-max-in-situ-values! inputs matrices new-clock i j)))
+    (compute-max-in-situ-values! inputs matrices new-clock i j))
   (let [max-spread-rate      (t/mget max-spread-rate-matrix i j)
         max-spread-direction (t/mget max-spread-direction-matrix i j)
         eccentricity         (t/mget eccentricity-matrix i j)]
@@ -453,9 +451,7 @@
                                              315.0 7)))
                          (when (or (zero? modified-time)
                                    (and new-hour? (> new-clock modified-time)))
-                           (tufte/p
-                            :compute-max-in-situ-values!
-                            (compute-max-in-situ-values! inputs matrices new-clock new-i new-j)))
+                           (compute-max-in-situ-values! inputs matrices new-clock new-i new-j))
                          (let [max-spread-rate                    (t/mget max-spread-rate-matrix new-i new-j)
                                max-spread-direction               (t/mget max-spread-direction-matrix new-i new-j)
                                eccentricity                       (t/mget eccentricity-matrix new-i new-j)
@@ -527,22 +523,14 @@
         ignition-start-time (double ignition-start-time)
         ignition-stop-time  (+ ignition-start-time max-runtime)]
     (loop [global-clock   ignition-start-time
-           burn-vectors   (tufte/p
-                           :generate-burn-vectors!
-                           (generate-burn-vectors! inputs matrices ignited-cells global-clock))
+           burn-vectors   (generate-burn-vectors! inputs matrices ignited-cells global-clock)
            spot-ignitions {}]
       (if (and (< global-clock ignition-stop-time)
                (or (seq burn-vectors) (seq spot-ignitions)))
-        (let [timestep       (tufte/p
-                              :compute-timestep
-                              (min (compute-dt cell-size burn-vectors)
-                                   (- ignition-stop-time global-clock)))
-              burn-vectors   (tufte/p
-                              :progress-burn-vectors!
-                              (progress-burn-vectors! inputs matrices burn-vectors global-clock timestep))
-              spot-ignitions (tufte/p
-                              :progress-spot-ignitions!
-                              (progress-spot-ignitions! inputs matrices spot-ignitions timestep))]
+        (let [timestep       (min (compute-dt cell-size burn-vectors)
+                                  (- ignition-stop-time global-clock))
+              burn-vectors   (progress-burn-vectors! inputs matrices burn-vectors global-clock timestep)
+              spot-ignitions (progress-spot-ignitions! inputs matrices spot-ignitions timestep)]
           (recur (+ global-clock timestep)
                  burn-vectors
                  spot-ignitions))
