@@ -1,29 +1,29 @@
-{:landfire-layers           {:aspect             {:type   :geotiff
-                                                  :source "test/gridfire/resources/canonical_test/zero-raster.tif"}
-                             :canopy-base-height {:type   :geotiff
-                                                  :source "test/gridfire/resources/canonical_test/zero-raster.tif"
-                                                  :units  :imperial}
-                             :canopy-cover       {:type   :geotiff
-                                                  :source "test/gridfire/resources/canonical_test/zero-raster.tif"}
-                             :canopy-height      {:type   :geotiff
-                                                  :source "test/gridfire/resources/canonical_test/zero-raster.tif"
-                                                  :units  :imperial}
-                             :crown-bulk-density {:type   :geotiff
-                                                  :source "test/gridfire/resources/canonical_test/zero-raster.tif"
-                                                  :units  :metric}
-                             :elevation          {:type   :geotiff
-                                                  :source "test/gridfire/resources/canonical_test/zero-raster.tif"}
-                             :fuel-model         {:type   :geotiff
-                                                  :source "test/gridfire/resources/canonical_test/grass-fbfm40.tif"}
-                             :slope              {:type   :geotiff
-                                                  :source "test/gridfire/resources/canonical_test/zero-raster.tif"}}
- :srid                      "EPSG:32610"
- :cell-size                 98.425         ; (feet)
+{:landfire-layers {:aspect             {:type   :geotiff
+                                        :source "test/gridfire/resources/canonical_test/zero-raster.tif"}
+                   :canopy-base-height {:type   :geotiff
+                                        :source "test/gridfire/resources/canonical_test/zero-raster.tif"
+                                        :units  :imperial}
+                   :canopy-cover       {:type   :geotiff
+                                        :source "test/gridfire/resources/canonical_test/zero-raster.tif"}
+                   :canopy-height      {:type   :geotiff
+                                        :source "test/gridfire/resources/canonical_test/zero-raster.tif"
+                                        :units  :imperial}
+                   :crown-bulk-density {:type   :geotiff
+                                        :source "test/gridfire/resources/canonical_test/zero-raster.tif"
+                                        :units  :metric}
+                   :elevation          {:type   :geotiff
+                                        :source "test/gridfire/resources/canonical_test/zero-raster.tif"}
+                   :fuel-model         {:type   :geotiff
+                                        :source "test/gridfire/resources/canonical_test/grass-fbfm40.tif"}
+                   :slope              {:type   :geotiff
+                                        :source "test/gridfire/resources/canonical_test/zero-raster.tif"}}
+ :srid            "EPSG:32610"
+ :cell-size       98.425 ; (feet)
 
  ;; Section 2: Ignition data from which to build simulation inputs
 
- :ignition-row              128
- :ignition-col              128
+ :ignition-row 128
+ :ignition-col 128
 
  ;; Section 3: Weather data from which to build simulation inputs
  ;; For all options in this section, you may enter values in one of five ways:
@@ -37,12 +37,12 @@
  ;; For a list of values, the list will be randomly sampled from in each simulation.
  ;; For a range of values, the range [inclusive exclusive] will be randomly sampled from in each simulation.
 
- :temperature               80  ; (degrees Fahrenheit)
- :relative-humidity         0   ; (%)
- :wind-speed-20ft           10  ; (miles/hour)
- :wind-from-direction       90  ; (degrees cw from north)
- :foliar-moisture           0   ; (%)
- :grass-suppression?        true
+ :temperature         80 ; (degrees Fahrenheit)
+ :relative-humidity   0  ; (%)
+ :wind-speed-20ft     10 ; (miles/hour)
+ :wind-from-direction 90 ; (degrees cw from north)
+ :foliar-moisture     0  ; (%)
+ :grass-suppression?  true
 
  ;; Section 4: Number of simulations and (optional) random seed parameter
  :max-runtime               1440 ; 24 hrs   ; (minutes)

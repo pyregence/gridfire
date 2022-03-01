@@ -33,14 +33,23 @@
                                    :canopy-base-height [:raster-2 :raster-10 :raster-20 :raster-40]
                                    :crown-bulk-density [:cbd-0005 :cbd-001 :cbd-005 :cbd-01 :cbd-02 :cbd-035 :cbd-05]})
 
-(def ^:private spotting-scenarios {:fuel-model         [:firebreak]
-                                   :canopy-cover       [:zero-raster]
-                                   :slope              [:zero-raster]
-                                   :wind-speed-20ft    [5 10 15 20]
-                                   :fuel-moisture      [0.0]
-                                   :foliar-moisture    [0]
-                                   :canopy-base-height [:zero-raster]
-                                   :crown-bulk-density [:zero-raster]})
+(def ^:private surface-spotting-scenarios {:fuel-model         [:firebreak]
+                                           :canopy-cover       [:zero-raster]
+                                           :slope              [:zero-raster]
+                                           :wind-speed-20ft    [5 10 15 20]
+                                           :fuel-moisture      [0.0]
+                                           :foliar-moisture    [0]
+                                           :canopy-base-height [:zero-raster]
+                                           :crown-bulk-density [:zero-raster]})
+
+(def ^:private crown-spotting-scenarios {:fuel-model         [:firebreak]
+                                         :canopy-cover       [:raster-100]
+                                         :slope              [:zero-raster]
+                                         :wind-speed-20ft    [5 10 15 20]
+                                         :fuel-moisture      [0.0]
+                                         :foliar-moisture    [0]
+                                         :canopy-base-height [:raster-2]
+                                         :crown-bulk-density [:raster-100]})
 
 ;;; Helpers
 
@@ -238,9 +247,17 @@
   (let [test-file (str "test-crowning-"(now)".csv")]
     (results->csv test-file (pmap run-sim! (gen-scenarios :crowning crowning-scenarios)))))
 
-(deftest ^:spotting test-spotting-scenarios
-  (let [test-file (str "test-spotting-"(now)".csv")]
-    (results->csv test-file (pmap run-sim! (gen-scenarios :spotting spotting-scenarios)))))
+(deftest ^:surface-spotting test-surface-spotting-scenarios
+  (let [test-file (str "test-surface-spotting-"(now)".csv")]
+    (results->csv test-file (map run-sim! (gen-scenarios :spotting surface-spotting-scenarios)))))
+
+(deftest ^:crown-spotting test-crown-spotting-scenarios
+  (let [test-file (str "test-crown-spotting-"(now)".csv")]
+    (results->csv test-file (map run-sim! (gen-scenarios :spotting crown-spotting-scenarios)))))
+
+#_(deftest ^:crown-spotting test-crown-spotting-scenarios
+  (let [test-file (str "test-crown-spotting-"(now)".csv")]
+    (run-sim! (first (gen-scenarios :spotting crown-spotting-scenarios)))))
 
 (comment
   (run-tests 'gridfire.canonical-test)

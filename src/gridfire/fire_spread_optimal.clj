@@ -9,6 +9,7 @@
                                                    van-wagner-crown-fire-initiation?]]
             [gridfire.fuel-models-optimal  :refer [fuel-models-precomputed
                                                    moisturize]]
+            [gridfire.spotting-optimal     :as spot-optimal]
             [gridfire.surface-fire-optimal :refer [rothermel-surface-fire-spread-no-wind-no-slope
                                                    rothermel-surface-fire-spread-max
                                                    rothermel-surface-fire-spread-any
@@ -32,10 +33,10 @@
      ^double fractional-distance
      ^double burn-probability])
 
-;; FIXME: stub
-(defn- progress-spot-ignitions!
-  [inputs matrices spot-ignitions ^double timestep]
-  spot-ignitions)
+
+;;-----------------------------------------------------------------------------
+;; Fire spread
+;;-----------------------------------------------------------------------------
 
 (defn- find-max-spread-rate ^double
   [^double max-spread-rate burn-vector]
@@ -49,8 +50,16 @@
 
 (def ^:private compute-spread-rate rothermel-surface-fire-spread-any)
 
+(defn- in-bounds?
+  "Returns true if the point lies within the bounds [0,rows) by [0,cols)."
+  [^long rows ^long cols ^long i ^long j]
+  (and (>= i 0)
+       (>= j 0)
+       (< i rows)
+       (< j cols)))
+
 (defn- compute-terrain-distance ^double
-  [{:keys [cell-size get-elevation]} ^long i ^long j ^double direction]
+  [{:keys [cell-size get-elevation num-rows num-cols]} ^long i ^long j ^double direction]
   (let [cell-size (double cell-size)
         new-i     (case direction
                     0.0   (- i 1)
@@ -69,12 +78,14 @@
                     180.0 j
                     225.0 (- j 1)
                     270.0 (- j 1)
-                    315.0 (- j 1))
-        di        (* cell-size (- i new-i))
-        dj        (* cell-size (- j new-j))
-        dz        (- ^double (get-elevation i j)
-                     ^double (get-elevation new-i new-j))]
-    (Math/sqrt (+ (* di di) (* dj dj) (* dz dz)))))
+                    315.0 (- j 1))]
+    (if (in-bounds? num-rows num-cols new-i new-j)
+      (let [di (* cell-size (- i new-i))
+            dj (* cell-size (- j new-j))
+            dz (- ^double (get-elevation i j)
+                  ^double (get-elevation new-i new-j))]
+        (Math/sqrt (+ (* di di) (* dj dj) (* dz dz))))
+      (/ cell-size 2))))
 
 (defn- compute-terrain-distance-slow
   [{:keys [cell-size cell-size-diagonal get-aspect get-slope]} ^long i ^long j ^double direction]
@@ -300,14 +311,6 @@
             acc
             bits)))
 
-(defn- in-bounds?
-  "Returns true if the point lies within the bounds [0,rows) by [0,cols)."
-  [^long rows ^long cols ^long i ^long j]
-  (and (>= i 0)
-       (>= j 0)
-       (< i rows)
-       (< j cols)))
-
 (defn- burnable-cell?
   [fuel-model-matrix fire-spread-matrix burn-probability num-rows num-cols i j]
   (and (in-bounds? num-rows num-cols i j)
@@ -347,8 +350,61 @@
                          eccentricity
                          direction)))
 
+(defn- identify-spot-ignition-events
+  [global-clock spot-ignitions]
+  (let [to-ignite-now (group-by (fn [[_ [time _]]]
+                                  (let [time (double time)]
+                                    (>= ^double global-clock time)))
+                                spot-ignitions)
+        ignite-later  (into {} (get to-ignite-now false))
+        ignite-now    (into {} (get to-ignite-now true))]
+    [ignite-later ignite-now]))
+
+(defn- compute-new-spot-ignitions
+  "Returns a map of [x y] locations to [t p] where:
+  t: time of ignition
+  p: ignition-probability"
+  [{:keys [spotting] :as inputs} matrices ignited-cells]
+  (when spotting
+    (reduce (fn [acc [i j]]
+              (merge-with (partial min-key first)
+                          acc
+                          (->> (spot-optimal/spread-firebrands
+                                inputs
+                                matrices
+                                i j)
+                               (into {}))))
+            {}
+            ignited-cells)))
+
+(defn- compute-spot-burn-vectors!
+  [inputs {:keys [fire-spread-matrix burn-time-matrix] :as matrices}
+   burn-vectors spot-ignitions ignited-cells global-clock]
+  (let [new-spot-ignitions     (compute-new-spot-ignitions inputs matrices ignited-cells)
+        [spot-ignite-later
+         spot-ignite-now]      (identify-spot-ignition-events global-clock
+                                                              (merge-with (partial min-key first)
+                                                                          spot-ignitions
+                                                                          new-spot-ignitions))
+        ignited?               (fn [[k v]]
+                                 (let [[i j] k
+                                       [_ p] v]
+                                   (> ^double (t/mget fire-spread-matrix i j) ^double p)))
+        pruned-spot-ignite-now (remove ignited? spot-ignite-now)
+        updated-burn-vectors   (reduce
+                                (fn [acc [cell spot-info]]
+                                  (let [[i j]                cell
+                                        [_ burn-probability] spot-info]
+                                    (compute-max-in-situ-values! inputs matrices global-clock i j)
+                                    (t/mset! fire-spread-matrix i j burn-probability)
+                                    (t/mset! burn-time-matrix i j global-clock)
+                                    (create-new-burn-vectors! acc inputs matrices burn-probability i j)))
+                                burn-vectors
+                                pruned-spot-ignite-now)]
+    [updated-burn-vectors (count pruned-spot-ignite-now) spot-ignite-later]))
+
 (defn- progress-burn-vectors!
-  [{:keys [num-rows num-cols fuel-model-matrix] :as inputs}
+  [{:keys [num-rows num-cols fuel-model-matrix spotting] :as inputs}
    {:keys
     [fire-spread-matrix modified-time-matrix max-spread-rate-matrix
      max-spread-direction-matrix travel-lines-matrix burn-time-matrix
@@ -361,134 +417,142 @@
         new-clock    (+ global-clock timestep)
         new-hour?    (> (+ (rem global-clock 60.0) timestep) 60.0)]
     ;;TODO insert promotion code that returns the same burn vectors with updated fractional-distance
-    (persistent!
-     (reduce (fn [acc burn-vector]
-               (let [i                              (long (:i burn-vector))
-                     j                              (long (:j burn-vector))
-                     direction                      (double (:direction burn-vector))
-                     spread-rate                    (double (:spread-rate burn-vector))
-                     terrain-distance               (double (:terrain-distance burn-vector))
-                     fractional-distance            (double (:fractional-distance burn-vector))
-                     burn-probability               (double (:burn-probability burn-vector))
-                     ^double local-burn-probability (t/mget fire-spread-matrix i j)
-                     ^double local-burn-time        (t/mget burn-time-matrix i j)
-                     fractional-distance            (if (> burn-probability local-burn-probability)
-                                                      fractional-distance
-                                                      (+ 0.5 (/ (* spread-rate (- global-clock local-burn-time)) terrain-distance)))
-                     burn-probability               (max burn-probability local-burn-probability)
-                     new-spread-rate                (if new-hour?
-                                                      (calc-new-spread-rate! inputs matrices new-clock direction i j)
-                                                      spread-rate)
-                     fractional-distance-delta      (/ (* spread-rate timestep) terrain-distance)
-                     new-fractional-distance        (+ fractional-distance fractional-distance-delta)
-                     new-acc                        (if (and (< fractional-distance 0.5)
-                                                             (>= new-fractional-distance 0.5))
-                                                      (let [burn-time (-> 0.5
-                                                                          (- fractional-distance)
-                                                                          (/ fractional-distance-delta)
-                                                                          (* timestep)
-                                                                          (+ global-clock))]
-                                                        (if (> burn-probability local-burn-probability)
-                                                          (do
-                                                            (t/mset! fire-spread-matrix i j burn-probability)
-                                                            (t/mset! burn-time-matrix i j burn-time)
-                                                            (if (> local-burn-time global-clock)
-                                                              acc
-                                                              (create-new-burn-vectors! acc inputs matrices burn-probability i j)))
-                                                          (if (< burn-time local-burn-time)
-                                                            (do
-                                                              (t/mset! burn-time-matrix i j burn-time)
-                                                              acc)
-                                                            acc)))
-                                                      acc)]
-                 (if (< new-fractional-distance 1.0)
-                   (conj! new-acc
+    (reduce (fn [[acc-burn-vectors acc-ignited-cells] burn-vector]
+              (let [i                              (long (:i burn-vector))
+                    j                              (long (:j burn-vector))
+                    direction                      (double (:direction burn-vector))
+                    spread-rate                    (double (:spread-rate burn-vector))
+                    terrain-distance               (double (:terrain-distance burn-vector))
+                    fractional-distance            (double (:fractional-distance burn-vector))
+                    burn-probability               (double (:burn-probability burn-vector))
+                    ^double local-burn-probability (t/mget fire-spread-matrix i j)
+                    ^double local-burn-time        (t/mget burn-time-matrix i j)
+                    fractional-distance            (if (> burn-probability local-burn-probability)
+                                                     fractional-distance
+                                                     (+ 0.5 (/ (* spread-rate (- global-clock local-burn-time)) terrain-distance)))
+                    burn-probability               (max burn-probability local-burn-probability)
+                    new-spread-rate                (if new-hour?
+                                                     (calc-new-spread-rate! inputs matrices new-clock direction i j)
+                                                     spread-rate)
+                    fractional-distance-delta      (/ (* spread-rate timestep) terrain-distance)
+                    new-fractional-distance        (+ fractional-distance fractional-distance-delta)
+                    new-acc-burn-vectors           (if (and (< fractional-distance 0.5)
+                                                            (>= new-fractional-distance 0.5))
+                                                     (let [burn-time (-> 0.5
+                                                                         (- fractional-distance)
+                                                                         (/ fractional-distance-delta)
+                                                                         (* timestep)
+                                                                         (+ global-clock))]
+                                                       (if (> burn-probability local-burn-probability)
+                                                         (do
+                                                           (t/mset! fire-spread-matrix i j burn-probability)
+                                                           (t/mset! burn-time-matrix i j burn-time)
+                                                           (if (> local-burn-time global-clock)
+                                                             acc-burn-vectors
+                                                             (create-new-burn-vectors! acc-burn-vectors inputs matrices burn-probability i j)))
+                                                         (if (< burn-time local-burn-time)
+                                                           (do
+                                                             (t/mset! burn-time-matrix i j burn-time)
+                                                             acc-burn-vectors)
+                                                           acc-burn-vectors)))
+                                                     acc-burn-vectors)
+                    new-acc-ignited-cells          (if (and spotting
+                                                           (< fractional-distance 0.5)
+                                                           (>= new-fractional-distance 0.5))
+                                                    (conj! acc-ignited-cells [i j])
+                                                    acc-ignited-cells)]
+                (if (< new-fractional-distance 1.0)
+                  [(conj! new-acc-burn-vectors
                           (->BurnVector i j direction new-spread-rate terrain-distance
                                         new-fractional-distance burn-probability))
-                   (let [new-i (case direction
-                                 0.0   (- i 1)
-                                 45.0  (- i 1)
-                                 90.0  i
-                                 135.0 (+ i 1)
-                                 180.0 (+ i 1)
-                                 225.0 (+ i 1)
-                                 270.0 i
-                                 315.0 (- i 1))
-                         new-j (case direction
-                                 0.0   j
-                                 45.0  (+ j 1)
-                                 90.0  (+ j 1)
-                                 135.0 (+ j 1)
-                                 180.0 j
-                                 225.0 (- j 1)
-                                 270.0 (- j 1)
-                                 315.0 (- j 1))]
-                     (t/mset! travel-lines-matrix i j
-                              (bit-clear (t/mget travel-lines-matrix i j)
-                                         (case direction
-                                           0.0   0
-                                           45.0  1
-                                           90.0  2
-                                           135.0 3
-                                           180.0 4
-                                           225.0 5
-                                           270.0 6
-                                           315.0 7)))
-                     (if (burnable-cell? fuel-model-matrix fire-spread-matrix burn-probability
-                                         num-rows num-cols new-i new-j)
-                       (let [^double modified-time (t/mget modified-time-matrix new-i new-j)]
-                         ;; FIXME: Should I set the fire-spread-matrix with my burn-probability to stop other vectors?
-                         (t/mset! travel-lines-matrix new-i new-j
-                                  (bit-set (t/mget travel-lines-matrix new-i new-j)
-                                           (case direction
-                                             0.0   0
-                                             45.0  1
-                                             90.0  2
-                                             135.0 3
-                                             180.0 4
-                                             225.0 5
-                                             270.0 6
-                                             315.0 7)))
-                         (when (or (zero? modified-time)
-                                   (and new-hour? (> new-clock modified-time)))
-                           (compute-max-in-situ-values! inputs matrices new-clock new-i new-j))
-                         (let [max-spread-rate                    (t/mget max-spread-rate-matrix new-i new-j)
-                               max-spread-direction               (t/mget max-spread-direction-matrix new-i new-j)
-                               eccentricity                       (t/mget eccentricity-matrix new-i new-j)
-                               new-spread-rate                    (compute-spread-rate max-spread-rate
-                                                                                       max-spread-direction
-                                                                                       eccentricity
-                                                                                       direction)
-                               new-terrain-distance               (compute-terrain-distance inputs new-i new-j direction)
-                               new-fractional-distance            (- new-fractional-distance 1.0)
-                               new-acc                            (conj! new-acc
-                                                                         (->BurnVector new-i new-j direction new-spread-rate new-terrain-distance
-                                                                                       new-fractional-distance burn-probability))
-                               ^double new-local-burn-probability (t/mget fire-spread-matrix new-i new-j)
-                               ^double new-local-burn-time        (t/mget burn-time-matrix new-i new-j)]
-                           (if (>= new-fractional-distance 0.5)
-                             (let [burn-time (-> 1.5
-                                                 (- fractional-distance)
-                                                 (/ fractional-distance-delta)
-                                                 (* timestep)
-                                                 (+ global-clock))]
-                               (if (> burn-probability new-local-burn-probability)
-                                 (do
-                                   (t/mset! fire-spread-matrix new-i new-j burn-probability)
-                                   (t/mset! burn-time-matrix new-i new-j burn-time)
-                                   (if (> new-local-burn-time global-clock)
-                                     new-acc
-                                     (create-new-burn-vectors! new-acc inputs matrices burn-probability new-i new-j)))
-                                 (if (and (= burn-probability new-local-burn-probability)
-                                          (< burn-time new-local-burn-time))
-                                   (do
-                                     (t/mset! burn-time-matrix new-i new-j burn-time)
-                                     new-acc)
-                                   new-acc)))
-                             new-acc)))
-                       new-acc)))))
-             (transient [])
-             burn-vectors))))
+                   new-acc-ignited-cells]
+                  (let [new-i (case direction
+                                0.0   (- i 1)
+                                45.0  (- i 1)
+                                90.0  i
+                                135.0 (+ i 1)
+                                180.0 (+ i 1)
+                                225.0 (+ i 1)
+                                270.0 i
+                                315.0 (- i 1))
+                        new-j (case direction
+                                0.0   j
+                                45.0  (+ j 1)
+                                90.0  (+ j 1)
+                                135.0 (+ j 1)
+                                180.0 j
+                                225.0 (- j 1)
+                                270.0 (- j 1)
+                                315.0 (- j 1))]
+                    (t/mset! travel-lines-matrix i j
+                             (bit-clear (t/mget travel-lines-matrix i j)
+                                        (case direction
+                                          0.0   0
+                                          45.0  1
+                                          90.0  2
+                                          135.0 3
+                                          180.0 4
+                                          225.0 5
+                                          270.0 6
+                                          315.0 7)))
+                    (if (burnable-cell? fuel-model-matrix fire-spread-matrix burn-probability
+                                        num-rows num-cols new-i new-j)
+                      (let [^double modified-time (t/mget modified-time-matrix new-i new-j)]
+                        ;; FIXME: Should I set the fire-spread-matrix with my burn-probability to stop other vectors?
+                        (t/mset! travel-lines-matrix new-i new-j
+                                 (bit-set (t/mget travel-lines-matrix new-i new-j)
+                                          (case direction
+                                            0.0   0
+                                            45.0  1
+                                            90.0  2
+                                            135.0 3
+                                            180.0 4
+                                            225.0 5
+                                            270.0 6
+                                            315.0 7)))
+                        (when (or (zero? modified-time)
+                                  (and new-hour? (> new-clock modified-time)))
+                          (compute-max-in-situ-values! inputs matrices new-clock new-i new-j))
+                        (let [max-spread-rate                    (t/mget max-spread-rate-matrix new-i new-j)
+                              max-spread-direction               (t/mget max-spread-direction-matrix new-i new-j)
+                              eccentricity                       (t/mget eccentricity-matrix new-i new-j)
+                              new-spread-rate                    (compute-spread-rate max-spread-rate
+                                                                                      max-spread-direction
+                                                                                      eccentricity
+                                                                                      direction)
+                              new-terrain-distance               (compute-terrain-distance inputs new-i new-j direction)
+                              new-fractional-distance            (- new-fractional-distance 1.0)
+                              new-acc-burn-vectors               (conj! new-acc-burn-vectors
+                                                                        (->BurnVector new-i new-j direction new-spread-rate new-terrain-distance
+                                                                                      new-fractional-distance burn-probability))
+                              ^double new-local-burn-probability (t/mget fire-spread-matrix new-i new-j)
+                              ^double new-local-burn-time        (t/mget burn-time-matrix new-i new-j)]
+                          (if (>= new-fractional-distance 0.5)
+                            (let [burn-time (-> 1.5
+                                                (- fractional-distance)
+                                                (/ fractional-distance-delta)
+                                                (* timestep)
+                                                (+ global-clock))]
+                              (if (> burn-probability new-local-burn-probability)
+                                (do
+                                  (t/mset! fire-spread-matrix new-i new-j burn-probability)
+                                  (t/mset! burn-time-matrix new-i new-j burn-time)
+                                  (if (> new-local-burn-time global-clock)
+                                    [new-acc-burn-vectors new-acc-ignited-cells]
+                                    [(create-new-burn-vectors! new-acc-burn-vectors inputs matrices burn-probability new-i new-j)
+                                     (if spotting
+                                       (conj! new-acc-ignited-cells [new-i new-j])
+                                       new-acc-ignited-cells)]))
+                                (if (and (= burn-probability new-local-burn-probability)
+                                         (< burn-time new-local-burn-time))
+                                  (do
+                                    (t/mset! burn-time-matrix new-i new-j burn-time)
+                                    [new-acc-burn-vectors new-acc-ignited-cells])
+                                  [new-acc-burn-vectors new-acc-ignited-cells])))
+                            [new-acc-burn-vectors new-acc-ignited-cells])))
+                      [new-acc-burn-vectors new-acc-ignited-cells])))))
+            [(transient []) (transient #{})]
+            burn-vectors)))
 
 (def ^:private directions [0.0 45.0 90.0 135.0 180.0 225.0 270.0 315.0])
 
@@ -522,18 +586,29 @@
         max-runtime         (double max-runtime)
         ignition-start-time (double ignition-start-time)
         ignition-stop-time  (+ ignition-start-time max-runtime)]
-    (loop [global-clock   ignition-start-time
-           burn-vectors   (generate-burn-vectors! inputs matrices ignited-cells global-clock)
-           spot-ignitions {}]
+    (loop [global-clock       ignition-start-time
+           burn-vectors       (generate-burn-vectors! inputs matrices ignited-cells global-clock)
+           spot-ignitions     {}
+           spot-count         0]
       (if (and (< global-clock ignition-stop-time)
                (or (seq burn-vectors) (seq spot-ignitions)))
-        (let [timestep       (min (compute-dt cell-size burn-vectors)
-                                  (- ignition-stop-time global-clock))
-              burn-vectors   (progress-burn-vectors! inputs matrices burn-vectors global-clock timestep)
-              spot-ignitions (progress-spot-ignitions! inputs matrices spot-ignitions timestep)]
+        (let [timestep                     (min (compute-dt cell-size burn-vectors)
+                                                (- ignition-stop-time global-clock))
+              [burn-vectors ignited-cells] (progress-burn-vectors! inputs matrices burn-vectors
+                                                                   global-clock timestep)
+              [updated-burn-vectors
+               spot-ignite-now-count
+               spot-ignite-later]          (compute-spot-burn-vectors! inputs
+                                                                       matrices
+                                                                       burn-vectors
+                                                                       spot-ignitions
+                                                                       (persistent! ignited-cells)
+                                                                       global-clock)
+              updated-burn-vectors'        (persistent! updated-burn-vectors)]
           (recur (+ global-clock timestep)
-                 burn-vectors
-                 spot-ignitions))
+                 updated-burn-vectors'
+                 spot-ignite-later
+                 (+ spot-count ^long spot-ignite-now-count)))
         {:exit-condition             (if (>= global-clock ignition-stop-time) :max-runtime-reached :no-burnable-fuels)
          :global-clock               global-clock
          :burn-time-matrix           (matrices :burn-time-matrix)
@@ -544,7 +619,7 @@
          :spot-matrix                (matrices :spot-matrix)
          :spread-rate-matrix         (matrices :spread-rate-matrix)
          :crown-fire-count           0 ; FIXME: Calculate using tensor ops
-         :spot-count                 0})))) ; FIXME: Calculate using tensor ops or spot-ignitions
+         :spot-count                 spot-count})))) ; FIXME: Calculate using tensor ops or spot-ignitions
 
 ;;-----------------------------------------------------------------------------
 ;; Main Simulation Entry Point - Dispatches to Point/Perimeter Ignition
