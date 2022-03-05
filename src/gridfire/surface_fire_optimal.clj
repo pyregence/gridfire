@@ -400,7 +400,7 @@
      (scale-spread-to-max-wind-speed spread-rate max-wind-speed phi-max)
      (add-eccentricity ellipse-adjustment-factor))))
 
-(defn rothermel-surface-fire-spread-any
+(defn compute-spread-rate
   ^double
   [^double max-spread-rate ^double max-spread-direction
    ^double eccentricity ^double spread-direction]

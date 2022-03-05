@@ -85,7 +85,8 @@
    })
 
 (defrecord FuelModel
-    [fuel-model-number
+    [name
+     number
      delta
      M_x
      w_o
