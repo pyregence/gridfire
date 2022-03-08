@@ -508,38 +508,63 @@
 
 (defn- promote-burn-vectors
   "t1: time spent in first hour"
-  [{:keys [fire-spread-matrix burn-time-matrix]} global-clock new-clock new-hour? top-of-hour burn-vectors]
+  [{:keys [num-rows num-cols fuel-model-matrix]}
+   {:keys [fire-spread-matrix burn-time-matrix]}
+   global-clock new-clock new-hour? top-of-hour burn-vectors]
   (let [global-clock (double global-clock)
         new-clock    (double new-clock)
         top-of-hour  (double top-of-hour)]
-    (mapv
-     (fn [burn-vector]
-       (let [i                              (long (:i burn-vector))
-             j                              (long (:j burn-vector))
-             burn-probability               (double (:burn-probability burn-vector))
-             ^double local-burn-probability (t/mget fire-spread-matrix i j)
-             ^double local-burn-time        (t/mget burn-time-matrix i j)]
-         (if (and (> local-burn-time global-clock) ; cell was ignited this timestep
-                  (<= burn-probability local-burn-probability))
-           (let [direction               (double (:direction burn-vector))
-                 spread-rate             (double (:spread-rate burn-vector))
-                 old-spread-rate         (double (:old-spread-rate burn-vector))
-                 terrain-distance        (double (:terrain-distance burn-vector))
-                 dt-after-ignition       (- new-clock local-burn-time)
-                 new-fractional-distance (if new-hour?
-                                           (if (< local-burn-time top-of-hour)
-                                             ;; ignition occured in first hour
-                                             (let [dt-until-hour (- top-of-hour local-burn-time)
-                                                   dt-after-hour (- dt-after-ignition dt-until-hour)]
-                                               (+ 0.5 (/ (+ (* old-spread-rate dt-until-hour)
-                                                            (* spread-rate dt-after-hour))
-                                                         terrain-distance)))
-                                             ;; ignition occured in second hour
-                                             (+ 0.5 (/ (* spread-rate dt-after-ignition) terrain-distance)))
-                                           (+ 0.5 (/ (* spread-rate dt-after-ignition) terrain-distance)))]
-             (->BurnVector i j direction new-fractional-distance spread-rate old-spread-rate terrain-distance local-burn-probability))
-           burn-vector)))
-     burn-vectors)))
+    (persistent!
+     (reduce
+      (fn [acc burn-vector]
+        (let [i                (long (:i burn-vector))
+              j                (long (:j burn-vector))
+              direction        (double (:direction burn-vector))
+              burn-probability (double (:burn-probability burn-vector))
+              new-i            (case direction
+                                 0.0   (- i 1)
+                                 45.0  (- i 1)
+                                 90.0  i
+                                 135.0 (+ i 1)
+                                 180.0 (+ i 1)
+                                 225.0 (+ i 1)
+                                 270.0 i
+                                 315.0 (- i 1))
+              new-j            (case direction
+                                 0.0   j
+                                 45.0  (+ j 1)
+                                 90.0  (+ j 1)
+                                 135.0 (+ j 1)
+                                 180.0 j
+                                 225.0 (- j 1)
+                                 270.0 (- j 1)
+                                 315.0 (- j 1))]
+          (if (burnable-cell? fuel-model-matrix fire-spread-matrix burn-probability
+                              num-rows num-cols new-i new-j)
+            (let [^double local-burn-probability (t/mget fire-spread-matrix i j)
+                  ^double local-burn-time        (t/mget burn-time-matrix i j)]
+              (if (and (> local-burn-time global-clock) ; cell was ignited this timestep
+                       (<= burn-probability local-burn-probability))
+                (let [spread-rate             (double (:spread-rate burn-vector))
+                      old-spread-rate         (double (:old-spread-rate burn-vector))
+                      terrain-distance        (double (:terrain-distance burn-vector))
+                      dt-after-ignition       (- new-clock local-burn-time)
+                      new-fractional-distance (if new-hour?
+                                                (if (< local-burn-time top-of-hour)
+                                                  ;; ignition occured in first hour
+                                                  (let [dt-until-hour (- top-of-hour local-burn-time)
+                                                        dt-after-hour (- dt-after-ignition dt-until-hour)]
+                                                    (+ 0.5 (/ (+ (* old-spread-rate dt-until-hour)
+                                                                 (* spread-rate dt-after-hour))
+                                                              terrain-distance)))
+                                                  ;; ignition occured in second hour
+                                                  (+ 0.5 (/ (* spread-rate dt-after-ignition) terrain-distance)))
+                                                (+ 0.5 (/ (* spread-rate dt-after-ignition) terrain-distance)))]
+                  (conj! acc (->BurnVector i j direction new-fractional-distance spread-rate old-spread-rate terrain-distance local-burn-probability)))
+                (conj! acc burn-vector)))
+            acc)))
+      (transient [])
+      burn-vectors))))
 
 (defn- transition-burn-vectors
   [{:keys [cell-size get-elevation num-rows num-cols fuel-model-matrix] :as inputs}
@@ -684,13 +709,13 @@
                                                                new-clock new-hour? t1 t2 burn-vectors)
               promoted-burn-vectors        (->> burn-vectors
                                                 (create-burn-vectors inputs matrices ignited-cells)
-                                                (promote-burn-vectors matrices global-clock new-clock new-hour? top-of-hour))
+                                                (promote-burn-vectors inputs matrices global-clock new-clock new-hour? top-of-hour))
               [untransitioned-bvs
                transitioned-bvs
                newly-ignited-cells]        (transition-burn-vectors inputs matrices global-clock new-clock new-hour? promoted-burn-vectors)
               promoted-transitioned-bvs    (->> transitioned-bvs
                                                 (create-burn-vectors inputs matrices newly-ignited-cells)
-                                                (promote-burn-vectors matrices global-clock new-clock new-hour? top-of-hour))
+                                                (promote-burn-vectors inputs matrices global-clock new-clock new-hour? top-of-hour))
               burn-vectors'                (into untransitioned-bvs promoted-transitioned-bvs)
               ignited-cells'               (into ignited-cells newly-ignited-cells)
 
