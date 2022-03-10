@@ -231,8 +231,10 @@
   (str/replace kebab-string #"-" "_"))
 
 (def conversion-table
-  {:elevation                     {:metric m->ft}
+  {:aspect                        {nil identity}
+   :elevation                     {:metric m->ft}
    :slope                         {nil deg->ratio}
+   :canopy-cover                  {nil identity}
    :canopy-height                 {:metric m->ft}
    :canopy-base-height            {:metric m->ft}
    :crown-bulk-density            {:metric kg-m3->lb-ft3}
@@ -262,5 +264,5 @@
 (defn to-imperial!
   [layer {:keys [units multiplier] :or {multiplier 1.0}} layer-name]
   (if-let [converter (get-units-converter layer-name units multiplier)]
-    (update layer :matrix #(d/copy! (d/emap converter :float64 %) %))
+    (update layer :matrix #(d/clone (d/emap converter :float64 %)))
     layer))
