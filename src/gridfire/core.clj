@@ -1,15 +1,15 @@
 ;; [[file:../../org/GridFire.org::gridfire-core][gridfire-core]]
 (ns gridfire.core
-  (:require [clojure.core.reducers :as r]
-            [clojure.edn           :as edn]
-            [clojure.spec.alpha    :as spec]
-            [gridfire.fire-spread  :refer [rothermel-fast-wrapper-optimal]]
-            [gridfire.inputs       :as inputs]
-            [gridfire.outputs      :as outputs]
-            [gridfire.simulations  :as simulations]
-            [gridfire.spec.config  :as config-spec]
-            [taoensso.tufte        :as tufte]
-            [triangulum.logging    :refer [log log-str]]))
+  (:require [clojure.core.reducers        :as r]
+            [clojure.edn                  :as edn]
+            [clojure.spec.alpha           :as spec]
+            [gridfire.fire-spread-optimal :refer [rothermel-fast-wrapper-optimal]]
+            [gridfire.inputs              :as inputs]
+            [gridfire.outputs             :as outputs]
+            [gridfire.simulations         :as simulations]
+            [gridfire.spec.config         :as config-spec]
+            [taoensso.tufte               :as tufte]
+            [triangulum.logging           :refer [log log-str]]))
 
 (set! *unchecked-math* :warn-on-boxed)
 

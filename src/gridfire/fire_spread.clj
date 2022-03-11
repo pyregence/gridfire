@@ -14,6 +14,7 @@
                                                   crown-fire-line-intensity
                                                   cruz-crown-fire-spread
                                                   van-wagner-crown-fire-initiation?]]
+            [gridfire.fire-spread-optimal :refer [rothermel-fast-wrapper-optimal]]
             [gridfire.fuel-models         :refer [build-fuel-model moisturize]]
             [gridfire.spotting            :as spot]
             [gridfire.surface-fire        :refer [anderson-flame-depth
@@ -65,14 +66,6 @@
         spread-info-min (rothermel-surface-fire-spread-no-wind-no-slope fuel-model grass-suppression?)]
     [fuel-model spread-info-min]))
 
-(defn rothermel-fast-wrapper-optimal
-  [fuel-model-number fuel-moisture grass-suppression?]
-  (let [fuel-model                       (-> (f-opt/fuel-models-precomputed (long fuel-model-number))
-                                             (f-opt/moisturize fuel-moisture))
-        [spread-info-min wind-slope-fns] (s-opt/rothermel-surface-fire-spread-no-wind-no-slope
-                                          fuel-model grass-suppression?)]
-    [fuel-model spread-info-min wind-slope-fns]))
-
 (defrecord BurnTrajectory
     [cell
      source
@@ -86,16 +79,16 @@
      crown-fire?])
 
 (defn compute-burn-trajectory
-  [neighbor here spread-info-min spread-info-max fuel-model crown-bulk-density
+  [neighbor here surface-fire-min surface-fire-max crown-bulk-density
    canopy-cover canopy-height canopy-base-height foliar-moisture crown-spread-max
    crown-eccentricity elevation-matrix cell-size overflow-trajectory overflow-heat
    crown-type]
   (let [trajectory                (mapv - neighbor here)
         spread-direction          (offset-to-degrees trajectory)
-        surface-spread-rate       (rothermel-surface-fire-spread-any spread-info-max
+        surface-spread-rate       (rothermel-surface-fire-spread-any surface-fire-max
                                                                      spread-direction)
-        residence-time            (:residence-time spread-info-min)
-        reaction-intensity        (:reaction-intensity spread-info-min)
+        residence-time            (:residence-time surface-fire-min)
+        reaction-intensity        (:reaction-intensity surface-fire-min)
         surface-intensity         (->> (anderson-flame-depth surface-spread-rate residence-time)
                                        (byram-fire-line-intensity reaction-intensity))
         crown-fire?               (van-wagner-crown-fire-initiation? canopy-cover
@@ -104,15 +97,15 @@
                                                                      surface-intensity)
         ^double crown-spread-rate (when crown-fire?
                                     (rothermel-surface-fire-spread-any
-                                     (assoc spread-info-max
+                                     (assoc surface-fire-max
                                             :max-spread-rate crown-spread-max
                                             :eccentricity crown-eccentricity)
                                      spread-direction))
         ^double crown-intensity   (when crown-fire?
                                     (crown-fire-line-intensity crown-spread-rate
-                                     crown-bulk-density
-                                     (- canopy-height canopy-base-height)
-                                     ((fuel-model :h) 0))) ; 0 = dead-1hr
+                                                               crown-bulk-density
+                                                               (- canopy-height canopy-base-height)
+                                                               (:heat-of-combustion surface-fire-min))) ; 0 = dead-1hr
         spread-rate               (if crown-fire?
                                     (max surface-spread-rate crown-spread-rate)
                                     surface-spread-rate)
@@ -183,7 +176,7 @@
                                                       (get-fuel-moisture-live-woody i j)
                                                       (calc-fuel-moisture relative-humidity temperature :live :woody))
         ^double foliar-moisture                     (get-foliar-moisture band i j)
-        [fuel-model spread-info-min wind-slope-fns] (rothermel-fast-wrapper-optimal
+        surface-fire-min                            (rothermel-fast-wrapper-optimal
                                                      fuel-model
                                                      [fuel-moisture-dead-1hr
                                                       fuel-moisture-dead-10hr
@@ -194,11 +187,10 @@
                                                      grass-suppression?)
         midflame-wind-speed                         (mph->fpm
                                                      (* wind-speed-20ft
-                                                        (wind-adjustment-factor ^double (:delta fuel-model)
+                                                        (wind-adjustment-factor (:fuel-bed-depth surface-fire-min)
                                                                                 canopy-height
                                                                                 canopy-cover)))
-        spread-info-max                             (rothermel-surface-fire-spread-max spread-info-min
-                                                                                       wind-slope-fns
+        surface-fire-max                            (rothermel-surface-fire-spread-max surface-fire-min
                                                                                        midflame-wind-speed
                                                                                        wind-from-direction
                                                                                        slope
@@ -211,7 +203,7 @@
           (comp
            (filter #(and (in-bounds? num-rows num-cols %)
                          (burnable? fire-spread-matrix fuel-model-matrix here %)))
-           (map #(compute-burn-trajectory % here spread-info-min spread-info-max fuel-model
+           (map #(compute-burn-trajectory % here surface-fire-min surface-fire-max
                                           crown-bulk-density canopy-cover canopy-height
                                           canopy-base-height foliar-moisture crown-spread-max
                                           crown-eccentricity elevation-matrix cell-size

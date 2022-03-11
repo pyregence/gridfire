@@ -248,7 +248,7 @@
 
 (defn rothermel-surface-fire-spread-max
   "Note: fire ellipse adjustment factor, < 1.0 = more circular, > 1.0 = more elliptical"
-  [{:keys [spread-rate reaction-intensity]} {:keys [get-phi_W get-phi_S get-wind-speed]}
+  [{:keys [spread-rate reaction-intensity get-phi_W get-phi_S get-wind-speed]}
    midflame-wind-speed wind-from-direction slope aspect ellipse-adjustment-factor]
   (let [^double phi_W             (get-phi_W midflame-wind-speed)
         ^double phi_S             (get-phi_S slope)
