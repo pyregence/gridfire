@@ -86,8 +86,8 @@
 
 (defrecord FuelModel
     [name
-     number
-     delta
+     ^long number
+     ^double delta
      M_x
      w_o
      sigma
@@ -150,28 +150,49 @@
 
 ;; [[file:../../org/GridFire.org::add-dynamic-fuel-loading][add-dynamic-fuel-loading]]
 (defn add-dynamic-fuel-loading
-  [{:keys [number w_o] :as fuel-model} M_f]
-  (let [^double live-herbaceous-load (w_o 4)] ; 4 = live-herbaceous
-    (if (and (> ^long number 100) (pos? live-herbaceous-load))
+  [fuel-model M_f]
+  (let [^long number                 (:number fuel-model)
+        w_o                          (:w_o fuel-model)
+        ^double live-herbaceous-load (w_o 4)] ; 4 = live-herbaceous
+    (if (and (> number 100) (pos? live-herbaceous-load))
       ;; dynamic fuel model
-      (let [fraction-green (max 0.0 (min 1.0 (- (/ ^double (M_f 4) 0.9) 0.3333333333333333))) ; 4 = live-herbaceous
-            fraction-cured (- 1.0 fraction-green)]
-        (-> fuel-model
-            (assoc :M_f (assoc M_f 3 (M_f 0))) ; 0 = dead-1hr, 3 = dead-herbaceous
-            (assoc :w_o [(w_o 0)
-                         (w_o 1)
-                         (w_o 2)
-                         (* live-herbaceous-load fraction-cured)
-                         (* live-herbaceous-load fraction-green)
-                         (w_o 5)])))
+      (let [name           (:name fuel-model)
+            delta          (:delta fuel-model)
+            M_x            (:M_x fuel-model)
+            sigma          (:sigma fuel-model)
+            h              (:h fuel-model)
+            rho_p          (:rho_p fuel-model)
+            S_T            (:S_T fuel-model)
+            S_e            (:S_e fuel-model)
+            fraction-green (max 0.0 (min 1.0 (- (/ ^double (M_f 4) 0.9) 0.3333333333333333))) ; 4 = live-herbaceous
+            fraction-cured (- 1.0 fraction-green)
+            dynamic-M_f    (assoc M_f 3 (M_f 0)) ; 0 = dead-1hr, 3 = dead-herbaceous
+            dynamic-w_o    [(w_o 0)
+                            (w_o 1)
+                            (w_o 2)
+                            (* live-herbaceous-load fraction-cured)
+                            (* live-herbaceous-load fraction-green)
+                            (w_o 5)]]
+        (->FuelModel name number delta M_x dynamic-w_o sigma h rho_p S_T S_e dynamic-M_f nil nil nil))
       ;; static fuel model
       (assoc fuel-model :M_f M_f))))
 ;; add-dynamic-fuel-loading ends here
 
 ;; [[file:../../org/GridFire.org::add-weighting-factors][add-weighting-factors]]
 (defn add-weighting-factors
-  [{:keys [w_o sigma rho_p] :as fuel-model}]
-  (let [A_ij                 (map-size-class (fn ^double [i]
+  [fuel-model]
+  (let [name                 (:name fuel-model)
+        number               (:number fuel-model)
+        delta                (:delta fuel-model)
+        M_x                  (:M_x fuel-model)
+        w_o                  (:w_o fuel-model)
+        sigma                (:sigma fuel-model)
+        h                    (:h fuel-model)
+        rho_p                (:rho_p fuel-model)
+        S_T                  (:S_T fuel-model)
+        S_e                  (:S_e fuel-model)
+        M_f                  (:M_f fuel-model)
+        A_ij                 (map-size-class (fn ^double [i]
                                                (/ (* ^double (sigma i) ^double (w_o i))
                                                   ^double (rho_p i))))
 
@@ -213,17 +234,18 @@
                                                          (if (= c (firemod-size-classes 3)) ^double (f_ij 3) 0.0)))
                                                    (+ (if (= c (firemod-size-classes 4)) ^double (f_ij 4) 0.0)
                                                       (if (= c (firemod-size-classes 5)) ^double (f_ij 5) 0.0))))))]
-    (-> fuel-model
-        (assoc :f_ij f_ij)
-        (assoc :f_i  f_i)
-        (assoc :g_ij g_ij))))
+    (->FuelModel name number delta M_x w_o sigma h rho_p S_T S_e M_f f_ij f_i g_ij)))
 ;; add-weighting-factors ends here
 
 ;; [[file:../../org/GridFire.org::add-live-moisture-of-extinction][add-live-moisture-of-extinction]]
 (defn add-live-moisture-of-extinction
   "Equation 88 from Rothermel 1972 adjusted by Albini 1976 Appendix III."
-  [{:keys [w_o sigma M_f M_x] :as fuel-model}]
-  (let [loading-factors                (map-size-class (fn ^double [^long i]
+  [fuel-model]
+  (let [w_o                            (:w_o fuel-model)
+        sigma                          (:sigma fuel-model)
+        M_f                            (:M_f fuel-model)
+        M_x                            (:M_x fuel-model)
+        loading-factors                (map-size-class (fn ^double [^long i]
                                                          (let [^double sigma_ij (sigma i)
                                                                A (if (< i 4) -138.0 -500.0)]
                                                            (if (pos? sigma_ij)
