@@ -293,7 +293,7 @@
   (let [effective-wind-speed (:effective-wind-speed spread-properties)
         max-spread-direction (:max-spread-direction spread-properties)]
    (if (> ^double effective-wind-speed max-wind-speed)
-     (->SurfaceFireMax (* spread-rate (+ 1.0 phi-max)) max-spread-direction max-wind-speed)
+     (->SurfaceFireMax (* spread-rate (+ 1.0 phi-max)) max-spread-direction max-wind-speed 0.0)
      spread-properties)))
 
 (defn add-eccentricity
@@ -326,19 +326,19 @@
 
 (defn spread-info-max-no-wind-no-slope
   [^double spread-rate]
-  (->SurfaceFireMax spread-rate 0.0 0.0))
+  (->SurfaceFireMax spread-rate 0.0 0.0 0.0))
 
 (defn spread-info-max-wind-only
   [^double spread-rate ^double phi_W ^double midflame-wind-speed ^double wind-to-direction]
-  (->SurfaceFireMax (* spread-rate (+ 1.0 phi_W)) wind-to-direction midflame-wind-speed))
+  (->SurfaceFireMax (* spread-rate (+ 1.0 phi_W)) wind-to-direction midflame-wind-speed 0.0))
 
 (defn spread-info-max-slope-only
   [^double spread-rate ^double phi_S ^double slope-direction get-wind-speed]
-  (->SurfaceFireMax (* spread-rate (+ 1.0 phi_S)) slope-direction (get-wind-speed phi_S)))
+  (->SurfaceFireMax (* spread-rate (+ 1.0 phi_S)) slope-direction (get-wind-speed phi_S) 0.0))
 
 (defn spread-info-max-wind-blows-upslope
   [^double spread-rate ^double phi-combined ^double slope-direction get-wind-speed]
-  (->SurfaceFireMax (* spread-rate (+ 1.0 phi-combined)) slope-direction (get-wind-speed phi-combined)))
+  (->SurfaceFireMax (* spread-rate (+ 1.0 phi-combined)) slope-direction (get-wind-speed phi-combined) 0.0))
 
 (defn spread-info-max-wind-blows-across-slope
   [spread-rate phi_W phi_S wind-to-direction slope-direction get-wind-speed]
@@ -354,7 +354,7 @@
         y                  (* wind-magnitude (Math/sin difference-angle))
         combined-magnitude (Math/sqrt (+ (* x x) (* y y)))]
     (if (almost-zero? combined-magnitude)
-      (->SurfaceFireMax spread-rate 0.0 0.0)
+      (->SurfaceFireMax spread-rate 0.0 0.0 0.0)
       (let [max-spread-rate      (+ spread-rate combined-magnitude)
             phi-combined         (- (/ max-spread-rate spread-rate) 1.0)
             offset               (rad->deg
@@ -368,7 +368,7 @@
                                      (+ 180.0 offset)))
             max-spread-direction (mod (+ slope-direction offset') 360.0)
             effective-wind-speed (get-wind-speed phi-combined)]
-        (->SurfaceFireMax max-spread-rate max-spread-direction effective-wind-speed)))))
+        (->SurfaceFireMax max-spread-rate max-spread-direction effective-wind-speed 0.0)))))
 
 (defn rothermel-surface-fire-spread-max
   "Note: fire ellipse adjustment factor, < 1.0 = more circular, > 1.0 = more elliptical"
