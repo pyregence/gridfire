@@ -41,7 +41,7 @@
    (fn [i j]
      (let [^double burn-time (t/mget burn-time-matrix i j)
            delta-hours       (->> (- current-clock burn-time)
-                            min->hour)]
+                                  min->hour)]
        (cond
          (previous-active-perimeter? [i j] burn-time-matrix) 201
          (= burn-time -1.0)                                  200
@@ -148,7 +148,9 @@
                         output-name)]
       (binary/write-matrices-as-binary output-path
                                        [:float :float :float :int]
-                                       [(d/clone (d/emap #(if (pos? ^double %) (* 60 ^double %) %) nil burn-time-matrix))
+                                       [(->> burn-time-matrix
+                                             (d/emap (fn ^double [^double x] (if (pos? x) (* 60.0 x) x)) :float64)
+                                             (d/clone))
                                         flame-length-matrix
                                         spread-rate-matrix
                                         fire-type-matrix]))))
