@@ -110,13 +110,12 @@
           rise               (* run slope slope-factor)]
       (Math/sqrt (+ (* run run) (* rise rise)))))
 
-(defn- rothermel-fast-wrapper-optimal
+(defn rothermel-fast-wrapper-optimal
   [fuel-model-number fuel-moisture grass-suppression?]
-  (let [fuel-model       (-> (fuel-models-precomputed (long fuel-model-number))
-                             (moisturize fuel-moisture))
-        surface-fire-min (rothermel-surface-fire-spread-no-wind-no-slope
-                          fuel-model grass-suppression?)]
-    [fuel-model surface-fire-min]))
+  (-> (long fuel-model-number)
+      (fuel-models-precomputed)
+      (moisturize fuel-moisture)
+      (rothermel-surface-fire-spread-no-wind-no-slope grass-suppression?)))
 
 (defn- store-if-max!
   [^double value matrix i j]
@@ -163,8 +162,7 @@
                                                 (get-fuel-moisture-live-woody i j)
                                                 (calc-fuel-moisture relative-humidity temperature :live :woody))
         ^double foliar-moisture               (get-foliar-moisture band i j)
-        [fuel-model
-         surface-fire-min]                    (rothermel-fast-wrapper-optimal fuel-model
+        surface-fire-min                      (rothermel-fast-wrapper-optimal fuel-model
                                                                               [fuel-moisture-dead-1hr
                                                                                fuel-moisture-dead-10hr
                                                                                fuel-moisture-dead-100hr
@@ -174,7 +172,7 @@
                                                                               grass-suppression?)
         midflame-wind-speed                   (mph->fpm
                                                (* wind-speed-20ft
-                                                  (wind-adjustment-factor ^double (:delta fuel-model)
+                                                  (wind-adjustment-factor ^double (:fuel-bed-depth surface-fire-min)
                                                                           canopy-height
                                                                           canopy-cover)))
         surface-fire-max                      (rothermel-surface-fire-spread-max surface-fire-min
@@ -198,7 +196,7 @@
             max-crown-intensity                   (crown-fire-line-intensity crown-spread-max
                                                                              crown-bulk-density
                                                                              (- canopy-height canopy-base-height)
-                                                                             ((:h fuel-model) 0))
+                                                                             (:heat-of-combustion surface-fire-min))
             max-fire-line-intensity               (+ max-surface-intensity max-crown-intensity)
             max-eccentricity                      (if (> ^double max-spread-rate crown-spread-max)
                                                     eccentricity
@@ -740,7 +738,7 @@
           (println "first 20 timesteps" (reverse (take-last 20 burn-vectors-count)))
           (println "burn-vectors-count:" (double (reduce + burn-vectors-count)))
           (println "timestep-count:" timestep-count)
-          (println "avg burn-vectors per timestep" (double (/ (reduce + burn-vectors-count) timestep-count)))
+          (println "avg burn-vectors per timestep" (double (/ (long (reduce + burn-vectors-count)) timestep-count)))
 
          {:exit-condition             (if (>= global-clock ignition-stop-time) :max-runtime-reached :no-burnable-fuels)
           :global-clock               global-clock

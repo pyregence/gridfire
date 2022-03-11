@@ -140,12 +140,8 @@
         0.0))))
 
 (defn get-phi_W-fn
-  [^double beta ^double beta_op ^double sigma']
-  (let [E        (* 0.715 (Math/exp (* -3.59 (/ sigma' 10000.0))))
-        B        (* 0.02526 (Math/pow sigma' 0.54))
-        F        (Math/pow (/ beta beta_op) E)
-        C        (* 7.47 (Math/exp (* -0.133 (Math/pow sigma' 0.55))))
-        C-over-F (/ C F)]
+  [^double beta ^double B ^double C ^double F]
+  (let [C-over-F (/ C F)]
     (if (pos? beta)
       (fn ^double [^double midflame-wind-speed]
         (if (pos? midflame-wind-speed)
@@ -157,12 +153,8 @@
         0.0))))
 
 (defn get-wind-speed-fn
-  [^double beta ^double beta_op ^double sigma']
-  (let [E         (* 0.715 (Math/exp (* -3.59 (/ sigma' 10000.0))))
-        F         (Math/pow (/ beta beta_op) E)
-        C         (* 7.47 (Math/exp (* -0.133 (Math/pow sigma' 0.55))))
-        B         (* 0.02526 (Math/pow sigma' 0.54))
-        F-over-C  (/ F C)
+  [^double B ^double C ^double F]
+  (let [F-over-C  (/ F C)
         B-inverse (/ 1.0 B)]
     (fn ^double [^double phi_W]
       (-> phi_W
@@ -173,6 +165,8 @@
     [^double spread-rate
      ^double reaction-intensity
      ^double residence-time
+     ^double fuel-bed-depth
+     ^double heat-of-combustion
      get-phi_S
      get-phi_W
      get-wind-speed])
@@ -227,12 +221,18 @@
         R              (calc-surface-fire-spread-rate I_R xi rho_b epsilon) ; (ft/min)
         R'             (calc-suppressed-spread-rate R number grass-suppression?)
         t_res          (calc-residence-time sigma')
+        B              (* 0.02526 (Math/pow sigma' 0.54))
+        C              (* 7.47 (Math/exp (* -0.133 (Math/pow sigma' 0.55))))
+        E              (* 0.715 (Math/exp (* -3.59 (/ sigma' 10000.0))))
+        F              (Math/pow (/ beta beta_op) E)
         get-phi_S      (get-phi_S-fn beta)
-        get-phi_W      (get-phi_W-fn beta beta_op sigma')
-        get-wind-speed (get-wind-speed-fn beta beta_op sigma')]
+        get-phi_W      (get-phi_W-fn beta B C F)
+        get-wind-speed (get-wind-speed-fn B C F)]
     (->SurfaceFireMin R'
                       I_R
                       t_res
+                      delta
+                      (h 0)
                       get-phi_S
                       get-phi_W
                       get-wind-speed)))
@@ -285,7 +285,8 @@
 (defrecord SurfaceFireMax
     [^double max-spread-rate
      ^double max-spread-direction
-     ^double effective-wind-speed])
+     ^double effective-wind-speed
+     ^double eccentricity])
 
 (defn scale-spread-to-max-wind-speed
   [spread-properties ^double spread-rate ^double max-wind-speed ^double phi-max]
@@ -298,11 +299,11 @@
 (defn add-eccentricity
   [spread-properties ^double ellipse-adjustment-factor]
   (let [effective-wind-speed (:effective-wind-speed spread-properties)
-        length-width-ratio (+ 1.0 (-> 0.002840909
-                                      (* ^double effective-wind-speed)
-                                      (* ellipse-adjustment-factor)))
-        eccentricity       (/ (Math/sqrt (- (Math/pow length-width-ratio 2.0) 1.0))
-                              length-width-ratio)]
+        length-width-ratio   (+ 1.0 (-> 0.002840909
+                                        (* ^double effective-wind-speed)
+                                        (* ellipse-adjustment-factor)))
+        eccentricity         (/ (Math/sqrt (- (Math/pow length-width-ratio 2.0) 1.0))
+                                length-width-ratio)]
     (assoc spread-properties :eccentricity eccentricity)))
 
 (defn smallest-angle-between ^double [^double theta1 ^double theta2]
@@ -371,11 +372,12 @@
 
 (defn rothermel-surface-fire-spread-max
   "Note: fire ellipse adjustment factor, < 1.0 = more circular, > 1.0 = more elliptical"
-  [surface-fire-min
-   midflame-wind-speed wind-from-direction
-   slope aspect ellipse-adjustment-factor]
+  [surface-fire-min midflame-wind-speed wind-from-direction slope aspect ellipse-adjustment-factor]
   (let [spread-rate               (double (:spread-rate surface-fire-min))
         reaction-intensity        (double (:reaction-intensity surface-fire-min))
+        get-phi_S                 (:get-phi_S surface-fire-min)
+        get-phi_W                 (:get-phi_W surface-fire-min)
+        get-wind-speed            (:get-wind-speed surface-fire-min)
         midflame-wind-speed       (double midflame-wind-speed)
         wind-from-direction       (double wind-from-direction)
         slope                     (double slope)
@@ -384,10 +386,9 @@
         slope-direction           (mod (+ aspect 180.0) 360.0)
         wind-to-direction         (mod (+ wind-from-direction 180.0) 360.0)
         max-wind-speed            (* 0.9 reaction-intensity)
-        get-wind-speed            (:get-wind-speed surface-fire-min)
-        ^double phi-max           ((:get-phi_W surface-fire-min) max-wind-speed)
-        ^double phi_W             ((:get-phi_W surface-fire-min) midflame-wind-speed)
-        ^double phi_S             ((:get-phi_S surface-fire-min) slope)]
+        ^double phi_S             (get-phi_S slope)
+        ^double phi_W             (get-phi_W midflame-wind-speed)
+        ^double phi-max           (get-phi_W max-wind-speed)]
     (->
      (case (determine-spread-drivers midflame-wind-speed wind-to-direction slope slope-direction)
        :no-wind-no-slope        (spread-info-max-no-wind-no-slope spread-rate)
@@ -400,10 +401,8 @@
      (scale-spread-to-max-wind-speed spread-rate max-wind-speed phi-max)
      (add-eccentricity ellipse-adjustment-factor))))
 
-(defn compute-spread-rate
-  ^double
-  [^double max-spread-rate ^double max-spread-direction
-   ^double eccentricity ^double spread-direction]
+(defn compute-spread-rate ^double
+  [^double max-spread-rate ^double max-spread-direction ^double eccentricity ^double spread-direction]
   (let [theta (smallest-angle-between max-spread-direction spread-direction)]
     (if (or (almost-zero? eccentricity) (almost-zero? theta))
       max-spread-rate
