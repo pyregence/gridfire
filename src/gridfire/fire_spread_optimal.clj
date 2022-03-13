@@ -110,7 +110,7 @@
           rise               (* run slope slope-factor)]
       (Math/sqrt (+ (* run run) (* rise rise)))))
 
-(defn rothermel-fast-wrapper-optimal
+(defn ^:redef rothermel-fast-wrapper-optimal
   [fuel-model-number fuel-moisture grass-suppression?]
   (-> (long fuel-model-number)
       (fuel-models-precomputed)
@@ -246,7 +246,6 @@
                                               direction)
         terrain-distance (compute-terrain-distance cell-size get-elevation num-rows num-cols i j new-i new-j)]
     (->BurnVector i j direction 0.5 spread-rate spread-rate terrain-distance burn-probability)))
-
 
 (defn- burnable-cell?
   [fuel-model-matrix fire-spread-matrix burn-probability num-rows num-cols i j]
