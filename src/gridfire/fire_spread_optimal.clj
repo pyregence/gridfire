@@ -118,10 +118,10 @@
       (rothermel-surface-fire-spread-no-wind-no-slope grass-suppression?)))
 
 (defn- store-if-max!
-  [^double value matrix i j]
-  (->> value
-       (max ^double (t/mget matrix i j))
-       (t/mset! matrix i j)))
+  [matrix i j ^double new-value]
+  (let [^double old-value (t/mget matrix i j)]
+    (when (> new-value old-value)
+      (t/mset! matrix i j new-value))))
 
 (defn- compute-max-in-situ-values!
   [{:keys [get-aspect get-canopy-base-height get-canopy-cover get-canopy-height get-crown-bulk-density
@@ -190,52 +190,37 @@
                                            canopy-base-height
                                            foliar-moisture
                                            max-surface-intensity)
-      (let [[crown-type ^double crown-spread-max] (cruz-crown-fire-spread wind-speed-20ft
-                                                                          crown-bulk-density
-                                                                          fuel-moisture-dead-1hr)
-            max-crown-intensity                   (crown-fire-line-intensity crown-spread-max
-                                                                             crown-bulk-density
-                                                                             (- canopy-height canopy-base-height)
-                                                                             (:heat-of-combustion surface-fire-min))
-            max-fire-line-intensity               (+ max-surface-intensity max-crown-intensity)
-            max-eccentricity                      (if (> ^double max-spread-rate crown-spread-max)
-                                                    eccentricity
-                                                    (crown-fire-eccentricity wind-speed-20ft ellipse-adjustment-factor))
-            max-spread-rate                       (max ^double max-spread-rate crown-spread-max)]
-
-        (t/mset! max-spread-rate-matrix      i j max-spread-rate)
-        (t/mset! max-spread-direction-matrix i j max-spread-direction)
-        (t/mset! eccentricity-matrix         i j max-eccentricity)
-        (t/mset! modified-time-matrix        i j clock)
-
-        (-> max-spread-rate
-            (store-if-max! spread-rate-matrix i j))
-
-        (-> (byram-flame-length max-fire-line-intensity)
-            (store-if-max! flame-length-matrix i j))
-
-        (-> max-fire-line-intensity
-            (store-if-max! fire-line-intensity-matrix i j))
-
-        (-> (if (= crown-type :passive-crown) 2.0 3.0) ; FIXME: Make cruz-crown-fire-spread return 2.0 or 3.0
-            (store-if-max! fire-type-matrix i j)))
+      (let [crown-spread-max        (cruz-crown-fire-spread wind-speed-20ft
+                                                            crown-bulk-density
+                                                            fuel-moisture-dead-1hr)
+            crown-type              (if (neg? crown-spread-max) 2.0 3.0) ; 2=passive, 3=active
+            crown-spread-max        (Math/abs crown-spread-max)
+            max-crown-intensity     (crown-fire-line-intensity crown-spread-max
+                                                               crown-bulk-density
+                                                               (- canopy-height canopy-base-height)
+                                                               (:heat-of-combustion surface-fire-min))
+            max-fire-line-intensity (+ max-surface-intensity max-crown-intensity)
+            max-eccentricity        (if (> ^double max-spread-rate crown-spread-max)
+                                      eccentricity
+                                      (crown-fire-eccentricity wind-speed-20ft ellipse-adjustment-factor))
+            max-spread-rate         (max ^double max-spread-rate crown-spread-max)]
+        (t/mset! max-spread-rate-matrix           i j max-spread-rate)
+        (t/mset! max-spread-direction-matrix      i j max-spread-direction)
+        (t/mset! eccentricity-matrix              i j max-eccentricity)
+        (t/mset! modified-time-matrix             i j clock)
+        (store-if-max! spread-rate-matrix         i j max-spread-rate)
+        (store-if-max! flame-length-matrix        i j (byram-flame-length max-fire-line-intensity))
+        (store-if-max! fire-line-intensity-matrix i j max-fire-line-intensity)
+        (store-if-max! fire-type-matrix           i j crown-type))
       (do
-        (t/mset! max-spread-rate-matrix      i j max-spread-rate)
-        (t/mset! max-spread-direction-matrix i j max-spread-direction)
-        (t/mset! eccentricity-matrix         i j eccentricity)
-        (t/mset! modified-time-matrix        i j clock)
-
-        (-> max-spread-rate
-            (store-if-max! spread-rate-matrix i j))
-
-        (-> (byram-flame-length max-surface-intensity)
-            (store-if-max! flame-length-matrix i j))
-
-        (-> max-surface-intensity
-            (store-if-max! fire-line-intensity-matrix i j))
-
-        (-> 1.0
-            (store-if-max! fire-type-matrix i j))))))
+        (t/mset! max-spread-rate-matrix           i j max-spread-rate)
+        (t/mset! max-spread-direction-matrix      i j max-spread-direction)
+        (t/mset! eccentricity-matrix              i j eccentricity)
+        (t/mset! modified-time-matrix             i j clock)
+        (store-if-max! spread-rate-matrix         i j max-spread-rate)
+        (store-if-max! flame-length-matrix        i j (byram-flame-length max-surface-intensity))
+        (store-if-max! fire-line-intensity-matrix i j max-surface-intensity)
+        (store-if-max! fire-type-matrix           i j 1.0)))))
 
 (defn- create-new-burn-vector
   [{:keys [cell-size get-elevation num-rows num-cols]} burn-probability max-spread-rate

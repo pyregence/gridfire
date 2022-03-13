@@ -66,27 +66,33 @@
   "Returns spread-rate in m/min given:
    - wind-speed-10m (km/hr)
    - crown-bulk-density (kg/m^3)
-   - estimated-fine-fuel-moisture (-> M_f :dead :1hr) (0-100 %)"
+   - estimated-fine-fuel-moisture (-> M_f :dead :1hr) (0-100 %)
+   NOTE: A positive spread-rate indicates active crowning.
+         A negative spread-rate indicates passive crowning."
+  ^double
   [^double wind-speed-10m ^double crown-bulk-density ^double estimated-fine-fuel-moisture]
   (let [active-spread-rate   (cruz-active-crown-fire-spread wind-speed-10m
                                                             crown-bulk-density
                                                             estimated-fine-fuel-moisture)
         critical-spread-rate (/ 3.0 crown-bulk-density)] ;; m/min
     (if (> active-spread-rate critical-spread-rate)
-      [:active-crown active-spread-rate]
-      [:passive-crown (cruz-passive-crown-fire-spread active-spread-rate critical-spread-rate)])))
+      active-spread-rate
+      (- (cruz-passive-crown-fire-spread active-spread-rate critical-spread-rate))))) ; NOTE: Use minus as passive flag
 
 (defn cruz-crown-fire-spread
   "Returns spread-rate in ft/min given:
    - wind-speed-20ft (mph)
    - crown-bulk-density (lb/ft^3)
-   - estimated-fine-fuel-moisture (-> M_f :dead :1hr) (0-1)"
+   - estimated-fine-fuel-moisture (-> M_f :dead :1hr) (0-1)
+   NOTE: A positive spread-rate indicates active crowning.
+         A negative spread-rate indicates passive crowning."
+  ^double
   [^double wind-speed-20ft ^double crown-bulk-density ^double estimated-fine-fuel-moisture]
-  (let [[fire-type fire-rate] (cruz-crown-fire-spread-metric
-                                (-> wind-speed-20ft (convert/mph->km-hr) (convert/wind-speed-20ft->wind-speed-10m))
-                                (convert/lb-ft3->kg-m3 crown-bulk-density)
-                                (convert/dec->percent estimated-fine-fuel-moisture))]
-    [fire-type (convert/m->ft fire-rate)]))
+  (convert/m->ft
+   (cruz-crown-fire-spread-metric
+    (-> wind-speed-20ft (convert/mph->km-hr) (convert/wind-speed-20ft->wind-speed-10m))
+    (convert/lb-ft3->kg-m3 crown-bulk-density)
+    (convert/dec->percent estimated-fine-fuel-moisture))))
 ;; cruz-crown-fire-spread ends here
 
 ;; [[file:../../org/GridFire.org::crown-fire-line-intensity][crown-fire-line-intensity]]

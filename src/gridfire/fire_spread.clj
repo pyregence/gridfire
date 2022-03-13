@@ -196,7 +196,9 @@
                                                                                        slope
                                                                                        aspect
                                                                                        ellipse-adjustment-factor)
-        [crown-type crown-spread-max]               (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density fuel-moisture-dead-1hr)
+        crown-spread-max                            (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density fuel-moisture-dead-1hr)
+        crown-type                                  (if (neg? crown-spread-max) :passive-crown :active-crown)
+        crown-spread-max                            (Math/abs crown-spread-max)
         crown-eccentricity                          (crown-fire-eccentricity wind-speed-20ft
                                                                              ellipse-adjustment-factor)]
     (into []
