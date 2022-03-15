@@ -77,7 +77,7 @@
   [{:keys [spotting rand-gen]}
    fire-line-intensity-matrix
    wind-speed-20ft [i j]]
-  (let [num-firebrands          (int (sample-spotting-params (:num-firebrands spotting) rand-gen))
+  (let [num-firebrands          (long (sample-spotting-params (:num-firebrands spotting) rand-gen))
         intensity               (convert/Btu-ft-s->kW-m (t/mget fire-line-intensity-matrix i j))
         {:keys [mean variance]} (mean-variance spotting rand-gen intensity wind-speed-20ft)
         mu                      (normalized-mean mean variance)
@@ -121,8 +121,8 @@
     (mapv (fn [[dx dy]]
             (let [dx (double dx)
                   dy (double dy)]
-              [(int (Math/floor (/ (+ dy y) cell-size)))
-               (int (Math/floor (/ (+ dx x) cell-size)))]))
+              [(long (Math/floor (/ (+ dy y) cell-size)))
+               (long (Math/floor (/ (+ dx x) cell-size)))]))
           coord-deltas)))
 ;; convert-deltas ends here
 ;; [[file:../../org/GridFire.org::firebrand-ignition-probability][firebrand-ignition-probability]]
@@ -290,7 +290,7 @@
            surface-fire-spotting
            (> fire-line-intensity ^double (:critical-fire-line-intensity surface-fire-spotting)))
       (let [fuel-range-percents (:spotting-percent surface-fire-spotting)
-            fuel-model-number   (int (t/mget fuel-model-matrix i j))
+            fuel-model-number   (long (t/mget fuel-model-matrix i j))
             spot-percent        (surface-spot-percent fuel-range-percents fuel-model-number rand-gen)]
         (>= spot-percent (my-rand-range rand-gen 0.0 1.0))))))
 
@@ -328,7 +328,7 @@
         fire-line-intensity (t/mget fire-line-intensity-matrix i j)
         crown-fire?         (> (t/mget fire-type-matrix i j) 1.0)]
     (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
-      (let [band                    (int (/ burn-time 60.0))
+      (let [band                    (long (/ burn-time 60.0))
             ws                      (get-wind-speed-20ft band i j)
             wd                      (get-wind-from-direction band i j)
             deltas                  (sample-wind-dir-deltas inputs
