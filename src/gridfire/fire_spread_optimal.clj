@@ -245,7 +245,7 @@
         max-spread-rate      (t/mget max-spread-rate-matrix i j)
         max-spread-direction (t/mget max-spread-direction-matrix i j)
         eccentricity         (t/mget eccentricity-matrix i j)
-        create-burn-vector   (fn [acc bit]
+        create-burn-vector   (fn [acc ^long bit]
                                (let [direction (case bit
                                                  0 0.0
                                                  1 45.0
