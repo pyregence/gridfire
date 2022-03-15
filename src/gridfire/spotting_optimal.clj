@@ -329,17 +329,12 @@
         crown-fire?         (> (t/mget fire-type-matrix i j) 1.0)]
     (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
       (let [band                    (int (/ burn-time 60.0))
-            tmp                     (get-temperature band i j)
-            rh                      (get-relative-humidity band i j)
             ws                      (get-wind-speed-20ft band i j)
             wd                      (get-wind-from-direction band i j)
-            m1                      (if get-fuel-moisture-dead-1hr
-                                (get-fuel-moisture-dead-1hr band i j)
-                                (calc-fuel-moisture rh tmp :dead :1hr))
             deltas                  (sample-wind-dir-deltas inputs
-                                                      fire-line-intensity-matrix
-                                                      (convert/mph->mps ws)
-                                                      cell)
+                                                            fire-line-intensity-matrix
+                                                            (convert/mph->mps ws)
+                                                            cell)
             wind-to-direction       (mod (+ 180 wd) 360)
             firebrands              (firebrands deltas wind-to-direction cell cell-size)
             source-burn-probability (t/mget fire-spread-matrix i j)]
