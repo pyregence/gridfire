@@ -128,7 +128,7 @@
   (let [spec (get-in fuel-moisture [category size])]
     (when (map? spec)
       (let [{:keys [type source units multiplier]} spec
-            fuel-moisture-name                     (keyword (s/join "-" ["fuel-moisture" category size]))
+            fuel-moisture-name                     (keyword (s/join "-" ["fuel-moisture" (name category) (name size)]))
             convert-fn                             (convert/get-units-converter fuel-moisture-name
                                                             (or units :percent)
                                                             (or multiplier 1.0))]
