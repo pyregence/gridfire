@@ -35,7 +35,7 @@
   [{:keys [^long simulations parallel-strategy] :as inputs}]
   (with-multithread-profiling ; TODO: Disable this to see how much performance is gained.
     (log-str "Running simulations")
-    (let [parallel-bin-size (max 1 (quot simulations (.availableProcessors (Runtime/getRuntime))))
+    (let [parallel-bin-size 1
           reducer-fn        (if (= parallel-strategy :between-fires)
                               #(into [] (r/fold parallel-bin-size r/cat r/append! %))
                               #(into [] %))

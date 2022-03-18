@@ -231,45 +231,20 @@
   (str/replace kebab-string #"-" "_"))
 
 (def conversion-table
-  {:aspect                        {nil       double}
-   :elevation                     {:metric   m->ft
-                                   :imperial double
-                                   nil       double}
+  {:elevation                     {:metric   m->ft}
    :slope                         {nil       deg->ratio}
-   :canopy-cover                  {nil       double}
-   :canopy-base-height            {:metric   m->ft
-                                   :imperial double
-                                   nil       double}
-   :canopy-height                 {:metric   m->ft
-                                   :imperial double
-                                   nil       double}
-   :crown-bulk-density            {:metric   kg-m3->lb-ft3
-                                   :imperial double
-                                   nil       double}
+   :canopy-base-height            {:metric   m->ft}
+   :canopy-height                 {:metric   m->ft}
+   :crown-bulk-density            {:metric   kg-m3->lb-ft3}
    :temperature                   {:metric   C->F
-                                   :absolute K->F
-                                   :imperial double
-                                   nil       double}
-   :relative-humidity             {nil       double}
-   :wind-speed-20ft               {:metric   mps->mph
-                                   :imperial double
-                                   nil       double}
-   :wind-from-direction           {nil       double}
-   :fuel-moisture-dead-1hr        {:percent  percent->dec
-                                   :ratio    double
-                                   nil       double}
-   :fuel-moisture-dead-10hr       {:percent  percent->dec
-                                   :ratio    double
-                                   nil       double}
-   :fuel-moisture-dead-100hr      {:percent  percent->dec
-                                   :ratio    double
-                                   nil       double}
-   :fuel-moisture-live-herbaceous {:percent  percent->dec
-                                   :ratio    double
-                                   nil       double}
-   :fuel-moisture-live-woody      {:percent  percent->dec
-                                   :ratio    double
-                                   nil       double}})
+                                   :absolute K->F}
+   :relative-humidity             {:ratio    dec->percent}
+   :wind-speed-20ft               {:metric   mps->mph}
+   :fuel-moisture-dead-1hr        {:percent  percent->dec}
+   :fuel-moisture-dead-10hr       {:percent  percent->dec}
+   :fuel-moisture-dead-100hr      {:percent  percent->dec}
+   :fuel-moisture-live-herbaceous {:percent  percent->dec}
+   :fuel-moisture-live-woody      {:percent  percent->dec}})
 
 (defn valid-multiplier?
   [x]

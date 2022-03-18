@@ -682,27 +682,29 @@
                                                 (ignited-cells->burn-vectors inputs matrices transition-ignited-cells)
                                                 (promote-burn-vectors inputs matrices global-clock new-clock
                                                                       new-hour? top-of-hour))
-              [spot-burn-vectors
-               spot-ignite-now-count
-               spot-ignite-later]          (compute-spot-burn-vectors! inputs
-                                                                       matrices
-                                                                       spot-ignitions
-                                                                       (into ignited-cells transition-ignited-cells)
-                                                                       new-clock
-                                                                       new-hour?)
-              promoted-spot-bvs            (promote-burn-vectors inputs matrices global-clock new-clock
-                                                                 new-hour? top-of-hour spot-burn-vectors)
-              [untransitioned-spot-bvs
-               transitioned-spot-bvs
-               _]                          (transition-burn-vectors inputs matrices global-clock new-clock
-                                                                    new-hour? promoted-spot-bvs)
+              ;; [spot-burn-vectors
+              ;;  spot-ignite-now-count
+              ;;  spot-ignite-later]          (compute-spot-burn-vectors! inputs
+              ;;                                                          matrices
+              ;;                                                          spot-ignitions
+              ;;                                                          (into ignited-cells transition-ignited-cells)
+              ;;                                                          new-clock
+              ;;                                                          new-hour?)
+              ;; promoted-spot-bvs            (promote-burn-vectors inputs matrices global-clock new-clock
+              ;;                                                    new-hour? top-of-hour spot-burn-vectors)
+              ;; [untransitioned-spot-bvs
+              ;;  transitioned-spot-bvs
+              ;;  _]                          (transition-burn-vectors inputs matrices global-clock new-clock
+              ;;                                                       new-hour? promoted-spot-bvs)
               burn-vectors'                (-> (into untransitioned-bvs promoted-transitioned-bvs)
-                                               (into untransitioned-spot-bvs)
-                                               (into transitioned-spot-bvs))]
+                                               #_(into untransitioned-spot-bvs)
+                                               #_(into transitioned-spot-bvs))]
           (recur (+ global-clock timestep)
                  burn-vectors'
-                 spot-ignite-later
-                 (+ spot-count ^long spot-ignite-now-count)))
+                 {}
+                 0
+                 ;; spot-ignite-later
+                 #_(+ spot-count ^long spot-ignite-now-count)))
         {:exit-condition             (if (>= global-clock ignition-stop-time) :max-runtime-reached :no-burnable-fuels)
          :global-clock               global-clock
          :burn-time-matrix           (matrices :burn-time-matrix)

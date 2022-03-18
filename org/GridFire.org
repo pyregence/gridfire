@@ -3079,11 +3079,17 @@ described in the previous section.
 
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/magellan_bridge.clj :padline no :no-expand :comments link
 (ns gridfire.magellan-bridge
-  (:require [magellan.core           :refer [read-raster]]
+  (:require [clojure.java.io         :as io]
+            [magellan.core           :refer [read-raster register-new-crs-definitions-from-properties-file!]]
             [magellan.raster.inspect :as inspect]
             [tech.v3.tensor          :as t])
   (:import org.geotools.coverage.grid.GridGeometry2D
            org.geotools.referencing.operation.transform.AffineTransform2D))
+
+(set! *unchecked-math* :warn-on-boxed)
+
+(defn register-custom-projections! []
+  (register-new-crs-definitions-from-properties-file! "CUSTOM" (io/resource "custom_projections.properties")))
 
 (defn geotiff-raster-to-matrix
   "Reads a raster from a file using the magellan.core library. Returns the
@@ -3116,10 +3122,45 @@ described in the previous section.
      :height     (:height image)
      :scalex     (.getScaleX crs2d)
      :scaley     (.getScaleY crs2d)
-     :skewx      0.0                    ;FIXME not used?
-     :skewy      0.0                    ;FIXME not used?
+     :skewx      0.0 ; FIXME not used?
+     :skewy      0.0 ; FIXME not used?
      :numbands   (:bands image)
      :matrix     (t/->tensor matrix)}))
+
+(defn geotiff-raster-to-tensor
+  "Reads a raster from a file using the magellan.core library. Returns the
+   post-processed raster values as a Clojure matrix using the core.matrix API
+   along with all of the georeferencing information associated with this tile in a
+   hash-map with the following form:
+  {:srid 900916,
+   :upperleftx -321043.875,
+   :upperlefty -1917341.5,
+   :width 486,
+   :height 534,
+   :scalex 2000.0,
+   :scaley -2000.0,
+   :skewx 0.0,
+   :skewy 0.0,
+   :numbands 10,
+   :matrix #tech.v3.tensor<float64>[10 534 486]}"
+  [file-path & [datatype convert-fn]]
+  (let [raster   (read-raster file-path)
+        grid     ^GridGeometry2D (:grid raster)
+        r-info   (inspect/describe-raster raster)
+        image    (:image r-info)
+        envelope (:envelope r-info)
+        crs2d    ^AffineTransform2D (.getGridToCRS2D grid)]
+    {:srid       (:srid r-info)
+     :upperleftx (get-in envelope [:x :min])
+     :upperlefty (get-in envelope [:y :max])
+     :width      (:width image)
+     :height     (:height image)
+     :scalex     (.getScaleX crs2d)
+     :scaley     (.getScaleY crs2d)
+     :skewx      0.0 ; FIXME not used?
+     :skewy      0.0 ; FIXME not used?
+     :numbands   (:bands image)
+     :matrix     (inspect/extract-tensor raster :datatype datatype :convert-fn convert-fn)}))
 #+end_src
 
 ** Command Line Interface
@@ -3687,77 +3728,84 @@ this functionality.
 #+name: fetch.clj
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fetch.clj :padline no :no-expand :comments link
 (ns gridfire.fetch
-  (:require [clojure.java.io          :as io]
+  (:require [clojure.string           :as s]
             [gridfire.conversion      :as convert]
-            [gridfire.magellan-bridge :refer [geotiff-raster-to-matrix]]
+            [gridfire.magellan-bridge :refer [geotiff-raster-to-tensor]]
             [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]
-            [magellan.core            :refer [make-envelope
-                                              register-new-crs-definitions-from-properties-file!]]
-            [tech.v3.datatype           :as d]))
-
-(register-new-crs-definitions-from-properties-file! "CUSTOM" (io/resource "custom_projections.properties"))
+            [magellan.core            :refer [make-envelope]]
+            [tech.v3.datatype         :as d]))
 
 (set! *unchecked-math* :warn-on-boxed)
+
+;;-----------------------------------------------------------------------------
+;; Utilities
+;;-----------------------------------------------------------------------------
+
+(defn layer->envelope
+  [{:keys [^double upperleftx
+           ^double upperlefty
+           ^double width
+           ^double height
+           ^double scalex
+           ^double scaley]}
+   srid]
+  (make-envelope srid
+                 upperleftx
+                 (+ upperlefty (* height scaley))
+                 (* width scalex)
+                 (* -1.0 height scaley)))
 
 ;;-----------------------------------------------------------------------------
 ;; LANDFIRE
 ;;-----------------------------------------------------------------------------
 
 (defn landfire-layer
-  [{:keys [db-spec] :as config} layer-name]
-  (let [layer-spec (get-in config [:landfire-layers layer-name])]
-    (if (map? layer-spec)
-      (-> (if (= (:type layer-spec) :postgis)
-            (postgis-raster-to-matrix db-spec (:source layer-spec))
-            (geotiff-raster-to-matrix (:source layer-spec)))
-          (convert/to-imperial! layer-spec layer-name))
-      (-> (postgis-raster-to-matrix db-spec layer-spec)
-          (convert/to-imperial! {:units :metric} layer-name)))))
+  [{:keys [db-spec landfire-layers]} layer-name]
+  (let [layer-spec                             (get landfire-layers layer-name)
+        {:keys [type source units multiplier]} (if (map? layer-spec)
+                                                 layer-spec
+                                                 {:type   :postgis
+                                                  :source layer-spec
+                                                  :units  :metric})
+        convert-fn                             (convert/get-units-converter layer-name
+                                                                            units
+                                                                            (or multiplier 1.0))
+        datatype                               (if (= layer-name :fuel-model)
+                                                 :int32
+                                                 :float64)]
+    (if (= type :postgis)
+      (cond-> (postgis-raster-to-matrix db-spec source)
+        convert-fn (update :matrix #(d/copy! (d/emap convert-fn datatype %) %)))
+      (geotiff-raster-to-tensor source datatype convert-fn))))
 
 (defn landfire-matrix
   [config layer-name]
   (:matrix (landfire-layer config layer-name)))
 
-(defn landfire-envelope
-  [config layer-name]
-  (let [{:keys [^double upperleftx
-                ^double upperlefty
-                ^double width
-                ^double height
-                ^double scalex
-                ^double scaley]} (landfire-layer config layer-name)]
-    (make-envelope (:srid config)
-                   upperleftx
-                   (+ upperlefty (* height scaley))
-                   (* width scalex)
-                   (* -1.0 height scaley))))
-
 ;;-----------------------------------------------------------------------------
 ;; Initial Ignition
 ;;-----------------------------------------------------------------------------
 
-(defn convert-burn-values [matrix {:keys [burned unburned]}]
-  (d/copy! (d/emap #(condp = %
-                      (double burned)   1.0
-                      (double unburned) 0.0
-                      -1.0)
-                   :float64
-                   matrix)
-           matrix))
-
 (defn ignition-layer
   [{:keys [db-spec ignition-layer]}]
-  (if (= (:type ignition-layer) :postgis)
-    (postgis-raster-to-matrix db-spec (:source ignition-layer))
-    (geotiff-raster-to-matrix (:source ignition-layer))))
+  (if-let [burn-values (:burn-values ignition-layer)]
+    (let [{:keys [burned unburned]} burn-values
+          convert-fn                (fn [x] (cond
+                                              (= x burned)   1.0
+                                              (= x unburned) 0.0
+                                              :else          -1.0))]
+      (if (= (:type ignition-layer) :postgis)
+        (-> (postgis-raster-to-matrix db-spec (:source ignition-layer))
+            (update :matrix #(d/copy! (d/emap convert-fn :float64 %) %)))
+        (geotiff-raster-to-tensor (:source ignition-layer) :float64 convert-fn)))
+    (if (= (:type ignition-layer) :postgis)
+      (postgis-raster-to-matrix db-spec (:source ignition-layer))
+      (geotiff-raster-to-tensor (:source ignition-layer)))))
 
 (defn ignition-matrix
   [config]
   (when (:ignition-layer config)
-    (let [matrix (:matrix (ignition-layer config))]
-      (if-let [burn-values (-> config :ignition-layer :burn-values)]
-        (convert-burn-values matrix burn-values)
-        matrix))))
+    (:matrix (ignition-layer config))))
 
 ;;-----------------------------------------------------------------------------
 ;; Weather
@@ -3767,11 +3815,12 @@ this functionality.
   [{:keys [db-spec] :as config} weather-name]
   (let [weather-spec (get config weather-name)]
     (when (map? weather-spec)
-      (let [{:keys [type source]} weather-spec]
-        (-> (if (= type :postgis)
-              (postgis-raster-to-matrix db-spec source)
-              (geotiff-raster-to-matrix source))
-            (convert/to-imperial! weather-spec weather-name))))))
+      (let [{:keys [type source units multiplier]} weather-spec
+            convert-fn (convert/get-units-converter weather-name units (or multiplier 1.0))]
+        (if (= type :postgis)
+          (cond-> (postgis-raster-to-matrix db-spec source)
+            convert-fn (update :matrix #(d/copy! (d/emap convert-fn :float64 %) %)))
+          (geotiff-raster-to-tensor source :float64 convert-fn))))))
 
 (defn weather-matrix
   "Returns a matrix for the given weather name. Units of available weather:
@@ -3792,12 +3841,11 @@ this functionality.
     (let [spec (:ignition-mask random-ignition)]
       (if (= (:type spec) :postgis)
         (postgis-raster-to-matrix db-spec (:source spec))
-        (geotiff-raster-to-matrix (:source spec))))))
+        (geotiff-raster-to-tensor (:source spec))))))
 
 (defn ignition-mask-matrix
   [config]
-  (when-let [layer (ignition-mask-layer config)]
-    (:matrix layer)))
+  (:matrix (ignition-mask-layer config)))
 
 ;;-----------------------------------------------------------------------------
 ;; Moisture Layers
@@ -3807,20 +3855,21 @@ this functionality.
   [{:keys [db-spec fuel-moisture]} category size]
   (let [spec (get-in fuel-moisture [category size])]
     (when (map? spec)
-      (let [{:keys [type source]} spec]
-        (-> (if (= type :postgis)
-              (postgis-raster-to-matrix db-spec source)
-              (geotiff-raster-to-matrix source))
-            (update :matrix (fn [matrix]
-                              (d/copy! (d/emap convert/percent->dec nil matrix)
-                                       matrix))))))))
+      (let [{:keys [type source units multiplier]} spec
+            fuel-moisture-name                     (keyword (s/join "-" ["fuel-moisture" category size]))
+            convert-fn                             (convert/get-units-converter fuel-moisture-name
+                                                            (or units :percent)
+                                                            (or multiplier 1.0))]
+        (if (= type :postgis)
+          (cond-> (postgis-raster-to-matrix db-spec source)
+            convert-fn (update :matrix #(d/copy! (d/emap convert-fn :float64 %) %)))
+          (geotiff-raster-to-tensor source :float64 convert-fn))))))
 
 (defn fuel-moisture-matrix
   "Returns a matrix values for the given fuel category and size
   Units are in ratio (0-1)"
   [config category size]
-  (when-let [layer (fuel-moisture-layer config category size)]
-    (:matrix layer)))
+  (:matrix (fuel-moisture-layer config category size)))
 #+end_src
 
 ** Section 3: Weather data from which to build simulation inputs
