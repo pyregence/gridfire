@@ -44,7 +44,7 @@
                                                                             (or multiplier 1.0))
         datatype                               (if (= layer-name :fuel-model)
                                                  :int32
-                                                 :float64)]
+                                                 :float32)]
     (if (= type :postgis)
       (cond-> (postgis-raster-to-matrix db-spec source)
         convert-fn (update :matrix #(d/copy! (d/emap convert-fn datatype %) %)))
@@ -68,8 +68,8 @@
                                               :else          -1.0))]
       (if (= (:type ignition-layer) :postgis)
         (-> (postgis-raster-to-matrix db-spec (:source ignition-layer))
-            (update :matrix #(d/copy! (d/emap convert-fn :float64 %) %)))
-        (geotiff-raster-to-tensor (:source ignition-layer) :float64 convert-fn)))
+            (update :matrix #(d/copy! (d/emap convert-fn :float32 %) %)))
+        (geotiff-raster-to-tensor (:source ignition-layer) :float32 convert-fn)))
     (if (= (:type ignition-layer) :postgis)
       (postgis-raster-to-matrix db-spec (:source ignition-layer))
       (geotiff-raster-to-tensor (:source ignition-layer)))))
@@ -91,8 +91,8 @@
             convert-fn (convert/get-units-converter weather-name units (or multiplier 1.0))]
         (if (= type :postgis)
           (cond-> (postgis-raster-to-matrix db-spec source)
-            convert-fn (update :matrix #(d/copy! (d/emap convert-fn :float64 %) %)))
-          (geotiff-raster-to-tensor source :float64 convert-fn))))))
+            convert-fn (update :matrix #(d/copy! (d/emap convert-fn :float32 %) %)))
+          (geotiff-raster-to-tensor source :float32 convert-fn))))))
 
 (defn weather-matrix
   "Returns a matrix for the given weather name. Units of available weather:
@@ -134,8 +134,8 @@
                                                             (or multiplier 1.0))]
         (if (= type :postgis)
           (cond-> (postgis-raster-to-matrix db-spec source)
-            convert-fn (update :matrix #(d/copy! (d/emap convert-fn :float64 %) %)))
-          (geotiff-raster-to-tensor source :float64 convert-fn))))))
+            convert-fn (update :matrix #(d/copy! (d/emap convert-fn :float32 %) %)))
+          (geotiff-raster-to-tensor source :float32 convert-fn))))))
 
 (defn fuel-moisture-matrix
   "Returns a matrix values for the given fuel category and size
