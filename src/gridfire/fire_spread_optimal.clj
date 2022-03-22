@@ -344,18 +344,17 @@
             ignited-cells)))
 
 (defn- merge-spot-ignitions [a b]
-  (loop [to-process (seq b)
-         acc        a]
-    (if (seq to-process)
-      (let [[cell spot-info] (first to-process)]
-        (if-let [existing-entry (get acc cell)]
-          (let [[_ cur-p] existing-entry
-                [_ new-p] spot-info]
-            (recur (rest to-process) (assoc acc cell (if (> ^double cur-p ^double new-p )
-                                                       existing-entry
-                                                       spot-info))))
-          (recur (rest to-process) (assoc acc cell spot-info))))
-      acc)))
+  (persistent!
+   (reduce (fn [acc [cell spot-info]]
+             (if-let [existing-entry (acc cell)]
+               (let [[_ cur-p] existing-entry
+                     [_ new-p] spot-info]
+                 (if (>= ^double cur-p ^double new-p)
+                   acc
+                   (assoc! acc cell spot-info)))
+               (assoc! acc cell spot-info)))
+           (transient a)
+           b)))
 
 (defn- compute-spot-burn-vectors!
   [{:keys [num-rows num-cols cell-size get-elevation fuel-model-matrix] :as inputs}
@@ -366,10 +365,9 @@
   (let [new-clock                (double new-clock)
         new-spot-ignitions       (compute-new-spot-ignitions inputs matrices ignited-cells)
         [spot-ignite-later
-         spot-ignite-now]        (identify-spot-ignition-events new-clock
-                                                                (merge-spot-ignitions
-                                                                 spot-ignitions
-                                                                 new-spot-ignitions))
+         spot-ignite-now]        (identify-spot-ignition-events new-clock (merge-spot-ignitions
+                                                                           spot-ignitions
+                                                                           new-spot-ignitions))
         ignited?                 (fn [[k v]]
                                    (let [[i j] k
                                          [_ p] v]
