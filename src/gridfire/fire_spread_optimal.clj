@@ -326,23 +326,6 @@
         ignite-now    (into {} (get to-ignite-now true))]
     [ignite-later ignite-now]))
 
-(defn- compute-new-spot-ignitions
-  "Returns a map of [x y] locations to [t p] where:
-  t: time of ignition
-  p: ignition-probability"
-  [{:keys [spotting] :as inputs} matrices ignited-cells]
-  (when spotting
-    (reduce (fn [acc [i j]]
-              (merge-with (fn [x y] (if (> ^double (x 1) ^double (y 1)) x y))
-                          acc
-                          (->> (spot-optimal/spread-firebrands
-                                inputs
-                                matrices
-                                i j)
-                               (into {}))))
-            {}
-            ignited-cells)))
-
 (defn- merge-spot-ignitions [a b]
   (persistent!
    (reduce (fn [acc [cell spot-info]]
@@ -355,6 +338,21 @@
                (assoc! acc cell spot-info)))
            (transient a)
            b)))
+
+(defn- compute-new-spot-ignitions
+  "Returns a map of [x y] locations to [t p] where:
+  t: time of ignition
+  p: ignition-probability"
+  [{:keys [spotting] :as inputs} matrices ignited-cells]
+  (when spotting
+    (reduce (fn [acc [i j]]
+              (merge-spot-ignitions acc (->> (spot-optimal/spread-firebrands
+                                              inputs
+                                              matrices
+                                              i j)
+                                             (into {}))))
+            {}
+            ignited-cells)))
 
 (defn- compute-spot-burn-vectors!
   [{:keys [num-rows num-cols cell-size get-elevation fuel-model-matrix] :as inputs}
