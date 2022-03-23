@@ -130,8 +130,8 @@
       (let [{:keys [type source units multiplier]} spec
             fuel-moisture-name                     (keyword (s/join "-" ["fuel-moisture" (name category) (name size)]))
             convert-fn                             (convert/get-units-converter fuel-moisture-name
-                                                            (or units :percent)
-                                                            (or multiplier 1.0))]
+                                                                                (or units :percent)
+                                                                                (or multiplier 1.0))]
         (if (= type :postgis)
           (cond-> (postgis-raster-to-matrix db-spec source)
             convert-fn (update :matrix #(d/copy! (d/emap convert-fn :float32 %) %)))

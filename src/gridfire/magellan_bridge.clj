@@ -14,7 +14,7 @@
 
 (defn geotiff-raster-to-matrix
   "Reads a raster from a file using the magellan.core library. Returns the
-   post-processed raster values as a Clojure matrix using the core.matrix API
+   post-processed raster values as a Clojure tensor using the dtype-next/tech.v3.tensor API
    along with all of the georeferencing information associated with this tile in a
    hash-map with the following form:
   {:srid 900916,
@@ -27,7 +27,7 @@
    :skewx 0.0,
    :skewy 0.0,
    :numbands 10,
-   :matrix #vectorz/matrix Large matrix with shape: [10,534,486]}"
+   :matrix #tech.v3.tensor<datatype>[10 534 486]}"
   [file-path]
   (let [raster   (read-raster file-path)
         grid     ^GridGeometry2D (:grid raster)
@@ -50,7 +50,7 @@
 
 (defn geotiff-raster-to-tensor
   "Reads a raster from a file using the magellan.core library. Returns the
-   post-processed raster values as a Clojure matrix using the core.matrix API
+   post-processed raster values as a Clojure tensor using the dtype-next/tech.v3.tensor API
    along with all of the georeferencing information associated with this tile in a
    hash-map with the following form:
   {:srid 900916,
@@ -63,7 +63,7 @@
    :skewx 0.0,
    :skewy 0.0,
    :numbands 10,
-   :matrix #tech.v3.tensor<float64>[10 534 486]}"
+   :matrix #tech.v3.tensor<datatype>[10 534 486]}"
   [file-path & [datatype convert-fn]]
   (let [raster   (read-raster file-path)
         grid     ^GridGeometry2D (:grid raster)

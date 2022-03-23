@@ -330,11 +330,12 @@
   (persistent!
    (reduce (fn [acc [cell spot-info]]
              (if-let [existing-entry (acc cell)]
-               (let [[_ cur-p] existing-entry
-                     [_ new-p] spot-info]
-                 (if (>= ^double cur-p ^double new-p)
-                   acc
-                   (assoc! acc cell spot-info)))
+               (let [[cur-t cur-p] existing-entry
+                     [new-t new-p] spot-info]
+                 (cond (> ^double cur-p ^double new-p)  acc
+                       (< ^double cur-p ^double new-p)  (assoc! acc cell spot-info)
+                       (<= ^double cur-t ^double new-t) acc
+                       :else                            (assoc! acc cell spot-info)))
                (assoc! acc cell spot-info)))
            (transient a)
            b)))
