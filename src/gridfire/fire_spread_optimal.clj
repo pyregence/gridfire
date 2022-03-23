@@ -472,7 +472,7 @@
     [(persistent! burn-vectors) (persistent! ignited-cells)]))
 
 (defn- ignited-cells->burn-vectors
-  [{:keys [num-rows num-cols cell-size get-elevation fuel-model-matrix] :as inputs}
+  [{:keys [num-rows num-cols cell-size get-elevation fuel-model-matrix]}
    {:keys [fire-spread-matrix travel-lines-matrix max-spread-rate-matrix
            max-spread-direction-matrix eccentricity-matrix]}
    ignited-cells
@@ -734,27 +734,55 @@
 
 ;; TODO: Move this multimethod check into run-simulations to avoid running it in every thread
 (defmulti run-fire-spread
-  "Runs the raster-based fire spread model with a map of these arguments:
-  - max-runtime: double (minutes)
-  - cell-size: double (feet)
-  - elevation-matrix: core.matrix 2D double array (feet)
-  - slope-matrix: core.matrix 2D double array (vertical feet/horizontal feet)
-  - aspect-matrix: core.matrix 2D double array (degrees clockwise from north)
-  - fuel-model-matrix: core.matrix 2D double array (fuel model numbers 1-256)
-  - canopy-height-matrix: core.matrix 2D double array (feet)
-  - canopy-base-height-matrix: core.matrix 2D double array (feet)
-  - crown-bulk-density-matrix: core.matrix 2D double array (lb/ft^3)
-  - canopy-cover-matrix: core.matrix 2D double array (0-100)
-  - wind-speed-20ft: double (miles/hour)
-  - wind-from-direction: double (degrees clockwise from north)
-  - fuel-moisture: doubles (0-1) {:dead {:1hr :10hr :100hr} :live {:herbaceous :woody}}
-  - foliar-moisture: double (0-1)
-  - ellipse-adjustment-factor: (< 1.0 = more circular, > 1.0 = more elliptical)
-  - initial-ignition-site: One of the following:
-     - point represented as [row col]
-     - a core.matrix 2D double array (0-2)
-  - num-rows: integer
-  - num-cols: integer"
+  "Runs the raster-based fire spread model with an input map containing these fields:
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| Key                                | Value Type         | Value Units                                               |
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| :num-rows                          | long               | column count of fuel-model-matrix                         |
+| :num-cols                          | long               | row count of fuel-model-matrix                            |
+| :cell-size                         | double             | feet                                                      |
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| :ignition-start-time               | double             | minutes                                                   |
+| :max-runtime                       | double             | minutes                                                   |
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| :initial-ignition-site             | [i,j] or 2D tensor | [y,x] coordinate or categories 0-2 in tensor              |
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| :ellipse-adjustment-factor         | double             | < 1.0 = more circular, > 1.0 = more elliptical            |
+| :grass-suppression?                | boolean            | true or false                                             |
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| :rand-gen                          | java.util.Random   | uniform sample [0-1]                                      |
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| :elevation-matrix                  | 2D tensor          | feet                                                      |
+| :fuel-model-matrix                 | 2D tensor          | fuel model numbers [1-256]                                |
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| :get-elevation                     | (i,j) -> v         | feet                                                      |
+| :get-slope                         | (i,j) -> v         | vertical feet/horizontal feet                             |
+| :get-aspect                        | (i,j) -> v         | degrees clockwise from north [0-360)                      |
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| :get-canopy-cover                  | (i,j) -> v         | percent [0-100]                                           |
+| :get-canopy-height                 | (i,j) -> v         | feet                                                      |
+| :get-canopy-base-height            | (i,j) -> v         | feet                                                      |
+| :get-crown-bulk-density            | (i,j) -> v         | lb/ft^3                                                   |
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| :get-fuel-model                    | (i,j) -> v         | fuel model numbers [1-256]                                |
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| :get-temperature                   | (b,i,j) -> v       | degrees Fahrenheit                                        |
+| :get-relative-humidity             | (b,i,j) -> v       | percent [0-100]                                           |
+| :get-wind-speed-20ft               | (b,i,j) -> v       | miles/hour                                                |
+| :get-wind-from-direction           | (b,i,j) -> v       | degrees clockwise from north                              |
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| :get-fuel-moisture-dead-1hr        | (b,i,j) -> v       | ratio [0-1]                                               |
+| :get-fuel-moisture-dead-10hr       | (b,i,j) -> v       | ratio [0-1]                                               |
+| :get-fuel-moisture-dead-100hr      | (b,i,j) -> v       | ratio [0-1]                                               |
+| :get-fuel-moisture-live-herbaceous | (b,i,j) -> v       | ratio [0-1]                                               |
+| :get-fuel-moisture-live-woody      | (b,i,j) -> v       | ratio [0-1]                                               |
+| :get-foliar-moisture               | (b,i,j) -> v       | ratio [0-1]                                               |
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| :spotting                          | map                | :decay-constant -> double                                 |
+|                                    |                    | :num-firebrands -> long                                   |
+|                                    |                    | :surface-fire-spotting -> map                             |
+|                                    |                    | :crown-fire-spotting-percent -> double or [double double] |
+|------------------------------------+--------------------+-----------------------------------------------------------|"
   (fn [{:keys [initial-ignition-site]}]
     (if (vector? initial-ignition-site)
       :ignition-point
