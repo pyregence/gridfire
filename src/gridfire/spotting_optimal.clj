@@ -1,9 +1,10 @@
 (ns gridfire.spotting-optimal
-  (:require [gridfire.common              :refer [distance-3d
-                                                  calc-fuel-moisture
+  (:require [gridfire.common              :refer [calc-fuel-moisture
                                                   burnable-fuel-model?]]
             [gridfire.conversion          :as convert]
-            [gridfire.fire-spread-optimal :refer [in-bounds? burnable-cell?]]
+            [gridfire.fire-spread-optimal :refer [in-bounds?
+                                                  burnable-cell?
+                                                  compute-terrain-distance]]
             [gridfire.utils.random        :refer [my-rand-range]]
             [tech.v3.tensor               :as t])
   (:import java.util.Random))
@@ -315,7 +316,7 @@
   t: time of ignition
   p: ignition-probability"
   [{:keys
-    [num-rows num-cols cell-size get-fuel-model elevation-matrix spotting rand-gen
+    [num-rows num-cols cell-size get-fuel-model get-elevation spotting rand-gen
      get-temperature get-relative-humidity get-wind-speed-20ft get-wind-from-direction
      get-fuel-moisture-dead-1hr] :as inputs}
    {:keys [firebrand-count-matrix fire-spread-matrix fire-line-intensity-matrix flame-length-matrix
@@ -347,10 +348,15 @@
                                               (calc-fuel-moisture (get-relative-humidity band i j) temperature :dead :1hr))
                        ignition-probability (schroeder-ign-prob (convert/F->C (double temperature)) fine-fuel-moisture)
                        decay-constant       (double (:decay-constant spotting))
-                       spotting-distance    (convert/ft->m (distance-3d elevation-matrix ; TODO use terrain-distance
-                                                                        (double cell-size)
-                                                                        [x y]
-                                                                        cell))
+                       spotting-distance    (convert/ft->m
+                                             (compute-terrain-distance cell-size
+                                                                       get-elevation
+                                                                       num-rows
+                                                                       num-cols
+                                                                       i
+                                                                       j
+                                                                       x
+                                                                       y))
                        firebrand-count      (t/mget firebrand-count-matrix x y)
                        spot-ignition-p      (spot-ignition-probability ignition-probability
                                                                        decay-constant

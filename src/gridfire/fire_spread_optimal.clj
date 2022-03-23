@@ -56,7 +56,7 @@
        (< i rows)
        (< j cols)))
 
-(defn- compute-terrain-distance
+(defn compute-terrain-distance
   [cell-size get-elevation num-rows num-cols i j new-i new-j]
   (let [cell-size (double cell-size)
         i         (long i)
@@ -751,8 +751,6 @@
 | :grass-suppression?                | boolean            | true or false                                             |
 |------------------------------------+--------------------+-----------------------------------------------------------|
 | :rand-gen                          | java.util.Random   | uniform sample [0-1]                                      |
-|------------------------------------+--------------------+-----------------------------------------------------------|
-| :elevation-matrix                  | 2D tensor          | feet                                                      |
 |------------------------------------+--------------------+-----------------------------------------------------------|
 | :get-elevation                     | (i,j) -> v         | feet                                                      |
 | :get-slope                         | (i,j) -> v         | vertical feet/horizontal feet                             |
