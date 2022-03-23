@@ -799,7 +799,7 @@
      :fire-line-intensity-matrix  (t/new-tensor shape)
      :fire-spread-matrix          (-> (t/new-tensor shape) (t/mset! i j 1.0))
      :fire-type-matrix            (t/new-tensor shape)
-     :firebrand-count-matrix      (when spotting (t/new-tensor shape))
+     :firebrand-count-matrix      (when spotting (t/new-tensor shape :datatype :int32))
      :flame-length-matrix         (t/new-tensor shape)
      :max-spread-direction-matrix (t/new-tensor shape)
      :max-spread-rate-matrix      (t/new-tensor shape)
@@ -838,7 +838,7 @@
      :fire-line-intensity-matrix  negative-burn-scar
      :fire-spread-matrix          (d/clone positive-burn-scar)
      :fire-type-matrix            (d/clone negative-burn-scar)
-     :firebrand-count-matrix      (when spotting (t/new-tensor shape))
+     :firebrand-count-matrix      (when spotting (t/new-tensor shape :datatype :int32))
      :flame-length-matrix         (d/clone negative-burn-scar)
      :max-spread-direction-matrix (d/clone negative-burn-scar)
      :max-spread-rate-matrix      (d/clone negative-burn-scar)
