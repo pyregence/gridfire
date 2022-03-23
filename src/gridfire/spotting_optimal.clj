@@ -1,20 +1,12 @@
 (ns gridfire.spotting-optimal
-  (:require [gridfire.common       :refer [distance-3d
-                                           calc-fuel-moisture
-                                           burnable-fuel-model?
-                                           burnable?]]
-            [gridfire.utils.random :refer [my-rand-range]]
-            [gridfire.conversion   :as convert]
-            [tech.v3.tensor        :as t])
+  (:require [gridfire.common              :refer [distance-3d
+                                                  calc-fuel-moisture
+                                                  burnable-fuel-model?]]
+            [gridfire.conversion          :as convert]
+            [gridfire.fire-spread-optimal :refer [in-bounds? burnable-cell?]]
+            [gridfire.utils.random        :refer [my-rand-range]]
+            [tech.v3.tensor               :as t])
   (:import java.util.Random))
-
-(defn- in-bounds?
-  "Returns true if the point lies within the bounds [0,rows) by [0,cols)."
-  [^long rows ^long cols ^long i ^long j]
-  (and (>= i 0)
-       (>= j 0)
-       (< i rows)
-       (< j cols)))
 
 ;;-----------------------------------------------------------------------------
 ;; Formulas
@@ -240,19 +232,25 @@
 ;; firebrands-time-of-ignition ends here
 ;; [[file:../../org/GridFire.org::spread-firebrands][spread-firebrands]]
 (defn- update-firebrand-counts!
-  [{:keys [num-rows num-cols fuel-model-matrix]}
+  [{:keys [num-rows num-cols get-fuel-model]}
    firebrand-count-matrix
    fire-spread-matrix
    source
    firebrands]
-  (doseq [[x y :as here] firebrands
-          :when          (and (in-bounds? num-rows num-cols x y)
-                              (burnable? fire-spread-matrix
-                                         fuel-model-matrix
-                                         source
-                                         here))
-          :let           [new-count (inc ^double (t/mget firebrand-count-matrix x y))]]
-    (t/mset! firebrand-count-matrix x y new-count)))
+  (let [[i j]                   source
+        source-burn-probability (t/mget fire-spread-matrix i j)]
+    (doseq [[y x] firebrands]
+      (when (burnable-cell? get-fuel-model
+                            fire-spread-matrix
+                            source-burn-probability
+                            num-rows
+                            num-cols
+                            y
+                            x)
+        (->> (t/mget firebrand-count-matrix y x)
+             (long)
+             (inc)
+             (t/mset! firebrand-count-matrix y x))))))
 
 (defn- in-range?
   [[min max] fuel-model-number]
@@ -284,13 +282,13 @@
   [[[1 140] 0.0]
   [[141 149] 1.0]
   [[150 256] 1.0]]"
-  [{:keys [spotting rand-gen fuel-model-matrix]} [i j] ^double fire-line-intensity]
+  [{:keys [spotting rand-gen get-fuel-model]} [i j] ^double fire-line-intensity]
   (let [{:keys [surface-fire-spotting]} spotting]
     (when (and
            surface-fire-spotting
            (> fire-line-intensity ^double (:critical-fire-line-intensity surface-fire-spotting)))
       (let [fuel-range-percents (:spotting-percent surface-fire-spotting)
-            fuel-model-number   (long (t/mget fuel-model-matrix i j))
+            fuel-model-number   (long (get-fuel-model i j))
             spot-percent        (surface-spot-percent fuel-range-percents fuel-model-number rand-gen)]
         (>= spot-percent (my-rand-range rand-gen 0.0 1.0))))))
 
@@ -317,7 +315,7 @@
   t: time of ignition
   p: ignition-probability"
   [{:keys
-    [num-rows num-cols cell-size fuel-model-matrix elevation-matrix spotting rand-gen
+    [num-rows num-cols cell-size get-fuel-model elevation-matrix spotting rand-gen
      get-temperature get-relative-humidity get-wind-speed-20ft get-wind-from-direction
      get-fuel-moisture-dead-1hr] :as inputs}
    {:keys [firebrand-count-matrix fire-spread-matrix fire-line-intensity-matrix flame-length-matrix
@@ -342,7 +340,7 @@
         (->> (for [[x y] firebrands]
                (when (and
                       (in-bounds? num-rows num-cols x y)
-                      (burnable-fuel-model? (t/mget fuel-model-matrix x y)))
+                      (burnable-fuel-model? (get-fuel-model x y)))
                  (let [temperature          (get-temperature band x y)
                        fine-fuel-moisture   (if get-fuel-moisture-dead-1hr
                                               (get-fuel-moisture-dead-1hr band x y)

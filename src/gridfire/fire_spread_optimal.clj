@@ -48,7 +48,7 @@
     (/ cell-size (double (reduce find-max-spread-rate 0.0 burn-vectors)))
     10.0)) ; Wait 10 minutes for spot ignitions to smolder and catch fire
 
-(defn- in-bounds?
+(defn in-bounds?
   "Returns true if the point lies within the bounds [0,rows) by [0,cols)."
   [^long rows ^long cols ^long i ^long j]
   (and (>= i 0)
@@ -211,34 +211,34 @@
         (store-if-max! fire-line-intensity-matrix i j max-surface-intensity)
         (store-if-max! fire-type-matrix           i j 1.0)))))
 
-(defn- burnable-cell?
-  [fuel-model-matrix fire-spread-matrix burn-probability num-rows num-cols i j]
+(defn burnable-cell?
+  [get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i j]
   (and (in-bounds? num-rows num-cols i j)
-       (burnable-fuel-model? (t/mget fuel-model-matrix i j))
+       (burnable-fuel-model? (get-fuel-model i j))
        (> (double burn-probability) ^double (t/mget fire-spread-matrix i j))))
 
 (defn- burnable-neighbors?
-  [fuel-model-matrix fire-spread-matrix burn-probability num-rows num-cols i j]
+  [get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i j]
   (let [i  (long i)
         j  (long j)
         i- (- i 1)
         i+ (+ i 1)
         j- (- j 1)
         j+ (+ j 1)]
-    (or (burnable-cell? fuel-model-matrix fire-spread-matrix burn-probability num-rows num-cols i- j-)
-        (burnable-cell? fuel-model-matrix fire-spread-matrix burn-probability num-rows num-cols i- j)
-        (burnable-cell? fuel-model-matrix fire-spread-matrix burn-probability num-rows num-cols i- j+)
-        (burnable-cell? fuel-model-matrix fire-spread-matrix burn-probability num-rows num-cols i  j-)
-        (burnable-cell? fuel-model-matrix fire-spread-matrix burn-probability num-rows num-cols i  j+)
-        (burnable-cell? fuel-model-matrix fire-spread-matrix burn-probability num-rows num-cols i+ j-)
-        (burnable-cell? fuel-model-matrix fire-spread-matrix burn-probability num-rows num-cols i+ j)
-        (burnable-cell? fuel-model-matrix fire-spread-matrix burn-probability num-rows num-cols i+ j+))))
+    (or (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i- j-)
+        (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i- j)
+        (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i- j+)
+        (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i  j-)
+        (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i  j+)
+        (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i+ j-)
+        (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i+ j)
+        (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i+ j+))))
 
 (def ^:private bits [0 1 2 3 4 5 6 7])
 
 (defn- create-new-burn-vectors!
   [acc num-rows num-cols cell-size get-elevation fire-spread-matrix travel-lines-matrix
-   max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix fuel-model-matrix i j burn-probability]
+   max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix get-fuel-model i j burn-probability]
   (let [i                    (long i)
         j                    (long j)
         travel-lines         (t/mget travel-lines-matrix i j)
@@ -273,7 +273,7 @@
                                                  225.0 (- j 1)
                                                  270.0 (- j 1)
                                                  315.0 (- j 1))]
-                                 (if (burnable-cell? fuel-model-matrix fire-spread-matrix burn-probability
+                                 (if (burnable-cell? get-fuel-model fire-spread-matrix burn-probability
                                                      num-rows num-cols new-i new-j)
                                    (let [spread-rate      (compute-spread-rate max-spread-rate
                                                                                max-spread-direction
@@ -356,7 +356,7 @@
             ignited-cells)))
 
 (defn- compute-spot-burn-vectors!
-  [{:keys [num-rows num-cols cell-size get-elevation fuel-model-matrix] :as inputs}
+  [{:keys [num-rows num-cols cell-size get-elevation get-fuel-model] :as inputs}
    {:keys
     [fire-spread-matrix burn-time-matrix travel-lines-matrix max-spread-rate-matrix
      max-spread-direction-matrix eccentricity-matrix modified-time-matrix] :as matrices}
@@ -387,7 +387,7 @@
                                        (create-new-burn-vectors! acc num-rows num-cols cell-size get-elevation
                                                                  fire-spread-matrix travel-lines-matrix
                                                                  max-spread-rate-matrix max-spread-direction-matrix
-                                                                 eccentricity-matrix fuel-model-matrix i j
+                                                                 eccentricity-matrix get-fuel-model i j
                                                                  burn-probability)))
                                    (transient [])
                                    pruned-spot-ignite-now))]
@@ -472,7 +472,7 @@
     [(persistent! burn-vectors) (persistent! ignited-cells)]))
 
 (defn- ignited-cells->burn-vectors
-  [{:keys [num-rows num-cols cell-size get-elevation fuel-model-matrix]}
+  [{:keys [num-rows num-cols cell-size get-elevation get-fuel-model]}
    {:keys [fire-spread-matrix travel-lines-matrix max-spread-rate-matrix
            max-spread-direction-matrix eccentricity-matrix]}
    ignited-cells
@@ -482,13 +482,13 @@
     (fn [acc [i j]]
       (create-new-burn-vectors! acc num-rows num-cols cell-size get-elevation fire-spread-matrix
                                 travel-lines-matrix max-spread-rate-matrix max-spread-direction-matrix
-                                eccentricity-matrix fuel-model-matrix i j (t/mget fire-spread-matrix i j)))
+                                eccentricity-matrix get-fuel-model i j (t/mget fire-spread-matrix i j)))
     (transient burn-vectors)
     ignited-cells)))
 
 (defn- promote-burn-vectors
   "t1: time spent in first hour"
-  [{:keys [num-rows num-cols fuel-model-matrix]}
+  [{:keys [num-rows num-cols get-fuel-model]}
    {:keys [fire-spread-matrix burn-time-matrix]}
    global-clock new-clock new-hour? top-of-hour burn-vectors]
   (let [global-clock (double global-clock)
@@ -519,7 +519,7 @@
                                  225.0 (- j 1)
                                  270.0 (- j 1)
                                  315.0 (- j 1))]
-          (if (burnable-cell? fuel-model-matrix fire-spread-matrix burn-probability
+          (if (burnable-cell? get-fuel-model fire-spread-matrix burn-probability
                               num-rows num-cols new-i new-j)
             (let [^double local-burn-probability (t/mget fire-spread-matrix i j)
                   ^double local-burn-time        (t/mget burn-time-matrix i j)]
@@ -547,7 +547,7 @@
       burn-vectors))))
 
 (defn- transition-burn-vectors
-  [{:keys [cell-size get-elevation num-rows num-cols fuel-model-matrix] :as inputs}
+  [{:keys [cell-size get-elevation num-rows num-cols get-fuel-model] :as inputs}
    {:keys
     [travel-lines-matrix fire-spread-matrix modified-time-matrix max-spread-rate-matrix
      max-spread-direction-matrix eccentricity-matrix burn-time-matrix] :as matrices}
@@ -597,7 +597,7 @@
                                                225.0 (- j 1)
                                                270.0 (- j 1)
                                                315.0 (- j 1))]
-                                   (if (burnable-cell? fuel-model-matrix fire-spread-matrix burn-probability num-rows num-cols new-i new-j)
+                                   (if (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols new-i new-j)
                                      ;; Neighbor is burnable: transition burn vector to next cell
                                      (let [^double modified-time (t/mget modified-time-matrix new-i new-j)]
                                        (when (or (zero? modified-time)
@@ -753,7 +753,6 @@
 | :rand-gen                          | java.util.Random   | uniform sample [0-1]                                      |
 |------------------------------------+--------------------+-----------------------------------------------------------|
 | :elevation-matrix                  | 2D tensor          | feet                                                      |
-| :fuel-model-matrix                 | 2D tensor          | fuel model numbers [1-256]                                |
 |------------------------------------+--------------------+-----------------------------------------------------------|
 | :get-elevation                     | (i,j) -> v         | feet                                                      |
 | :get-slope                         | (i,j) -> v         | vertical feet/horizontal feet                             |
@@ -852,7 +851,7 @@
 
 ;; TODO: Move this step into run-simulations to avoid running it in every thread
 (defn- get-perimeter-cells
-  [{:keys [num-rows num-cols initial-ignition-site fuel-model-matrix]}]
+  [{:keys [num-rows num-cols initial-ignition-site get-fuel-model]}]
   (let [{:keys [row-idxs col-idxs]} (non-zero-indices initial-ignition-site)
         num-idxs                    (d/ecount row-idxs)]
     (loop [idx 0
@@ -860,7 +859,7 @@
       (if (< idx num-idxs)
         (let [i (row-idxs idx)
               j (col-idxs idx)]
-          (if (burnable-neighbors? fuel-model-matrix
+          (if (burnable-neighbors? get-fuel-model
                                    initial-ignition-site
                                    1.0
                                    num-rows
