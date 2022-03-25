@@ -1,10 +1,10 @@
 (ns gridfire.spotting-optimal
-  (:require [gridfire.common              :refer [calc-fuel-moisture
-                                                  burnable-fuel-model?]]
+  (:require [gridfire.common              :refer [burnable-cell?
+                                                  burnable-fuel-model?
+                                                  calc-fuel-moisture
+                                                  compute-terrain-distance
+                                                  in-bounds-optimal?]]
             [gridfire.conversion          :as convert]
-            [gridfire.fire-spread-optimal :refer [in-bounds?
-                                                  burnable-cell?
-                                                  compute-terrain-distance]]
             [gridfire.utils.random        :refer [my-rand-range]]
             [tech.v3.tensor               :as t])
   (:import java.util.Random))
@@ -340,7 +340,7 @@
         (update-firebrand-counts! inputs firebrand-count-matrix fire-spread-matrix cell firebrands)
         (->> (for [[x y] firebrands]
                (when (and
-                      (in-bounds? num-rows num-cols x y)
+                      (in-bounds-optimal? num-rows num-cols x y)
                       (burnable-fuel-model? (get-fuel-model x y)))
                  (let [temperature          (get-temperature band x y)
                        fine-fuel-moisture   (if get-fuel-moisture-dead-1hr

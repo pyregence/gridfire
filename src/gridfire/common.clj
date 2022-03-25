@@ -36,6 +36,14 @@
        (< i rows)
        (< j cols)))
 
+(defn in-bounds-optimal?
+  "Returns true if the point lies within the bounds [0,rows) by [0,cols)."
+  [^long rows ^long cols ^long i ^long j]
+  (and (>= i 0)
+       (>= j 0)
+       (< i rows)
+       (< j cols)))
+
 (defn burnable-fuel-model?
   [^double number]
   (and (pos? number)
@@ -96,3 +104,24 @@
 
 (defn non-zero-count [tensor]
   (-> tensor dfn/pos? dfn/sum (d/unchecked-cast :int64)))
+
+(defn burnable-cell?
+  [get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i j]
+  (and (in-bounds-optimal? num-rows num-cols i j)
+       (burnable-fuel-model? (get-fuel-model i j))
+       (> (double burn-probability) ^double (t/mget fire-spread-matrix i j))))
+
+(defn compute-terrain-distance
+  [cell-size get-elevation num-rows num-cols i j new-i new-j]
+  (let [cell-size (double cell-size)
+        i         (long i)
+        j         (long j)
+        new-i     (long new-i)
+        new-j     (long new-j)
+        di        (* cell-size (- i new-i))
+        dj        (* cell-size (- j new-j))]
+    (if (in-bounds-optimal? num-rows num-cols new-i new-j)
+      (let [dz (- ^double (get-elevation i j)
+                  ^double (get-elevation new-i new-j))]
+        (Math/sqrt (+ (* di di) (* dj dj) (* dz dz))))
+      (Math/sqrt (+ (* di di) (* dj dj))))))
