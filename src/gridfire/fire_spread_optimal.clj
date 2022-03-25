@@ -287,16 +287,18 @@
                          eccentricity
                          direction)))
 
-;; TODO re-write using loop-recur
 (defn- identify-spot-ignition-events
   [new-clock spot-ignitions]
-  (let [to-ignite-now (group-by (fn [[_ [time _]]]
-                                  (let [time (double time)]
-                                    (>= ^double new-clock time)))
-                                spot-ignitions)
-        ignite-later  (into {} (get to-ignite-now false))
-        ignite-now    (into {} (get to-ignite-now true))]
-    [ignite-later ignite-now]))
+  (loop [to-process   spot-ignitions
+         ignite-later (transient {})
+         ignite-now   (transient {})]
+    (if (seq to-process)
+      (let [[cell spot-info] (first to-process)
+            [t _]            spot-info]
+        (if (>= ^double new-clock ^double t)
+          (recur (rest to-process) ignite-later (assoc! ignite-now cell spot-info))
+          (recur (rest to-process) (assoc! ignite-later cell spot-info) ignite-now)))
+      [(persistent! ignite-later) (persistent! ignite-now)])))
 
 (defn- merge-spot-ignitions [a b]
   (persistent!
