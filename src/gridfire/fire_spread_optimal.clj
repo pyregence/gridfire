@@ -209,17 +209,30 @@
         (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i+ j)
         (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i+ j+))))
 
+(defn- calc-new-spread-rate!
+  [inputs matrices modified-time-matrix max-spread-rate-matrix
+   max-spread-direction-matrix eccentricity-matrix band direction i j]
+  (when (> ^long band (dec ^long (t/mget modified-time-matrix i j)))
+    (compute-max-in-situ-values! inputs matrices band i j))
+  (let [max-spread-rate      (t/mget max-spread-rate-matrix i j)
+        max-spread-direction (t/mget max-spread-direction-matrix i j)
+        eccentricity         (t/mget eccentricity-matrix i j)]
+    (compute-spread-rate max-spread-rate
+                         max-spread-direction
+                         eccentricity
+                         direction)))
+
 (defn make-burn-vector-constructor
   [inputs matrices num-rows num-cols get-fuel-model fire-spread-matrix burn-probability max-spread-rate-matrix
    max-spread-direction-matrix eccentricity-matrix cell-size get-elevation modified-time-matrix band i j]
   (let [band                 (long band)
+        i                    (long i)
+        j                    (long j)
         max-spread-rate      (t/mget max-spread-rate-matrix i j)
         max-spread-direction (t/mget max-spread-direction-matrix i j)
         eccentricity         (t/mget eccentricity-matrix i j)]
-    (fn [acc direction]
-      (let [i     (double i)
-            j     (double j)
-            new-i (case direction
+    (fn [direction]
+      (let [new-i (case direction
                     0.0   (- i 1)
                     45.0  (- i 1)
                     90.0  i
@@ -237,23 +250,25 @@
                     225.0 (- j 1)
                     270.0 (- j 1)
                     315.0 (- j 1))]
-        (if (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols new-i new-j)
-          (let [spread-rate      (compute-spread-rate max-spread-rate
-                                                      max-spread-direction
-                                                      eccentricity
-                                                      direction)
-                terrain-distance (compute-terrain-distance cell-size get-elevation
-                                                           num-rows num-cols i j new-i new-j)]
-            (when (> band (dec ^long (t/mget modified-time-matrix new-i new-j)))
-              (compute-max-in-situ-values! inputs matrices band new-i new-j))
-            (let [max-spread-rate      (double (t/mget max-spread-rate-matrix new-i new-j))
-                  max-spread-direction (double (t/mget max-spread-direction-matrix new-i new-j))
-                  eccentricity         (double (t/mget eccentricity-matrix new-i new-j))
-                  target-spread-rate   (compute-spread-rate max-spread-rate max-spread-direction eccentricity direction)]
-              (conj! acc
-                     (->BurnVector i j direction 0.5 spread-rate spread-rate target-spread-rate
-                                   terrain-distance burn-probability))))
-          acc)))))
+        (when (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols new-i new-j)
+          (let [spread-rate        (compute-spread-rate max-spread-rate
+                                                        max-spread-direction
+                                                        eccentricity
+                                                        direction)
+                terrain-distance   (compute-terrain-distance cell-size get-elevation
+                                                             num-rows num-cols i j new-i new-j)
+                target-spread-rate (calc-new-spread-rate! inputs
+                                                          matrices
+                                                          modified-time-matrix
+                                                          max-spread-rate-matrix
+                                                          max-spread-direction-matrix
+                                                          eccentricity-matrix
+                                                          band
+                                                          direction
+                                                          new-i
+                                                          new-j)]
+            (->BurnVector i j direction 0.5 spread-rate spread-rate target-spread-rate
+                          terrain-distance burn-probability)))))))
 
 (def ^:private bits [0 1 2 3 4 5 6 7])
 
@@ -261,49 +276,33 @@
   [acc inputs matrices num-rows num-cols cell-size get-elevation fire-spread-matrix travel-lines-matrix
    max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix get-fuel-model
    modified-time-matrix band i j burn-probability]
-  (let [i                  (long i)
-        j                  (long j)
-        travel-lines       (t/mget travel-lines-matrix i j)
-        create-burn-vector (make-burn-vector-constructor inputs matrices num-rows num-cols get-fuel-model fire-spread-matrix
-                                                         burn-probability max-spread-rate-matrix max-spread-direction-matrix
-                                                         eccentricity-matrix cell-size get-elevation modified-time-matrix
-                                                         band i j)]
-
-    ;; FIXME: Use loop/recur to track changes to travel-lines in each step.
-    ;;        Don't use t/mget at all. Only call t/mset! once at the end of the loop.
-    ;; FIXME: Replace inner reduce with inlined calls to the reducer-fn for the 2 directions.
-    (t/mset! travel-lines-matrix i j 2r11111111)
+  (let [travel-lines       (t/mget travel-lines-matrix i j)
+        create-burn-vector (make-burn-vector-constructor inputs matrices num-rows num-cols get-fuel-model
+                                                         fire-spread-matrix burn-probability max-spread-rate-matrix
+                                                         max-spread-direction-matrix eccentricity-matrix cell-size
+                                                         get-elevation modified-time-matrix band i j)]
     (reduce (fn [acc bit]
               (if (bit-test travel-lines bit)
                 acc
-                (let [direction (case bit
-                                  0 0.0
-                                  1 45.0
-                                  2 90.0
-                                  3 135.0
-                                  4 180.0
-                                  5 225.0
-                                  6 270.0
-                                  7 315.0)]
-                  (create-burn-vector acc direction))))
+                (let [direction       (case bit
+                                        0 0.0
+                                        1 45.0
+                                        2 90.0
+                                        3 135.0
+                                        4 180.0
+                                        5 225.0
+                                        6 270.0
+                                        7 315.0)
+                      new-burn-vector (create-burn-vector direction)]
+                  (if new-burn-vector
+                    (do
+                      (as-> (t/mget travel-lines-matrix i j) $
+                        (bit-set $ bit)
+                        (t/mset! travel-lines-matrix i j $))
+                      (conj! acc new-burn-vector))
+                    acc))))
             acc
             bits)))
-
-(defn- calc-new-spread-rate!
-  [inputs
-   {:keys
-    [modified-time-matrix max-spread-rate-matrix max-spread-direction-matrix
-     eccentricity-matrix] :as matrices}
-   band direction i j]
-  (when (> ^long band (dec ^long (t/mget modified-time-matrix i j)))
-    (compute-max-in-situ-values! inputs matrices band i j))
-  (let [max-spread-rate      (t/mget max-spread-rate-matrix i j)
-        max-spread-direction (t/mget max-spread-direction-matrix i j)
-        eccentricity         (t/mget eccentricity-matrix i j)]
-    (compute-spread-rate max-spread-rate
-                         max-spread-direction
-                         eccentricity
-                         direction)))
 
 (defn- identify-spot-ignition-events
   [new-clock spot-ignitions]
@@ -319,18 +318,17 @@
       [(persistent! ignite-later) (persistent! ignite-now)])))
 
 (defn- merge-spot-ignitions [a b]
-  (persistent!
-   (reduce (fn [acc [cell spot-info]]
-             (if-let [existing-entry (acc cell)]
-               (let [[cur-t cur-p] existing-entry
-                     [new-t new-p] spot-info]
-                 (cond (> ^double cur-p ^double new-p)  acc
-                       (< ^double cur-p ^double new-p)  (assoc! acc cell spot-info)
-                       (<= ^double cur-t ^double new-t) acc
-                       :else                            (assoc! acc cell spot-info)))
-               (assoc! acc cell spot-info)))
-           (transient a)
-           b)))
+  (reduce (fn [acc [cell spot-info]]
+            (if-let [existing-entry (acc cell)]
+              (let [[cur-t cur-p] existing-entry
+                    [new-t new-p] spot-info]
+                (cond (> ^double cur-p ^double new-p)  acc
+                      (< ^double cur-p ^double new-p)  (assoc! acc cell spot-info)
+                      (<= ^double cur-t ^double new-t) acc
+                      :else                            (assoc! acc cell spot-info)))
+              (assoc! acc cell spot-info)))
+          a
+          b))
 
 (defn- compute-new-spot-ignitions
   "Returns a map of [x y] locations to [t p] where:
@@ -338,11 +336,11 @@
   p: ignition-probability"
   [{:keys [spotting] :as inputs} matrices ignited-cells]
   (when spotting
-    (reduce (fn [acc [i j]]
-              (merge-spot-ignitions acc (->> (spot-optimal/spread-firebrands inputs matrices i j)
-                                             (into {}))))
-            {}
-            ignited-cells)))
+    (persistent!
+     (reduce (fn [acc [i j]]
+               (merge-spot-ignitions acc (spot-optimal/spread-firebrands inputs matrices i j)))
+             (transient {})
+             ignited-cells))))
 
 (defn- compute-spot-burn-vectors!
   [{:keys [num-rows num-cols cell-size get-elevation get-fuel-model] :as inputs}
@@ -354,9 +352,10 @@
         new-clock                (double new-clock)
         new-spot-ignitions       (compute-new-spot-ignitions inputs matrices ignited-cells)
         [spot-ignite-later
-         spot-ignite-now]        (identify-spot-ignition-events new-clock (merge-spot-ignitions
-                                                                           spot-ignitions
-                                                                           new-spot-ignitions))
+         spot-ignite-now]        (identify-spot-ignition-events new-clock (persistent!
+                                                                           (merge-spot-ignitions
+                                                                            (transient spot-ignitions)
+                                                                            new-spot-ignitions)))
         ignited?                 (fn [[k v]]
                                    (let [[i j] k
                                          [_ p] v]
@@ -384,7 +383,8 @@
 
 (defn- grow-burn-vectors!
   [inputs
-   {:keys [fire-spread-matrix burn-time-matrix] :as matrices}
+   {:keys [fire-spread-matrix burn-time-matrix modified-time-matrix max-spread-rate-matrix
+           max-spread-direction-matrix eccentricity-matrix] :as matrices}
    global-clock
    band
    timestep
@@ -406,7 +406,10 @@
                                         terrain-distance          (double (:terrain-distance burn-vector))
                                         burn-probability          (double (:burn-probability burn-vector))
                                         new-spread-rate           (if new-hour?
-                                                                    (double (calc-new-spread-rate! inputs matrices band direction i j))
+                                                                    (double
+                                                                     (calc-new-spread-rate! inputs matrices modified-time-matrix
+                                                                                            max-spread-rate-matrix max-spread-direction-matrix
+                                                                                            eccentricity-matrix band direction i j))
                                                                     spread-rate)
                                         fractional-distance-delta (if new-hour?
                                                                     (/ (+ (* t1 spread-rate)
@@ -667,12 +670,8 @@
                                                                        270.0 (- new-j 1)
                                                                        315.0 (- new-j 1))
                                              new-new-spread-rate     (if (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols new-new-i new-new-j)
-                                                                       (do (when (> band (dec ^long (t/mget modified-time-matrix new-new-i new-new-j)))
-                                                                             (compute-max-in-situ-values! inputs matrices band new-new-i new-new-j))
-                                                                           (let [max-spread-rate      (double (t/mget max-spread-rate-matrix new-new-i new-new-j))
-                                                                                 max-spread-direction (double (t/mget max-spread-direction-matrix new-new-i new-new-j))
-                                                                                 eccentricity         (double (t/mget eccentricity-matrix new-new-i new-new-j))]
-                                                                             (compute-spread-rate max-spread-rate max-spread-direction eccentricity direction)))
+                                                                       (calc-new-spread-rate! inputs matrices modified-time-matrix max-spread-rate-matrix
+                                                                                              max-spread-direction-matrix eccentricity-matrix band direction new-new-i new-new-j)
                                                                        new-spread-rate)
                                              new-transitioned-bvs    (conj! transitioned-bvs
                                                                             (->BurnVector new-i new-j direction new-fractional-distance new-spread-rate spread-rate
@@ -740,7 +739,7 @@
               [burn-vectors ignited-cells] (grow-burn-vectors! inputs matrices global-clock band timestep
                                                                new-hour? t1 t2 burn-vectors)
               promoted-burn-vectors        (->> burn-vectors
-                                                (ignited-cells->burn-vectors inputs matrices global-clock ignited-cells)
+                                                (ignited-cells->burn-vectors inputs matrices band ignited-cells)
                                                 (promote-burn-vectors inputs matrices global-clock
                                                                       new-clock new-hour? top-of-hour))
               [untransitioned-bvs
@@ -748,7 +747,7 @@
                transition-ignited-cells]   (transition-burn-vectors inputs matrices band global-clock new-clock
                                                                     new-hour? promoted-burn-vectors)
               promoted-transitioned-bvs    (->> transitioned-bvs
-                                                (ignited-cells->burn-vectors inputs matrices global-clock transition-ignited-cells)
+                                                (ignited-cells->burn-vectors inputs matrices band transition-ignited-cells)
                                                 (promote-burn-vectors inputs matrices global-clock new-clock
                                                                       new-hour? top-of-hour))
               [spot-burn-vectors
@@ -793,51 +792,51 @@
 ;; TODO: Move this multimethod check into run-simulations to avoid running it in every thread
 (defmulti run-fire-spread
   "Runs the raster-based fire spread model with an input map containing these fields:
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | Key                                | Value Type         | Value Units                                               |
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | :num-rows                          | long               | column count of fuel-model-matrix                         |
-  | :num-cols                          | long               | row count of fuel-model-matrix                            |
-  | :cell-size                         | double             | feet                                                      |
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | :ignition-start-time               | double             | minutes                                                   |
-  | :max-runtime                       | double             | minutes                                                   |
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | :initial-ignition-site             | [i,j] or 2D tensor | [y,x] coordinate or categories 0-2 in tensor              |
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | :ellipse-adjustment-factor         | double             | < 1.0 = more circular, > 1.0 = more elliptical            |
-  | :grass-suppression?                | boolean            | true or false                                             |
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | :rand-gen                          | java.util.Random   | uniform sample [0-1]                                      |
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | :get-elevation                     | (i,j) -> v         | feet                                                      |
-  | :get-slope                         | (i,j) -> v         | vertical feet/horizontal feet                             |
-  | :get-aspect                        | (i,j) -> v         | degrees clockwise from north [0-360)                      |
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | :get-canopy-cover                  | (i,j) -> v         | percent [0-100]                                           |
-  | :get-canopy-height                 | (i,j) -> v         | feet                                                      |
-  | :get-canopy-base-height            | (i,j) -> v         | feet                                                      |
-  | :get-crown-bulk-density            | (i,j) -> v         | lb/ft^3                                                   |
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | :get-fuel-model                    | (i,j) -> v         | fuel model numbers [1-256]                                |
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | :get-temperature                   | (b,i,j) -> v       | degrees Fahrenheit                                        |
-  | :get-relative-humidity             | (b,i,j) -> v       | percent [0-100]                                           |
-  | :get-wind-speed-20ft               | (b,i,j) -> v       | miles/hour                                                |
-  | :get-wind-from-direction           | (b,i,j) -> v       | degrees clockwise from north                              |
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | :get-fuel-moisture-dead-1hr        | (b,i,j) -> v       | ratio [0-1]                                               |
-  | :get-fuel-moisture-dead-10hr       | (b,i,j) -> v       | ratio [0-1]                                               |
-  | :get-fuel-moisture-dead-100hr      | (b,i,j) -> v       | ratio [0-1]                                               |
-  | :get-fuel-moisture-live-herbaceous | (b,i,j) -> v       | ratio [0-1]                                               |
-  | :get-fuel-moisture-live-woody      | (b,i,j) -> v       | ratio [0-1]                                               |
-  | :get-foliar-moisture               | (b,i,j) -> v       | ratio [0-1]                                               |
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | :spotting                          | map                | :decay-constant -> double                                 |
-  |                                    |                    | :num-firebrands -> long                                   |
-  |                                    |                    | :surface-fire-spotting -> map                             |
-  |                                    |                    | :crown-fire-spotting-percent -> double or [double double] |
-  |------------------------------------+--------------------+-----------------------------------------------------------|"
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| Key                                | Value Type         | Value Units                                               |
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| :num-rows                          | long               | column count of fuel-model-matrix                         |
+| :num-cols                          | long               | row count of fuel-model-matrix                            |
+| :cell-size                         | double             | feet                                                      |
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| :ignition-start-time               | double             | minutes                                                   |
+| :max-runtime                       | double             | minutes                                                   |
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| :initial-ignition-site             | [i,j] or 2D tensor | [y,x] coordinate or categories 0-2 in tensor              |
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| :ellipse-adjustment-factor         | double             | < 1.0 = more circular, > 1.0 = more elliptical            |
+| :grass-suppression?                | boolean            | true or false                                             |
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| :rand-gen                          | java.util.Random   | uniform sample [0-1]                                      |
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| :get-elevation                     | (i,j) -> v         | feet                                                      |
+| :get-slope                         | (i,j) -> v         | vertical feet/horizontal feet                             |
+| :get-aspect                        | (i,j) -> v         | degrees clockwise from north [0-360)                      |
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| :get-canopy-cover                  | (i,j) -> v         | percent [0-100]                                           |
+| :get-canopy-height                 | (i,j) -> v         | feet                                                      |
+| :get-canopy-base-height            | (i,j) -> v         | feet                                                      |
+| :get-crown-bulk-density            | (i,j) -> v         | lb/ft^3                                                   |
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| :get-fuel-model                    | (i,j) -> v         | fuel model numbers [1-256]                                |
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| :get-temperature                   | (b,i,j) -> v       | degrees Fahrenheit                                        |
+| :get-relative-humidity             | (b,i,j) -> v       | percent [0-100]                                           |
+| :get-wind-speed-20ft               | (b,i,j) -> v       | miles/hour                                                |
+| :get-wind-from-direction           | (b,i,j) -> v       | degrees clockwise from north                              |
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| :get-fuel-moisture-dead-1hr        | (b,i,j) -> v       | ratio [0-1]                                               |
+| :get-fuel-moisture-dead-10hr       | (b,i,j) -> v       | ratio [0-1]                                               |
+| :get-fuel-moisture-dead-100hr      | (b,i,j) -> v       | ratio [0-1]                                               |
+| :get-fuel-moisture-live-herbaceous | (b,i,j) -> v       | ratio [0-1]                                               |
+| :get-fuel-moisture-live-woody      | (b,i,j) -> v       | ratio [0-1]                                               |
+| :get-foliar-moisture               | (b,i,j) -> v       | ratio [0-1]                                               |
+|------------------------------------+--------------------+-----------------------------------------------------------|
+| :spotting                          | map                | :decay-constant -> double                                 |
+|                                    |                    | :num-firebrands -> long                                   |
+|                                    |                    | :surface-fire-spotting -> map                             |
+|                                    |                    | :crown-fire-spotting-percent -> double or [double double] |
+|------------------------------------+--------------------+-----------------------------------------------------------|"
   (fn [{:keys [initial-ignition-site]}]
     (if (vector? initial-ignition-site)
       :ignition-point
