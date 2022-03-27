@@ -67,10 +67,10 @@
   from a torched cell at i j where:
   x: parallel to the wind
   y: perpendicular to the wind (positive values are to the right of wind direction)"
-  [{:keys [spotting rand-gen]}
-   fire-line-intensity-matrix
-   wind-speed-20ft [i j]]
-  (let [num-firebrands          (long (sample-spotting-params (:num-firebrands spotting) rand-gen))
+  [inputs fire-line-intensity-matrix wind-speed-20ft [i j]]
+  (let [spotting                (:spotting inputs)
+        rand-gen                (:rand-gen inputs)
+        num-firebrands          (long (sample-spotting-params (:num-firebrands spotting) rand-gen))
         intensity               (convert/Btu-ft-s->kW-m (t/mget fire-line-intensity-matrix i j))
         {:keys [mean variance]} (mean-variance spotting rand-gen intensity wind-speed-20ft)
         mu                      (normalized-mean mean variance)
@@ -233,12 +233,11 @@
 ;; firebrands-time-of-ignition ends here
 ;; [[file:../../org/GridFire.org::spread-firebrands][spread-firebrands]]
 (defn- update-firebrand-counts!
-  [{:keys [num-rows num-cols get-fuel-model]}
-   firebrand-count-matrix
-   fire-spread-matrix
-   source
-   firebrands]
-  (let [[i j]                   source
+  [inputs firebrand-count-matrix fire-spread-matrix source firebrands]
+  (let [num-rows                (:num-rows inputs)
+        num-cols                (:num-cols inputs)
+        get-fuel-model          (:get-fuel-model inputs)
+        [i j]                   source
         source-burn-probability (t/mget fire-spread-matrix i j)]
     (doseq [[y x] firebrands]
       (when (burnable-cell? get-fuel-model
@@ -283,11 +282,12 @@
   [[[1 140] 0.0]
   [[141 149] 1.0]
   [[150 256] 1.0]]"
-  [{:keys [spotting rand-gen get-fuel-model]} [i j] ^double fire-line-intensity]
-  (let [{:keys [surface-fire-spotting]} spotting]
-    (when (and
-           surface-fire-spotting
-           (> fire-line-intensity ^double (:critical-fire-line-intensity surface-fire-spotting)))
+  [inputs [i j] ^double fire-line-intensity]
+  (let [rand-gen              (:rand-gen inputs)
+        get-fuel-model        (:get-fuel-model inputs)
+        surface-fire-spotting (:surface-fire-spotting (:spotting inputs))]
+    (when (and surface-fire-spotting
+               (> fire-line-intensity ^double (:critical-fire-line-intensity surface-fire-spotting)))
       (let [fuel-range-percents (:spotting-percent surface-fire-spotting)
             fuel-model-number   (long (get-fuel-model i j))
             spot-percent        (surface-spot-percent fuel-range-percents fuel-model-number rand-gen)]
@@ -296,9 +296,10 @@
 (defn crown-spot-fire?
   "Determine whether crowning causes spot fires. Config key `:spotting` should
    take either a vector of probabilities (0-1) or a single spotting probability."
-  [{:keys [spotting rand-gen]}]
-  (when-let [spot-percent (:crown-fire-spotting-percent spotting)]
-    (let [^double p (if (vector? spot-percent)
+  [inputs]
+  (when-let [spot-percent (:crown-fire-spotting-percent (:spotting inputs))]
+    (let [rand-gen  (:rand-gen inputs)
+          ^double p (if (vector? spot-percent)
                       (let [[lo hi] spot-percent]
                         (my-rand-range rand-gen lo hi)) ; TODO should this be calculated once at input phase?
                       spot-percent)]
@@ -315,17 +316,26 @@
   val: [t p] where:
   t: time of ignition
   p: ignition-probability"
-  [{:keys
-    [num-rows num-cols cell-size get-fuel-model get-elevation spotting rand-gen
-     get-temperature get-relative-humidity get-wind-speed-20ft get-wind-from-direction
-     get-fuel-moisture-dead-1hr] :as inputs}
+  [inputs
    {:keys [firebrand-count-matrix fire-spread-matrix fire-line-intensity-matrix flame-length-matrix
            fire-type-matrix burn-time-matrix]}
    i j]
-  (let [burn-time           (t/mget burn-time-matrix i j)
-        cell                [i j]
-        fire-line-intensity (t/mget fire-line-intensity-matrix i j)
-        crown-fire?         (> (t/mget fire-type-matrix i j) 1.0)]
+  (let [num-rows                   (:num-rows inputs)
+        num-cols                   (:num-cols inputs)
+        cell-size                  (:cell-size inputs)
+        rand-gen                   (:rand-gen inputs)
+        spotting                   (:spotting inputs)
+        get-elevation              (:get-elevation inputs)
+        get-fuel-model             (:get-fuel-model inputs)
+        get-temperature            (:get-temperature inputs)
+        get-relative-humidity      (:get-relative-humidity inputs)
+        get-wind-speed-20ft        (:get-wind-speed-20ft inputs)
+        get-wind-from-direction    (:get-wind-from-direction inputs)
+        get-fuel-moisture-dead-1hr (:get-fuel-moisture-dead-1hr inputs)
+        burn-time                  (t/mget burn-time-matrix i j)
+        cell                       [i j]
+        fire-line-intensity        (t/mget fire-line-intensity-matrix i j)
+        crown-fire?                (> (t/mget fire-type-matrix i j) 1.0)]
     (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
       (let [band                    (long (/ burn-time 60.0))
             ws                      (get-wind-speed-20ft band i j)

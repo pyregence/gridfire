@@ -53,9 +53,11 @@
     10.0)) ; Wait 10 minutes for spot ignitions to smolder and catch fire
 
 #_(defn- compute-terrain-distance-slow
-    [{:keys [cell-size cell-size-diagonal get-aspect get-slope]} ^long i ^long j ^double direction]
-    (let [cell-size          (double cell-size)
-          cell-size-diagonal (double cell-size-diagonal)
+    [inputs ^long i ^long j ^double direction]
+    (let [cell-size          (double (:cell-size inputs))
+          cell-size-diagonal (double (:cell-size-diagonal inputs))
+          get-aspect         (:get-aspect inputs)
+          get-slope          (:get-slope inputs)
           ^double aspect     (get-aspect i j)
           ^double slope      (get-slope i j)
           theta              (Math/abs (- aspect direction))
@@ -94,26 +96,41 @@
       (t/mset! matrix i j new-value))))
 
 (defn- compute-max-in-situ-values!
-  [{:keys [get-aspect get-canopy-base-height get-canopy-cover get-canopy-height get-crown-bulk-density
-           get-fuel-model get-slope get-wind-speed-20ft get-wind-from-direction get-temperature
-           get-relative-humidity get-foliar-moisture ellipse-adjustment-factor get-fuel-moisture-dead-1hr
-           get-fuel-moisture-dead-10hr get-fuel-moisture-dead-100hr get-fuel-moisture-live-herbaceous
-           get-fuel-moisture-live-woody grass-suppression?]}
+  [inputs
    {:keys [max-spread-rate-matrix max-spread-direction-matrix spread-rate-matrix flame-length-matrix
            fire-line-intensity-matrix fire-type-matrix modified-time-matrix eccentricity-matrix]}
    band
    i
    j]
-  (let [band                                  (long band)
+  (let [get-slope                             (:get-slope inputs)
+        get-aspect                            (:get-aspect inputs)
+        get-canopy-cover                      (:get-canopy-cover inputs)
+        get-canopy-height                     (:get-canopy-height inputs)
+        get-canopy-base-height                (:get-canopy-base-height inputs)
+        get-crown-bulk-density                (:get-crown-bulk-density inputs)
+        get-fuel-model                        (:get-fuel-model inputs)
+        get-temperature                       (:get-temperature inputs)
+        get-relative-humidity                 (:get-relative-humidity inputs)
+        get-wind-speed-20ft                   (:get-wind-speed-20ft inputs)
+        get-wind-from-direction               (:get-wind-from-direction inputs)
+        get-fuel-moisture-dead-1hr            (:get-fuel-moisture-dead-1hr inputs)
+        get-fuel-moisture-dead-10hr           (:get-fuel-moisture-dead-10hr inputs)
+        get-fuel-moisture-dead-100hr          (:get-fuel-moisture-dead-100hr inputs)
+        get-fuel-moisture-live-herbaceous     (:get-fuel-moisture-live-herbaceous inputs)
+        get-fuel-moisture-live-woody          (:get-fuel-moisture-live-woody inputs)
+        get-foliar-moisture                   (:get-foliar-moisture inputs)
+        ellipse-adjustment-factor             (:ellipse-adjustment-factor inputs)
+        grass-suppression?                    (:grass-suppression? inputs)
+        band                                  (long band)
+        ^double slope                         (get-slope i j)
         ^double aspect                        (get-aspect i j)
-        ^double canopy-base-height            (get-canopy-base-height i j)
         ^double canopy-cover                  (get-canopy-cover i j)
         ^double canopy-height                 (get-canopy-height i j)
+        ^double canopy-base-height            (get-canopy-base-height i j)
         ^double crown-bulk-density            (get-crown-bulk-density i j)
         ^double fuel-model                    (get-fuel-model i j)
-        ^double slope                         (get-slope i j)
-        ^double relative-humidity             (get-relative-humidity band i j)
         ^double temperature                   (get-temperature band i j)
+        ^double relative-humidity             (get-relative-humidity band i j)
         ^double wind-speed-20ft               (get-wind-speed-20ft band i j)
         ^double wind-from-direction           (get-wind-from-direction band i j)
         ^double fuel-moisture-dead-1hr        (if get-fuel-moisture-dead-1hr
@@ -334,8 +351,8 @@
   "Returns a map of [x y] locations to [t p] where:
   t: time of ignition
   p: ignition-probability"
-  [{:keys [spotting] :as inputs} matrices ignited-cells]
-  (when spotting
+  [inputs matrices ignited-cells]
+  (when (:spotting inputs)
     (persistent!
      (reduce (fn [acc [i j]]
                (merge-spot-ignitions acc (spot-optimal/spread-firebrands inputs matrices i j)))
@@ -343,12 +360,17 @@
              ignited-cells))))
 
 (defn- compute-spot-burn-vectors!
-  [{:keys [num-rows num-cols cell-size get-elevation get-fuel-model] :as inputs}
+  [inputs
    {:keys
     [fire-spread-matrix burn-time-matrix travel-lines-matrix max-spread-rate-matrix
      max-spread-direction-matrix eccentricity-matrix modified-time-matrix] :as matrices}
    spot-ignitions ignited-cells band new-clock new-hour?]
-  (let [band                     (long band)
+  (let [num-rows                 (:num-rows inputs)
+        num-cols                 (:num-cols inputs)
+        cell-size                (:cell-size inputs)
+        get-elevation            (:get-elevation inputs)
+        get-fuel-model           (:get-fuel-model inputs)
+        band                     (long band)
         new-clock                (double new-clock)
         new-spot-ignitions       (compute-new-spot-ignitions inputs matrices ignited-cells)
         [spot-ignite-later
@@ -464,31 +486,39 @@
     [(persistent! burn-vectors) (persistent! ignited-cells)]))
 
 (defn- ignited-cells->burn-vectors
-  [{:keys [num-rows num-cols cell-size get-elevation get-fuel-model] :as inputs}
+  [inputs
    {:keys
     [fire-spread-matrix travel-lines-matrix max-spread-rate-matrix
      max-spread-direction-matrix eccentricity-matrix modified-time-matrix] :as matrices}
    band
    ignited-cells
    burn-vectors]
-  (persistent!
-   (reduce
-    (fn [acc [i j]]
-      (create-new-burn-vectors! acc inputs matrices num-rows num-cols cell-size get-elevation fire-spread-matrix
-                                travel-lines-matrix max-spread-rate-matrix max-spread-direction-matrix
-                                eccentricity-matrix get-fuel-model modified-time-matrix band i j
-                                (t/mget fire-spread-matrix i j)))
-    (transient burn-vectors)
-    ignited-cells)))
+  (let [num-rows       (:num-rows inputs)
+        num-cols       (:num-cols inputs)
+        cell-size      (:cell-size inputs)
+        get-elevation  (:get-elevation inputs)
+        get-fuel-model (:get-fuel-model inputs)]
+    (persistent!
+     (reduce
+      (fn [acc [i j]]
+        (create-new-burn-vectors! acc inputs matrices num-rows num-cols cell-size get-elevation fire-spread-matrix
+                                  travel-lines-matrix max-spread-rate-matrix max-spread-direction-matrix
+                                  eccentricity-matrix get-fuel-model modified-time-matrix band i j
+                                  (t/mget fire-spread-matrix i j)))
+      (transient burn-vectors)
+      ignited-cells))))
 
 (defn- promote-burn-vectors
   "t1: time spent in first hour"
-  [{:keys [num-rows num-cols get-fuel-model]}
+  [inputs
    {:keys [fire-spread-matrix burn-time-matrix]}
    global-clock new-clock new-hour? top-of-hour burn-vectors]
-  (let [global-clock (double global-clock)
-        new-clock    (double new-clock)
-        top-of-hour  (double top-of-hour)]
+  (let [num-rows       (:num-rows inputs)
+        num-cols       (:num-cols inputs)
+        get-fuel-model (:get-fuel-model inputs)
+        global-clock   (double global-clock)
+        new-clock      (double new-clock)
+        top-of-hour    (double top-of-hour)]
     (persistent!
      (reduce
       (fn [acc burn-vector]
@@ -549,7 +579,7 @@
         (/ spread-rate)))
 
 (defn- transition-burn-vectors
-  [{:keys [cell-size get-elevation num-rows num-cols get-fuel-model] :as inputs}
+  [inputs
    {:keys
     [travel-lines-matrix fire-spread-matrix modified-time-matrix max-spread-rate-matrix
      max-spread-direction-matrix eccentricity-matrix burn-time-matrix] :as matrices}
@@ -558,7 +588,12 @@
    new-clock
    new-hour?
    burn-vectors]
-  (let [band            (long band)
+  (let [cell-size       (:cell-size inputs)
+        get-elevation   (:get-elevation inputs)
+        num-rows        (:num-rows inputs)
+        num-cols        (:num-cols inputs)
+        get-fuel-model  (:get-fuel-model inputs)
+        band            (long band)
         global-clock    (double global-clock)
         new-clock       (double new-clock)
         [untransitioned-bvs
@@ -601,10 +636,12 @@
                                                225.0 (- j 1)
                                                270.0 (- j 1)
                                                315.0 (- j 1))]
-                                   (if (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols new-i new-j)
+                                   (if (burnable-cell? get-fuel-model fire-spread-matrix burn-probability
+                                                       num-rows num-cols new-i new-j)
                                      ;; Neighbor is burnable: transition burn vector to next cell
-                                     (let [^long modified-time (t/mget modified-time-matrix new-i new-j)]
-                                       (when (> band (dec modified-time)) ;;crossed new hour and vector is first in this timestep to compute
+                                     (do
+                                       (when (> band (dec ^long (t/mget modified-time-matrix new-i new-j)))
+                                         ;; crossed new hour and vector is first in this timestep to compute
                                          (compute-max-in-situ-values! inputs matrices band new-i new-j))
                                        (t/mset! travel-lines-matrix new-i new-j
                                                 (bit-set (t/mget travel-lines-matrix new-i new-j)
@@ -710,10 +747,10 @@
 
 ;; FIXME Update target spread rate on burn-vectors if new band > band
 (defn- run-loop
-  [{:keys [cell-size ignition-start-time max-runtime] :as inputs} matrices ignited-cells]
-  (let [cell-size           (double cell-size)
-        max-runtime         (double max-runtime)
-        ignition-start-time (double ignition-start-time)
+  [inputs matrices ignited-cells]
+  (let [cell-size           (double (:cell-size inputs))
+        max-runtime         (double (:max-runtime inputs))
+        ignition-start-time (double (:ignition-start-time inputs))
         ignition-stop-time  (+ ignition-start-time max-runtime)
         band                (long (/ ignition-start-time 60.0))]
     (doseq [[i j] ignited-cells]
@@ -791,7 +828,7 @@
 
 ;; TODO: Move this multimethod check into run-simulations to avoid running it in every thread
 (defmulti run-fire-spread
-  "Runs the raster-based fire spread model with an input map containing these fields:
+  "Runs the raster-based fire spread model with a SimulationInputs record containing these fields:
 |------------------------------------+--------------------+-----------------------------------------------------------|
 | Key                                | Value Type         | Value Units                                               |
 |------------------------------------+--------------------+-----------------------------------------------------------|
@@ -837,8 +874,8 @@
 |                                    |                    | :surface-fire-spotting -> map                             |
 |                                    |                    | :crown-fire-spotting-percent -> double or [double double] |
 |------------------------------------+--------------------+-----------------------------------------------------------|"
-  (fn [{:keys [initial-ignition-site]}]
-    (if (vector? initial-ignition-site)
+  (fn [inputs]
+    (if (vector? (:initial-ignition-site inputs))
       :ignition-point
       :ignition-perimeter)))
 
@@ -847,10 +884,14 @@
 ;;-----------------------------------------------------------------------------
 
 (defn- initialize-point-ignition-matrices
-  [{:keys [num-rows num-cols initial-ignition-site ignition-start-time spotting]}]
-  (let [shape            [num-rows num-cols]
-        [i j]            initial-ignition-site
-        burn-time-matrix (-> (t/new-tensor shape) (t/mset! i j ignition-start-time))]
+  [inputs]
+  (let [num-rows              (:num-rows inputs)
+        num-cols              (:num-cols inputs)
+        [i j]                 (:initial-ignition-site inputs)
+        ignition-start-time   (:ignition-start-time inputs)
+        spotting              (:spotting inputs)
+        shape                 [num-rows num-cols]
+        burn-time-matrix      (-> (t/new-tensor shape) (t/mset! i j ignition-start-time))]
     {:burn-time-matrix            burn-time-matrix
      :eccentricity-matrix         (t/new-tensor shape)
      :fire-line-intensity-matrix  (t/new-tensor shape)
@@ -866,10 +907,10 @@
      :travel-lines-matrix         (t/new-tensor shape :datatype :short)}))
 
 (defmethod run-fire-spread :ignition-point
-  [{:keys [initial-ignition-site] :as inputs}]
+  [inputs]
   (run-loop inputs
             (initialize-point-ignition-matrices inputs)
-            [initial-ignition-site]))
+            [(:initial-ignition-site inputs)]))
 
 ;;-----------------------------------------------------------------------------
 ;; Perimeter Ignition
@@ -882,14 +923,17 @@
   matrix)
 
 (defn- initialize-perimeter-ignition-matrices
-  [{:keys [num-rows num-cols initial-ignition-site ignition-start-time spotting]}
-   ignited-cells]
-  (let [shape              [num-rows num-cols]
-        positive-burn-scar initial-ignition-site
-        negative-burn-scar (d/clone (dfn/* -1.0 positive-burn-scar))
-        burn-time-matrix   (add-ignited-cells! (d/clone negative-burn-scar)
-                                               ignited-cells
-                                               ignition-start-time)]
+  [inputs ignited-cells]
+  (let [num-rows            (:num-rows inputs)
+        num-cols            (:num-cols inputs)
+        positive-burn-scar  (:initial-ignition-site inputs)
+        ignition-start-time (:ignition-start-time inputs)
+        spotting            (:spotting inputs)
+        shape               [num-rows num-cols]
+        negative-burn-scar  (d/clone (dfn/* -1.0 positive-burn-scar))
+        burn-time-matrix    (add-ignited-cells! (d/clone negative-burn-scar)
+                                                ignited-cells
+                                                ignition-start-time)]
     {:burn-time-matrix            burn-time-matrix
      :eccentricity-matrix         (d/clone negative-burn-scar)
      :fire-line-intensity-matrix  negative-burn-scar
@@ -906,8 +950,12 @@
 
 ;; TODO: Move this step into run-simulations to avoid running it in every thread
 (defn- get-perimeter-cells
-  [{:keys [num-rows num-cols initial-ignition-site get-fuel-model]}]
-  (let [{:keys [row-idxs col-idxs]} (non-zero-indices initial-ignition-site)
+  [inputs]
+  (let [num-rows                    (:num-rows inputs)
+        num-cols                    (:num-cols inputs)
+        initial-ignition-site       (:initial-ignition-site inputs)
+        get-fuel-model              (:get-fuel-model inputs)
+        {:keys [row-idxs col-idxs]} (non-zero-indices initial-ignition-site)
         num-idxs                    (d/ecount row-idxs)]
     (loop [idx 0
            acc (transient [])]
