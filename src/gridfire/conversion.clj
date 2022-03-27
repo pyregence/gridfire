@@ -259,9 +259,3 @@
     (if (valid-multiplier? multiplier)
       (fn ^double [^double x] (* x multiplier))
       nil)))
-
-(defn to-imperial!
-  [layer {:keys [units multiplier] :or {multiplier 1.0}} layer-name]
-  (if-let [converter (get-units-converter layer-name units multiplier)]
-    (update layer :matrix #(d/clone (d/emap converter :float64 %)))
-    layer))
