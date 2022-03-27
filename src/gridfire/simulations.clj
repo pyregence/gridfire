@@ -1,16 +1,15 @@
 (ns gridfire.simulations
-  (:require [clojure.java.io             :as io]
-            [gridfire.binary-output      :as binary]
-            [gridfire.common             :refer [get-neighbors in-bounds?]]
-            [gridfire.conversion         :refer [min->hour kebab->snake snake->kebab]]
-            [gridfire.fire-spread        :refer [run-fire-spread]]
-            [gridfire.fire-spread-optimal :as optimal]
-            [gridfire.outputs            :as outputs]
-            [gridfire.utils.random       :refer [my-rand-range]]
-            [taoensso.tufte              :as tufte]
-            [tech.v3.datatype            :as d]
-            [tech.v3.datatype.functional :as dfn]
-            [tech.v3.tensor              :as t])
+  (:require [clojure.java.io              :as io]
+            [gridfire.binary-output       :as binary]
+            [gridfire.common              :refer [get-neighbors in-bounds?]]
+            [gridfire.conversion          :refer [min->hour kebab->snake snake->kebab]]
+            [gridfire.fire-spread-optimal :refer [run-fire-spread]]
+            [gridfire.outputs             :as outputs]
+            [gridfire.utils.random        :refer [my-rand-range]]
+            [taoensso.tufte               :as tufte]
+            [tech.v3.datatype             :as d]
+            [tech.v3.datatype.functional  :as dfn]
+            [tech.v3.tensor               :as t])
   (:import java.util.Random))
 
 (set! *unchecked-math* :warn-on-boxed)
@@ -203,7 +202,6 @@
                   (str "-index-multiplier")
                   keyword)))
 
-;;TODO type hint all fn
 (defn- get-value-fn
   [{:keys [perturbations] :as inputs} rand-gen layer-name i]
   (when-let [matrix-or-num (matrix-or-i inputs layer-name i)]
@@ -341,21 +339,49 @@
                                           new-offset))]
                  (max 0.0 (+ ^double (t/mget matrix-or-num b i j) offset)))))))))))
 
-;; FIXME: Replace input-variations expression with add-sampled-params
-;;        and add-weather-params (and remove them from load-inputs).
-;;        This will require making these function return single
-;;        samples instead of sequences of samples. Also combine the
-;;        initial-ignition-site calculation into input-variations or
-;;        move it to run-fire-spread.
+(defrecord SimulationInputs
+    [^long num-rows
+     ^long num-cols
+     ^double cell-size
+     ^double ignition-start-time
+     ^double max-runtime
+     initial-ignition-site
+     ^double ellipse-adjustment-factor
+     ^boolean grass-suppression?
+     ^Random rand-gen
+     get-elevation
+     get-slope
+     get-aspect
+     get-canopy-cover
+     get-canopy-height
+     get-canopy-base-height
+     get-crown-bulk-density
+     get-fuel-model
+     get-temperature
+     get-relative-humidity
+     get-wind-speed-20ft
+     get-wind-from-direction
+     get-fuel-moisture-dead-1hr
+     get-fuel-moisture-dead-10hr
+     get-fuel-moisture-dead-100hr
+     get-fuel-moisture-live-herbaceous
+     get-fuel-moisture-live-woody
+     get-foliar-moisture
+     spotting])
+
 (defn run-simulation!
   [^long i
    {:keys
-    [output-csvs? envelope ignition-matrix cell-size max-runtime-samples ignition-rows ignition-cols
-     ellipse-adjustment-factor-samples random-seed ignition-start-times] :as inputs}]
+    [num-rows num-cols grass-suppression? output-csvs? envelope ignition-matrix cell-size max-runtime-samples
+     ignition-rows ignition-cols ellipse-adjustment-factor-samples random-seed ignition-start-times spotting]
+    :as inputs}]
   (tufte/profile
    {:id :run-simulation}
    (let [rand-gen            (if random-seed (Random. (+ ^long random-seed i)) (Random.))
-         input-variations    {:rand-gen                          rand-gen
+         simulation-inputs   {:num-rows                          num-rows
+                              :num-cols                          num-cols
+                              :cell-size                         cell-size
+                              :rand-gen                          rand-gen
                               :initial-ignition-site             (or ignition-matrix
                                                                      [(ignition-rows i) (ignition-cols i)])
                               :ignition-start-time               (get ignition-start-times i 0.0)
@@ -378,16 +404,17 @@
                               :get-fuel-moisture-live-herbaceous (get-value-fn inputs rand-gen :fuel-moisture-live-herbaceous i)
                               :get-fuel-moisture-live-woody      (get-value-fn inputs rand-gen :fuel-moisture-live-woody i)
                               :get-foliar-moisture               (get-value-fn inputs rand-gen :foliar-moisture i)
-                              :ellipse-adjustment-factor         (ellipse-adjustment-factor-samples i)}
-         fire-spread-results (tufte/p :run-fire-spread
-                                      (optimal/run-fire-spread (merge inputs input-variations))
-                                      #_(run-fire-spread (merge inputs input-variations)))]
-     (when fire-spread-results
-       (process-output-layers! inputs fire-spread-results envelope i)
-       (process-aggregate-output-layers! inputs fire-spread-results)
-       (process-binary-output! inputs fire-spread-results i))
+                              :ellipse-adjustment-factor         (ellipse-adjustment-factor-samples i)
+                              :grass-suppression?                grass-suppression?
+                              :spotting                          spotting}
+         simulation-results (tufte/p :run-fire-spread
+                                     (run-fire-spread (map->SimulationInputs simulation-inputs)))]
+     (when simulation-results
+       (process-output-layers! inputs simulation-results envelope i)
+       (process-aggregate-output-layers! inputs simulation-results)
+       (process-binary-output! inputs simulation-results i))
      (when output-csvs?
-       (-> input-variations
+       (-> simulation-inputs
            (dissoc :get-aspect
                    :get-canopy-height
                    :get-canopy-base-height
@@ -409,14 +436,14 @@
            (merge {:simulation       (inc i)
                    :ignition-row     (get ignition-rows i)
                    :ignition-col     (get ignition-cols i)
-                   :global-clock     (:global-clock fire-spread-results)
-                   :exit-condition   (:exit-condition fire-spread-results :no-fire-spread)
-                   :crown-fire-count (:crown-fire-count fire-spread-results)})
+                   :global-clock     (:global-clock simulation-results)
+                   :exit-condition   (:exit-condition simulation-results :no-fire-spread)
+                   :crown-fire-count (:crown-fire-count simulation-results)})
            (merge
-            (if fire-spread-results
+            (if simulation-results
               (tufte/p
                :summarize-fire-spread-results
-               (summarize-fire-spread-results fire-spread-results cell-size))
+               (summarize-fire-spread-results simulation-results cell-size))
               {:fire-size                  0.0
                :flame-length-mean          0.0
                :flame-length-stddev        0.0
