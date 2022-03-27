@@ -310,16 +310,14 @@
     (crown-spot-fire? inputs)
     (surface-fire-spot-fire? inputs here fire-line-intensity)))
 
+;; FIXME: Drop cell = [i j]
 (defn spread-firebrands
   "Returns a sequence of key value pairs where
   key: [x y] locations of the cell
   val: [t p] where:
   t: time of ignition
   p: ignition-probability"
-  [inputs
-   {:keys [firebrand-count-matrix fire-spread-matrix fire-line-intensity-matrix flame-length-matrix
-           fire-type-matrix burn-time-matrix]}
-   i j]
+  [inputs matrices i j]
   (let [num-rows                   (:num-rows inputs)
         num-cols                   (:num-cols inputs)
         cell-size                  (:cell-size inputs)
@@ -332,6 +330,12 @@
         get-wind-speed-20ft        (:get-wind-speed-20ft inputs)
         get-wind-from-direction    (:get-wind-from-direction inputs)
         get-fuel-moisture-dead-1hr (:get-fuel-moisture-dead-1hr inputs)
+        firebrand-count-matrix     (:firebrand-count-matrix matrices)
+        fire-spread-matrix         (:fire-spread-matrix matrices)
+        fire-line-intensity-matrix (:fire-line-intensity-matrix matrices)
+        flame-length-matrix        (:flame-length-matrix matrices)
+        fire-type-matrix           (:fire-type-matrix matrices)
+        burn-time-matrix           (:burn-time-matrix matrices)
         burn-time                  (t/mget burn-time-matrix i j)
         cell                       [i j]
         fire-line-intensity        (t/mget fire-line-intensity-matrix i j)

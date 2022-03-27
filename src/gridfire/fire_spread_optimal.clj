@@ -96,12 +96,7 @@
       (t/mset! matrix i j new-value))))
 
 (defn- compute-max-in-situ-values!
-  [inputs
-   {:keys [max-spread-rate-matrix max-spread-direction-matrix spread-rate-matrix flame-length-matrix
-           fire-line-intensity-matrix fire-type-matrix modified-time-matrix eccentricity-matrix]}
-   band
-   i
-   j]
+  [inputs matrices band i j]
   (let [get-slope                             (:get-slope inputs)
         get-aspect                            (:get-aspect inputs)
         get-canopy-cover                      (:get-canopy-cover inputs)
@@ -121,6 +116,14 @@
         get-foliar-moisture                   (:get-foliar-moisture inputs)
         ellipse-adjustment-factor             (:ellipse-adjustment-factor inputs)
         grass-suppression?                    (:grass-suppression? inputs)
+        max-spread-rate-matrix                (:max-spread-rate-matrix matrices)
+        max-spread-direction-matrix           (:max-spread-direction-matrix matrices)
+        spread-rate-matrix                    (:spread-rate-matrix matrices)
+        flame-length-matrix                   (:flame-length-matrix matrices)
+        fire-line-intensity-matrix            (:fire-line-intensity-matrix matrices)
+        fire-type-matrix                      (:fire-type-matrix matrices)
+        modified-time-matrix                  (:modified-time-matrix matrices)
+        eccentricity-matrix                   (:eccentricity-matrix matrices)
         band                                  (long band)
         ^double slope                         (get-slope i j)
         ^double aspect                        (get-aspect i j)
@@ -360,63 +363,64 @@
              ignited-cells))))
 
 (defn- compute-spot-burn-vectors!
-  [inputs
-   {:keys
-    [fire-spread-matrix burn-time-matrix travel-lines-matrix max-spread-rate-matrix
-     max-spread-direction-matrix eccentricity-matrix modified-time-matrix] :as matrices}
-   spot-ignitions ignited-cells band new-clock new-hour?]
-  (let [num-rows                 (:num-rows inputs)
-        num-cols                 (:num-cols inputs)
-        cell-size                (:cell-size inputs)
-        get-elevation            (:get-elevation inputs)
-        get-fuel-model           (:get-fuel-model inputs)
-        band                     (long band)
-        new-clock                (double new-clock)
-        new-spot-ignitions       (compute-new-spot-ignitions inputs matrices ignited-cells)
+  [inputs matrices spot-ignitions ignited-cells band new-clock new-hour?]
+  (let [num-rows                    (:num-rows inputs)
+        num-cols                    (:num-cols inputs)
+        cell-size                   (:cell-size inputs)
+        get-elevation               (:get-elevation inputs)
+        get-fuel-model              (:get-fuel-model inputs)
+        fire-spread-matrix          (:fire-spread-matrix matrices)
+        burn-time-matrix            (:burn-time-matrix matrices)
+        travel-lines-matrix         (:travel-lines-matrix matrices)
+        max-spread-rate-matrix      (:max-spread-rate-matrix matrices)
+        max-spread-direction-matrix (:max-spread-direction-matrix matrices)
+        eccentricity-matrix         (:eccentricity-matrix matrices)
+        modified-time-matrix        (:modified-time-matrix matrices)
+        band                        (long band)
+        new-clock                   (double new-clock)
+        new-spot-ignitions          (compute-new-spot-ignitions inputs matrices ignited-cells)
         [spot-ignite-later
-         spot-ignite-now]        (identify-spot-ignition-events new-clock (persistent!
-                                                                           (merge-spot-ignitions
-                                                                            (transient spot-ignitions)
-                                                                            new-spot-ignitions)))
-        ignited?                 (fn [[k v]]
-                                   (let [[i j] k
-                                         [_ p] v]
-                                     (>= ^double (t/mget fire-spread-matrix i j) ^double p)))
-        pruned-spot-ignite-later (into {} (remove ignited? spot-ignite-later)) ; TODO move to identify-spot-ignition
-        pruned-spot-ignite-now   (remove ignited? spot-ignite-now)             ; TODO move to identify-spot-ignition
-        spot-burn-vectors        (persistent!
-                                  (reduce
-                                   (fn [acc [cell spot-info]]
-                                     (let [[i j]                        cell
-                                           [burn-time burn-probability] spot-info
-                                           ^long modified-time          (t/mget modified-time-matrix i j)]
-                                       (when (> band (dec modified-time))
-                                         (compute-max-in-situ-values! inputs matrices band i j))
-                                       (t/mset! fire-spread-matrix i j burn-probability)
-                                       (t/mset! burn-time-matrix i j burn-time)
-                                       (create-new-burn-vectors! acc inputs matrices num-rows num-cols cell-size get-elevation
-                                                                 fire-spread-matrix travel-lines-matrix
-                                                                 max-spread-rate-matrix max-spread-direction-matrix
-                                                                 eccentricity-matrix get-fuel-model modified-time-matrix
-                                                                 band i j burn-probability)))
-                                   (transient [])
-                                   pruned-spot-ignite-now))]
+         spot-ignite-now]           (identify-spot-ignition-events new-clock (persistent!
+                                                                              (merge-spot-ignitions
+                                                                               (transient spot-ignitions)
+                                                                               new-spot-ignitions)))
+        ignited?                    (fn [[k v]]
+                                      (let [[i j] k
+                                            [_ p] v]
+                                        (>= ^double (t/mget fire-spread-matrix i j) ^double p)))
+        pruned-spot-ignite-later    (into {} (remove ignited? spot-ignite-later)) ; TODO move to identify-spot-ignition
+        pruned-spot-ignite-now      (remove ignited? spot-ignite-now)             ; TODO move to identify-spot-ignition
+        spot-burn-vectors           (persistent!
+                                     (reduce
+                                      (fn [acc [cell spot-info]]
+                                        (let [[i j]                        cell
+                                              [burn-time burn-probability] spot-info
+                                              ^long modified-time          (t/mget modified-time-matrix i j)]
+                                          (when (> band (dec modified-time))
+                                            (compute-max-in-situ-values! inputs matrices band i j))
+                                          (t/mset! fire-spread-matrix i j burn-probability)
+                                          (t/mset! burn-time-matrix i j burn-time)
+                                          (create-new-burn-vectors! acc inputs matrices num-rows num-cols cell-size get-elevation
+                                                                    fire-spread-matrix travel-lines-matrix
+                                                                    max-spread-rate-matrix max-spread-direction-matrix
+                                                                    eccentricity-matrix get-fuel-model modified-time-matrix
+                                                                    band i j burn-probability)))
+                                      (transient [])
+                                      pruned-spot-ignite-now))]
     [spot-burn-vectors (count pruned-spot-ignite-now) pruned-spot-ignite-later]))
 
 (defn- grow-burn-vectors!
-  [inputs
-   {:keys [fire-spread-matrix burn-time-matrix modified-time-matrix max-spread-rate-matrix
-           max-spread-direction-matrix eccentricity-matrix] :as matrices}
-   global-clock
-   band
-   timestep
-   new-hour?
-   t1 t2
-   burn-vectors]
-  (let [global-clock    (double global-clock)
-        timestep        (double timestep)
-        t1              (double t1)
-        t2              (double t2)
+  [inputs matrices global-clock band timestep new-hour? t1 t2 burn-vectors]
+  (let [fire-spread-matrix          (:fire-spread-matrix matrices)
+        burn-time-matrix            (:burn-time-matrix matrices)
+        modified-time-matrix        (:modified-time-matrix matrices)
+        max-spread-rate-matrix      (:max-spread-rate-matrix matrices)
+        max-spread-direction-matrix (:max-spread-direction-matrix matrices)
+        eccentricity-matrix         (:eccentricity-matrix matrices)
+        global-clock                (double global-clock)
+        timestep                    (double timestep)
+        t1                          (double t1)
+        t2                          (double t2)
         [burn-vectors
          ignited-cells] (reduce (fn [[burn-vectors ignited-cells] burn-vector]
                                   (let [i                         (long (:i burn-vector))
@@ -486,18 +490,18 @@
     [(persistent! burn-vectors) (persistent! ignited-cells)]))
 
 (defn- ignited-cells->burn-vectors
-  [inputs
-   {:keys
-    [fire-spread-matrix travel-lines-matrix max-spread-rate-matrix
-     max-spread-direction-matrix eccentricity-matrix modified-time-matrix] :as matrices}
-   band
-   ignited-cells
-   burn-vectors]
-  (let [num-rows       (:num-rows inputs)
-        num-cols       (:num-cols inputs)
-        cell-size      (:cell-size inputs)
-        get-elevation  (:get-elevation inputs)
-        get-fuel-model (:get-fuel-model inputs)]
+  [inputs matrices band ignited-cells burn-vectors]
+  (let [num-rows                    (:num-rows inputs)
+        num-cols                    (:num-cols inputs)
+        cell-size                   (:cell-size inputs)
+        get-elevation               (:get-elevation inputs)
+        get-fuel-model              (:get-fuel-model inputs)
+        fire-spread-matrix          (:fire-spread-matrix matrices)
+        travel-lines-matrix         (:travel-lines-matrix matrices)
+        max-spread-rate-matrix      (:max-spread-rate-matrix matrices)
+        max-spread-direction-matrix (:max-spread-direction-matrix matrices)
+        eccentricity-matrix         (:eccentricity-matrix matrices)
+        modified-time-matrix        (:modified-time-matrix matrices)]
     (persistent!
      (reduce
       (fn [acc [i j]]
@@ -509,16 +513,15 @@
       ignited-cells))))
 
 (defn- promote-burn-vectors
-  "t1: time spent in first hour"
-  [inputs
-   {:keys [fire-spread-matrix burn-time-matrix]}
-   global-clock new-clock new-hour? top-of-hour burn-vectors]
-  (let [num-rows       (:num-rows inputs)
-        num-cols       (:num-cols inputs)
-        get-fuel-model (:get-fuel-model inputs)
-        global-clock   (double global-clock)
-        new-clock      (double new-clock)
-        top-of-hour    (double top-of-hour)]
+  [inputs matrices global-clock new-clock new-hour? top-of-hour burn-vectors]
+  (let [num-rows           (:num-rows inputs)
+        num-cols           (:num-cols inputs)
+        get-fuel-model     (:get-fuel-model inputs)
+        fire-spread-matrix (:fire-spread-matrix matrices)
+        burn-time-matrix   (:burn-time-matrix matrices)
+        global-clock       (double global-clock)
+        new-clock          (double new-clock)
+        top-of-hour        (double top-of-hour)]
     (persistent!
      (reduce
       (fn [acc burn-vector]
@@ -579,23 +582,22 @@
         (/ spread-rate)))
 
 (defn- transition-burn-vectors
-  [inputs
-   {:keys
-    [travel-lines-matrix fire-spread-matrix modified-time-matrix max-spread-rate-matrix
-     max-spread-direction-matrix eccentricity-matrix burn-time-matrix] :as matrices}
-   band
-   global-clock
-   new-clock
-   new-hour?
-   burn-vectors]
-  (let [cell-size       (:cell-size inputs)
-        get-elevation   (:get-elevation inputs)
-        num-rows        (:num-rows inputs)
-        num-cols        (:num-cols inputs)
-        get-fuel-model  (:get-fuel-model inputs)
-        band            (long band)
-        global-clock    (double global-clock)
-        new-clock       (double new-clock)
+  [inputs matrices band global-clock new-clock new-hour? burn-vectors]
+  (let [cell-size                   (:cell-size inputs)
+        get-elevation               (:get-elevation inputs)
+        num-rows                    (:num-rows inputs)
+        num-cols                    (:num-cols inputs)
+        get-fuel-model              (:get-fuel-model inputs)
+        travel-lines-matrix         (:travel-lines-matrix matrices)
+        fire-spread-matrix          (:fire-spread-matrix matrices)
+        modified-time-matrix        (:modified-time-matrix matrices)
+        max-spread-rate-matrix      (:max-spread-rate-matrix matrices)
+        max-spread-direction-matrix (:max-spread-direction-matrix matrices)
+        eccentricity-matrix         (:eccentricity-matrix matrices)
+        burn-time-matrix            (:burn-time-matrix matrices)
+        band                        (long band)
+        global-clock                (double global-clock)
+        new-clock                   (double new-clock)
         [untransitioned-bvs
          transitioned-bvs
          ignited-cells] (reduce
@@ -823,6 +825,25 @@
          :spot-count                 spot-count}))))
 
 ;;-----------------------------------------------------------------------------
+;; SimulationMatrices Record
+;;-----------------------------------------------------------------------------
+
+(defrecord SimulationMatrices
+    [burn-time-matrix
+     eccentricity-matrix
+     fire-line-intensity-matrix
+     fire-spread-matrix
+     fire-type-matrix
+     firebrand-count-matrix
+     flame-length-matrix
+     max-spread-direction-matrix
+     max-spread-rate-matrix
+     modified-time-matrix
+     spot-matrix
+     spread-rate-matrix
+     travel-lines-matrix])
+
+;;-----------------------------------------------------------------------------
 ;; Main Simulation Entry Point - Dispatches to Point/Perimeter Ignition
 ;;-----------------------------------------------------------------------------
 
@@ -892,19 +913,20 @@
         spotting              (:spotting inputs)
         shape                 [num-rows num-cols]
         burn-time-matrix      (-> (t/new-tensor shape) (t/mset! i j ignition-start-time))]
-    {:burn-time-matrix            burn-time-matrix
-     :eccentricity-matrix         (t/new-tensor shape)
-     :fire-line-intensity-matrix  (t/new-tensor shape)
-     :fire-spread-matrix          (-> (t/new-tensor shape) (t/mset! i j 1.0))
-     :fire-type-matrix            (t/new-tensor shape)
-     :firebrand-count-matrix      (when spotting (t/new-tensor shape :datatype :int32))
-     :flame-length-matrix         (t/new-tensor shape)
-     :max-spread-direction-matrix (t/new-tensor shape)
-     :max-spread-rate-matrix      (t/new-tensor shape)
-     :modified-time-matrix        (t/new-tensor shape :datatype :int32)
-     :spot-matrix                 (when spotting (t/new-tensor shape))
-     :spread-rate-matrix          (t/new-tensor shape)
-     :travel-lines-matrix         (t/new-tensor shape :datatype :short)}))
+    (map->SimulationMatrices
+     {:burn-time-matrix            burn-time-matrix
+      :eccentricity-matrix         (t/new-tensor shape)
+      :fire-line-intensity-matrix  (t/new-tensor shape)
+      :fire-spread-matrix          (-> (t/new-tensor shape) (t/mset! i j 1.0))
+      :fire-type-matrix            (t/new-tensor shape)
+      :firebrand-count-matrix      (when spotting (t/new-tensor shape :datatype :int32))
+      :flame-length-matrix         (t/new-tensor shape)
+      :max-spread-direction-matrix (t/new-tensor shape)
+      :max-spread-rate-matrix      (t/new-tensor shape)
+      :modified-time-matrix        (t/new-tensor shape :datatype :int32)
+      :spot-matrix                 (when spotting (t/new-tensor shape))
+      :spread-rate-matrix          (t/new-tensor shape)
+      :travel-lines-matrix         (t/new-tensor shape :datatype :short)})))
 
 (defmethod run-fire-spread :ignition-point
   [inputs]
@@ -934,19 +956,20 @@
         burn-time-matrix    (add-ignited-cells! (d/clone negative-burn-scar)
                                                 ignited-cells
                                                 ignition-start-time)]
-    {:burn-time-matrix            burn-time-matrix
-     :eccentricity-matrix         (d/clone negative-burn-scar)
-     :fire-line-intensity-matrix  negative-burn-scar
-     :fire-spread-matrix          (d/clone positive-burn-scar)
-     :fire-type-matrix            (d/clone negative-burn-scar)
-     :firebrand-count-matrix      (when spotting (t/new-tensor shape :datatype :int32))
-     :flame-length-matrix         (d/clone negative-burn-scar)
-     :max-spread-direction-matrix (d/clone negative-burn-scar)
-     :max-spread-rate-matrix      (d/clone negative-burn-scar)
-     :modified-time-matrix        (t/new-tensor shape :datatype :int32)
-     :spot-matrix                 (when spotting (t/new-tensor shape))
-     :spread-rate-matrix          (d/clone negative-burn-scar)
-     :travel-lines-matrix         (t/new-tensor shape :datatype :short)}))
+    (map->SimulationMatrices
+     {:burn-time-matrix            burn-time-matrix
+      :eccentricity-matrix         (d/clone negative-burn-scar)
+      :fire-line-intensity-matrix  negative-burn-scar
+      :fire-spread-matrix          (d/clone positive-burn-scar)
+      :fire-type-matrix            (d/clone negative-burn-scar)
+      :firebrand-count-matrix      (when spotting (t/new-tensor shape :datatype :int32))
+      :flame-length-matrix         (d/clone negative-burn-scar)
+      :max-spread-direction-matrix (d/clone negative-burn-scar)
+      :max-spread-rate-matrix      (d/clone negative-burn-scar)
+      :modified-time-matrix        (t/new-tensor shape :datatype :int32)
+      :spot-matrix                 (when spotting (t/new-tensor shape))
+      :spread-rate-matrix          (d/clone negative-burn-scar)
+      :travel-lines-matrix         (t/new-tensor shape :datatype :short)})))
 
 ;; TODO: Move this step into run-simulations to avoid running it in every thread
 (defn- get-perimeter-cells
