@@ -370,7 +370,7 @@
      spotting])
 
 (defn run-simulation!
-  [^long i
+  [i
    {:keys
     [num-rows num-cols grass-suppression? output-csvs? envelope ignition-matrix cell-size max-runtime-samples
      ignition-rows ignition-cols ellipse-adjustment-factor-samples random-seed ignition-start-times spotting]
@@ -405,7 +405,7 @@
                               :get-fuel-moisture-live-woody      (get-value-fn inputs rand-gen :fuel-moisture-live-woody i)
                               :get-foliar-moisture               (get-value-fn inputs rand-gen :foliar-moisture i)
                               :ellipse-adjustment-factor         (ellipse-adjustment-factor-samples i)
-                              :grass-suppression?                grass-suppression?
+                              :grass-suppression?                (true? grass-suppression?)
                               :spotting                          spotting}
          simulation-results (tufte/p :run-fire-spread
                                      (run-fire-spread (map->SimulationInputs simulation-inputs)))]

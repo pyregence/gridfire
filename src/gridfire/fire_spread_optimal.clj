@@ -419,8 +419,8 @@
         eccentricity-matrix         (:eccentricity-matrix matrices)
         global-clock                (double global-clock)
         timestep                    (double timestep)
-        t1                          (double t1)
-        t2                          (double t2)
+        t1                          (if new-hour? (double t1) t1)
+        t2                          (if new-hour? (double t1) t2)
         [burn-vectors
          ignited-cells] (reduce (fn [[burn-vectors ignited-cells] burn-vector]
                                   (let [i                         (long (:i burn-vector))
@@ -521,7 +521,7 @@
         burn-time-matrix   (:burn-time-matrix matrices)
         global-clock       (double global-clock)
         new-clock          (double new-clock)
-        top-of-hour        (double top-of-hour)]
+        top-of-hour        (if new-hour? (double top-of-hour) top-of-hour)]
     (persistent!
      (reduce
       (fn [acc burn-vector]
@@ -814,13 +814,13 @@
                  (+ spot-count ^long spot-ignite-now-count)))
         {:exit-condition             (if (>= global-clock ignition-stop-time) :max-runtime-reached :no-burnable-fuels)
          :global-clock               global-clock
-         :burn-time-matrix           (matrices :burn-time-matrix)
-         :fire-line-intensity-matrix (matrices :fire-line-intensity-matrix)
-         :fire-spread-matrix         (matrices :fire-spread-matrix)
-         :fire-type-matrix           (matrices :fire-type-matrix)
-         :flame-length-matrix        (matrices :flame-length-matrix)
-         :spot-matrix                (matrices :spot-matrix)
-         :spread-rate-matrix         (matrices :spread-rate-matrix)
+         :burn-time-matrix           (:burn-time-matrix matrices)
+         :fire-line-intensity-matrix (:fire-line-intensity-matrix matrices)
+         :fire-spread-matrix         (:fire-spread-matrix matrices)
+         :fire-type-matrix           (:fire-type-matrix matrices)
+         :flame-length-matrix        (:flame-length-matrix matrices)
+         :spot-matrix                (:spot-matrix matrices)
+         :spread-rate-matrix         (:spread-rate-matrix matrices)
          :crown-fire-count           0 ; TODO Calculate using tensor ops
          :spot-count                 spot-count}))))
 
