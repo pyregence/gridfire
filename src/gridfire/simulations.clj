@@ -370,7 +370,7 @@
      spotting])
 
 (defn run-simulation!
-  [i
+  [^long i
    {:keys
     [num-rows num-cols grass-suppression? output-csvs? envelope ignition-matrix cell-size max-runtime-samples
      ignition-rows ignition-cols ellipse-adjustment-factor-samples random-seed ignition-start-times spotting]
