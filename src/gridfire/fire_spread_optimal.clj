@@ -665,101 +665,101 @@
       ;; [(transient []) (transient []) (transient #{})]
       burn-vectors))))
 
-  ;; FIXME Update target spread rate on burn-vectors if new band > band
-  (defn- run-loop
-    [inputs matrices ignited-cells]
-    (let [cell-size           (double (:cell-size inputs))
-          max-runtime         (double (:max-runtime inputs))
-          ignition-start-time (double (:ignition-start-time inputs))
-          ignition-stop-time  (+ ignition-start-time max-runtime)
-          band                (long (/ ignition-start-time 60.0))]
-      (doseq [[i j] ignited-cells]
-        (compute-max-in-situ-values! inputs matrices band i j))
-      (loop [global-clock   ignition-start-time
-             band           band
-             burn-vectors   (ignited-cells->burn-vectors inputs matrices ignited-cells [])
-             spot-ignitions {}
-             spot-count     0]
-        (if (and (< global-clock ignition-stop-time)
-                 (or (seq burn-vectors) (seq spot-ignitions)))
-          (let [dt-until-new-hour            (- 60.0 (rem global-clock 60.0))
-                dt-until-max-runtime         (- ignition-stop-time global-clock)
-                burn-vectors                 (if (zero? (rem global-clock 60.0))
-                                               ;; update spread-rates
-                                               nil
-                                               burn-vectors)
-                timestep                     (-> (compute-dt cell-size burn-vectors)
-                                                 (min dt-until-new-hour)
-                                                 (min dt-until-max-runtime))
-                new-clock                    (+ global-clock timestep)
-                [burn-vectors ignited-cells] (grow-burn-vectors! matrices global-clock timestep burn-vectors)
-                promoted-burn-vectors        (->> burn-vectors
-                                                  (ignited-cells->burn-vectors inputs matrices ignited-cells)
-                                                  (promote-burn-vectors inputs matrices global-clock new-clock 1.99))
-                [untransitioned-bvs
-                 transitioned-bvs
-                 transition-ignited-cells]   (transition-burn-vectors inputs matrices band global-clock new-clock 0.99 promoted-burn-vectors)
-                promoted-transitioned-bvs    (->> transitioned-bvs
-                                                  (ignited-cells->burn-vectors inputs matrices transition-ignited-cells)
-                                                  (promote-burn-vectors inputs matrices global-clock new-clock 0.99))
-                [spot-burn-vectors
-                 spot-ignite-now-count
-                 spot-ignite-later]          (compute-spot-burn-vectors! inputs
-                                                                         matrices
-                                                                         spot-ignitions
-                                                                         (into ignited-cells transition-ignited-cells)
-                                                                         band
-                                                                         new-clock)
-                promoted-spot-bvs            (promote-burn-vectors inputs matrices global-clock new-clock 1.49 spot-burn-vectors)
-                [untransitioned-spot-bvs
-                 transitioned-spot-bvs
-                 _]                          (transition-burn-vectors inputs matrices band global-clock new-clock 0.49 promoted-spot-bvs)
-                new-burn-vectors             (-> (into untransitioned-bvs promoted-transitioned-bvs)
-                                                 (into untransitioned-spot-bvs)
-                                                 (into transitioned-spot-bvs))]
-            (recur new-clock
-                   (long (/ new-clock 60.0))
-                   new-burn-vectors
-                   spot-ignite-later
-                   (+ spot-count ^long spot-ignite-now-count)))
-          {:exit-condition             (if (>= global-clock ignition-stop-time) :max-runtime-reached :no-burnable-fuels)
-           :global-clock               global-clock
-           :burn-time-matrix           (:burn-time-matrix matrices)
-           :fire-line-intensity-matrix (:fire-line-intensity-matrix matrices)
-           :fire-spread-matrix         (:fire-spread-matrix matrices)
-           :fire-type-matrix           (:fire-type-matrix matrices)
-           :flame-length-matrix        (:flame-length-matrix matrices)
-           :spot-matrix                (:spot-matrix matrices)
-           :spread-rate-matrix         (:spread-rate-matrix matrices)
-           :crown-fire-count           0 ; TODO Calculate using tensor ops
-           :spot-count                 spot-count}))))
+;; FIXME Update target spread rate on burn-vectors if new band > band
+(defn- run-loop
+  [inputs matrices ignited-cells]
+  (let [cell-size           (double (:cell-size inputs))
+        max-runtime         (double (:max-runtime inputs))
+        ignition-start-time (double (:ignition-start-time inputs))
+        ignition-stop-time  (+ ignition-start-time max-runtime)
+        band                (long (/ ignition-start-time 60.0))]
+    (doseq [[i j] ignited-cells]
+      (compute-max-in-situ-values! inputs matrices band i j))
+    (loop [global-clock   ignition-start-time
+           band           band
+           burn-vectors   (ignited-cells->burn-vectors inputs matrices ignited-cells [])
+           spot-ignitions {}
+           spot-count     0]
+      (if (and (< global-clock ignition-stop-time)
+               (or (seq burn-vectors) (seq spot-ignitions)))
+        (let [dt-until-new-hour            (- 60.0 (rem global-clock 60.0))
+              dt-until-max-runtime         (- ignition-stop-time global-clock)
+              burn-vectors                 (if (zero? (rem global-clock 60.0))
+                                             ;; update spread-rates
+                                             nil
+                                             burn-vectors)
+              timestep                     (-> (compute-dt cell-size burn-vectors)
+                                               (min dt-until-new-hour)
+                                               (min dt-until-max-runtime))
+              new-clock                    (+ global-clock timestep)
+              [burn-vectors ignited-cells] (grow-burn-vectors! matrices global-clock timestep burn-vectors)
+              promoted-burn-vectors        (->> burn-vectors
+                                                (ignited-cells->burn-vectors inputs matrices ignited-cells)
+                                                (promote-burn-vectors inputs matrices global-clock new-clock 1.99))
+              [untransitioned-bvs
+               transitioned-bvs
+               transition-ignited-cells]   (transition-burn-vectors inputs matrices band global-clock new-clock 0.99 promoted-burn-vectors)
+              promoted-transitioned-bvs    (->> transitioned-bvs
+                                                (ignited-cells->burn-vectors inputs matrices transition-ignited-cells)
+                                                (promote-burn-vectors inputs matrices global-clock new-clock 0.99))
+              [spot-burn-vectors
+               spot-ignite-now-count
+               spot-ignite-later]          (compute-spot-burn-vectors! inputs
+                                                                       matrices
+                                                                       spot-ignitions
+                                                                       (into ignited-cells transition-ignited-cells)
+                                                                       band
+                                                                       new-clock)
+              promoted-spot-bvs            (promote-burn-vectors inputs matrices global-clock new-clock 1.49 spot-burn-vectors)
+              [untransitioned-spot-bvs
+               transitioned-spot-bvs
+               _]                          (transition-burn-vectors inputs matrices band global-clock new-clock 0.49 promoted-spot-bvs)
+              new-burn-vectors             (-> (into untransitioned-bvs promoted-transitioned-bvs)
+                                               (into untransitioned-spot-bvs)
+                                               (into transitioned-spot-bvs))]
+          (recur new-clock
+                 (long (/ new-clock 60.0))
+                 new-burn-vectors
+                 spot-ignite-later
+                 (+ spot-count ^long spot-ignite-now-count)))
+        {:exit-condition             (if (>= global-clock ignition-stop-time) :max-runtime-reached :no-burnable-fuels)
+         :global-clock               global-clock
+         :burn-time-matrix           (:burn-time-matrix matrices)
+         :fire-line-intensity-matrix (:fire-line-intensity-matrix matrices)
+         :fire-spread-matrix         (:fire-spread-matrix matrices)
+         :fire-type-matrix           (:fire-type-matrix matrices)
+         :flame-length-matrix        (:flame-length-matrix matrices)
+         :spot-matrix                (:spot-matrix matrices)
+         :spread-rate-matrix         (:spread-rate-matrix matrices)
+         :crown-fire-count           0 ; TODO Calculate using tensor ops
+         :spot-count                 spot-count}))))
 
-  ;;-----------------------------------------------------------------------------
-  ;; SimulationMatrices Record
-  ;;-----------------------------------------------------------------------------
+;;-----------------------------------------------------------------------------
+;; SimulationMatrices Record
+;;-----------------------------------------------------------------------------
 
-  (defrecord SimulationMatrices
-      [burn-time-matrix
-       eccentricity-matrix
-       fire-line-intensity-matrix
-       fire-spread-matrix
-       fire-type-matrix
-       firebrand-count-matrix
-       flame-length-matrix
-       max-spread-direction-matrix
-       max-spread-rate-matrix
-       modified-time-matrix
-       spot-matrix
-       spread-rate-matrix
-       travel-lines-matrix])
+(defrecord SimulationMatrices
+    [burn-time-matrix
+     eccentricity-matrix
+     fire-line-intensity-matrix
+     fire-spread-matrix
+     fire-type-matrix
+     firebrand-count-matrix
+     flame-length-matrix
+     max-spread-direction-matrix
+     max-spread-rate-matrix
+     modified-time-matrix
+     spot-matrix
+     spread-rate-matrix
+     travel-lines-matrix])
 
-  ;;-----------------------------------------------------------------------------
-  ;; Main Simulation Entry Point - Dispatches to Point/Perimeter Ignition
-  ;;-----------------------------------------------------------------------------
+;;-----------------------------------------------------------------------------
+;; Main Simulation Entry Point - Dispatches to Point/Perimeter Ignition
+;;-----------------------------------------------------------------------------
 
-  ;; TODO: Move this multimethod check into run-simulations to avoid running it in every thread
-  (defmulti run-fire-spread
-    "Runs the raster-based fire spread model with a SimulationInputs record containing these fields:
+;; TODO: Move this multimethod check into run-simulations to avoid running it in every thread
+(defmulti run-fire-spread
+  "Runs the raster-based fire spread model with a SimulationInputs record containing these fields:
   |------------------------------------+--------------------+-----------------------------------------------------------|
   | Key                                | Value Type         | Value Units                                               |
   |------------------------------------+--------------------+-----------------------------------------------------------|
@@ -805,113 +805,113 @@
   |                                    |                    | :surface-fire-spotting -> map                             |
   |                                    |                    | :crown-fire-spotting-percent -> double or [double double] |
   |------------------------------------+--------------------+-----------------------------------------------------------|"
-    (fn [inputs]
-      (if (vector? (:initial-ignition-site inputs))
-        :ignition-point
-        :ignition-perimeter)))
+  (fn [inputs]
+    (if (vector? (:initial-ignition-site inputs))
+      :ignition-point
+      :ignition-perimeter)))
 
-  ;;-----------------------------------------------------------------------------
-  ;; Point Ignition
-  ;;-----------------------------------------------------------------------------
+;;-----------------------------------------------------------------------------
+;; Point Ignition
+;;-----------------------------------------------------------------------------
 
-  (defn- initialize-point-ignition-matrices
-    [inputs]
-    (let [num-rows            (:num-rows inputs)
-          num-cols            (:num-cols inputs)
-          [i j]               (:initial-ignition-site inputs)
-          ignition-start-time (:ignition-start-time inputs)
-          spotting            (:spotting inputs)
-          shape               [num-rows num-cols]
-          burn-time-matrix    (-> (t/new-tensor shape) (t/mset! i j ignition-start-time))]
-      (map->SimulationMatrices
-       {:burn-time-matrix            burn-time-matrix
-        :eccentricity-matrix         (t/new-tensor shape)
-        :fire-line-intensity-matrix  (t/new-tensor shape)
-        :fire-spread-matrix          (-> (t/new-tensor shape) (t/mset! i j 1.0))
-        :fire-type-matrix            (t/new-tensor shape)
-        :firebrand-count-matrix      (when spotting (t/new-tensor shape :datatype :int32))
-        :flame-length-matrix         (t/new-tensor shape)
-        :max-spread-direction-matrix (t/new-tensor shape)
-        :max-spread-rate-matrix      (t/new-tensor shape)
-        :modified-time-matrix        (t/new-tensor shape :datatype :int32)
-        :spot-matrix                 (when spotting (t/new-tensor shape))
-        :spread-rate-matrix          (t/new-tensor shape)
-        :travel-lines-matrix         (t/new-tensor shape :datatype :short)})))
+(defn- initialize-point-ignition-matrices
+  [inputs]
+  (let [num-rows            (:num-rows inputs)
+        num-cols            (:num-cols inputs)
+        [i j]               (:initial-ignition-site inputs)
+        ignition-start-time (:ignition-start-time inputs)
+        spotting            (:spotting inputs)
+        shape               [num-rows num-cols]
+        burn-time-matrix    (-> (t/new-tensor shape) (t/mset! i j ignition-start-time))]
+    (map->SimulationMatrices
+     {:burn-time-matrix            burn-time-matrix
+      :eccentricity-matrix         (t/new-tensor shape)
+      :fire-line-intensity-matrix  (t/new-tensor shape)
+      :fire-spread-matrix          (-> (t/new-tensor shape) (t/mset! i j 1.0))
+      :fire-type-matrix            (t/new-tensor shape)
+      :firebrand-count-matrix      (when spotting (t/new-tensor shape :datatype :int32))
+      :flame-length-matrix         (t/new-tensor shape)
+      :max-spread-direction-matrix (t/new-tensor shape)
+      :max-spread-rate-matrix      (t/new-tensor shape)
+      :modified-time-matrix        (t/new-tensor shape :datatype :int32)
+      :spot-matrix                 (when spotting (t/new-tensor shape))
+      :spread-rate-matrix          (t/new-tensor shape)
+      :travel-lines-matrix         (t/new-tensor shape :datatype :short)})))
 
-  (defmethod run-fire-spread :ignition-point
-    [inputs]
-    (run-loop inputs
-              (initialize-point-ignition-matrices inputs)
-              [(:initial-ignition-site inputs)]))
+(defmethod run-fire-spread :ignition-point
+  [inputs]
+  (run-loop inputs
+            (initialize-point-ignition-matrices inputs)
+            [(:initial-ignition-site inputs)]))
 
-  ;;-----------------------------------------------------------------------------
-  ;; Perimeter Ignition
-  ;;-----------------------------------------------------------------------------
+;;-----------------------------------------------------------------------------
+;; Perimeter Ignition
+;;-----------------------------------------------------------------------------
 
-  (defn- add-ignited-cells!
-    [matrix ignited-cells value]
-    (doseq [[i j] ignited-cells]
-      (t/mset! matrix i j value))
-    matrix)
+(defn- add-ignited-cells!
+  [matrix ignited-cells value]
+  (doseq [[i j] ignited-cells]
+    (t/mset! matrix i j value))
+  matrix)
 
-  (defn- initialize-perimeter-ignition-matrices
-    [inputs ignited-cells]
-    (let [num-rows            (:num-rows inputs)
-          num-cols            (:num-cols inputs)
-          positive-burn-scar  (:initial-ignition-site inputs)
-          ignition-start-time (:ignition-start-time inputs)
-          spotting            (:spotting inputs)
-          shape               [num-rows num-cols]
-          negative-burn-scar  (d/clone (dfn/* -1.0 positive-burn-scar))
-          burn-time-matrix    (add-ignited-cells! (d/clone negative-burn-scar)
-                                                  ignited-cells
-                                                  ignition-start-time)]
-      (map->SimulationMatrices
-       {:burn-time-matrix            burn-time-matrix
-        :eccentricity-matrix         (d/clone negative-burn-scar)
-        :fire-line-intensity-matrix  negative-burn-scar
-        :fire-spread-matrix          (d/clone positive-burn-scar)
-        :fire-type-matrix            (d/clone negative-burn-scar)
-        :firebrand-count-matrix      (when spotting (t/new-tensor shape :datatype :int32))
-        :flame-length-matrix         (d/clone negative-burn-scar)
-        :max-spread-direction-matrix (d/clone negative-burn-scar)
-        :max-spread-rate-matrix      (d/clone negative-burn-scar)
-        :modified-time-matrix        (t/new-tensor shape :datatype :int32)
-        :spot-matrix                 (when spotting (t/new-tensor shape))
-        :spread-rate-matrix          (d/clone negative-burn-scar)
-        :travel-lines-matrix         (t/new-tensor shape :datatype :short)})))
+(defn- initialize-perimeter-ignition-matrices
+  [inputs ignited-cells]
+  (let [num-rows            (:num-rows inputs)
+        num-cols            (:num-cols inputs)
+        positive-burn-scar  (:initial-ignition-site inputs)
+        ignition-start-time (:ignition-start-time inputs)
+        spotting            (:spotting inputs)
+        shape               [num-rows num-cols]
+        negative-burn-scar  (d/clone (dfn/* -1.0 positive-burn-scar))
+        burn-time-matrix    (add-ignited-cells! (d/clone negative-burn-scar)
+                                                ignited-cells
+                                                ignition-start-time)]
+    (map->SimulationMatrices
+     {:burn-time-matrix            burn-time-matrix
+      :eccentricity-matrix         (d/clone negative-burn-scar)
+      :fire-line-intensity-matrix  negative-burn-scar
+      :fire-spread-matrix          (d/clone positive-burn-scar)
+      :fire-type-matrix            (d/clone negative-burn-scar)
+      :firebrand-count-matrix      (when spotting (t/new-tensor shape :datatype :int32))
+      :flame-length-matrix         (d/clone negative-burn-scar)
+      :max-spread-direction-matrix (d/clone negative-burn-scar)
+      :max-spread-rate-matrix      (d/clone negative-burn-scar)
+      :modified-time-matrix        (t/new-tensor shape :datatype :int32)
+      :spot-matrix                 (when spotting (t/new-tensor shape))
+      :spread-rate-matrix          (d/clone negative-burn-scar)
+      :travel-lines-matrix         (t/new-tensor shape :datatype :short)})))
 
-  ;; TODO: Move this step into run-simulations to avoid running it in every thread
-  (defn- get-perimeter-cells
-    [inputs]
-    (let [num-rows                    (:num-rows inputs)
-          num-cols                    (:num-cols inputs)
-          initial-ignition-site       (:initial-ignition-site inputs)
-          get-fuel-model              (:get-fuel-model inputs)
-          {:keys [row-idxs col-idxs]} (non-zero-indices initial-ignition-site)
-          num-idxs                    (d/ecount row-idxs)]
-      (loop [idx 0
-             acc (transient [])]
-        (if (< idx num-idxs)
-          (let [i (row-idxs idx)
-                j (col-idxs idx)]
-            (if (burnable-neighbors? get-fuel-model
-                                     initial-ignition-site
-                                     1.0
-                                     num-rows
-                                     num-cols
-                                     i
-                                     j)
-              (recur (inc idx)
-                     (conj! acc [i j]))
-              (recur (inc idx)
-                     acc)))
-          (persistent! acc)))))
+;; TODO: Move this step into run-simulations to avoid running it in every thread
+(defn- get-perimeter-cells
+  [inputs]
+  (let [num-rows                    (:num-rows inputs)
+        num-cols                    (:num-cols inputs)
+        initial-ignition-site       (:initial-ignition-site inputs)
+        get-fuel-model              (:get-fuel-model inputs)
+        {:keys [row-idxs col-idxs]} (non-zero-indices initial-ignition-site)
+        num-idxs                    (d/ecount row-idxs)]
+    (loop [idx 0
+           acc (transient [])]
+      (if (< idx num-idxs)
+        (let [i (row-idxs idx)
+              j (col-idxs idx)]
+          (if (burnable-neighbors? get-fuel-model
+                                   initial-ignition-site
+                                   1.0
+                                   num-rows
+                                   num-cols
+                                   i
+                                   j)
+            (recur (inc idx)
+                   (conj! acc [i j]))
+            (recur (inc idx)
+                   acc)))
+        (persistent! acc)))))
 
-  (defmethod run-fire-spread :ignition-perimeter
-    [inputs]
-    (let [ignited-cells (get-perimeter-cells inputs)]
-      (when (seq ignited-cells)
-        (run-loop inputs
-                  (initialize-perimeter-ignition-matrices inputs ignited-cells)
-                  ignited-cells))))
+(defmethod run-fire-spread :ignition-perimeter
+  [inputs]
+  (let [ignited-cells (get-perimeter-cells inputs)]
+    (when (seq ignited-cells)
+      (run-loop inputs
+                (initialize-perimeter-ignition-matrices inputs ignited-cells)
+                ignited-cells))))
