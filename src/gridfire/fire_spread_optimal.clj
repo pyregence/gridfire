@@ -668,11 +668,15 @@
 ;; FIXME Update target spread rate on burn-vectors if new band > band
 (defn- run-loop
   [inputs matrices ignited-cells]
-  (let [cell-size           (double (:cell-size inputs))
-        max-runtime         (double (:max-runtime inputs))
-        ignition-start-time (double (:ignition-start-time inputs))
-        ignition-stop-time  (+ ignition-start-time max-runtime)
-        band                (long (/ ignition-start-time 60.0))]
+  (let [cell-size                   (double (:cell-size inputs))
+        max-runtime                 (double (:max-runtime inputs))
+        ignition-start-time         (double (:ignition-start-time inputs))
+        ignition-stop-time          (+ ignition-start-time max-runtime)
+        band                        (long (/ ignition-start-time 60.0))
+        modified-time-matrix        (:modified-time-matrix matrices)
+        max-spread-rate-matrix      (:max-spread-rate-matrix matrices)
+        max-spread-direction-matrix (:max-spread-direction-matrix matrices)
+        eccentricity-matrix         (:eccentricity-matrix matrices)]
     (doseq [[i j] ignited-cells]
       (compute-max-in-situ-values! inputs matrices band i j))
     (loop [global-clock   ignition-start-time
@@ -684,9 +688,19 @@
                (or (seq burn-vectors) (seq spot-ignitions)))
         (let [dt-until-new-hour            (- 60.0 (rem global-clock 60.0))
               dt-until-max-runtime         (- ignition-stop-time global-clock)
-              burn-vectors                 (if (zero? (rem global-clock 60.0))
-                                             ;; update spread-rates
-                                             nil
+              burn-vectors                 (if (= dt-until-new-hour 60.0)
+                                             (mapv (fn [burn-vector]
+                                                     (let [i (:i burn-vector)
+                                                           j (:j burn-vector)]
+                                                       (when (> band (dec ^long (t/mget modified-time-matrix i j)))
+                                                         (compute-max-in-situ-values! inputs matrices band i j))
+                                                       (let [direction            (double (:direction burn-vector))
+                                                             max-spread-rate      (double (t/mget max-spread-rate-matrix i j))
+                                                             max-spread-direction (double (t/mget max-spread-direction-matrix i j))
+                                                             eccentricity         (double (t/mget eccentricity-matrix i j))
+                                                             new-spread-rate      (compute-spread-rate max-spread-rate max-spread-direction eccentricity direction)]
+                                                         (assoc burn-vector :spread-rate new-spread-rate))))
+                                                   burn-vectors)
                                              burn-vectors)
               timestep                     (-> (compute-dt cell-size burn-vectors)
                                                (min dt-until-new-hour)
