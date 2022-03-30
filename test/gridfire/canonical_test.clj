@@ -249,11 +249,11 @@
 
 (deftest ^:surface-spotting test-surface-spotting-scenarios
   (let [test-file (str "test-surface-spotting-"(now)".csv")]
-    (results->csv test-file (map run-sim! (gen-scenarios :spotting surface-spotting-scenarios)))))
+    (results->csv test-file (map run-sim! (gen-scenarios :surface-spotting surface-spotting-scenarios)))))
 
 (deftest ^:crown-spotting test-crown-spotting-scenarios
   (let [test-file (str "test-crown-spotting-"(now)".csv")]
-    (results->csv test-file (map run-sim! (gen-scenarios :spotting crown-spotting-scenarios)))))
+    (results->csv test-file (map run-sim! (gen-scenarios :crown-spotting crown-spotting-scenarios)))))
 
 #_(deftest ^:crown-spotting test-crown-spotting-scenarios
   (let [test-file (str "test-crown-spotting-"(now)".csv")]
