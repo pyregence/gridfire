@@ -13,11 +13,11 @@
 ;; Utilities
 ;;=============================================================================
 
-(def ^:dynamic *elmfire-directory-path* "")
+(def ^:dynamic *elmfire-directory-path* "/")
 
 (defn relative-path?
   [path]
-  (re-matches #"^((\.){1,2}/)*" path))
+  (re-matches #"^((\.){1,2}\/)*([\w]+\/)*([\w]+)" path))
 
 (defn file-path
   ([file-or-directory]
@@ -28,12 +28,13 @@
        (.normalize)
        (.toString)))
   ([directory tif-file-prefix]
-   (-> (if (relative-path? directory)
-         (io/file *elmfire-directory-path* directory (str tif-file-prefix ".tif"))
-         (io/file directory (str tif-file-prefix ".tif")))
-       (.toPath)
-       (.normalize)
-       (.toString))))
+   (let [file (if (relative-path? directory)
+                (io/file *elmfire-directory-path* directory (str tif-file-prefix ".tif"))
+                (io/file directory (str tif-file-prefix ".tif")))]
+     (-> file
+         (.toPath)
+         (.normalize)
+         (.toString)))))
 
 ;;=============================================================================
 ;; Write gridfire.edn

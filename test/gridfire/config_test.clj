@@ -45,7 +45,9 @@
 (deftest ^:unit misc-params-test
   (let [config (config/build-edn (->> (slurp (in-file-path "sample-elmfire.data"))
                                       config/parse-elmfire))]
+    (println (s/explain ::spec/config config))
     (is (s/valid? ::spec/config config))
+
 
     (is (= 98.43 (:cell-size config)))
 
@@ -162,7 +164,13 @@
             :wind-direction  {:spatial-type :global :range [-7.5 7.5]}
             :canopy-cover    {:spatial-type :global :range [-0.05 0.05]}
             :canopy-height   {:spatial-type :global :range [-5.0 5.0]
-                              :units        :metric}}
+                              :units        :metric}
+            :fuel-moisture-dead-1hr
+            {:spatial-type :global, :range [-0.01 0.01], :units :percent},
+            :fuel-moisture-dead-10hr
+            {:spatial-type :global, :range [-0.01 0.01], :units :percent},
+            :fuel-moisture-dead-100hr
+            {:spatial-type :global, :range [-0.01 0.01], :units :percent}}
            results))))
 
 
