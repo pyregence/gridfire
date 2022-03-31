@@ -176,7 +176,7 @@
    "CH"     :canopy-height
    "CBD"    :crown-bulk-density
    "WS"     :wind-speed-20ft
-   "WD"     :wind-direction
+   "WD"     :wind-from-direction
    "M1"     :fuel-moisture-dead-1hr
    "M10"    :fuel-moisture-dead-10hr
    "M100"   :fuel-moisture-dead-100hr
