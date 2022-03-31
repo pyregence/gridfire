@@ -55,7 +55,12 @@
   (if override-config-file-path
     (->> (slurp override-config-file-path)
          (edn/read-string)
-         (merge config-params))
+         (reduce-kv (fn [acc k v]
+                      (if (nil? v)
+                        (dissoc! acc k)
+                        (assoc! acc k v)))
+                    (transient config-params))
+         (persistent!))
     config-params))
 
 ;;=============================================================================
