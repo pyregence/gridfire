@@ -736,17 +736,23 @@
                  new-burn-vectors
                  spot-ignite-later
                  (+ spot-count ^long spot-ignite-now-count)))
-        {:exit-condition             (if (>= global-clock ignition-stop-time) :max-runtime-reached :no-burnable-fuels)
-         :global-clock               global-clock
-         :burn-time-matrix           (:burn-time-matrix matrices)
-         :fire-line-intensity-matrix (:fire-line-intensity-matrix matrices)
-         :fire-spread-matrix         (:fire-spread-matrix matrices)
-         :fire-type-matrix           (:fire-type-matrix matrices)
-         :flame-length-matrix        (:flame-length-matrix matrices)
-         :spot-matrix                (:spot-matrix matrices)
-         :spread-rate-matrix         (:spread-rate-matrix matrices)
-         :crown-fire-count           0 ; TODO Calculate using tensor ops
-         :spot-count                 spot-count}))))
+        (let [fire-type-matrix (:fire-type-matrix matrices)]
+          {:exit-condition             (if (>= global-clock ignition-stop-time) :max-runtime-reached :no-burnable-fuels)
+           :global-clock               global-clock
+           :burn-time-matrix           (:burn-time-matrix matrices)
+           :fire-line-intensity-matrix (:fire-line-intensity-matrix matrices)
+           :fire-spread-matrix         (:fire-spread-matrix matrices)
+           :fire-type-matrix           fire-type-matrix
+           :flame-length-matrix        (:flame-length-matrix matrices)
+           :spot-matrix                (:spot-matrix matrices)
+           :spread-rate-matrix         (:spread-rate-matrix matrices)
+           :crown-fire-count           (as-> fire-type-matrix $
+                                         (d/emap #(if (>= ^double % 2.0) 1.0 0.0) nil $)
+                                         (dfn/sum $))
+           :surface-fire-count         (as-> fire-type-matrix $
+                                         (d/emap #(if (= ^double % 1.0) 1.0 0.0) nil $)
+                                         (dfn/sum $))
+           :spot-count                 spot-count})))))
 
 ;;-----------------------------------------------------------------------------
 ;; SimulationMatrices Record

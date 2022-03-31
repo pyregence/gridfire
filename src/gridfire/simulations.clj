@@ -438,7 +438,9 @@
                    :ignition-col     (get ignition-cols i)
                    :global-clock     (:global-clock simulation-results)
                    :exit-condition   (:exit-condition simulation-results :no-fire-spread)
-                   :crown-fire-count (:crown-fire-count simulation-results)})
+                   :crown-fire-count (:crown-fire-count simulation-results)
+                   :surface-count    (:surface-fire-count simulation-results)
+                   :spot-count       (:spot-count simulation-results)})
            (merge
             (if simulation-results
               (tufte/p
