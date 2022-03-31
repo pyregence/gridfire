@@ -484,4 +484,4 @@
     ;; Exit cleanly
     (System/exit 0)))
 
-;; (main *command-line-args*)
+(main *command-line-args*)
