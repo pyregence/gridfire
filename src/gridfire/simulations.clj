@@ -17,7 +17,7 @@
 (defn layer-snapshot [burn-time-matrix layer-matrix ^double t]
   (d/clone
    (d/emap (fn [^double layer-value ^double burn-time]
-             (if (<= burn-time t)
+             (if (and (not (neg? burn-time)) (<= burn-time t))
                layer-value
                0.0))
            :float64

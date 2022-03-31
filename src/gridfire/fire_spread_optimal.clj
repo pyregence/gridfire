@@ -836,13 +836,17 @@
 
 (defn- initialize-point-ignition-matrices
   [inputs]
-  (let [num-rows            (:num-rows inputs)
-        num-cols            (:num-cols inputs)
+  (let [num-rows            (long (:num-rows inputs))
+        num-cols            (long (:num-cols inputs))
         [i j]               (:initial-ignition-site inputs)
         ignition-start-time (:ignition-start-time inputs)
         spotting            (:spotting inputs)
         shape               [num-rows num-cols]
-        burn-time-matrix    (-> (t/new-tensor shape) (t/mset! i j ignition-start-time))]
+        burn-time-matrix    (-> (* num-rows num-cols)
+                                (double-array -1.0)
+                                (t/ensure-tensor)
+                                (t/reshape shape)
+                                (t/mset! i j ignition-start-time))]
     (map->SimulationMatrices
      {:burn-time-matrix            burn-time-matrix
       :eccentricity-matrix         (t/new-tensor shape)
@@ -876,16 +880,18 @@
 
 (defn- initialize-perimeter-ignition-matrices
   [inputs ignited-cells]
-  (let [num-rows            (:num-rows inputs)
-        num-cols            (:num-cols inputs)
+  (let [num-rows            (long (:num-rows inputs))
+        num-cols            (long (:num-cols inputs))
         positive-burn-scar  (:initial-ignition-site inputs)
         ignition-start-time (:ignition-start-time inputs)
         spotting            (:spotting inputs)
         shape               [num-rows num-cols]
         negative-burn-scar  (d/clone (dfn/* -1.0 positive-burn-scar))
-        burn-time-matrix    (add-ignited-cells! (d/clone negative-burn-scar)
-                                                ignited-cells
-                                                ignition-start-time)]
+        burn-time-matrix    (-> (* num-rows num-cols)
+                                (double-array -1.0)
+                                (t/ensure-tensor)
+                                (t/reshape shape)
+                                (add-ignited-cells! ignited-cells ignition-start-time))]
     (map->SimulationMatrices
      {:burn-time-matrix            burn-time-matrix
       :eccentricity-matrix         (d/clone negative-burn-scar)
