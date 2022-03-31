@@ -746,12 +746,12 @@
            :flame-length-matrix        (:flame-length-matrix matrices)
            :spot-matrix                (:spot-matrix matrices)
            :spread-rate-matrix         (:spread-rate-matrix matrices)
-           :crown-fire-count           (as-> fire-type-matrix $
-                                         (d/emap #(if (>= ^double % 2.0) 1.0 0.0) nil $)
-                                         (dfn/sum $))
-           :surface-fire-count         (as-> fire-type-matrix $
-                                         (d/emap #(if (= ^double % 1.0) 1.0 0.0) nil $)
-                                         (dfn/sum $))
+           :surface-fire-count         (->> fire-type-matrix
+                                            (d/emap #(if (= ^double % 1.0) 1 0) :int64)
+                                            (dfn/sum))
+           :crown-fire-count           (->> fire-type-matrix
+                                            (d/emap #(if (>= ^double % 2.0) 1 0) :int64)
+                                            (dfn/sum))
            :spot-count                 spot-count})))))
 
 ;;-----------------------------------------------------------------------------

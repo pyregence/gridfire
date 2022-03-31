@@ -13,11 +13,12 @@
 ;; Utilities
 ;;=============================================================================
 
-(def ^:dynamic *elmfire-directory-path* "/")
+(def ^:dynamic *elmfire-directory-path* "")
 
 (defn relative-path?
   [path]
   (re-matches #"^((\.){1,2}\/)*([\w]+\/)*([\w]+)" path))
+
 
 (defn file-path
   ([file-or-directory]
