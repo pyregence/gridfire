@@ -164,7 +164,7 @@
   (let [flame-lengths              (filterv pos? (t/tensor->buffer (:flame-length-matrix fire-spread-results)))
         fire-line-intensities      (filterv pos? (t/tensor->buffer (:fire-line-intensity-matrix fire-spread-results)))
         burned-cells               (count flame-lengths)
-        fire-size                  (cells-to-acres cell-size burned-cells)
+        surface-fire-size          (cells-to-acres cell-size (:surface-fire-count fire-spread-results))
         crown-fire-size            (cells-to-acres cell-size (:crown-fire-count fire-spread-results))
         flame-length-mean          (/ (dfn/sum flame-lengths) burned-cells)
         fire-line-intensity-mean   (/ (dfn/sum fire-line-intensities) burned-cells)
@@ -178,7 +178,8 @@
                                         (dfn/sum)
                                         (#(/ ^double % burned-cells))
                                         (Math/sqrt))]
-    {:fire-size                  fire-size
+    {:fire-size                  (+ surface-fire-size crown-fire-size)
+     :surface-fire-size          surface-fire-size
      :crown-fire-size            crown-fire-size
      :flame-length-mean          flame-length-mean
      :flame-length-stddev        flame-length-stddev
