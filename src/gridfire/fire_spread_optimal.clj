@@ -3,7 +3,7 @@
                                                    calc-fuel-moisture
                                                    compute-terrain-distance
                                                    non-zero-indices]]
-            [gridfire.conversion           :refer [mph->fpm]]
+            [gridfire.conversion           :refer [mph->fpm hour->min min->hour]]
             [gridfire.crown-fire           :refer [crown-fire-eccentricity
                                                    crown-fire-line-intensity
                                                    cruz-crown-fire-spread
@@ -21,7 +21,10 @@
             [taoensso.tufte                :as tufte]
             [tech.v3.datatype              :as d]
             [tech.v3.datatype.functional   :as dfn]
-            [tech.v3.tensor                :as t]))
+            [tech.v3.tensor                :as t]
+            [clojure.string :as s])
+  (:import java.time.ZoneId
+           java.util.Date))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -284,7 +287,7 @@
         create-burn-vector (make-burn-vector-constructor num-rows num-cols get-fuel-model fire-spread-matrix burn-probability
                                                          max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix
                                                          cell-size get-elevation i j)]
-    (reduce (fn [acc bit]
+    (reduce (fn [acc ^long bit]
               (if (bit-test travel-lines bit)
                 acc
                 (let [direction       (case bit
@@ -665,77 +668,118 @@
       ;; [(transient []) (transient []) (transient #{})]
       burn-vectors))))
 
-;; FIXME Update target spread rate on burn-vectors if new band > band
-(defn- run-loop
-  [inputs matrices ignited-cells]
-  (let [cell-size                   (double (:cell-size inputs))
-        max-runtime                 (double (:max-runtime inputs))
-        ignition-start-time         (double (:ignition-start-time inputs))
-        ignition-stop-time          (+ ignition-start-time max-runtime)
-        band                        (long (/ ignition-start-time 60.0))
-        modified-time-matrix        (:modified-time-matrix matrices)
+(defn- parse-burn-period
+  "Return the number of minutes into the day given HH:MM"
+  ^double
+  [burn-period]
+  (let [[hour minute] (mapv #(Integer/parseInt %) (s/split burn-period #":"))]
+    (+ (hour->min hour) ^double minute)))
+
+(defn- recompute-burn-vectors
+  [inputs matrices ^long band burn-vectors]
+  (let [modified-time-matrix        (:modified-time-matrix matrices)
         max-spread-rate-matrix      (:max-spread-rate-matrix matrices)
         max-spread-direction-matrix (:max-spread-direction-matrix matrices)
         eccentricity-matrix         (:eccentricity-matrix matrices)]
+    (mapv (fn [burn-vector]
+            (let [i (:i burn-vector)
+                  j (:j burn-vector)]
+              (when (> band (dec ^long (t/mget modified-time-matrix i j)))
+                (compute-max-in-situ-values! inputs matrices band i j))
+              (let [direction            (double (:direction burn-vector))
+                    max-spread-rate      (double (t/mget max-spread-rate-matrix i j))
+                    max-spread-direction (double (t/mget max-spread-direction-matrix i j))
+                    eccentricity         (double (t/mget eccentricity-matrix i j))
+                    new-spread-rate      (compute-spread-rate max-spread-rate max-spread-direction eccentricity direction)]
+                (assoc burn-vector :spread-rate new-spread-rate))))
+          burn-vectors)))
+
+;; FIXME Update target spread rate on burn-vectors if new band > band
+(defn- run-loop
+  [inputs matrices ignited-cells]
+  (let [cell-size                        (double (:cell-size inputs))
+        max-runtime                      (double (:max-runtime inputs))
+        ignition-start-time              (double (:ignition-start-time inputs))
+        ignition-stop-time               (+ ignition-start-time max-runtime)
+        weather-data-start-timestamp     (:weather-data-start-timestamp inputs)
+        ignition-start-timestamp         (-> (.toInstant ^Date weather-data-start-timestamp)
+                                             (.atZone (ZoneId/of "UTC"))
+                                             (.plusMinutes ignition-start-time))
+        ignition-start-time-min-into-day (+ (hour->min (.getHour ignition-start-timestamp))
+                                            (double (.getMinute ignition-start-timestamp)))
+        burn-period-start                (parse-burn-period (:burn-period-start inputs))
+        burn-period-end                  (parse-burn-period (:burn-period-end inputs))
+        burn-period-dt                   (- burn-period-end burn-period-start)
+        non-burn-period-dt               (- 1440.0 burn-period-dt)
+        non-burn-period-clock            (+ ignition-start-time (+ burn-period-dt (- burn-period-start ignition-start-time-min-into-day)))
+        ignition-start-time              (+ ignition-start-time (max 0.0 (- burn-period-start ignition-start-time-min-into-day)))
+        band                             (min->hour ignition-start-time)]
     (doseq [[i j] ignited-cells]
       (compute-max-in-situ-values! inputs matrices band i j))
-    (loop [global-clock   ignition-start-time
-           band           band
-           burn-vectors   (ignited-cells->burn-vectors inputs matrices ignited-cells [])
-           spot-ignitions {}
-           spot-count     0]
+    (loop [global-clock          ignition-start-time
+           band                  band
+           non-burn-period-clock non-burn-period-clock
+           burn-vectors          (ignited-cells->burn-vectors inputs matrices ignited-cells [])
+           spot-ignitions        {}
+           spot-count            0]
       (if (and (< global-clock ignition-stop-time)
                (or (seq burn-vectors) (seq spot-ignitions)))
-        (let [dt-until-new-hour            (- 60.0 (rem global-clock 60.0))
-              dt-until-max-runtime         (- ignition-stop-time global-clock)
-              burn-vectors                 (if (= dt-until-new-hour 60.0)
-                                             (mapv (fn [burn-vector]
-                                                     (let [i (:i burn-vector)
-                                                           j (:j burn-vector)]
-                                                       (when (> band (dec ^long (t/mget modified-time-matrix i j)))
-                                                         (compute-max-in-situ-values! inputs matrices band i j))
-                                                       (let [direction            (double (:direction burn-vector))
-                                                             max-spread-rate      (double (t/mget max-spread-rate-matrix i j))
-                                                             max-spread-direction (double (t/mget max-spread-direction-matrix i j))
-                                                             eccentricity         (double (t/mget eccentricity-matrix i j))
-                                                             new-spread-rate      (compute-spread-rate max-spread-rate max-spread-direction eccentricity direction)]
-                                                         (assoc burn-vector :spread-rate new-spread-rate))))
+        (let [dt-until-max-runtime (- ignition-stop-time global-clock)]
+          (if (= global-clock non-burn-period-clock)
+            (let [timestep  (min non-burn-period-dt dt-until-max-runtime)
+                  new-clock (+ global-clock timestep)
+                  new-band  (min->hour new-clock)]
+              (recur new-clock
+                     new-band
+                     (+ new-clock burn-period-dt)
+                     burn-vectors
+                     (if (zero? non-burn-period-dt)
+                       spot-ignitions
+                       {})
+                     spot-count))
+            (let [dt-until-new-hour              (- 60.0 (rem global-clock 60.0))
+                  dt-until-non-burn-period-clock (-  non-burn-period-clock global-clock)
+                  burn-vectors                   (if (and (> global-clock ignition-start-time)
+                                                          (or (= dt-until-new-hour 60.0)
+                                                              (= dt-until-non-burn-period-clock burn-period-dt)))
+                                                   (recompute-burn-vectors inputs matrices band burn-vectors)
                                                    burn-vectors)
-                                             burn-vectors)
-              timestep                     (-> (compute-dt cell-size burn-vectors)
-                                               (min dt-until-new-hour)
-                                               (min dt-until-max-runtime))
-              new-clock                    (+ global-clock timestep)
-              [burn-vectors ignited-cells] (grow-burn-vectors! matrices global-clock timestep burn-vectors)
-              promoted-burn-vectors        (->> burn-vectors
-                                                (ignited-cells->burn-vectors inputs matrices ignited-cells)
-                                                (promote-burn-vectors inputs matrices global-clock new-clock 1.99))
-              [untransitioned-bvs
-               transitioned-bvs
-               transition-ignited-cells]   (transition-burn-vectors inputs matrices band global-clock new-clock 0.99 promoted-burn-vectors)
-              promoted-transitioned-bvs    (->> transitioned-bvs
-                                                (ignited-cells->burn-vectors inputs matrices transition-ignited-cells)
-                                                (promote-burn-vectors inputs matrices global-clock new-clock 0.99))
-              [spot-burn-vectors
-               spot-ignite-now-count
-               spot-ignite-later]          (compute-spot-burn-vectors! inputs
-                                                                       matrices
-                                                                       spot-ignitions
-                                                                       (into ignited-cells transition-ignited-cells)
-                                                                       band
-                                                                       new-clock)
-              promoted-spot-bvs            (promote-burn-vectors inputs matrices global-clock new-clock 1.49 spot-burn-vectors)
-              [untransitioned-spot-bvs
-               transitioned-spot-bvs
-               _]                          (transition-burn-vectors inputs matrices band global-clock new-clock 0.49 promoted-spot-bvs)
-              new-burn-vectors             (-> (into untransitioned-bvs promoted-transitioned-bvs)
-                                               (into untransitioned-spot-bvs)
-                                               (into transitioned-spot-bvs))]
-          (recur new-clock
-                 (long (/ new-clock 60.0))
-                 new-burn-vectors
-                 spot-ignite-later
-                 (+ spot-count ^long spot-ignite-now-count)))
+                  timestep                       (-> (compute-dt cell-size burn-vectors)
+                                                     (min dt-until-new-hour)
+                                                     (min dt-until-max-runtime)
+                                                     (min dt-until-non-burn-period-clock))
+                  new-clock                      (+ global-clock timestep)
+                  [burn-vectors ignited-cells]   (grow-burn-vectors! matrices global-clock timestep burn-vectors)
+                  promoted-burn-vectors          (->> burn-vectors
+                                                      (ignited-cells->burn-vectors inputs matrices ignited-cells)
+                                                      (promote-burn-vectors inputs matrices global-clock new-clock 1.99))
+                  [untransitioned-bvs
+                   transitioned-bvs
+                   transition-ignited-cells]     (transition-burn-vectors inputs matrices band global-clock new-clock 0.99 promoted-burn-vectors)
+                  promoted-transitioned-bvs      (->> transitioned-bvs
+                                                      (ignited-cells->burn-vectors inputs matrices transition-ignited-cells)
+                                                      (promote-burn-vectors inputs matrices global-clock new-clock 0.99))
+                  [spot-burn-vectors
+                   spot-ignite-now-count
+                   spot-ignite-later]            (compute-spot-burn-vectors! inputs
+                                                                             matrices
+                                                                             spot-ignitions
+                                                                             (into ignited-cells transition-ignited-cells)
+                                                                             band
+                                                                             new-clock)
+                  promoted-spot-bvs              (promote-burn-vectors inputs matrices global-clock new-clock 1.49 spot-burn-vectors)
+                  [untransitioned-spot-bvs
+                   transitioned-spot-bvs
+                   _]                            (transition-burn-vectors inputs matrices band global-clock new-clock 0.49 promoted-spot-bvs)
+                  new-burn-vectors               (-> (into untransitioned-bvs promoted-transitioned-bvs)
+                                                     (into untransitioned-spot-bvs)
+                                                     (into transitioned-spot-bvs))]
+              (recur new-clock
+                     (min->hour new-clock)
+                     non-burn-period-clock
+                     new-burn-vectors
+                     spot-ignite-later
+                     (+ spot-count ^long spot-ignite-now-count)))))
         (let [fire-type-matrix (:fire-type-matrix matrices)]
           {:exit-condition             (if (>= global-clock ignition-stop-time) :max-runtime-reached :no-burnable-fuels)
            :global-clock               global-clock

@@ -345,6 +345,9 @@
      ^long num-cols
      ^double cell-size
      ^double ignition-start-time
+     weather-data-start-timestamp
+     burn-period-start
+     burn-period-end
      ^double max-runtime
      initial-ignition-site
      ^double ellipse-adjustment-factor
@@ -374,7 +377,8 @@
   [^long i
    {:keys
     [num-rows num-cols grass-suppression? output-csvs? envelope ignition-matrix cell-size max-runtime-samples
-     ignition-rows ignition-cols ellipse-adjustment-factor-samples random-seed ignition-start-times spotting]
+     ignition-rows ignition-cols ellipse-adjustment-factor-samples random-seed ignition-start-times spotting
+     burn-period-start burn-period-end weather-data-start-timestamp]
     :as inputs}]
   (tufte/profile
    {:id :run-simulation}
@@ -386,6 +390,9 @@
                               :initial-ignition-site             (or ignition-matrix
                                                                      [(ignition-rows i) (ignition-cols i)])
                               :ignition-start-time               (get ignition-start-times i 0.0)
+                              :weather-data-start-timestamp      (or weather-data-start-timestamp #inst "1970-01-01T00:00:00")
+                              :burn-period-start                 (or burn-period-start "00:00")
+                              :burn-period-end                   (or burn-period-end   "24:00")
                               :max-runtime                       (max-runtime-samples i)
                               :get-aspect                        (get-value-fn inputs rand-gen :aspect i)
                               :get-canopy-height                 (get-value-fn inputs rand-gen :canopy-height i)
