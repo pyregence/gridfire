@@ -58,7 +58,8 @@
       (inputs/add-weather-params)
       (inputs/add-fuel-moisture-params)
       (inputs/add-random-ignition-sites)
-      (inputs/add-aggregate-matrices)))
+      (inputs/add-aggregate-matrices)
+      (inputs/add-burn-period-params)))
 
 (defn load-config!
   [config-file-path]

@@ -1,5 +1,6 @@
 (ns gridfire.spec.config
   (:require [clojure.spec.alpha          :as s]
+            [gridfire.spec.burn-period   :as burn-period]
             [gridfire.spec.common        :as common]
             [gridfire.spec.perturbations :as perturbations]))
 
@@ -229,6 +230,7 @@
              ::wind-from-direction
              ::landfire-layers]
     :opt-un [::max-runtime
+             ::burn-period
              ::simulations
              ::random-seed
              ::ellipse-adjustment-factor

@@ -390,9 +390,9 @@
                               :initial-ignition-site             (or ignition-matrix
                                                                      [(ignition-rows i) (ignition-cols i)])
                               :ignition-start-time               (get ignition-start-times i 0.0)
-                              :weather-data-start-timestamp      (or weather-data-start-timestamp #inst "1970-01-01T00:00:00")
-                              :burn-period-start                 (or burn-period-start "00:00")
-                              :burn-period-end                   (or burn-period-end   "24:00")
+                              :weather-data-start-timestamp      weather-data-start-timestamp
+                              :burn-period-start                 burn-period-start
+                              :burn-period-end                   burn-period-end
                               :max-runtime                       (max-runtime-samples i)
                               :get-aspect                        (get-value-fn inputs rand-gen :aspect i)
                               :get-canopy-height                 (get-value-fn inputs rand-gen :canopy-height i)

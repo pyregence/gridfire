@@ -277,3 +277,11 @@
          :flame-length-sum-matrix (when output-flame-length-sum? (t/new-tensor [num-rows num-cols]))
          :flame-length-max-matrix (when output-flame-length-max? (t/new-tensor [num-rows num-cols]))
          :spot-count-matrix       (when output-spot-count? (t/new-tensor [num-rows num-cols]))))
+
+(defn add-burn-period-params
+  [{:keys [burn-period] :as inputs}]
+  (let [{:keys [weather-data-start-timestamp burn-period-start burn-period-end]} burn-period]
+   (-> inputs
+       (assoc :burn-period-start (or burn-period-start "00:00"))
+       (assoc :burn-period-end (or burn-period-end "24:00"))
+       (assoc :weather-data-start-timestamp (or weather-data-start-timestamp #inst "1970-01-01T00:00:00")))))
