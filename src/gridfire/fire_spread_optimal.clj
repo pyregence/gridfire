@@ -711,8 +711,18 @@
         burn-period-end                  (parse-burn-period (:burn-period-end inputs))
         burn-period-dt                   (- burn-period-end burn-period-start)
         non-burn-period-dt               (- 1440.0 burn-period-dt)
-        non-burn-period-clock            (+ ignition-start-time (+ burn-period-dt (- burn-period-start ignition-start-time-min-into-day)))
-        ignition-start-time              (+ ignition-start-time (max 0.0 (- burn-period-start ignition-start-time-min-into-day)))
+        burn-period-clock                (+ ignition-start-time
+                                            (cond
+                                              (< ignition-start-time-min-into-day burn-period-start)
+                                              (- burn-period-start ignition-start-time-min-into-day)
+
+                                              (> ignition-start-time-min-into-day burn-period-end)
+                                              (+ (- 1440.0 ignition-start-time-min-into-day) burn-period-start)
+
+                                              :else
+                                              (- burn-period-start ignition-start-time-min-into-day)))
+        non-burn-period-clock            (+ burn-period-clock burn-period-dt)
+        ignition-start-time              (max ignition-start-time burn-period-clock)
         band                             (min->hour ignition-start-time)]
     (doseq [[i j] ignited-cells]
       (compute-max-in-situ-values! inputs matrices band i j))
