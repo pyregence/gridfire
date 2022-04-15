@@ -94,14 +94,14 @@
    config]
   (assoc config
          :landfire-layers
-         {:aspect             {:type       :geotiff
-                               :source     (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY ASP_FILENAME)}
+         {:aspect             {:type   :geotiff
+                               :source (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY ASP_FILENAME)}
           :canopy-base-height {:type       :geotiff
                                :source     (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY CBH_FILENAME)
                                :units      :metric
                                :multiplier 0.1}
-          :canopy-cover       {:type       :geotiff
-                               :source     (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY CC_FILENAME)}
+          :canopy-cover       {:type   :geotiff
+                               :source (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY CC_FILENAME)}
           :canopy-height      {:type       :geotiff
                                :source     (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY CH_FILENAME)
                                :units      :metric
@@ -110,13 +110,13 @@
                                :source     (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY CBD_FILENAME)
                                :units      :metric
                                :multiplier 0.01}
-          :elevation          {:type       :geotiff
-                               :source     (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY DEM_FILENAME)
-                               :units      :metric}
-          :fuel-model         {:type       :geotiff
-                               :source     (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY FBFM_FILENAME)}
-          :slope              {:type       :geotiff
-                               :source     (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY SLP_FILENAME)}}))
+          :elevation          {:type   :geotiff
+                               :source (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY DEM_FILENAME)
+                               :units  :metric}
+          :fuel-model         {:type   :geotiff
+                               :source (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY FBFM_FILENAME)}
+          :slope              {:type   :geotiff
+                               :source (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY SLP_FILENAME)}}))
 
 ;;=============================================================================
 ;; Ignition
@@ -184,11 +184,11 @@
 
 (def layers-in-metric #{:crown-bulk-density :canopy-base-height :canopy-height})
 
-(def layers-in-percent #{:fuel-moisture-dead-1hr
-                         :fuel-moisture-dead-10hr
-                         :fuel-moisture-dead-100hr
-                         :fuel-moisture-live-herbaceous
-                         :fuel-moisture-live-woody})
+(def layers-in-ratio #{:fuel-moisture-dead-1hr
+                       :fuel-moisture-dead-10hr
+                       :fuel-moisture-dead-100hr
+                       :fuel-moisture-live-herbaceous
+                       :fuel-moisture-live-woody})
 
 (def elmfire->gridfire
   "A mapping of ELMFIRE string names to GridFire keywords"
@@ -213,8 +213,8 @@
                               (get elmfire->gridfire))
            :range        [(get config (str "PDF_LOWER_LIMIT-" index))
                           (get config (str "PDF_UPPER_LIMIT-" index))]}
-    (layers-in-metric key)  (assoc :units :metric)
-    (layers-in-percent key) (assoc :units :percent)))
+    (layers-in-metric key) (assoc :units :metric)
+    (layers-in-ratio key)  (assoc :units :ratio)))
 
 (defn perturbation-key
   [config index]
@@ -396,10 +396,10 @@
   [proj-string]
   (let [{:keys [err out]} (sh "gdalsrsinfo" "-e" proj-string "-o" "epsg" "--single-line")]
     (when (empty? err)
-     (->> out
-          (str/split-lines)
-          (filter #(str/includes? % "EPSG"))
-          (first)))))
+      (->> out
+           (str/split-lines)
+           (filter #(str/includes? % "EPSG"))
+           (first)))))
 
 (def regex-for-array-item #"^[A-Z0-9\_]+\(\d+\)")
 
