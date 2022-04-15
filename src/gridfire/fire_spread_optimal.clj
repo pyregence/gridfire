@@ -712,15 +712,16 @@
         burn-period-dt                   (- burn-period-end burn-period-start)
         non-burn-period-dt               (- 1440.0 burn-period-dt)
         burn-period-clock                (+ ignition-start-time
-                                            (cond
-                                              (< ignition-start-time-min-into-day burn-period-start)
-                                              (- burn-period-start ignition-start-time-min-into-day)
+                                            (double
+                                             (cond
+                                               (< ignition-start-time-min-into-day burn-period-start)
+                                               (- burn-period-start ignition-start-time-min-into-day)
 
-                                              (> ignition-start-time-min-into-day burn-period-end)
-                                              (+ (- 1440.0 ignition-start-time-min-into-day) burn-period-start)
+                                               (> ignition-start-time-min-into-day burn-period-end)
+                                               (+ (- 1440.0 ignition-start-time-min-into-day) burn-period-start)
 
-                                              :else
-                                              (- burn-period-start ignition-start-time-min-into-day)))
+                                               :else
+                                               (- burn-period-start ignition-start-time-min-into-day))))
         non-burn-period-clock            (+ burn-period-clock burn-period-dt)
         ignition-start-time              (max ignition-start-time burn-period-clock)
         band                             (min->hour ignition-start-time)]
