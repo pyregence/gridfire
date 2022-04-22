@@ -1,5 +1,6 @@
 (ns gridfire.fire-spread-optimal
   (:require [gridfire.common               :refer [burnable-cell?
+                                                   burnable-fuel-model?
                                                    calc-fuel-moisture
                                                    compute-terrain-distance
                                                    non-zero-indices]]
@@ -40,6 +41,17 @@
 ;;-----------------------------------------------------------------------------
 ;; Fire spread
 ;;-----------------------------------------------------------------------------
+
+(defn- diagonal? [direction]
+  (case direction
+    0.0   false
+    45.0  true
+    90.0  false
+    135.0 true
+    180.0 false
+    225.0 true
+    270.0 false
+    315.0 true))
 
 (defn- find-max-spread-rate ^double
   [^double max-spread-rate burn-vector]
@@ -268,7 +280,11 @@
                     225.0 (- j 1)
                     270.0 (- j 1)
                     315.0 (- j 1))]
-        (when (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols new-i new-j)
+        (when (and (burnable-cell? get-fuel-model fire-spread-matrix burn-probability
+                                   num-rows num-cols new-i new-j)
+                   (or (not (diagonal? direction))
+                       (burnable-fuel-model? (get-fuel-model new-i j))
+                       (burnable-fuel-model? (get-fuel-model i new-j))))
           (let [spread-rate      (compute-spread-rate max-spread-rate
                                                       max-spread-direction
                                                       eccentricity
@@ -501,8 +517,11 @@
                               225.0 (- j 1)
                               270.0 (- j 1)
                               315.0 (- j 1))]
-              (if (burnable-cell? get-fuel-model fire-spread-matrix burn-probability
-                                  num-rows num-cols new-i new-j)
+              (if (and (burnable-cell? get-fuel-model fire-spread-matrix burn-probability
+                                       num-rows num-cols new-i new-j)
+                       (or (not (diagonal? direction))
+                           (burnable-fuel-model? (get-fuel-model new-i j))
+                           (burnable-fuel-model? (get-fuel-model i new-j))))
                 (let [spread-rate             (double (:spread-rate burn-vector))
                       terrain-distance        (double (:terrain-distance burn-vector))
                       dt-after-ignition       (- new-clock local-burn-time)
@@ -595,9 +614,11 @@
                             225.0 (- j 1)
                             270.0 (- j 1)
                             315.0 (- j 1))]
-                (if-not (burnable-cell? get-fuel-model fire-spread-matrix burn-probability
-                                        num-rows num-cols new-i new-j)
-                  [untransitioned-bvs transitioned-bvs ignited-cells]
+                (if (and (burnable-cell? get-fuel-model fire-spread-matrix burn-probability
+                                         num-rows num-cols new-i new-j)
+                         (or (not (diagonal? direction))
+                             (burnable-fuel-model? (get-fuel-model new-i j))
+                             (burnable-fuel-model? (get-fuel-model i new-j))))
                   (do
                     (when (> band (dec ^long (t/mget modified-time-matrix new-i new-j)))
                       ;; vector is first in this timestep to compute
@@ -663,7 +684,8 @@
                                 (do
                                   (when (< burn-time local-burn-time)
                                     (t/mset! burn-time-matrix new-i new-j burn-time))
-                                  [untransitioned-bvs new-transitioned-bvs ignited-cells]))))))))))))))
+                                  [untransitioned-bvs new-transitioned-bvs ignited-cells]))))))))
+                  [untransitioned-bvs transitioned-bvs ignited-cells]))))))
       [(transient []) (transient []) (transient [])]
       ;; [(transient []) (transient []) (transient #{})]
       burn-vectors))))
@@ -722,9 +744,9 @@
 
                                                :else
                                                (- burn-period-start ignition-start-time-min-into-day))))
-        non-burn-period-clock            (+ burn-period-clock burn-period-dt)
-        ignition-start-time              (max ignition-start-time burn-period-clock)
-        band                             (min->hour ignition-start-time)]
+        non-burn-period-clock (+ burn-period-clock burn-period-dt)
+        ignition-start-time   (max ignition-start-time burn-period-clock)
+        band                  (min->hour ignition-start-time)]
     (doseq [[i j] ignited-cells]
       (compute-max-in-situ-values! inputs matrices band i j))
     (loop [global-clock          ignition-start-time
