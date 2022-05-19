@@ -65,7 +65,7 @@
 (def layer-name->matrix
   [["fire_spread"              :fire-spread-matrix]
    ["flame_length"             :flame-length-matrix]
-   ["flame_length_directional" :directional-flame-length-matrix]
+   ["directional_flame_length" :directional-flame-length-matrix]
    ["fire_line_intensity"      :fire-line-intensity-matrix]
    ["burn_history"             :burn-time-matrix]
    ["spread_rate"              :spread-rate-matrix]
