@@ -135,6 +135,8 @@
         fire-type-matrix                      (:fire-type-matrix matrices)
         modified-time-matrix                  (:modified-time-matrix matrices)
         eccentricity-matrix                   (:eccentricity-matrix matrices)
+        residence-time-matrix                 (:residence-time-matrix matrices)
+        reaction-intensity-matrix             (:reaction-intensity-matrix matrices)
         band                                  (long band)
         ^double slope                         (get-slope i j)
         ^double aspect                        (get-aspect i j)
@@ -185,8 +187,10 @@
         max-spread-rate                       (:max-spread-rate surface-fire-max)
         max-spread-direction                  (:max-spread-direction surface-fire-max)
         eccentricity                          (:eccentricity surface-fire-max)
-        max-surface-intensity                 (->> (anderson-flame-depth max-spread-rate ^double (:residence-time surface-fire-min))
-                                                   (byram-fire-line-intensity ^double (:reaction-intensity surface-fire-min)))]
+        residence-time                        (:residence-time surface-fire-min)
+        reaction-intensity                    (:reaction-intensity surface-fire-min)
+        max-surface-intensity                 (->> (anderson-flame-depth max-spread-rate ^double residence-time)
+                                                   (byram-fire-line-intensity ^double reaction-intensity))]
     (if (van-wagner-crown-fire-initiation? canopy-cover
                                            canopy-base-height
                                            foliar-moisture
@@ -209,6 +213,8 @@
         (t/mset! max-spread-direction-matrix      i j max-spread-direction)
         (t/mset! eccentricity-matrix              i j max-eccentricity)
         (t/mset! modified-time-matrix             i j (inc band))
+        (t/mset! residence-time-matrix            i j residence-time)
+        (t/mset! reaction-intensity-matrix        i j reaction-intensity)
         (store-if-max! spread-rate-matrix         i j max-spread-rate)
         (store-if-max! flame-length-matrix        i j (byram-flame-length max-fire-line-intensity))
         (store-if-max! fire-line-intensity-matrix i j max-fire-line-intensity)
@@ -218,6 +224,8 @@
         (t/mset! max-spread-direction-matrix      i j max-spread-direction)
         (t/mset! eccentricity-matrix              i j eccentricity)
         (t/mset! modified-time-matrix             i j (inc band))
+        (t/mset! residence-time-matrix            i j residence-time)
+        (t/mset! reaction-intensity-matrix        i j reaction-intensity)
         (store-if-max! spread-rate-matrix         i j max-spread-rate)
         (store-if-max! flame-length-matrix        i j (byram-flame-length max-surface-intensity))
         (store-if-max! fire-line-intensity-matrix i j max-surface-intensity)
@@ -716,6 +724,49 @@
                 (assoc burn-vector :spread-rate new-spread-rate))))
           burn-vectors)))
 
+(defn- compute-fire-front-direction
+  [burn-vectors]
+  (let [spread-rate-sum (->> (mapv :spread-rate burn-vectors)
+                             (reduce +))]
+    (-> (reduce (fn [acc burn-vector]
+                  (+ acc
+                     (->> (/ (:spread-rate burn-vector) spread-rate-sum)
+                          (* (:direction burn-vector)))))
+                0
+                burn-vectors)
+        (mod 360))))
+
+(defn- compute-directional-insitu-values!
+  [matrices ignited-cells burn-vectors]
+  (when (seq ignited-cells)
+    (let [ignited-cells                   (set ignited-cells)
+          eccentricity-matrix             (:eccentricity-matrix matrices)
+          spread-rate-matrix              (:spread-rate-matrix matrices)
+          max-spread-direction-matrix     (:max-spread-direction-matrix matrices)
+          residence-time-matrix           (:residence-time-matrix matrices)
+          reaction-intensity-matrix       (:reaction-intensity-matrix matrices)
+          flame-length-directional-matrix (:flame-length-directional-matrix matrices)
+          ignited-cells-to-process        (reduce (fn [acc burn-vector]
+                                                    (let [cell [(:i burn-vector) (:j burn-vector)]]
+                                                      (if (contains? ignited-cells cell)
+                                                        (update acc cell conj burn-vector)
+                                                        acc)))
+                                                  {}
+                                                  burn-vectors)]
+      (doseq [[ignited-cell bvs] ignited-cells-to-process]
+        (let [[i j]                ignited-cell
+              direction            (compute-fire-front-direction bvs)
+              max-spread-rate      (t/mget spread-rate-matrix i j)
+              max-spread-direction (t/mget max-spread-direction-matrix i j)
+              eccentricity         (t/mget eccentricity-matrix i j)
+              spread-rate          (compute-spread-rate max-spread-rate max-spread-direction eccentricity direction)
+              residence-time       (t/mget residence-time-matrix i j)
+              reaction-intensity   (t/mget reaction-intensity-matrix i j)
+              surface-intensity    (->> (anderson-flame-depth spread-rate residence-time)
+                                        (byram-fire-line-intensity reaction-intensity))
+              flame-length         (byram-flame-length surface-intensity)]
+          (t/mset! flame-length-directional-matrix i j flame-length))))))
+
 ;; FIXME Update target spread rate on burn-vectors if new band > band
 (defn- run-loop
   [inputs matrices ignited-cells]
@@ -783,6 +834,7 @@
                                                      (min dt-until-non-burn-period-clock))
                   new-clock                      (+ global-clock timestep)
                   [burn-vectors ignited-cells]   (grow-burn-vectors! matrices global-clock timestep burn-vectors)
+                  _                              (compute-directional-insitu-values! matrices ignited-cells burn-vectors)
                   promoted-burn-vectors          (->> burn-vectors
                                                       (ignited-cells->burn-vectors inputs matrices ignited-cells)
                                                       (promote-burn-vectors inputs matrices global-clock new-clock 1.99))
@@ -814,22 +866,23 @@
                      spot-ignite-later
                      (+ spot-count ^long spot-ignite-now-count)))))
         (let [fire-type-matrix (:fire-type-matrix matrices)]
-          {:exit-condition             (if (>= global-clock ignition-stop-time) :max-runtime-reached :no-burnable-fuels)
-           :global-clock               global-clock
-           :burn-time-matrix           (:burn-time-matrix matrices)
-           :fire-line-intensity-matrix (:fire-line-intensity-matrix matrices)
-           :fire-spread-matrix         (:fire-spread-matrix matrices)
-           :fire-type-matrix           fire-type-matrix
-           :flame-length-matrix        (:flame-length-matrix matrices)
-           :spot-matrix                (:spot-matrix matrices)
-           :spread-rate-matrix         (:spread-rate-matrix matrices)
-           :surface-fire-count         (->> fire-type-matrix
-                                            (d/emap #(if (= ^double % 1.0) 1 0) :int64)
-                                            (dfn/sum))
-           :crown-fire-count           (->> fire-type-matrix
-                                            (d/emap #(if (>= ^double % 2.0) 1 0) :int64)
-                                            (dfn/sum))
-           :spot-count                 spot-count})))))
+          {:exit-condition                  (if (>= global-clock ignition-stop-time) :max-runtime-reached :no-burnable-fuels)
+           :global-clock                    global-clock
+           :burn-time-matrix                (:burn-time-matrix matrices)
+           :fire-line-intensity-matrix      (:fire-line-intensity-matrix matrices)
+           :fire-spread-matrix              (:fire-spread-matrix matrices)
+           :fire-type-matrix                fire-type-matrix
+           :flame-length-matrix             (:flame-length-matrix matrices)
+           :flame-length-directional-matrix (:flame-length-directional-matrix matrices)
+           :spot-matrix                     (:spot-matrix matrices)
+           :spread-rate-matrix              (:spread-rate-matrix matrices)
+           :surface-fire-count              (->> fire-type-matrix
+                                                 (d/emap #(if (= ^double % 1.0) 1 0) :int64)
+                                                 (dfn/sum))
+           :crown-fire-count                (->> fire-type-matrix
+                                                 (d/emap #(if (>= ^double % 2.0) 1 0) :int64)
+                                                 (dfn/sum))
+           :spot-count                      spot-count})))))
 
 ;;-----------------------------------------------------------------------------
 ;; SimulationMatrices Record
@@ -925,19 +978,22 @@
                                 (t/reshape shape)
                                 (t/mset! i j ignition-start-time))]
     (map->SimulationMatrices
-     {:burn-time-matrix            burn-time-matrix
-      :eccentricity-matrix         (t/new-tensor shape)
-      :fire-line-intensity-matrix  (t/new-tensor shape)
-      :fire-spread-matrix          (-> (t/new-tensor shape) (t/mset! i j 1.0))
-      :fire-type-matrix            (t/new-tensor shape)
-      :firebrand-count-matrix      (when spotting (t/new-tensor shape :datatype :int32))
-      :flame-length-matrix         (t/new-tensor shape)
-      :max-spread-direction-matrix (t/new-tensor shape)
-      :max-spread-rate-matrix      (t/new-tensor shape)
-      :modified-time-matrix        (t/new-tensor shape :datatype :int32)
-      :spot-matrix                 (when spotting (t/new-tensor shape))
-      :spread-rate-matrix          (t/new-tensor shape)
-      :travel-lines-matrix         (t/new-tensor shape :datatype :short)})))
+     {:burn-time-matrix                burn-time-matrix
+      :eccentricity-matrix             (t/new-tensor shape)
+      :fire-line-intensity-matrix      (t/new-tensor shape)
+      :fire-spread-matrix              (-> (t/new-tensor shape) (t/mset! i j 1.0))
+      :fire-type-matrix                (t/new-tensor shape)
+      :firebrand-count-matrix          (when spotting (t/new-tensor shape :datatype :int32))
+      :flame-length-matrix             (t/new-tensor shape)
+      :flame-length-directional-matrix (t/new-tensor shape)
+      :max-spread-direction-matrix     (t/new-tensor shape)
+      :max-spread-rate-matrix          (t/new-tensor shape)
+      :modified-time-matrix            (t/new-tensor shape :datatype :int32)
+      :residence-time-matrix           (t/new-tensor shape)
+      :reaction-intensity-matrix       (t/new-tensor shape)
+      :spot-matrix                     (when spotting (t/new-tensor shape))
+      :spread-rate-matrix              (t/new-tensor shape)
+      :travel-lines-matrix             (t/new-tensor shape :datatype :short)})))
 
 (defmethod run-fire-spread :ignition-point
   [inputs]

@@ -63,12 +63,13 @@
        (outputs/output-png config filtered-matrix name envelope simulation-id output-time)))))
 
 (def layer-name->matrix
-  [["fire_spread"         :fire-spread-matrix]
-   ["flame_length"        :flame-length-matrix]
-   ["fire_line_intensity" :fire-line-intensity-matrix]
-   ["burn_history"        :burn-time-matrix]
-   ["spread_rate"         :spread-rate-matrix]
-   ["fire_type"           :fire-type-matrix]])
+  [["fire_spread"              :fire-spread-matrix]
+   ["flame_length"             :flame-length-matrix]
+   ["flame_length_directional" :flame-length-directional-matrix]
+   ["fire_line_intensity"      :fire-line-intensity-matrix]
+   ["burn_history"             :burn-time-matrix]
+   ["spread_rate"              :spread-rate-matrix]
+   ["fire_type"                :fire-type-matrix]])
 
 (defn filter-output-layers [output-layers]
   (let [layers-to-filter (set (map (comp kebab->snake name) (keys output-layers)))]
