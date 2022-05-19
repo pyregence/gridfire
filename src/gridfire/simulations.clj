@@ -129,13 +129,13 @@
     (process-burn-count! fire-spread-results burn-count-matrix timestep))
   (when flame-length-sum-matrix
     (if (= output-flame-length-sum :directional)
-      (d/copy! (dfn/+ flame-length-sum-matrix (:flame-length-directional-matrix fire-spread-results))
+      (d/copy! (dfn/+ flame-length-sum-matrix (:directional-flame-length-matrix fire-spread-results))
                flame-length-sum-matrix)
       (d/copy! (dfn/+ flame-length-sum-matrix (:flame-length-matrix fire-spread-results))
                flame-length-sum-matrix)))
   (when flame-length-max-matrix
     (if (= output-flame-length-max :directional)
-      (d/copy! (dfn/max flame-length-max-matrix (:flame-length-directional-matrix fire-spread-results))
+      (d/copy! (dfn/max flame-length-max-matrix (:directional-flame-length-matrix fire-spread-results))
                flame-length-max-matrix)
       (d/copy! (dfn/max flame-length-max-matrix (:flame-length-matrix fire-spread-results))
                flame-length-max-matrix)))
