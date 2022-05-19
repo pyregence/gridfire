@@ -4002,7 +4002,7 @@ To specify the output of the flame length sum layer,
 which is the sum of flame lengths across simulations, include
 the following mapping:
 
-- *output-*flame-length-sum*: bolean
+- *output-*flame-length-sum*: keyword `:max` or `:directional`
 
 #+begin_src clojure
 {:output-flame-length-sum true}
@@ -4012,7 +4012,7 @@ To specify the output of the flame length max layer,
 which is the max of flame lengths across simulations, include
 the following mapping:
 
-- *output-*flame-length-max*: bolean
+- *output-*flame-length-max*: keyword `:max` or `:directional`
 
 #+begin_src clojure
 {:output-flame-length-max true}

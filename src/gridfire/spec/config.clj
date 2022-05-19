@@ -213,7 +213,9 @@
 (s/def ::output-burn-count?       boolean?)
 (s/def ::output-spot-count?       boolean?)
 (s/def ::output-flame-length-max? boolean?)
+(s/def ::output-flame-length-max  #{:max :directional})
 (s/def ::output-flame-length-sum? boolean?)
+(s/def ::output-flame-length-sum  #{:max :directional})
 
 ;;=============================================================================
 ;; Config Map
