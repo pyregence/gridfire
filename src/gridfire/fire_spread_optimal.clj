@@ -727,11 +727,12 @@
 (defn- compute-fire-front-direction
   [burn-vectors]
   (let [spread-rate-sum (->> (mapv :spread-rate burn-vectors)
-                             (reduce +))]
-    (-> (reduce (fn [acc burn-vector]
+                             (reduce +)
+                             (double))]
+    (-> (reduce (fn [^double acc burn-vector]
                   (+ acc
-                     (->> (/ (:spread-rate burn-vector) spread-rate-sum)
-                          (* (:direction burn-vector)))))
+                     (->> (/ ^double (:spread-rate burn-vector) spread-rate-sum)
+                          (* ^double (:direction burn-vector)))))
                 0
                 burn-vectors)
         (mod 360))))
