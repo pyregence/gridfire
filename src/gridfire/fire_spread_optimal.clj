@@ -746,7 +746,7 @@
           max-spread-direction-matrix     (:max-spread-direction-matrix matrices)
           residence-time-matrix           (:residence-time-matrix matrices)
           reaction-intensity-matrix       (:reaction-intensity-matrix matrices)
-          flame-length-directional-matrix (:flame-length-directional-matrix matrices)
+          directional-flame-length-matrix (:directional-flame-length-matrix matrices)
           ignited-cells-to-process        (reduce (fn [acc burn-vector]
                                                     (let [cell [(:i burn-vector) (:j burn-vector)]]
                                                       (if (contains? ignited-cells cell)
@@ -766,7 +766,7 @@
               surface-intensity    (->> (anderson-flame-depth spread-rate residence-time)
                                         (byram-fire-line-intensity reaction-intensity))
               flame-length         (byram-flame-length surface-intensity)]
-          (t/mset! flame-length-directional-matrix i j flame-length))))))
+          (t/mset! directional-flame-length-matrix i j flame-length))))))
 
 ;; FIXME Update target spread rate on burn-vectors if new band > band
 (defn- run-loop
@@ -874,7 +874,7 @@
            :fire-spread-matrix              (:fire-spread-matrix matrices)
            :fire-type-matrix                fire-type-matrix
            :flame-length-matrix             (:flame-length-matrix matrices)
-           :flame-length-directional-matrix (:flame-length-directional-matrix matrices)
+           :directional-flame-length-matrix (:directional-flame-length-matrix matrices)
            :spot-matrix                     (:spot-matrix matrices)
            :spread-rate-matrix              (:spread-rate-matrix matrices)
            :surface-fire-count              (->> fire-type-matrix
@@ -986,7 +986,7 @@
       :fire-type-matrix                (t/new-tensor shape)
       :firebrand-count-matrix          (when spotting (t/new-tensor shape :datatype :int32))
       :flame-length-matrix             (t/new-tensor shape)
-      :flame-length-directional-matrix (t/new-tensor shape)
+      :directional-flame-length-matrix (t/new-tensor shape)
       :max-spread-direction-matrix     (t/new-tensor shape)
       :max-spread-rate-matrix          (t/new-tensor shape)
       :modified-time-matrix            (t/new-tensor shape :datatype :int32)
