@@ -412,7 +412,7 @@
                                           (t/mset! burn-time-matrix i j burn-time)
                                           (create-new-burn-vectors! acc num-rows num-cols cell-size get-elevation fire-spread-matrix
                                                                     travel-lines-matrix max-spread-rate-matrix max-spread-direction-matrix
-                                                                    eccentricity-matrix get-fuel-model i j 1.0)))
+                                                                    eccentricity-matrix get-fuel-model i j 1.0))) ; TODO paramaterize burn-probability instead of 1.0
                                       (transient [])
                                       pruned-spot-ignite-now))]
     [spot-burn-vectors (count pruned-spot-ignite-now) pruned-spot-ignite-later]))
@@ -726,24 +726,36 @@
 
 (defn- compute-fire-front-direction
   [burn-vectors]
-  (let [spread-rate-sum (->> (mapv :spread-rate burn-vectors)
-                             (reduce +)
-                             (double))]
-    (-> (reduce (fn [^double acc burn-vector]
-                  (+ acc
-                     (->> (/ ^double (:spread-rate burn-vector) spread-rate-sum)
-                          (* ^double (:direction burn-vector)))))
-                0
-                burn-vectors)
+  (let [^double spread-rate-sum (reduce (fn ^double [^double acc burn-vector]
+                                          (+ acc ^double (:spread-rate burn-vector)))
+                                        0.0
+                                        burn-vectors)
+        ^double x-magnitude-sum (reduce (fn ^double [^double acc burn-vector]
+                                          (+ acc (-> ^double (:direction burn-vector)
+                                                     Math/toRadians
+                                                     Math/cos
+                                                     (* ^double (:spread-rate burn-vector)))))
+                                        0.0
+                                        burn-vectors)
+        ^double y-magnitude-sum (reduce (fn ^double [^double acc burn-vector]
+                                          (+ acc (-> ^double (:direction burn-vector)
+                                                     Math/toRadians
+                                                     Math/sin
+                                                     (* ^double (:spread-rate burn-vector)))))
+                                        0.0
+                                        burn-vectors)]
+    (-> (Math/atan2 (/ y-magnitude-sum spread-rate-sum)
+                    (/ x-magnitude-sum spread-rate-sum))
+        (Math/toDegrees)
         (mod 360))))
 
-(defn- compute-directional-insitu-values!
+(defn- compute-directional-in-situ-values!
   [matrices ignited-cells burn-vectors]
   (when (seq ignited-cells)
     (let [ignited-cells                   (set ignited-cells)
-          eccentricity-matrix             (:eccentricity-matrix matrices)
-          spread-rate-matrix              (:spread-rate-matrix matrices)
+          max-spread-rate-matrix          (:max-spread-rate-matrix matrices)
           max-spread-direction-matrix     (:max-spread-direction-matrix matrices)
+          eccentricity-matrix             (:eccentricity-matrix matrices)
           residence-time-matrix           (:residence-time-matrix matrices)
           reaction-intensity-matrix       (:reaction-intensity-matrix matrices)
           directional-flame-length-matrix (:directional-flame-length-matrix matrices)
@@ -757,15 +769,15 @@
       (doseq [[ignited-cell bvs] ignited-cells-to-process]
         (let [[i j]                ignited-cell
               direction            (compute-fire-front-direction bvs)
-              max-spread-rate      (t/mget spread-rate-matrix i j)
+              max-spread-rate      (t/mget max-spread-rate-matrix i j)
               max-spread-direction (t/mget max-spread-direction-matrix i j)
               eccentricity         (t/mget eccentricity-matrix i j)
               spread-rate          (compute-spread-rate max-spread-rate max-spread-direction eccentricity direction)
               residence-time       (t/mget residence-time-matrix i j)
               reaction-intensity   (t/mget reaction-intensity-matrix i j)
-              surface-intensity    (->> (anderson-flame-depth spread-rate residence-time)
+              fire-line-intensity  (->> (anderson-flame-depth spread-rate residence-time)
                                         (byram-fire-line-intensity reaction-intensity))
-              flame-length         (byram-flame-length surface-intensity)]
+              flame-length         (byram-flame-length fire-line-intensity)]
           (t/mset! directional-flame-length-matrix i j flame-length))))))
 
 ;; FIXME Update target spread rate on burn-vectors if new band > band
@@ -796,11 +808,14 @@
 
                                                :else
                                                (- burn-period-start ignition-start-time-min-into-day))))
-        non-burn-period-clock (+ burn-period-clock burn-period-dt)
-        ignition-start-time   (max ignition-start-time burn-period-clock)
-        band                  (min->hour ignition-start-time)]
+        non-burn-period-clock           (+ burn-period-clock burn-period-dt)
+        ignition-start-time             (max ignition-start-time burn-period-clock)
+        band                            (min->hour ignition-start-time)
+        flame-length-matrix             (:flame-length-matrix matrices)
+        directional-flame-length-matrix (:directional-flame-length-matrix matrices)]
     (doseq [[i j] ignited-cells]
-      (compute-max-in-situ-values! inputs matrices band i j))
+      (compute-max-in-situ-values! inputs matrices band i j)
+      (t/mset! directional-flame-length-matrix i j (t/mget flame-length-matrix i j)))
     (loop [global-clock          ignition-start-time
            band                  band
            non-burn-period-clock non-burn-period-clock
@@ -835,10 +850,10 @@
                                                      (min dt-until-non-burn-period-clock))
                   new-clock                      (+ global-clock timestep)
                   [burn-vectors ignited-cells]   (grow-burn-vectors! matrices global-clock timestep burn-vectors)
-                  _                              (compute-directional-insitu-values! matrices ignited-cells burn-vectors)
                   promoted-burn-vectors          (->> burn-vectors
                                                       (ignited-cells->burn-vectors inputs matrices ignited-cells)
                                                       (promote-burn-vectors inputs matrices global-clock new-clock 1.99))
+                  _                              (compute-directional-in-situ-values! matrices ignited-cells promoted-burn-vectors)
                   [untransitioned-bvs
                    transitioned-bvs
                    transition-ignited-cells]     (transition-burn-vectors inputs matrices band global-clock new-clock 0.99 promoted-burn-vectors)
