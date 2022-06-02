@@ -485,6 +485,28 @@
       (transient burn-vectors)
       ignited-cells))))
 
+(defn- update-directional-magnitude-values!
+  [matrices direction spread-rate i j]
+  (let [x-magnitude-sum-matrix (:x-magnitude-sum-matrix matrices)
+        y-magnitude-sum-matrix (:y-magnitude-sum-matrix matrices)
+        spread-rate-sum-matrix (:spread-rate-sum-matrix matrices)
+        direction              (double direction)
+        spread-rate            (double spread-rate)
+        cur-x                  (double (t/mget x-magnitude-sum-matrix i j))
+        cur-y                  (double (t/mget y-magnitude-sum-matrix i j))
+        cur-spread-rate        (double (t/mget spread-rate-sum-matrix i j))]
+    (t/mset! x-magnitude-sum-matrix i j (+ cur-x
+                                           (-> direction
+                                               (Math/toRadians)
+                                               (Math/cos)
+                                               (* spread-rate))))
+    (t/mset! y-magnitude-sum-matrix i j  (+ cur-y
+                                            (-> direction
+                                                (Math/toRadians)
+                                                (Math/sin)
+                                                (* spread-rate))))
+    (t/mset! spread-rate-sum-matrix i j (+ cur-spread-rate spread-rate))))
+
 (defn- promote-burn-vectors
   [inputs matrices global-clock new-clock max-fractional-distance burn-vectors]
   (let [num-rows                (:num-rows inputs)
@@ -506,25 +528,27 @@
               local-burn-time        (double (t/mget burn-time-matrix i j))]
           (if (and (> local-burn-time global-clock) ; cell was ignited this timestep
                    (<= burn-probability local-burn-probability))
-            (let [direction (double (:direction burn-vector))
-                  new-i     (case direction
-                              0.0   (- i 1)
-                              45.0  (- i 1)
-                              90.0  i
-                              135.0 (+ i 1)
-                              180.0 (+ i 1)
-                              225.0 (+ i 1)
-                              270.0 i
-                              315.0 (- i 1))
-                  new-j     (case direction
-                              0.0   j
-                              45.0  (+ j 1)
-                              90.0  (+ j 1)
-                              135.0 (+ j 1)
-                              180.0 j
-                              225.0 (- j 1)
-                              270.0 (- j 1)
-                              315.0 (- j 1))]
+            (let [direction   (double (:direction burn-vector))
+                  spread-rate (double (:spread-rate burn-vector))
+                  new-i       (case direction
+                                0.0   (- i 1)
+                                45.0  (- i 1)
+                                90.0  i
+                                135.0 (+ i 1)
+                                180.0 (+ i 1)
+                                225.0 (+ i 1)
+                                270.0 i
+                                315.0 (- i 1))
+                  new-j       (case direction
+                                0.0   j
+                                45.0  (+ j 1)
+                                90.0  (+ j 1)
+                                135.0 (+ j 1)
+                                180.0 j
+                                225.0 (- j 1)
+                                270.0 (- j 1)
+                                315.0 (- j 1))]
+              (update-directional-magnitude-values! matrices direction spread-rate i j)
               (if (and (burnable-cell? get-fuel-model fire-spread-matrix burn-probability
                                        num-rows num-cols new-i new-j)
                        (or (not (diagonal? direction))
@@ -724,33 +748,24 @@
                 (assoc burn-vector :spread-rate new-spread-rate))))
           burn-vectors)))
 
-(defn- compute-fire-front-direction
-  [burn-vectors]
-  (let [^double spread-rate-sum (reduce (fn ^double [^double acc burn-vector]
-                                          (+ acc ^double (:spread-rate burn-vector)))
-                                        0.0
-                                        burn-vectors)
-        ^double x-magnitude-sum (reduce (fn ^double [^double acc burn-vector]
-                                          (+ acc (-> ^double (:direction burn-vector)
-                                                     Math/toRadians
-                                                     Math/cos
-                                                     (* ^double (:spread-rate burn-vector)))))
-                                        0.0
-                                        burn-vectors)
-        ^double y-magnitude-sum (reduce (fn ^double [^double acc burn-vector]
-                                          (+ acc (-> ^double (:direction burn-vector)
-                                                     Math/toRadians
-                                                     Math/sin
-                                                     (* ^double (:spread-rate burn-vector)))))
-                                        0.0
-                                        burn-vectors)]
+(defn- compute-fire-front-direction!
+  [matrices i j]
+  (let [x-magnitude-sum-matrix (:x-magnitude-sum-matrix matrices)
+        y-magnitude-sum-matrix (:y-magnitude-sum-matrix matrices)
+        spread-rate-sum-matrix (:spread-rate-sum-matrix matrices)
+        x-magnitude-sum        (double (t/mget x-magnitude-sum-matrix i j))
+        y-magnitude-sum        (double (t/mget y-magnitude-sum-matrix i j))
+        spread-rate-sum        (double (t/mget spread-rate-sum-matrix i j))]
+    (t/mset! x-magnitude-sum-matrix i j 0.0)
+    (t/mset! y-magnitude-sum-matrix i j 0.0)
+    (t/mset! spread-rate-sum-matrix i j 0.0)
     (-> (Math/atan2 (/ y-magnitude-sum spread-rate-sum)
                     (/ x-magnitude-sum spread-rate-sum))
         (Math/toDegrees)
         (mod 360))))
 
 (defn- compute-directional-in-situ-values!
-  [matrices ignited-cells burn-vectors]
+  [matrices ignited-cells]
   (when (seq ignited-cells)
     (let [ignited-cells                   (set ignited-cells)
           max-spread-rate-matrix          (:max-spread-rate-matrix matrices)
@@ -758,17 +773,10 @@
           eccentricity-matrix             (:eccentricity-matrix matrices)
           residence-time-matrix           (:residence-time-matrix matrices)
           reaction-intensity-matrix       (:reaction-intensity-matrix matrices)
-          directional-flame-length-matrix (:directional-flame-length-matrix matrices)
-          ignited-cells-to-process        (reduce (fn [acc burn-vector]
-                                                    (let [cell [(:i burn-vector) (:j burn-vector)]]
-                                                      (if (contains? ignited-cells cell)
-                                                        (update acc cell conj burn-vector)
-                                                        acc)))
-                                                  {}
-                                                  burn-vectors)]
-      (doseq [[ignited-cell bvs] ignited-cells-to-process]
+          directional-flame-length-matrix (:directional-flame-length-matrix matrices)]
+      (doseq [ignited-cell ignited-cells]
         (let [[i j]                ignited-cell
-              direction            (compute-fire-front-direction bvs)
+              direction            (compute-fire-front-direction! matrices i j)
               max-spread-rate      (t/mget max-spread-rate-matrix i j)
               max-spread-direction (t/mget max-spread-direction-matrix i j)
               eccentricity         (t/mget eccentricity-matrix i j)
@@ -853,7 +861,7 @@
                   promoted-burn-vectors          (->> burn-vectors
                                                       (ignited-cells->burn-vectors inputs matrices ignited-cells)
                                                       (promote-burn-vectors inputs matrices global-clock new-clock 1.99))
-                  _                              (compute-directional-in-situ-values! matrices ignited-cells promoted-burn-vectors)
+                  _                              (compute-directional-in-situ-values! matrices ignited-cells)
                   [untransitioned-bvs
                    transitioned-bvs
                    transition-ignited-cells]     (transition-burn-vectors inputs matrices band global-clock new-clock 0.99 promoted-burn-vectors)
@@ -917,7 +925,10 @@
      modified-time-matrix
      spot-matrix
      spread-rate-matrix
-     travel-lines-matrix])
+     spread-rate-sum-matrix
+     travel-lines-matrix
+     x-magnitude-sum-matrix
+     y-magnitude-sum-matrix])
 
 ;;-----------------------------------------------------------------------------
 ;; Main Simulation Entry Point - Dispatches to Point/Perimeter Ignition
@@ -1009,7 +1020,10 @@
       :reaction-intensity-matrix       (t/new-tensor shape)
       :spot-matrix                     (when spotting (t/new-tensor shape))
       :spread-rate-matrix              (t/new-tensor shape)
-      :travel-lines-matrix             (t/new-tensor shape :datatype :short)})))
+      :spread-rate-sum-matrix          (t/new-tensor shape)
+      :travel-lines-matrix             (t/new-tensor shape :datatype :short)
+      :x-magnitude-sum-matrix          (t/new-tensor shape)
+      :y-magnitude-sum-matrix          (t/new-tensor shape)})))
 
 (defmethod run-fire-spread :ignition-point
   [inputs]
@@ -1054,7 +1068,10 @@
       :modified-time-matrix        (t/new-tensor shape :datatype :int32)
       :spot-matrix                 (when spotting (t/new-tensor shape))
       :spread-rate-matrix          (d/clone negative-burn-scar)
-      :travel-lines-matrix         (t/new-tensor shape :datatype :short)})))
+      :spread-rate-sum-matrix      (t/new-tensor shape)
+      :travel-lines-matrix         (t/new-tensor shape :datatype :short)
+      :x-magnitude-sum-matrix      (t/new-tensor shape)
+      :y-magnitude-sum-matrix      (t/new-tensor shape)})))
 
 ;; TODO: Move this step into run-simulations to avoid running it in every thread
 (defn- get-perimeter-cells
