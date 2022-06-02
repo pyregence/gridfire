@@ -41,7 +41,8 @@ for PERC in 10 30 50 70 90; do
     mkdir     geoserver/$FIRENAME/${START_DATE}_${START_TIME}/gridfire/landfire/$PERC
     mkdir geoserver_new/$FIRENAME/${START_DATE}_${START_TIME}/gridfire/landfire/$PERC
 
-    for RASTER in crown-fire flame-length hours-since-burned spread-rate; do
+    # for RASTER in crown-fire flame-length hours-since-burned spread-rate; do
+    for RASTER in hours-since-burned; do
         mkdir geoserver_new/$FIRENAME/${START_DATE}_${START_TIME}/gridfire/landfire/$PERC/$RASTER
         cp -f imagemosaic_properties/*.properties geoserver_new/$FIRENAME/${START_DATE}_${START_TIME}/gridfire/landfire/$PERC/$RASTER/
     done
@@ -50,7 +51,8 @@ for PERC in 10 30 50 70 90; do
 done
 
 (
-    for f in `ls crown-fire*.tif flame-length*.tif hours-since-burned*.tif spread-rate*.tif 2> /dev/null`; do
+    # for f in `ls crown-fire*.tif flame-length*.tif hours-since-burned*.tif spread-rate*.tif 2> /dev/null`; do
+    for f in `ls hours-since-burned*.tif 2> /dev/null`; do
         ((i=i%NP)); ((i++==0)) && wait
         rename "$f" &
     done
@@ -59,7 +61,7 @@ wait
 
 # Process original geoserver directory
 cd geoserver
-echo "Creating tarball for GeoServer"
+echo "Creating tarball for GeoServer (Prod)"
 tar -cvf $FIRENAME-${START_DATE}_$START_TIME.tar * >& /dev/null
 
 exit 0
