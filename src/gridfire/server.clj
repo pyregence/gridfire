@@ -6,7 +6,6 @@
             [clojure.spec.alpha           :as spec]
             [clojure.string               :as str]
             [gridfire.active-fire-watcher :as active-fire-watcher]
-            [gridfire.config              :as config]
             [gridfire.conversion          :refer [convert-date-string camel->kebab kebab->camel]]
             [gridfire.core                :as gridfire]
             [gridfire.simple-sockets      :as sockets]
@@ -116,7 +115,15 @@
           elmfire-data-file   (.getPath (io/file input-deck-path "elmfire.data"))
           gridfire-edn-file   (.getPath (io/file input-deck-path "gridfire.edn"))
           gridfire-output-dir (.getPath (io/file input-deck-path "outputs"))]
-      (config/convert-config! elmfire-data-file override-config)
+      (if override-config
+        (let [{:keys [err out]} (sh/sh "resources/elm_to_grid.clj" "-e" elmfire-data-file "-o" override-config)]
+          (if err
+           (log-str err)
+           (log-str out)))
+        (let [{:keys [err out]} (sh/sh "resources/elm_to_grid.clj" "-e" elmfire-data-file)]
+          (if err
+            (log-str err)
+            (log-str out))))
       (send-gridfire-response! request config 2 "Running simulation.")
       (if (gridfire/process-config-file! gridfire-edn-file) ; Returns true on success
         (do (copy-post-process-scripts! software-dir gridfire-output-dir)
