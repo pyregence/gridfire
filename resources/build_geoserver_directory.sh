@@ -47,7 +47,8 @@ for PERC in 10 30 50 70 90; do
         cp -f imagemosaic_properties/*.properties geoserver_new/$FIRENAME/${START_DATE}_${START_TIME}/gridfire/landfire/$PERC/$RASTER/
     done
 
-    # gdal_contour -i 12 time-of-arrival_$BP.tif ./geoserver_new/$FIRENAME/${START_DATE}_${START_TIME}/gridfire/landfire/$BP/isochrones.shp &
+    gdal_contour -i 12 time-of-arrival_$BP.tif ./geoserver/$FIRENAME/${START_DATE}_${START_TIME}/gridfire/landfire/$BP/isochrones.shp &
+
 done
 
 (
