@@ -22,9 +22,7 @@ compress () {
     fi
     local STUB=`echo $f | cut -d. -f1`
     $GDAL_TRANSLATE -a_srs "$SRS" -a_nodata 0 -ot $OT -co "TILED=yes" -co "COMPRESS=DEFLATE" -co "ZLEVEL=9" -co "NUM_THREADS=2" ${STUB}.bil ${STUB}.tif
-    if [ $? -eq 0 ]; then
-        rm -f ${STUB}.bil ${STUB}.hdr
-    fi
+    rm -f ${STUB}.bil ${STUB}.hdr
 }
 
 N=`cat /proc/cpuinfo | grep "cpu cores" | cut -d: -f2 | tail -n 1 | xargs`
