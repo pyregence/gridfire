@@ -861,12 +861,12 @@
                   promoted-burn-vectors          (->> burn-vectors
                                                       (ignited-cells->burn-vectors inputs matrices ignited-cells)
                                                       (promote-burn-vectors inputs matrices global-clock new-clock 1.99))
-                  _                              (compute-directional-in-situ-values! matrices ignited-cells)
                   [untransitioned-bvs
                    transitioned-bvs
                    transition-ignited-cells]     (transition-burn-vectors inputs matrices band global-clock new-clock 0.99 promoted-burn-vectors)
                   promoted-transitioned-bvs      (->> transitioned-bvs
                                                       (ignited-cells->burn-vectors inputs matrices transition-ignited-cells)
+                                                      (into untransitioned-bvs)
                                                       (promote-burn-vectors inputs matrices global-clock new-clock 0.99))
                   [spot-burn-vectors
                    spot-ignite-now-count
@@ -880,9 +880,10 @@
                   [untransitioned-spot-bvs
                    transitioned-spot-bvs
                    _]                            (transition-burn-vectors inputs matrices band global-clock new-clock 0.49 promoted-spot-bvs)
-                  new-burn-vectors               (-> (into untransitioned-bvs promoted-transitioned-bvs)
+                  new-burn-vectors               (-> promoted-transitioned-bvs
                                                      (into untransitioned-spot-bvs)
                                                      (into transitioned-spot-bvs))]
+              (compute-directional-in-situ-values! matrices (into ignited-cells transition-ignited-cells))
               (recur new-clock
                      (min->hour new-clock)
                      non-burn-period-clock
