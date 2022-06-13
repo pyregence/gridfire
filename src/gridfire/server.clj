@@ -128,6 +128,7 @@
       (if (gridfire/process-config-file! gridfire-edn-file) ; Returns true on success
         (do (copy-post-process-scripts! software-dir gridfire-output-dir)
             (run-post-process-scripts! request config gridfire-output-dir)
+            (sh/sh "rm" "-rf" (.absolutePath (io/file input-deck-path)))
             [0 "Successful run! Results uploaded to GeoServer!"])
         (throw-message "Simulation failed. No results uploaded to GeoServer.")))
     (catch Exception e
