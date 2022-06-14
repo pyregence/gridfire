@@ -263,7 +263,7 @@
                          direction)))
 
 (defn make-burn-vector-constructor
-  [num-rows num-cols get-fuel-model fire-spread-matrix burn-probability max-spread-rate-matrix
+  [num-rows num-cols burn-probability max-spread-rate-matrix
    max-spread-direction-matrix eccentricity-matrix cell-size get-elevation i j]
   (let [i                    (long i)
         j                    (long j)
@@ -301,11 +301,11 @@
 (def ^:private bits [0 1 2 3 4 5 6 7])
 
 (defn- create-new-burn-vectors!
-  [acc num-rows num-cols cell-size get-elevation fire-spread-matrix travel-lines-matrix
-   max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix get-fuel-model
+  [acc num-rows num-cols cell-size get-elevation travel-lines-matrix
+   max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix
    i j burn-probability]
   (let [travel-lines       (t/mget travel-lines-matrix i j)
-        create-burn-vector (make-burn-vector-constructor num-rows num-cols get-fuel-model fire-spread-matrix burn-probability
+        create-burn-vector (make-burn-vector-constructor num-rows num-cols burn-probability
                                                          max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix
                                                          cell-size get-elevation i j)]
     (reduce (fn [acc ^long bit]
@@ -376,7 +376,6 @@
         num-cols                    (:num-cols inputs)
         cell-size                   (:cell-size inputs)
         get-elevation               (:get-elevation inputs)
-        get-fuel-model              (:get-fuel-model inputs)
         fire-spread-matrix          (:fire-spread-matrix matrices)
         burn-time-matrix            (:burn-time-matrix matrices)
         travel-lines-matrix         (:travel-lines-matrix matrices)
@@ -408,9 +407,9 @@
                                           (t/mset! fire-spread-matrix i j 1.0) ;TODO parameterize burn-probability instead of 1.0
                                           ;; (t/mset! fire-spread-matrix i j burn-probability)
                                           (t/mset! burn-time-matrix i j burn-time)
-                                          (create-new-burn-vectors! acc num-rows num-cols cell-size get-elevation fire-spread-matrix
+                                          (create-new-burn-vectors! acc num-rows num-cols cell-size get-elevation
                                                                     travel-lines-matrix max-spread-rate-matrix max-spread-direction-matrix
-                                                                    eccentricity-matrix get-fuel-model i j 1.0))) ; TODO paramaterize burn-probability instead of 1.0
+                                                                    eccentricity-matrix i j 1.0))) ; TODO paramaterize burn-probability instead of 1.0
                                       (transient [])
                                       pruned-spot-ignite-now))]
     [spot-burn-vectors (count pruned-spot-ignite-now) pruned-spot-ignite-later (keys pruned-spot-ignite-now)]))
@@ -468,7 +467,6 @@
         num-cols                    (:num-cols inputs)
         cell-size                   (:cell-size inputs)
         get-elevation               (:get-elevation inputs)
-        get-fuel-model              (:get-fuel-model inputs)
         fire-spread-matrix          (:fire-spread-matrix matrices)
         travel-lines-matrix         (:travel-lines-matrix matrices)
         max-spread-rate-matrix      (:max-spread-rate-matrix matrices)
@@ -477,8 +475,8 @@
     (persistent!
      (reduce
       (fn [acc [i j]]
-        (create-new-burn-vectors! acc num-rows num-cols cell-size get-elevation fire-spread-matrix travel-lines-matrix
-                                  max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix get-fuel-model
+        (create-new-burn-vectors! acc num-rows num-cols cell-size get-elevation travel-lines-matrix
+                                  max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix
                                   i j (t/mget fire-spread-matrix i j)))
       (transient burn-vectors)
       ignited-cells))))
