@@ -608,10 +608,10 @@
     (mapv
      persistent!
      (reduce
-      (fn [[untransitioned-bvs transitioned-bvs ignited-cells] burn-vector]
+      (fn [[burn-vectors ignited-cells] burn-vector]
         (let [fractional-distance (double (:fractional-distance burn-vector))]
           (if (< fractional-distance 1.0)
-            [(conj! untransitioned-bvs burn-vector) transitioned-bvs ignited-cells]
+            [(conj! burn-vectors burn-vector) ignited-cells]
             (let [i                (long (:i burn-vector))
                   j                (long (:j burn-vector))
                   direction        (double (:direction burn-vector))
@@ -692,14 +692,14 @@
                           new-spread-rate         (if (< new-fractional-distance max-fractional-distance)
                                                     new-spread-rate
                                                     (/ (* new-fractional-distance new-terrain-distance) dt-in-neighbor))
-                          new-transitioned-bvs    (conj! transitioned-bvs
+                          new-burn-vectors        (conj! burn-vectors
                                                          (->BurnVector new-i new-j direction new-fractional-distance new-spread-rate
                                                                        new-terrain-distance burn-probability))]
                       (if (< new-fractional-distance 0.5)
-                        [untransitioned-bvs new-transitioned-bvs ignited-cells]
+                        [new-burn-vectors ignited-cells]
                         (let [^double local-burn-probability (t/mget fire-spread-matrix new-i new-j)]
                           (if (< burn-probability local-burn-probability)
-                            [untransitioned-bvs new-transitioned-bvs ignited-cells]
+                            [new-burn-vectors ignited-cells]
                             (let [relative-burn-time      (-> (/ dt-in-neighbor new-fractional-distance)
                                                               (* 0.5))
                                   burn-time               (-> new-clock
@@ -710,17 +710,17 @@
                                 (do
                                   (t/mset! fire-spread-matrix new-i new-j burn-probability)
                                   (t/mset! burn-time-matrix new-i new-j burn-time)
-                                  [untransitioned-bvs new-transitioned-bvs (if (<= local-burn-time global-clock)
-                                                                             (conj! ignited-cells [new-i new-j])
-                                                                             ignited-cells)])
-                                ;; [untransitioned-bvs new-transitioned-bvs (conj! ignited-cells [new-i new-j])]) ; TODO check set vs vectors
+                                  [new-burn-vectors (if (<= local-burn-time global-clock)
+                                                      (conj! ignited-cells [new-i new-j])
+                                                      ignited-cells)])
+                                ;; [new-burn-vectors (conj! ignited-cells [new-i new-j])]) ; TODO check set vs vectors
                                 (do
                                   (when (< burn-time local-burn-time)
                                     (t/mset! burn-time-matrix new-i new-j burn-time))
-                                  [untransitioned-bvs new-transitioned-bvs ignited-cells]))))))))
-                  [untransitioned-bvs transitioned-bvs ignited-cells]))))))
-      [(transient []) (transient []) (transient [])]
-      ;; [(transient []) (transient []) (transient #{})]
+                                  [new-burn-vectors ignited-cells]))))))))
+                  [burn-vectors ignited-cells]))))))
+      [(transient []) (transient [])]
+      ;; [(transient []) (transient #{})]
       burn-vectors))))
 
 (defn- parse-burn-period
@@ -848,27 +848,27 @@
                      spot-count))
             (let [dt-until-new-hour              (- 60.0 (rem global-clock 60.0))
                   dt-until-non-burn-period-clock (-  non-burn-period-clock global-clock)
-                  burn-vectors                   (if (and (> global-clock ignition-start-time)
+                  bvs                            (if (and (> global-clock ignition-start-time)
                                                           (or (= dt-until-new-hour 60.0)
                                                               (= dt-until-non-burn-period-clock burn-period-dt)))
                                                    (recompute-burn-vectors inputs matrices band burn-vectors)
                                                    burn-vectors)
-                  timestep                       (-> (compute-dt cell-size burn-vectors)
+                  timestep                       (-> (compute-dt cell-size bvs)
                                                      (min dt-until-new-hour)
                                                      (min dt-until-max-runtime)
                                                      (min dt-until-non-burn-period-clock))
                   new-clock                      (+ global-clock timestep)
-                  [burn-vectors ignited-cells]   (grow-burn-vectors! matrices global-clock timestep burn-vectors)
-                  promoted-burn-vectors          (->> burn-vectors
+                  [grown-bvs
+                   ignited-cells]                (grow-burn-vectors! matrices global-clock timestep bvs)
+                  [transitioned-bvs
+                   transition-ignited-cells]     (->> grown-bvs
                                                       (ignited-cells->burn-vectors inputs matrices ignited-cells)
-                                                      (promote-burn-vectors inputs matrices global-clock new-clock 1.99))
-                  [untransitioned-bvs
-                   transitioned-bvs
-                   transition-ignited-cells]     (transition-burn-vectors inputs matrices band global-clock new-clock 0.99 promoted-burn-vectors)
-                  promoted-transitioned-bvs      (->> (into untransitioned-bvs transitioned-bvs)
+                                                      (promote-burn-vectors inputs matrices global-clock new-clock 1.99)
+                                                      (transition-burn-vectors inputs matrices band global-clock new-clock 0.99))
+                  promoted-transitioned-bvs      (->> transitioned-bvs
                                                       (ignited-cells->burn-vectors inputs matrices transition-ignited-cells)
                                                       (promote-burn-vectors inputs matrices global-clock new-clock 0.99))
-                  [spot-burn-vectors
+                  [spot-bvs
                    spot-ignite-now-count
                    spot-ignite-later
                    spot-ignited-cells]           (compute-spot-burn-vectors! inputs
@@ -878,19 +878,17 @@
                                                                              band
                                                                              new-clock
                                                                              global-clock)
-                  promoted-spot-bvs              (->> (into promoted-transitioned-bvs spot-burn-vectors)
+                  promoted-spot-bvs              (->> (into promoted-transitioned-bvs spot-bvs)
                                                       (promote-burn-vectors inputs matrices global-clock new-clock 1.49))
-                  [untransitioned-spot-bvs
-                   transitioned-spot-bvs
-                   _]                            (transition-burn-vectors inputs matrices band global-clock new-clock 0.49 promoted-spot-bvs)
-                  new-burn-vectors               (into transitioned-spot-bvs untransitioned-spot-bvs)]
+                  [transition-promoted-spot-bvs
+                   _]                            (transition-burn-vectors inputs matrices band global-clock new-clock 0.49 promoted-spot-bvs)]
               (compute-directional-in-situ-values! matrices (-> ignited-cells
                                                                 (into transition-ignited-cells)
                                                                 (into spot-ignited-cells)))
               (recur new-clock
                      (min->hour new-clock)
                      non-burn-period-clock
-                     new-burn-vectors
+                     transition-promoted-spot-bvs
                      spot-ignite-later
                      (+ spot-count ^long spot-ignite-now-count)))))
         (let [fire-type-matrix (:fire-type-matrix matrices)]
