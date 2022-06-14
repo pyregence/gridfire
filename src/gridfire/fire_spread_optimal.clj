@@ -3,6 +3,7 @@
                                                    burnable-fuel-model?
                                                    calc-fuel-moisture
                                                    compute-terrain-distance
+                                                   in-bounds-optimal?
                                                    non-zero-indices]]
             [gridfire.conversion           :refer [mph->fpm hour->min min->hour]]
             [gridfire.crown-fire           :refer [crown-fire-eccentricity
@@ -288,11 +289,7 @@
                     225.0 (- j 1)
                     270.0 (- j 1)
                     315.0 (- j 1))]
-        (when (and (burnable-cell? get-fuel-model fire-spread-matrix burn-probability
-                                   num-rows num-cols new-i new-j)
-                   (or (not (diagonal? direction))
-                       (burnable-fuel-model? (get-fuel-model new-i j))
-                       (burnable-fuel-model? (get-fuel-model i new-j))))
+        (when (in-bounds-optimal? num-rows num-cols i j)
           (let [spread-rate      (compute-spread-rate max-spread-rate
                                                       max-spread-direction
                                                       eccentricity
