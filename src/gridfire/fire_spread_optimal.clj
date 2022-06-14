@@ -374,7 +374,7 @@
              ignited-cells))))
 
 (defn- compute-spot-burn-vectors!
-  [inputs matrices spot-ignitions ignited-cells band new-clock]
+  [inputs matrices spot-ignitions ignited-cells band new-clock global-clock]
   (let [num-rows                    (:num-rows inputs)
         num-cols                    (:num-cols inputs)
         cell-size                   (:cell-size inputs)
@@ -408,14 +408,15 @@
                                               [burn-time burn-probability] spot-info]
                                           (when (> band (dec ^long (t/mget modified-time-matrix i j)))
                                             (compute-max-in-situ-values! inputs matrices band i j))
-                                          (t/mset! fire-spread-matrix i j burn-probability)
+                                          (t/mset! fire-spread-matrix i j 1.0) ;TODO parameterize burn-probability instead of 1.0
+                                          ;; (t/mset! fire-spread-matrix i j burn-probability)
                                           (t/mset! burn-time-matrix i j burn-time)
                                           (create-new-burn-vectors! acc num-rows num-cols cell-size get-elevation fire-spread-matrix
                                                                     travel-lines-matrix max-spread-rate-matrix max-spread-direction-matrix
                                                                     eccentricity-matrix get-fuel-model i j 1.0))) ; TODO paramaterize burn-probability instead of 1.0
                                       (transient [])
                                       pruned-spot-ignite-now))]
-    [spot-burn-vectors (count pruned-spot-ignite-now) pruned-spot-ignite-later]))
+    [spot-burn-vectors (count pruned-spot-ignite-now) pruned-spot-ignite-later (keys pruned-spot-ignite-now)]))
 
 (defn- grow-burn-vectors!
   [matrices global-clock timestep burn-vectors]
@@ -870,20 +871,22 @@
                                                       (promote-burn-vectors inputs matrices global-clock new-clock 0.99))
                   [spot-burn-vectors
                    spot-ignite-now-count
-                   spot-ignite-later]            (compute-spot-burn-vectors! inputs
+                   spot-ignite-later
+                   spot-ignited-cells]           (compute-spot-burn-vectors! inputs
                                                                              matrices
                                                                              spot-ignitions
                                                                              (into ignited-cells transition-ignited-cells)
                                                                              band
-                                                                             new-clock)
-                  promoted-spot-bvs              (promote-burn-vectors inputs matrices global-clock new-clock 1.49 spot-burn-vectors)
+                                                                             new-clock
+                                                                             global-clock)
+                  promoted-spot-bvs              (promote-burn-vectors inputs matrices global-clock new-clock 1.49 (into promoted-transitioned-bvs spot-burn-vectors))
                   [untransitioned-spot-bvs
                    transitioned-spot-bvs
                    _]                            (transition-burn-vectors inputs matrices band global-clock new-clock 0.49 promoted-spot-bvs)
-                  new-burn-vectors               (-> promoted-transitioned-bvs
-                                                     (into untransitioned-spot-bvs)
-                                                     (into transitioned-spot-bvs))]
-              (compute-directional-in-situ-values! matrices (into ignited-cells transition-ignited-cells))
+                  new-burn-vectors               (into transitioned-spot-bvs untransitioned-spot-bvs)]
+              (compute-directional-in-situ-values! matrices (-> ignited-cells
+                                                                (into transition-ignited-cells)
+                                                                (into spot-ignited-cells)))
               (recur new-clock
                      (min->hour new-clock)
                      non-burn-period-clock
