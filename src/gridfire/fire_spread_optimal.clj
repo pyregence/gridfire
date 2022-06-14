@@ -865,9 +865,8 @@
                   [untransitioned-bvs
                    transitioned-bvs
                    transition-ignited-cells]     (transition-burn-vectors inputs matrices band global-clock new-clock 0.99 promoted-burn-vectors)
-                  promoted-transitioned-bvs      (->> transitioned-bvs
+                  promoted-transitioned-bvs      (->> (into untransitioned-bvs transitioned-bvs)
                                                       (ignited-cells->burn-vectors inputs matrices transition-ignited-cells)
-                                                      (into untransitioned-bvs)
                                                       (promote-burn-vectors inputs matrices global-clock new-clock 0.99))
                   [spot-burn-vectors
                    spot-ignite-now-count
@@ -879,7 +878,8 @@
                                                                              band
                                                                              new-clock
                                                                              global-clock)
-                  promoted-spot-bvs              (promote-burn-vectors inputs matrices global-clock new-clock 1.49 (into promoted-transitioned-bvs spot-burn-vectors))
+                  promoted-spot-bvs              (->> (into promoted-transitioned-bvs spot-burn-vectors)
+                                                      (promote-burn-vectors inputs matrices global-clock new-clock 1.49))
                   [untransitioned-spot-bvs
                    transitioned-spot-bvs
                    _]                            (transition-burn-vectors inputs matrices band global-clock new-clock 0.49 promoted-spot-bvs)
