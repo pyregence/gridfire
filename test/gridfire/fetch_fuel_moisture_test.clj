@@ -1,12 +1,12 @@
 (ns gridfire.fetch-fuel-moisture-test
-  (:require 
-            [clojure.test                :refer [deftest are]]
-            [gridfire.fetch              :as fetch]
-            [gridfire.magellan-bridge    :refer [geotiff-raster-to-matrix]]
-            [gridfire.utils.test         :as utils]
-            [gridfire.conversion         :as convert]
-            [tech.v3.datatype            :as d]
-            [tech.v3.datatype.functional :as dfn]))
+  (:require
+   [clojure.test                :refer [deftest are]]
+   [gridfire.fetch              :as fetch]
+   [gridfire.magellan-bridge    :refer [geotiff-raster-to-matrix]]
+   [gridfire.utils.test         :as utils]
+   [gridfire.conversion         :as convert]
+   [tech.v3.datatype            :as d]
+   [tech.v3.datatype.functional :as dfn]))
 
 (def resources-path "test/gridfire/resources/weather-test")
 
@@ -15,7 +15,7 @@
   (let [matrix (-> (get-in inputs [:fuel-moisture category size :source])
                    geotiff-raster-to-matrix
                    :matrix)]
-    (dfn/equals (fetch/fuel-moisture-matrix inputs category size)
+    (dfn/equals (:matrix (fetch/fuel-moisture-layer inputs category size))
                 (d/clone (d/emap convert/percent->dec nil matrix)))))
 
 (deftest ^:unit fuel-moisture-test

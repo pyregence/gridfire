@@ -18,9 +18,15 @@
 (defn- within-5%? [^double a ^double b]
   (within-%? a b 0.05))
 
-(defn- crown-fire-within-5%? [[fire-type-a fire-rate-a] [fire-type-b fire-rate-b]]
-  (and (= fire-type-a fire-type-b)
-       (within-5%? fire-rate-a fire-rate-b)))
+(defn- crown-fire-within-5%? [fire-type spread-rate-a spread-rate-b]
+  (if (= fire-type :passive)
+    (and
+     (neg? spread-rate-b)
+     (within-5%? spread-rate-a (* -1 spread-rate-b)))
+
+    (and
+     (pos? spread-rate-b)
+     (within-5%? spread-rate-a spread-rate-b))))
 
 (deftest ^:unit test-van-wagner-crown-fire-line-intensity
   (testing "Fire intensity using Van Wagner (1976), equation 4."
@@ -74,26 +80,26 @@
 
 (deftest ^:unit test-cruz-fire-spread
   (testing "Active crown fires using SI units."
-    (are [expected args] (crown-fire-within-5%? [:active-crown expected] (apply cruz-crown-fire-spread-metric args))
+    (are [expected args] (crown-fire-within-5%? :active expected (apply cruz-crown-fire-spread-metric args))
          ; m/min [wind-speed-10m (km/hr) canopy-bulk-density (kg/m^3) est. fine fuel moisture (%)]
          22.6    [15.8 0.27 8.8] ; Mean values
          32.0    [35 0.1 10.0]))
 
   (testing "Passive crown fires using SI units."
-    (are [expected args] (crown-fire-within-5%? [:passive-crown expected] (apply cruz-crown-fire-spread-metric args))
+    (are [expected args] (crown-fire-within-5%? :passive expected (apply cruz-crown-fire-spread-metric args))
          ; m/min [wind-speed-10m (km/hr) canopy-bulk-density (kg/m^3) est. fine fuel moisture (%)]
          7.6     [7  0.08 8.0] ; Bor Island Fire Experiment
          11.0    [30 0.1 10.0])))
 
 (deftest ^:unit test-cruz-fire-spread-imperial
   (testing "Testing using imperial units fires."
-    (are [expected args] (crown-fire-within-5%? [:active-crown expected] (apply cruz-crown-fire-spread args))
+    (are [expected args] (crown-fire-within-5%? :active expected (apply cruz-crown-fire-spread args))
          ; ft/min       [wind-speed-20ft (mph) canopy-bulk-density (lb/ft^3) est. fine fuel moisture (0-1)]
          (c/m->ft 22.6) [(-> 15.8 (c/km-hr->mph) (c/wind-speed-10m->wind-speed-20ft)) (c/kg-m3->lb-ft3 0.27) 0.088]
          (c/m->ft 32.0) [(-> 35.0 (c/km-hr->mph) (c/wind-speed-10m->wind-speed-20ft)) (c/kg-m3->lb-ft3 0.1)  0.1]))
 
   (testing "Passive crown fires"
-    (are [expected args] (crown-fire-within-5%? [:passive-crown expected] (apply cruz-crown-fire-spread args))
+    (are [expected args] (crown-fire-within-5%? :passive expected (apply cruz-crown-fire-spread args))
          ; ft/min       [wind-speed-20ft (mph) canopy-bulk-density (lb/ft^3) est. fine fuel moisture (0-1)]
          (c/m->ft 7.6)  [(-> 7.0  (c/km-hr->mph) (c/wind-speed-10m->wind-speed-20ft)) (c/kg-m3->lb-ft3 0.08) 0.08]
          (c/m->ft 11.0) [(-> 30.0 (c/km-hr->mph) (c/wind-speed-10m->wind-speed-20ft)) (c/kg-m3->lb-ft3 0.1)  0.1])))

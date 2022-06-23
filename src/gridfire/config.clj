@@ -1,39 +1,16 @@
-#!/usr/bin/env bb
+(ns gridfire.config
+  (:require [clojure.edn         :as edn]
+            [clojure.java.io     :as io]
+            [clojure.java.shell  :refer [sh]]
+            [clojure.pprint      :as pprint]
+            [clojure.string      :as str]
+            [gridfire.conversion :as convert]
+            [triangulum.logging  :refer [log-str]]))
 
-;; FIXME: document babashka (bb) and gdalsrsinfo as installation dependencies for running this script
-;; FIXME: use babashka's pod protocol to integrate this script with gridfire.server
-
-(require '[clojure.edn        :as edn]
-         '[clojure.java.io    :as io]
-         '[clojure.java.shell :refer [sh]]
-         '[clojure.pprint     :refer [pprint]]
-         '[clojure.string     :as str]
-         '[clojure.tools.cli  :refer [parse-opts]])
-
-;;=============================================================================
-;; Units conversion functions
-;;=============================================================================
-
-(defn m->ft
-  "Convert meters to feet."
-  ^double
-  [^double m]
-  (* m 3.281))
-
-(defn sec->min
-  "Convert seconds to minutes."
-  ^double
-  [^double seconds]
-  (* seconds 0.016666666666666666))
-
-(defn kW-m->Btu-ft-s
-  "Convert kilowatt per meter to BTU per feet per second."
-  ^double
-  [^double kW-m]
-  (* kW-m 0.28887942532730604))
+(set! *unchecked-math* :warn-on-boxed)
 
 ;;=============================================================================
-;; File access functions
+;; Utilities
 ;;=============================================================================
 
 (def ^:dynamic *elmfire-directory-path* "")
@@ -41,6 +18,7 @@
 (defn relative-path?
   [path]
   (re-matches #"^((\.){1,2}\/)*([\w]+\/)*([\w]+)" path))
+
 
 (defn file-path
   ([file-or-directory]
@@ -51,12 +29,13 @@
        (.normalize)
        (.toString)))
   ([directory tif-file-prefix]
-   (-> (if (relative-path? directory)
-         (io/file *elmfire-directory-path* directory (str tif-file-prefix ".tif"))
-         (io/file directory (str tif-file-prefix ".tif")))
-       (.toPath)
-       (.normalize)
-       (.toString))))
+   (let [file (if (relative-path? directory)
+                (io/file *elmfire-directory-path* directory (str tif-file-prefix ".tif"))
+                (io/file directory (str tif-file-prefix ".tif")))]
+     (-> file
+         (.toPath)
+         (.normalize)
+         (.toString)))))
 
 ;;=============================================================================
 ;; Write gridfire.edn
@@ -64,9 +43,9 @@
 
 (defn write-config [config-params]
   (let [output-file-path (file-path "gridfire.edn")]
-    (println "Creating config file:" output-file-path)
+    (log-str "Creating config file: " output-file-path)
     (with-open [writer (io/writer output-file-path)]
-      (pprint config-params writer))))
+      (pprint/pprint config-params writer))))
 
 ;;=============================================================================
 ;; Merge Override Config
@@ -135,7 +114,7 @@
                                     :source (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY IGNITION_MASK_FILENAME)})
 
              EDGEBUFFER
-             (assoc :edge-buffer (m->ft EDGEBUFFER))))
+             (assoc :edge-buffer (convert/m->ft EDGEBUFFER))))
     (assoc config
            :ignition-layer
            {:type        :geotiff
@@ -174,7 +153,7 @@
                  :output-pngs?            false
                  :output-binary?          true
                  :output-csvs?            true)
-    DUMP_BURN_PROBABILITY_AT_DTDUMP (assoc :burn-probability (sec->min DTDUMP))))
+    DUMP_BURN_PROBABILITY_AT_DTDUMP (assoc :burn-probability (convert/sec->min DTDUMP))))
 
 ;;=============================================================================
 ;; Perturbations
@@ -213,7 +192,7 @@
                               (get elmfire->gridfire))
            :range        [(get config (str "PDF_LOWER_LIMIT-" index))
                           (get config (str "PDF_UPPER_LIMIT-" index))]}
-    (layers-in-metric key) (assoc :units :metric)
+    (layers-in-metric key) (assoc :units :metric) ; FIXME: :units is not in gridfire.spec.config/::perturbation
     (layers-in-ratio key)  (assoc :units :ratio)))
 
 (defn perturbation-key
@@ -337,7 +316,7 @@
     (and ENABLE_SPOTTING ENABLE_SURFACE_FIRE_SPOTTING)
     (assoc-in [:spotting :surface-fire-spotting]
               {:spotting-percent             (extract-global-surface-spotting-percents data)
-               :critical-fire-line-intensity (kW-m->Btu-ft-s CRITICAL_SPOTTING_FIRELINE_INTENSITY)})))
+               :critical-fire-line-intensity (convert/kW-m->Btu-ft-s CRITICAL_SPOTTING_FIRELINE_INTENSITY)})))
 
 ;;=============================================================================
 ;; Fuel moisture layers
@@ -371,9 +350,9 @@
 
 (defn build-edn
   [{:strs [COMPUTATIONAL_DOMAIN_CELLSIZE A_SRS SIMULATION_TSTOP SEED FOLIAR_MOISTURE_CONTENT] :as data}]
-  (->> {:cell-size                       (m->ft COMPUTATIONAL_DOMAIN_CELLSIZE)
+  (->> {:cell-size                       (convert/m->ft COMPUTATIONAL_DOMAIN_CELLSIZE)
         :srid                            (or A_SRS "EPSG:32610")
-        :max-runtime                     (sec->min SIMULATION_TSTOP)
+        :max-runtime                     (convert/sec->min SIMULATION_TSTOP)
         :simulations                     10 ; FIXME: use NUM_ENSEMBLE_MEMBERS or override.edn
         :random-seed                     SEED
         :foliar-moisture                 FOLIAR_MOISTURE_CONTENT
@@ -434,8 +413,8 @@
 ;; Main
 ;;=============================================================================
 
-(defn convert-config! [elmfire-data-file-path override-config-file-path]
-  (println "Converting configuration file to one that GridFire accepts.")
+(defn convert-config! [elmfire-data-file-path & [override-config-file-path]]
+  (log-str "Converting configuration file to one that GridFire accepts.")
   (binding [*elmfire-directory-path* (.getParent (io/file elmfire-data-file-path))]
     (-> elmfire-data-file-path
         (slurp)
@@ -443,45 +422,3 @@
         (build-edn)
         (merge-override-config override-config-file-path)
         (write-config))))
-
-(def cli-options
-  [["-e" "--elmfire-data FILE" "Path to an elmfire.data file"
-    :validate [#(.exists  (io/file %)) "The provided --elmfire-data does not exist."
-               #(.canRead (io/file %)) "The provided --elmfire-data is not readable."]]
-
-   ["-o" "--override-config OVERRIDE" "Path to override.edn file"
-    :validate [#(.exists  (io/file %)) "The provided --override-config does not exist."
-               #(.canRead (io/file %)) "The provided --override-config is not readable."]]])
-
-(def program-banner
-  (str "elm_to_grid.clj: Generate a gridfire.edn file from an elmfire.data file.\n"
-       "Copyright © 2020-2022 Spatial Informatics Group, LLC.\n"))
-
-(defn main [args]
-  (println program-banner)
-  (let [{:keys [options arguments summary errors]} (parse-opts args cli-options)]
-    ;; {:options   The options map, keyed by :id, mapped to the parsed value
-    ;;  :arguments A vector of unprocessed arguments
-    ;;  :summary   A string containing a minimal options summary
-    ;;  :errors    A vector of error message strings thrown during parsing; nil when no errors exist
-    (cond
-      ;; Errors encountered during input parsing
-      (seq errors)
-      (do
-        (run! println errors)
-        (println (str "\nUsage:\n" summary)))
-
-      ;; Valid --elmfire-data argument provided, so perform conversion
-      (:elmfire-data options)
-      (convert-config! (:elmfire-data options) (:override-config options))
-
-      ;; Incorrect CLI invocation
-      :else
-      (do
-        (println "You must provide a valid --elmfire-data file path to initiate conversion.")
-        (println (str "\nUsage:\n" summary))))
-
-    ;; Exit cleanly
-    (System/exit 0)))
-
-(main *command-line-args*)

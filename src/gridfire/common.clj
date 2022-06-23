@@ -4,36 +4,41 @@
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.tensor              :as t]))
 
-;; FIXME: unused
+(set! *unchecked-math* :warn-on-boxed)
+
 (defn calc-emc
   "Computes the Equilibrium Moisture Content (EMC) from rh (relative
    humidity in %) and temp (temperature in F)."
   ^double
   [^double rh ^double temp]
   (/ (double
-      (cond (< rh 10) (+ 0.03229 (* 0.281073 rh) (* -0.000578 rh temp))
-            (< rh 50) (+ 2.22749 (* 0.160107 rh) (* -0.01478 temp))
-            :else     (+ 21.0606 (* 0.005565 rh rh) (* -0.00035 rh temp) (* -0.483199 rh))))
-     30))
-
-(def fuel-categories #{:dead :live})
-
-(def fuel-sizes #{:1hr :10hr :100hr :herbaceous :woody})
+      (cond (< rh 10.0) (+ 0.03229 (* 0.281073 rh) (* -0.000578 rh temp))
+            (< rh 50.0) (+ 2.22749 (* 0.160107 rh) (* -0.01478 temp))
+            :else       (+ 21.0606 (* 0.005565 rh rh) (* -0.00035 rh temp) (* -0.483199 rh))))
+     30.0))
 
 (defn calc-fuel-moisture
-  [relative-humidity temperature category size]
+  ^double
+  [^double relative-humidity ^double temperature category size]
   (let [equilibrium-moisture (calc-emc relative-humidity temperature)]
     (case [category size]
       [:dead :1hr]        (+ equilibrium-moisture 0.002)
       [:dead :10hr]       (+ equilibrium-moisture 0.015)
       [:dead :100hr]      (+ equilibrium-moisture 0.025)
       [:live :herbaceous] (* equilibrium-moisture 2.0)
-      [:live :woody]      (* equilibrium-moisture 0.5)
-      nil)))
+      [:live :woody]      (* equilibrium-moisture 0.5))))
 
 (defn in-bounds?
   "Returns true if the point lies within the bounds [0,rows) by [0,cols)."
   [^long rows ^long cols [^long i ^long j]]
+  (and (>= i 0)
+       (>= j 0)
+       (< i rows)
+       (< j cols)))
+
+(defn in-bounds-optimal?
+  "Returns true if the point lies within the bounds [0,rows) by [0,cols)."
+  [^long rows ^long cols ^long i ^long j]
   (and (>= i 0)
        (>= j 0)
        (< i rows)
@@ -45,15 +50,16 @@
        (or (< number 91.0)
            (> number 99.0))))
 
+;; FIXME: This logic doesn't look right.
 (defn burnable?
   "Returns true if cell [x y] has not yet been ignited (but could be)."
-  [fire-spread-matrix fuel-model-matrix [i j :as source] [x y :as here]]
-  (let [^double ignition-probability-here   (t/mget fire-spread-matrix x y)
-        ^double source-ignition-probability (t/mget fire-spread-matrix i j)]
-    (and (< ignition-probability-here ^double (if (= source-ignition-probability 0.0)
-                                                1.0
-                                                source-ignition-probability))
-         (burnable-fuel-model? (t/mget fuel-model-matrix x y)))))
+  [fire-spread-matrix fuel-model-matrix [i j] [x y]]
+  (and (burnable-fuel-model? (t/mget fuel-model-matrix x y))
+       (let [^double ignition-probability-here   (t/mget fire-spread-matrix x y)
+             ^double source-ignition-probability (t/mget fire-spread-matrix i j)]
+         (< ignition-probability-here (if (= source-ignition-probability 0.0)
+                                        1.0
+                                        source-ignition-probability)))))
 
 (defn get-neighbors
   "Returns the eight points adjacent to the passed-in point."
@@ -64,9 +70,9 @@
         i+ (+ i 1)
         j- (- j 1)
         j+ (+ j 1)]
-    (vector [i- j-] [i- j] [i- j+]
-            [i  j-]        [i  j+]
-            [i+ j-] [i+ j] [i+ j+])))
+    (list [i- j-] [i- j] [i- j+]
+          [i  j-]        [i  j+]
+          [i+ j-] [i+ j] [i+ j+])))
 
 (defn burnable-neighbors?
   [fire-spread-matrix fuel-model-matrix num-rows num-cols cell]
@@ -98,3 +104,24 @@
 
 (defn non-zero-count [tensor]
   (-> tensor dfn/pos? dfn/sum (d/unchecked-cast :int64)))
+
+(defn burnable-cell?
+  [get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i j]
+  (and (in-bounds-optimal? num-rows num-cols i j)
+       (burnable-fuel-model? (get-fuel-model i j))
+       (> (double burn-probability) ^double (t/mget fire-spread-matrix i j))))
+
+(defn compute-terrain-distance
+  [cell-size get-elevation num-rows num-cols i j new-i new-j]
+  (let [cell-size (double cell-size)
+        i         (long i)
+        j         (long j)
+        new-i     (long new-i)
+        new-j     (long new-j)
+        di        (* cell-size (- i new-i))
+        dj        (* cell-size (- j new-j))]
+    (if (in-bounds-optimal? num-rows num-cols new-i new-j)
+      (let [dz (- ^double (get-elevation i j)
+                  ^double (get-elevation new-i new-j))]
+        (Math/sqrt (+ (* di di) (* dj dj) (* dz dz))))
+      (Math/sqrt (+ (* di di) (* dj dj))))))

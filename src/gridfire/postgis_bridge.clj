@@ -4,16 +4,18 @@
             [hikari-cp.core    :as h]
             [tech.v3.datatype  :as d]
             [tech.v3.tensor    :as t])
-  (:import org.postgresql.jdbc.PgArray
-           java.util.UUID))
+  (:import java.util.UUID
+           org.postgresql.jdbc.PgArray))
+
+(set! *unchecked-math* :warn-on-boxed)
 
 (defn extract-matrix [result]
   (->> result
        :matrix
-       (#(.getArray ^PgArray %))
-       t/->tensor
-       (d/emap #(or % -1.0) nil)
-       d/clone))
+       (#(.getArray ^PgArray %)) ; Note: I can pass a HashMap of {String,Class}
+       t/->tensor                ; to automatically convert SQL types to Java types.
+       (d/emap #(or % -1.0) nil) ; FIXME: is this step necessary?
+       d/clone))                 ; What happens to null values when read?
 
 (defn build-rescale-query [rescaled-table-name resolution table-name]
   (format (str "CREATE TEMPORARY TABLE %s "

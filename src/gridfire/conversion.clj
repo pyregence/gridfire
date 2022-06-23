@@ -186,7 +186,7 @@
   "Converts minutes to hours. (rounds down)"
   ^long
   [^double minutes]
-  (long (quot minutes 60.0)))
+  (long (/ minutes 60.0)))
 
 (defn convert-date-string
   "Convert a date string between two formats."
@@ -231,19 +231,20 @@
   (str/replace kebab-string #"-" "_"))
 
 (def conversion-table
-  {:elevation                     {:metric m->ft}
-   :slope                         {nil deg->ratio}
-   :canopy-height                 {:metric m->ft}
-   :canopy-base-height            {:metric m->ft}
-   :crown-bulk-density            {:metric kg-m3->lb-ft3}
-   :wind-speed-20ft               {:metric mps->mph}
+  {:elevation                     {:metric   m->ft}
+   :slope                         {nil       deg->ratio}
+   :canopy-base-height            {:metric   m->ft}
+   :canopy-height                 {:metric   m->ft}
+   :crown-bulk-density            {:metric   kg-m3->lb-ft3}
    :temperature                   {:metric   C->F
                                    :absolute K->F}
-   :fuel-moisture-dead-1hr        {:percent percent->dec}
-   :fuel-moisture-dead-10hr       {:percent percent->dec}
-   :fuel-moisture-dead-100hr      {:percent percent->dec}
-   :fuel-moisture-live-herbaceous {:percent percent->dec}
-   :fuel-moisture-live-woody      {:percent percent->dec}})
+   :relative-humidity             {:ratio    dec->percent}
+   :wind-speed-20ft               {:metric   mps->mph}
+   :fuel-moisture-dead-1hr        {:percent  percent->dec}
+   :fuel-moisture-dead-10hr       {:percent  percent->dec}
+   :fuel-moisture-dead-100hr      {:percent  percent->dec}
+   :fuel-moisture-live-herbaceous {:percent  percent->dec}
+   :fuel-moisture-live-woody      {:percent  percent->dec}})
 
 (defn valid-multiplier?
   [x]
@@ -258,9 +259,3 @@
     (if (valid-multiplier? multiplier)
       (fn ^double [^double x] (* x multiplier))
       nil)))
-
-(defn to-imperial!
-  [layer {:keys [units multiplier] :or {multiplier 1.0}} layer-name]
-  (if-let [converter (get-units-converter layer-name units multiplier)]
-    (update layer :matrix #(d/copy! (d/emap converter nil %) %))
-    layer))

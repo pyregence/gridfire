@@ -1,5 +1,6 @@
 (ns gridfire.spec.config
   (:require [clojure.spec.alpha          :as s]
+            [gridfire.spec.burn-period   :as burn-period]
             [gridfire.spec.common        :as common]
             [gridfire.spec.perturbations :as perturbations]))
 
@@ -197,6 +198,7 @@
 (s/def ::fire-line-intensity ::output-frequency)
 (s/def ::spread-rate         ::output-frequency)
 (s/def ::burn-history        ::output-frequency)
+(s/def ::fire-type           ::output-frequency)
 
 (s/def ::output-layers
   (common/one-or-more-keys
@@ -204,7 +206,8 @@
     ::flame-length
     ::fire-line-intensity
     ::spread-rate
-    ::burn-history]))
+    ::burn-history
+    ::fire-type]))
 
 (s/def ::output-burn-probability  ::output-frequency) ; FIXME: Why isn't this also just boolean?
 (s/def ::output-burn-count?       boolean?)
@@ -227,6 +230,7 @@
              ::wind-from-direction
              ::landfire-layers]
     :opt-un [::max-runtime
+             ::burn-period
              ::simulations
              ::random-seed
              ::ellipse-adjustment-factor
