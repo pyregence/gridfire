@@ -744,9 +744,9 @@
 
                                                :else
                                                (- burn-period-start ignition-start-time-min-into-day))))
-        non-burn-period-clock (+ burn-period-clock burn-period-dt)
-        ignition-start-time   (max ignition-start-time burn-period-clock)
-        band                  (min->hour ignition-start-time)]
+        non-burn-period-clock            (+ burn-period-clock burn-period-dt)
+        ignition-start-time              (max ignition-start-time burn-period-clock)
+        band                             (min->hour ignition-start-time)]
     (doseq [[i j] ignited-cells]
       (compute-max-in-situ-values! inputs matrices band i j))
     (loop [global-clock          ignition-start-time
