@@ -1,8 +1,9 @@
 (ns gridfire.utils.test
-  (:require [clojure.java.io         :as io]
-            [clojure.string          :as str]
-            [gridfire.postgis-bridge :refer [db-pool-cache close-db-pool]]
-            [gridfire.core           :as core]))
+  (:require [clojure.java.io          :as io]
+            [clojure.string           :as str]
+            [gridfire.core            :as core]
+            [gridfire.magellan-bridge :refer [register-custom-projections!]]
+            [gridfire.postgis-bridge  :refer [db-pool-cache close-db-pool]]))
 
 ;;-----------------------------------------------------------------------------
 ;; Config
@@ -48,3 +49,7 @@
   (test-fn)
   (when-let [db-pool @db-pool-cache]
     (close-db-pool)))
+
+(defn with-register-custom-projections [test-fn]
+  (register-custom-projections!)
+  (test-fn))

@@ -115,7 +115,7 @@
              (mapv (fn [{:keys [ignition-row ignition-col max-runtime temperature relative-humidity
                                 wind-speed-20ft wind-from-direction foliar-moisture ellipse-adjustment-factor
                                 fire-size flame-length-mean flame-length-stddev fire-line-intensity-mean
-                                fire-line-intensity-stddev simulation crown-fire-size spot-count]}]
+                                fire-line-intensity-stddev simulation surface-fire-size crown-fire-size spot-count]}]
                      [simulation
                       ignition-row
                       ignition-col
@@ -132,9 +132,10 @@
                       fire-line-intensity-mean
                       fire-line-intensity-stddev
                       crown-fire-size
-                      spot-count]))
+                      spot-count
+                      surface-fire-size]))
              (cons ["simulation" "ignition-row" "ignition-col" "max-runtime" "temperature" "relative-humidity"
                     "wind-speed-20ft" "wind-from-direction" "foliar-moisture" "ellipse-adjustment-factor"
                     "fire-size" "flame-length-mean" "flame-length-stddev" "fire-line-intensity-mean"
-                    "fire-line-intensity-stddev" "crown-fire-size" "spot-count"])
+                    "fire-line-intensity-stddev" "crown-fire-size" "spot-count" "surface-fire-size"])
              (csv/write-csv out-file))))))

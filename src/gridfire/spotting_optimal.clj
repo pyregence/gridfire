@@ -1,12 +1,12 @@
-;; [[file:../../org/GridFire.org::sardoy-firebrand-dispersal][sardoy-firebrand-dispersal]]
-(ns gridfire.spotting
-  (:require [gridfire.common       :refer [distance-3d
-                                           calc-fuel-moisture
-                                           in-bounds?
-                                           burnable?]]
-            [gridfire.utils.random :refer [my-rand-range]]
-            [gridfire.conversion   :as convert]
-            [tech.v3.tensor        :as t])
+(ns gridfire.spotting-optimal
+  (:require [gridfire.common              :refer [burnable-cell?
+                                                  burnable-fuel-model?
+                                                  calc-fuel-moisture
+                                                  compute-terrain-distance
+                                                  in-bounds-optimal?]]
+            [gridfire.conversion          :as convert]
+            [gridfire.utils.random        :refer [my-rand-range]]
+            [tech.v3.tensor               :as t])
   (:import java.util.Random))
 
 ;;-----------------------------------------------------------------------------
@@ -67,10 +67,10 @@
   from a torched cell at i j where:
   x: parallel to the wind
   y: perpendicular to the wind (positive values are to the right of wind direction)"
-  [{:keys [spotting rand-gen]}
-   fire-line-intensity-matrix
-   wind-speed-20ft [i j]]
-  (let [num-firebrands          (long (sample-spotting-params (:num-firebrands spotting) rand-gen))
+  [inputs fire-line-intensity-matrix wind-speed-20ft [i j]]
+  (let [spotting                (:spotting inputs)
+        rand-gen                (:rand-gen inputs)
+        num-firebrands          (long (sample-spotting-params (:num-firebrands spotting) rand-gen))
         intensity               (convert/Btu-ft-s->kW-m (t/mget fire-line-intensity-matrix i j))
         {:keys [mean variance]} (mean-variance spotting rand-gen intensity wind-speed-20ft)
         mu                      (normalized-mean mean variance)
@@ -186,7 +186,7 @@
 (defn spot-ignition?
   [rand-gen ^double spot-ignition-probability]
   (let [random-number (my-rand-range rand-gen 0 1)]
-    (> spot-ignition-probability random-number)))
+    (>= spot-ignition-probability random-number)))
 
 (defn albini-t-max
   "Returns the time of spot ignition using (Albini 1979) in minutes given:
@@ -224,28 +224,33 @@
 
    t_spot = clock + (2 * t_max) + t_ss"
   ^double
-  [^double global-clock ^double flame-length]
+  [^double burn-time ^double flame-length]
   (let [t-steady-state 20.0] ; period of building up to steady state from ignition (min)
     (-> (albini-t-max flame-length)
         (* 2.0)
-        (+ global-clock)
+        (+ burn-time)
         (+ t-steady-state))))
 ;; firebrands-time-of-ignition ends here
 ;; [[file:../../org/GridFire.org::spread-firebrands][spread-firebrands]]
 (defn- update-firebrand-counts!
-  [{:keys [num-rows num-cols fuel-model-matrix]}
-   firebrand-count-matrix
-   fire-spread-matrix
-   source
-   firebrands]
-  (doseq [[x y :as here] firebrands
-          :when          (and (in-bounds? num-rows num-cols [x y])
-                              (burnable? fire-spread-matrix
-                                         fuel-model-matrix
-                                         source
-                                         here))
-          :let           [new-count (inc ^double (t/mget firebrand-count-matrix x y))]]
-    (t/mset! firebrand-count-matrix x y new-count)))
+  [inputs firebrand-count-matrix fire-spread-matrix source firebrands]
+  (let [num-rows                (:num-rows inputs)
+        num-cols                (:num-cols inputs)
+        get-fuel-model          (:get-fuel-model inputs)
+        [i j]                   source
+        source-burn-probability (t/mget fire-spread-matrix i j)]
+    (doseq [[y x] firebrands]
+      (when (burnable-cell? get-fuel-model
+                            fire-spread-matrix
+                            source-burn-probability
+                            num-rows
+                            num-cols
+                            y
+                            x)
+        (->> (t/mget firebrand-count-matrix y x)
+             (long)
+             (inc)
+             (t/mset! firebrand-count-matrix y x))))))
 
 (defn- in-range?
   [[min max] fuel-model-number]
@@ -277,24 +282,26 @@
   [[[1 140] 0.0]
   [[141 149] 1.0]
   [[150 256] 1.0]]"
-  [{:keys [spotting rand-gen fuel-model-matrix]} [i j] ^double fire-line-intensity]
-  (let [{:keys [surface-fire-spotting]} spotting]
-    (when (and
-           surface-fire-spotting
-           (> fire-line-intensity ^double (:critical-fire-line-intensity surface-fire-spotting)))
+  [inputs [i j] ^double fire-line-intensity]
+  (let [rand-gen              (:rand-gen inputs)
+        get-fuel-model        (:get-fuel-model inputs)
+        surface-fire-spotting (:surface-fire-spotting (:spotting inputs))]
+    (when (and surface-fire-spotting
+               (> fire-line-intensity ^double (:critical-fire-line-intensity surface-fire-spotting)))
       (let [fuel-range-percents (:spotting-percent surface-fire-spotting)
-            fuel-model-number   (long (t/mget fuel-model-matrix i j))
+            fuel-model-number   (long (get-fuel-model i j))
             spot-percent        (surface-spot-percent fuel-range-percents fuel-model-number rand-gen)]
         (>= spot-percent (my-rand-range rand-gen 0.0 1.0))))))
 
 (defn crown-spot-fire?
   "Determine whether crowning causes spot fires. Config key `:spotting` should
    take either a vector of probabilities (0-1) or a single spotting probability."
-  [{:keys [spotting rand-gen]}]
-  (when-let [spot-percent (:crown-fire-spotting-percent spotting)]
-    (let [^double p (if (vector? spot-percent)
+  [inputs]
+  (when-let [spot-percent (:crown-fire-spotting-percent (:spotting inputs))]
+    (let [rand-gen  (:rand-gen inputs)
+          ^double p (if (vector? spot-percent)
                       (let [[lo hi] spot-percent]
-                        (my-rand-range rand-gen lo hi))
+                        (my-rand-range rand-gen lo hi)) ; TODO should this be calculated once at input phase?
                       spot-percent)]
       (>= p (my-rand-range rand-gen 0.0 1.0)))))
 
@@ -303,55 +310,77 @@
     (crown-spot-fire? inputs)
     (surface-fire-spot-fire? inputs here fire-line-intensity)))
 
+;; FIXME: Drop cell = [i j]
 (defn spread-firebrands
   "Returns a sequence of key value pairs where
   key: [x y] locations of the cell
   val: [t p] where:
   t: time of ignition
   p: ignition-probability"
-  [{:keys
-    [num-rows num-cols cell-size fuel-model-matrix elevation-matrix spotting rand-gen
-     get-temperature get-relative-humidity get-wind-speed-20ft get-wind-from-direction
-     get-fuel-moisture-dead-1hr] :as inputs}
-   {:keys [firebrand-count-matrix fire-spread-matrix fire-line-intensity-matrix flame-length-matrix]}
-   {:keys [cell fire-line-intensity crown-fire?]}
-   global-clock]
-  (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
-    (let [band              (long (/ global-clock 60.0))
-          [i j]             cell
-          tmp               (get-temperature band i j)
-          rh                (get-relative-humidity band i j)
-          ws                (get-wind-speed-20ft band i j)
-          wd                (get-wind-from-direction band i j)
-          m1                (if get-fuel-moisture-dead-1hr
-                              (get-fuel-moisture-dead-1hr band i j)
-                              (calc-fuel-moisture rh tmp :dead :1hr))
-          deltas            (sample-wind-dir-deltas inputs
-                                                    fire-line-intensity-matrix
-                                                    (convert/mph->mps ws)
-                                                    cell)
-          wind-to-direction (mod (+ 180 wd) 360)
-          firebrands        (firebrands deltas wind-to-direction cell cell-size)]
-      (update-firebrand-counts! inputs firebrand-count-matrix fire-spread-matrix cell firebrands)
-      (->> (for [[x y] firebrands
-                 :when (and (in-bounds? num-rows num-cols [x y])
-                            (burnable? fire-spread-matrix fuel-model-matrix cell [x y]))
-                 :let  [fine-fuel-moisture   (double m1)
-                        ignition-probability (schroeder-ign-prob (convert/F->C (double tmp)) fine-fuel-moisture)
-                        decay-constant       (double (:decay-constant spotting))
-                        spotting-distance    (convert/ft->m (distance-3d elevation-matrix
-                                                                         (double cell-size)
-                                                                         [x y]
-                                                                         cell))
-                        firebrand-count      (t/mget firebrand-count-matrix x y)
-                        spot-ignition-p      (spot-ignition-probability ignition-probability
-                                                                        decay-constant
-                                                                        spotting-distance
-                                                                        firebrand-count)]]
-             (when (spot-ignition? rand-gen spot-ignition-p)
-               (let [[i j] cell
-                     t     (spot-ignition-time global-clock
-                                               (convert/ft->m (t/mget flame-length-matrix i j)))]
-                 [[x y] [t spot-ignition-p]])))
-           (remove nil?)))))
-;; spread-firebrands ends here
+  [inputs matrices i j]
+  (let [num-rows                   (:num-rows inputs)
+        num-cols                   (:num-cols inputs)
+        cell-size                  (:cell-size inputs)
+        rand-gen                   (:rand-gen inputs)
+        spotting                   (:spotting inputs)
+        get-elevation              (:get-elevation inputs)
+        get-fuel-model             (:get-fuel-model inputs)
+        get-temperature            (:get-temperature inputs)
+        get-relative-humidity      (:get-relative-humidity inputs)
+        get-wind-speed-20ft        (:get-wind-speed-20ft inputs)
+        get-wind-from-direction    (:get-wind-from-direction inputs)
+        get-fuel-moisture-dead-1hr (:get-fuel-moisture-dead-1hr inputs)
+        firebrand-count-matrix     (:firebrand-count-matrix matrices)
+        fire-spread-matrix         (:fire-spread-matrix matrices)
+        fire-line-intensity-matrix (:fire-line-intensity-matrix matrices)
+        flame-length-matrix        (:flame-length-matrix matrices)
+        fire-type-matrix           (:fire-type-matrix matrices)
+        burn-time-matrix           (:burn-time-matrix matrices)
+        burn-time                  (t/mget burn-time-matrix i j)
+        cell                       [i j]
+        fire-line-intensity        (t/mget fire-line-intensity-matrix i j)
+        crown-fire?                (> (t/mget fire-type-matrix i j) 1.0)]
+    (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
+      (let [band                    (long (/ burn-time 60.0))
+            ws                      (get-wind-speed-20ft band i j)
+            wd                      (get-wind-from-direction band i j)
+            deltas                  (sample-wind-dir-deltas inputs
+                                                            fire-line-intensity-matrix
+                                                            (convert/mph->mps ws)
+                                                            cell)
+            wind-to-direction       (mod (+ 180 wd) 360)
+            firebrands              (firebrands deltas wind-to-direction cell cell-size)
+            source-burn-probability (t/mget fire-spread-matrix i j)]
+        (update-firebrand-counts! inputs firebrand-count-matrix fire-spread-matrix cell firebrands)
+        (->> (for [[x y] firebrands]
+               (when (and
+                      (in-bounds-optimal? num-rows num-cols x y)
+                      (burnable-fuel-model? (get-fuel-model x y)))
+                 (let [temperature          (get-temperature band x y)
+                       fine-fuel-moisture   (if get-fuel-moisture-dead-1hr
+                                              (get-fuel-moisture-dead-1hr band x y)
+                                              (calc-fuel-moisture (get-relative-humidity band i j) temperature :dead :1hr))
+                       ignition-probability (schroeder-ign-prob (convert/F->C (double temperature)) fine-fuel-moisture)
+                       decay-constant       (double (:decay-constant spotting))
+                       spotting-distance    (convert/ft->m
+                                             (compute-terrain-distance cell-size
+                                                                       get-elevation
+                                                                       num-rows
+                                                                       num-cols
+                                                                       i
+                                                                       j
+                                                                       x
+                                                                       y))
+                       firebrand-count      (t/mget firebrand-count-matrix x y)
+                       spot-ignition-p      (spot-ignition-probability ignition-probability
+                                                                       decay-constant
+                                                                       spotting-distance
+                                                                       firebrand-count)
+                       burn-probability     (* spot-ignition-p source-burn-probability)]
+                   (when (and (>= burn-probability 0.1) ; TODO parametrize 0.1 in gridfire.edn
+                              (> (double burn-probability) ^double (t/mget fire-spread-matrix x y))
+                              (spot-ignition? rand-gen spot-ignition-p))
+                     (let [t (spot-ignition-time burn-time
+                                                 (convert/ft->m (t/mget flame-length-matrix i j)))]
+                       [[x y] [t burn-probability]])))))
+             (remove nil?))))))

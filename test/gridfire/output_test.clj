@@ -88,7 +88,17 @@
 
 (deftest ^:database output_spot_count_test
   (let [config (merge test-config-base
-                      {:output-spot-count? true})
+                      {:spotting           {:mean-distance                1.0
+                                            :ws-exp                       1.0
+                                            :flin-exp                     1.0
+                                            :normalized-distance-variance 1.0
+                                            :crown-fire-spotting-percent  1.0
+                                            :num-firebrands               1.0
+                                            :decay-constant               1.0
+                                            :surface-fire-spotting
+                                            {:spotting-percent             [[[1 204] [0.001 0.003]]]
+                                             :critical-fire-line-intensity 1.0}}
+                       :output-spot-count? true})
         _      (utils/run-gridfire! config)]
 
     (is (.exists (io/file "test/output/spot_count.tif")))))

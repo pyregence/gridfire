@@ -1,58 +1,38 @@
-#!/usr/bin/env bb
+(ns gridfire.config
+  (:require [clojure.edn         :as edn]
+            [clojure.java.io     :as io]
+            [clojure.java.shell  :refer [sh]]
+            [clojure.pprint      :as pprint]
+            [clojure.string      :as str]
+            [gridfire.conversion :as convert]
+            [triangulum.logging  :refer [log-str]]))
 
-;; FIXME: document babashka (bb) and gdalsrsinfo as installation dependencies for running this script
-;; FIXME: use babashka's pod protocol to integrate this script with gridfire.server
-
-(require '[clojure.edn        :as edn]
-         '[clojure.java.io    :as io]
-         '[clojure.java.shell :refer [sh]]
-         '[clojure.pprint     :refer [pprint]]
-         '[clojure.string     :as str]
-         '[clojure.tools.cli  :refer [parse-opts]])
-
-;;=============================================================================
-;; Units conversion functions
-;;=============================================================================
-
-(defn m->ft
-  "Convert meters to feet."
-  ^double
-  [^double m]
-  (* m 3.281))
-
-(defn sec->min
-  "Convert seconds to minutes."
-  ^double
-  [^double seconds]
-  (* seconds 0.016666666666666666))
-
-(defn kW-m->Btu-ft-s
-  "Convert kilowatt per meter to BTU per feet per second."
-  ^double
-  [^double kW-m]
-  (* kW-m 0.28887942532730604))
+(set! *unchecked-math* :warn-on-boxed)
 
 ;;=============================================================================
-;; File access functions
+;; Utilities
 ;;=============================================================================
+
+(def ^:dynamic *elmfire-directory-path* "")
 
 (defn relative-path?
   [path]
-  (re-matches #"^((\.){1,2}\/)+.*" path))
+  (re-matches #"^((\.){1,2}\/)*([\w]+\/)*([\w]+)" path))
+
 
 (defn file-path
-  ([output-dir file-or-directory]
+  ([file-or-directory]
    (-> (if (relative-path? file-or-directory)
-         (io/file output-dir file-or-directory)
+         (io/file *elmfire-directory-path* file-or-directory)
          (io/file file-or-directory))
        (.toPath)
        (.normalize)
        (.toString)))
-  ([output-dir directory tif-file-prefix]
-   (let [begin (if (relative-path? directory)
-                 (io/file output-dir directory (str tif-file-prefix ".tif"))
-                 (io/file directory (str tif-file-prefix ".tif")))]
-     (-> begin
+  ([directory tif-file-prefix]
+   (let [file (if (relative-path? directory)
+                (io/file *elmfire-directory-path* directory (str tif-file-prefix ".tif"))
+                (io/file directory (str tif-file-prefix ".tif")))]
+     (-> file
          (.toPath)
          (.normalize)
          (.toString)))))
@@ -61,18 +41,17 @@
 ;; Write gridfire.edn
 ;;=============================================================================
 
-(defn write-config [{:keys [output-dir]} config-params]
-  (let [output-file      (io/file output-dir "gridfire.edn")
-        output-file-path (.getAbsolutePath output-file)]
-    (println "Creating config file:" output-file-path)
+(defn write-config [config-params]
+  (let [output-file-path (file-path "gridfire.edn")]
+    (log-str "Creating config file: " output-file-path)
     (with-open [writer (io/writer output-file-path)]
-      (pprint config-params writer))))
+      (pprint/pprint config-params writer))))
 
 ;;=============================================================================
 ;; Merge Override Config
 ;;=============================================================================
 
-(defn merge-override-config [override-config-file-path config-params]
+(defn merge-override-config [config-params override-config-file-path]
   (if override-config-file-path
     (->> (slurp override-config-file-path)
          (edn/read-string)
@@ -89,43 +68,41 @@
 ;;=============================================================================
 
 (defn process-landfire-layers
-  [{:keys [output-dir]}
-   {:strs [ASP_FILENAME CBH_FILENAME CC_FILENAME CH_FILENAME CBD_FILENAME
+  [{:strs [ASP_FILENAME CBH_FILENAME CC_FILENAME CH_FILENAME CBD_FILENAME
            FBFM_FILENAME SLP_FILENAME DEM_FILENAME FUELS_AND_TOPOGRAPHY_DIRECTORY]}
    config]
   (assoc config
          :landfire-layers
          {:aspect             {:type   :geotiff
-                               :source (file-path output-dir FUELS_AND_TOPOGRAPHY_DIRECTORY ASP_FILENAME)}
+                               :source (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY ASP_FILENAME)}
           :canopy-base-height {:type       :geotiff
-                               :source     (file-path output-dir FUELS_AND_TOPOGRAPHY_DIRECTORY CBH_FILENAME)
+                               :source     (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY CBH_FILENAME)
                                :units      :metric
                                :multiplier 0.1}
           :canopy-cover       {:type   :geotiff
-                               :source (file-path output-dir FUELS_AND_TOPOGRAPHY_DIRECTORY CC_FILENAME)}
+                               :source (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY CC_FILENAME)}
           :canopy-height      {:type       :geotiff
-                               :source     (file-path output-dir FUELS_AND_TOPOGRAPHY_DIRECTORY CH_FILENAME)
+                               :source     (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY CH_FILENAME)
                                :units      :metric
                                :multiplier 0.1}
           :crown-bulk-density {:type       :geotiff
-                               :source     (file-path output-dir FUELS_AND_TOPOGRAPHY_DIRECTORY CBD_FILENAME)
+                               :source     (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY CBD_FILENAME)
                                :units      :metric
                                :multiplier 0.01}
           :elevation          {:type   :geotiff
-                               :source (file-path output-dir FUELS_AND_TOPOGRAPHY_DIRECTORY DEM_FILENAME)
+                               :source (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY DEM_FILENAME)
                                :units  :metric}
           :fuel-model         {:type   :geotiff
-                               :source (file-path output-dir FUELS_AND_TOPOGRAPHY_DIRECTORY FBFM_FILENAME)}
+                               :source (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY FBFM_FILENAME)}
           :slope              {:type   :geotiff
-                               :source (file-path output-dir FUELS_AND_TOPOGRAPHY_DIRECTORY SLP_FILENAME)}}))
+                               :source (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY SLP_FILENAME)}}))
 
 ;;=============================================================================
 ;; Ignition
 ;;=============================================================================
 
 (defn process-ignition
-  [{:keys [output-dir]}
-   {:strs [PHI_FILENAME FUELS_AND_TOPOGRAPHY_DIRECTORY RANDOM_IGNITIONS
+  [{:strs [PHI_FILENAME FUELS_AND_TOPOGRAPHY_DIRECTORY RANDOM_IGNITIONS
            USE_IGNITION_MASK EDGEBUFFER IGNITION_MASK_FILENAME]}
    config]
   (if RANDOM_IGNITIONS
@@ -134,14 +111,14 @@
            (cond-> {}
              USE_IGNITION_MASK
              (assoc :ignition-mask {:type   :geotiff
-                                    :source (file-path output-dir FUELS_AND_TOPOGRAPHY_DIRECTORY IGNITION_MASK_FILENAME)})
+                                    :source (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY IGNITION_MASK_FILENAME)})
 
              EDGEBUFFER
-             (assoc :edge-buffer (m->ft EDGEBUFFER))))
+             (assoc :edge-buffer (convert/m->ft EDGEBUFFER))))
     (assoc config
            :ignition-layer
            {:type        :geotiff
-            :source      (file-path output-dir FUELS_AND_TOPOGRAPHY_DIRECTORY PHI_FILENAME)
+            :source      (file-path FUELS_AND_TOPOGRAPHY_DIRECTORY PHI_FILENAME)
             :burn-values {:burned   -1.0
                           :unburned 1.0}})))
 
@@ -151,34 +128,32 @@
 
 ;; FIXME: Since tmpf.tif and rh.tif aren't provided in elmfire.data, where are these files on disk?
 (defn process-weather
-  [{:keys [output-dir]}
-   {:strs [WS_FILENAME WD_FILENAME WEATHER_DIRECTORY]} config]
+  [{:strs [WS_FILENAME WD_FILENAME WEATHER_DIRECTORY]} config]
   (assoc config
          :temperature         {:type   :geotiff
-                               :source (file-path output-dir WEATHER_DIRECTORY "tmpf")}
+                               :source (file-path WEATHER_DIRECTORY "tmpf")}
          :relative-humidity   {:type   :geotiff
-                               :source (file-path output-dir WEATHER_DIRECTORY "rh")}
+                               :source (file-path WEATHER_DIRECTORY "rh")}
          :wind-speed-20ft     {:type   :geotiff
-                               :source (file-path output-dir WEATHER_DIRECTORY WS_FILENAME)}
+                               :source (file-path WEATHER_DIRECTORY WS_FILENAME)}
          :wind-from-direction {:type   :geotiff
-                               :source (file-path output-dir WEATHER_DIRECTORY WD_FILENAME)}))
+                               :source (file-path WEATHER_DIRECTORY WD_FILENAME)}))
 
 ;;=============================================================================
 ;; Output
 ;;=============================================================================
 
 (defn process-output
-  [{:keys [output-dir]}
-   {:strs [OUTPUTS_DIRECTORY DUMP_BURN_PROBABILITY_AT_DTDUMP DTDUMP]} config]
+  [{:strs [OUTPUTS_DIRECTORY DUMP_BURN_PROBABILITY_AT_DTDUMP DTDUMP]} config]
   (cond-> (assoc config
-                 :output-directory        (file-path output-dir OUTPUTS_DIRECTORY)
+                 :output-directory        (file-path OUTPUTS_DIRECTORY)
                  :outfile-suffix          ""
                  :output-landfire-inputs? false
                  :output-geotiffs?        false
                  :output-pngs?            false
                  :output-binary?          true
                  :output-csvs?            true)
-    DUMP_BURN_PROBABILITY_AT_DTDUMP (assoc :burn-probability (sec->min DTDUMP))))
+    DUMP_BURN_PROBABILITY_AT_DTDUMP (assoc :burn-probability (convert/sec->min DTDUMP))))
 
 ;;=============================================================================
 ;; Perturbations
@@ -217,7 +192,7 @@
                               (get elmfire->gridfire))
            :range        [(get config (str "PDF_LOWER_LIMIT-" index))
                           (get config (str "PDF_UPPER_LIMIT-" index))]}
-    (layers-in-metric key) (assoc :units :metric)
+    (layers-in-metric key) (assoc :units :metric) ; FIXME: :units is not in gridfire.spec.config/::perturbation
     (layers-in-ratio key)  (assoc :units :ratio)))
 
 (defn perturbation-key
@@ -341,7 +316,7 @@
     (and ENABLE_SPOTTING ENABLE_SURFACE_FIRE_SPOTTING)
     (assoc-in [:spotting :surface-fire-spotting]
               {:spotting-percent             (extract-global-surface-spotting-percents data)
-               :critical-fire-line-intensity (kW-m->Btu-ft-s CRITICAL_SPOTTING_FIRELINE_INTENSITY)})))
+               :critical-fire-line-intensity (convert/kW-m->Btu-ft-s CRITICAL_SPOTTING_FIRELINE_INTENSITY)})))
 
 ;;=============================================================================
 ;; Fuel moisture layers
@@ -349,50 +324,48 @@
 
 ;; FIXME: Since mlw.tif and mlh.tif aren't provided in elmfire.data, where are these files on disk?
 (defn process-fuel-moisture
-  [{:keys [output-dir]}
-   {:strs [WEATHER_DIRECTORY M1_FILENAME M10_FILENAME M100_FILENAME
+  [{:strs [WEATHER_DIRECTORY M1_FILENAME M10_FILENAME M100_FILENAME
            USE_CONSTANT_LW USE_CONSTANT_LH LW_MOISTURE_CONTENT LH_MOISTURE_CONTENT]}
    config]
   (assoc config
          :fuel-moisture
          {:dead {:1hr   {:type   :geotiff
-                         :source (file-path output-dir WEATHER_DIRECTORY M1_FILENAME)}
+                         :source (file-path WEATHER_DIRECTORY M1_FILENAME)}
                  :10hr  {:type   :geotiff
-                         :source (file-path output-dir WEATHER_DIRECTORY M10_FILENAME)}
+                         :source (file-path WEATHER_DIRECTORY M10_FILENAME)}
                  :100hr {:type   :geotiff
-                         :source (file-path output-dir WEATHER_DIRECTORY M100_FILENAME)}}
+                         :source (file-path WEATHER_DIRECTORY M100_FILENAME)}}
           :live {:woody      (if USE_CONSTANT_LW
                                (* 0.01 ^double LW_MOISTURE_CONTENT)
                                {:type   :geotiff
-                                :source (file-path output-dir WEATHER_DIRECTORY "mlw")})
+                                :source (file-path WEATHER_DIRECTORY "mlw")})
                  :herbaceous (if USE_CONSTANT_LH
                                (* 0.01 ^double LH_MOISTURE_CONTENT)
                                {:type   :geotiff
-                                :source (file-path output-dir WEATHER_DIRECTORY "mlh")})}}))
+                                :source (file-path WEATHER_DIRECTORY "mlh")})}}))
 
 ;;=============================================================================
 ;; Build gridfire.edn
 ;;=============================================================================
 
 (defn build-edn
-  [options
-   {:strs [COMPUTATIONAL_DOMAIN_CELLSIZE A_SRS SIMULATION_TSTOP SEED FOLIAR_MOISTURE_CONTENT] :as data}]
-  (->> {:cell-size                       (m->ft COMPUTATIONAL_DOMAIN_CELLSIZE)
+  [{:strs [COMPUTATIONAL_DOMAIN_CELLSIZE A_SRS SIMULATION_TSTOP SEED FOLIAR_MOISTURE_CONTENT] :as data}]
+  (->> {:cell-size                       (convert/m->ft COMPUTATIONAL_DOMAIN_CELLSIZE)
         :srid                            (or A_SRS "EPSG:32610")
-        :max-runtime                     (sec->min SIMULATION_TSTOP)
+        :max-runtime                     (convert/sec->min SIMULATION_TSTOP)
         :simulations                     10 ; FIXME: use NUM_ENSEMBLE_MEMBERS or override.edn
         :random-seed                     SEED
         :foliar-moisture                 FOLIAR_MOISTURE_CONTENT
         :ellipse-adjustment-factor       1.0
         :parallel-strategy               :between-fires
         :fractional-distance-combination :sum} ; FIXME: unused parameter
-       (process-landfire-layers options data)
-       (process-ignition options data)
-       (process-weather options data)
-       (process-output options data)
+       (process-landfire-layers data)
+       (process-ignition data)
+       (process-weather data)
+       (process-output data)
        (process-perturbations data)
        (process-spotting data)
-       (process-fuel-moisture options data)))
+       (process-fuel-moisture data)))
 
 ;;=============================================================================
 ;; Parse elmfire.data
@@ -440,53 +413,12 @@
 ;; Main
 ;;=============================================================================
 
-(defn convert-config! [{:keys [elmfire-data override-config] :as options}]
-  (println "Converting configuration file to one that GridFire accepts.")
-  (->> elmfire-data
-      (slurp)
-      (parse-elmfire)
-      (build-edn options)
-      (merge-override-config override-config)
-      (write-config options)))
-
-(def cli-options
-  [["-e" "--elmfire-data FILE" "Path to an elmfire.data file"
-    :validate [#(.exists  (io/file %)) "The provided --elmfire-data does not exist."
-               #(.canRead (io/file %)) "The provided --elmfire-data is not readable."]]
-
-   ["-o" "--override-config OVERRIDE" "Path to override.edn file"
-    :validate [#(.exists  (io/file %)) "The provided --override-config does not exist."
-               #(.canRead (io/file %)) "The provided --override-config is not readable."]]])
-
-(def program-banner
-  (str "elm_to_grid.clj: Generate a gridfire.edn file from an elmfire.data file.\n"
-       "Copyright © 2020-2022 Spatial Informatics Group, LLC.\n"))
-
-(defn main [args]
-  (println program-banner)
-  (let [{:keys [options summary errors]} (parse-opts args cli-options)]
-    ;; {:options   The options map, keyed by :id, mapped to the parsed value
-    ;;  :arguments A vector of unprocessed arguments
-    ;;  :summary   A string containing a minimal options summary
-    ;;  :errors    A vector of error message strings thrown during parsing; nil when no errors exist
-    (cond
-      ;; Errors encountered during input parsing
-      (seq errors)
-      (do
-        (run! println errors)
-        (println (str "\nUsage:\n" summary)))
-
-      ;; Valid --elmfire-data argument provided, so perform conversion
-      (:elmfire-data options)
-      (convert-config! (assoc options :output-dir (.getAbsolutePath (.getParentFile (io/file (:elmfire-data options))))))
-
-      ;; Incorrect CLI invocation
-      :else
-      (do
-        (println "You must provide a valid --elmfire-data file path to initiate conversion.")
-        (println (str "\nUsage:\n" summary))))
-
-    ;; Exit cleanly
-    (System/exit 0)))
-
-(main *command-line-args*)
+(defn convert-config! [elmfire-data-file-path & [override-config-file-path]]
+  (log-str "Converting configuration file to one that GridFire accepts.")
+  (binding [*elmfire-directory-path* (.getParent (io/file elmfire-data-file-path))]
+    (-> elmfire-data-file-path
+        (slurp)
+        (parse-elmfire)
+        (build-edn)
+        (merge-override-config override-config-file-path)
+        (write-config))))

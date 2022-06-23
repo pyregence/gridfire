@@ -1,13 +1,16 @@
 ;; [[file:../../org/GridFire.org::command-line-interface][command-line-interface]]
 (ns gridfire.cli
   (:gen-class)
-  (:require [clojure.core.async    :refer [<!!]]
-            [clojure.edn           :as edn]
-            [clojure.java.io       :as io]
-            [clojure.tools.cli     :refer [parse-opts]]
-            [gridfire.core         :as gridfire]
-            [gridfire.server       :as server]
-            [gridfire.utils.server :refer [hostname? nil-on-error]]))
+  (:require [clojure.core.async       :refer [<!!]]
+            [clojure.edn              :as edn]
+            [clojure.java.io          :as io]
+            [clojure.tools.cli        :refer [parse-opts]]
+            [gridfire.core            :as gridfire]
+            [gridfire.magellan-bridge :refer [register-custom-projections!]]
+            [gridfire.server          :as server]
+            [gridfire.utils.server    :refer [hostname? nil-on-error]]))
+
+(set! *unchecked-math* :warn-on-boxed)
 
 (def cli-options
   [["-c" "--server-config CONFIG" "Server config file"
@@ -37,20 +40,26 @@
       (seq errors)
       (do
         (run! println errors)
-        (println (str "\nUsage:\n" summary)))
+        (println (str "\nUsage:\n" summary))
+        (System/exit 1))
 
       ;; Server mode invoked
       (every? options [:server-config :host :port])
       (if-let [config-file-params (nil-on-error (edn/read-string (slurp (:server-config options))))]
-        (<!! (server/start-server! (merge config-file-params (dissoc options :server-config))))
+        (do
+          (register-custom-projections!)
+          (<!! (server/start-server! (merge config-file-params (dissoc options :server-config)))))
         (do
           (println (:server-config options) "does not contain well-formed EDN.")
-          (println (str "\nUsage:\n" summary))))
+          (println (str "\nUsage:\n" summary))
+          (System/exit 1)))
 
       ;; CLI mode invoked
       (seq arguments)
-      (doseq [config-file arguments]
-        (gridfire/process-config-file! config-file))
+      (do
+        (register-custom-projections!)
+        (doseq [config-file arguments]
+          (gridfire/process-config-file! config-file)))
 
       ;; Incorrect CLI invocation
       :else
