@@ -134,21 +134,21 @@
 ;; Job Queue Management
 ;;=============================================================================
 
-(defonce job-queue-size      (atom 0))
-(defonce stand-by-queue-size (atom 0))
+(defonce *job-queue-size      (atom 0))
+(defonce *stand-by-queue-size (atom 0))
 
 (defonce job-queue      (chan 10 (map (fn [x]
-                                        (swap! job-queue-size inc)
-                                        (delay (swap! job-queue-size dec) x)))))
+                                        (swap! *job-queue-size inc)
+                                        (delay (swap! *job-queue-size dec) x)))))
 
 (defonce stand-by-queue (chan 10 (map (fn [x]
-                                        (swap! stand-by-queue-size inc)
-                                        (delay (swap! stand-by-queue-size dec) x)))))
+                                        (swap! *stand-by-queue-size inc)
+                                        (delay (swap! *stand-by-queue-size dec) x)))))
 
-(defonce server-running? (atom false))
+(defonce *server-running? (atom false))
 
 (defn- process-requests! [config]
-  (reset! server-running? true)
+  (reset! *server-running? true)
   (go
     (loop [request @(first (alts! [job-queue stand-by-queue] :priority true))]
       (<!
@@ -160,14 +160,14 @@
             (if (= (:type request) :active-fire)
               (send-geosync-request! request config)
               (send-gridfire-response! request config status status-msg)))))
-      (when @server-running?
+      (when @*server-running?
         (recur @(first (alts! [job-queue stand-by-queue] :priority true)))))))
 
 (defn- maybe-add-to-queue! [request]
   (try
     (if (spec/valid? ::server-spec/gridfire-server-request request)
       (do (>!! job-queue request)
-          [2 (format "Added to job queue. You are number %d in line." @job-queue-size)])
+          [2 (format "Added to job queue. You are number %d in line." @*job-queue-size)])
       [1 (str "Invalid request: " (spec/explain-str ::server-spec/gridfire-server-request request))])
     (catch AssertionError _
       [1 "Job queue limit exceeded! Dropping request!"])
@@ -208,6 +208,6 @@
   (process-requests! config))
 
 (defn stop-server! []
-  (reset! server-running? false)
+  (reset! *server-running? false)
   (sockets/stop-server!)
   (active-fire-watcher/stop!))
