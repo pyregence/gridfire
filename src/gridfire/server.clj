@@ -137,20 +137,22 @@
 (defonce *job-queue-size      (atom 0))
 (defonce *stand-by-queue-size (atom 0))
 
-(defonce job-queue      (chan 10 (map (fn [x]
-                                        (swap! *job-queue-size inc)
-                                        (delay (swap! *job-queue-size dec) x)))))
+(defonce =job-queue=
+         (chan 10 (map (fn [x]
+                         (swap! *job-queue-size inc)
+                         (delay (swap! *job-queue-size dec) x)))))
 
-(defonce stand-by-queue (chan 10 (map (fn [x]
-                                        (swap! *stand-by-queue-size inc)
-                                        (delay (swap! *stand-by-queue-size dec) x)))))
+(defonce =stand-by-queue=
+         (chan 10 (map (fn [x]
+                         (swap! *stand-by-queue-size inc)
+                         (delay (swap! *stand-by-queue-size dec) x)))))
 
 (defonce *server-running? (atom false))
 
 (defn- process-requests! [config]
   (reset! *server-running? true)
   (go
-    (loop [request @(first (alts! [job-queue stand-by-queue] :priority true))]
+    (loop [request @(first (alts! [=job-queue= =stand-by-queue=] :priority true))]
       (<!
         (thread
           (comment "we use" (thread ...) "here because some operations are blocking, as explained in" (doc go) ".")
@@ -161,12 +163,12 @@
               (send-geosync-request! request config)
               (send-gridfire-response! request config status status-msg)))))
       (when @*server-running?
-        (recur @(first (alts! [job-queue stand-by-queue] :priority true)))))))
+        (recur @(first (alts! [=job-queue= =stand-by-queue=] :priority true)))))))
 
 (defn- maybe-add-to-queue! [request]
   (try
     (if (spec/valid? ::server-spec/gridfire-server-request request)
-      (do (>!! job-queue request)
+      (do (>!! =job-queue= request)
           [2 (format "Added to job queue. You are number %d in line." @*job-queue-size)])
       [1 (str "Invalid request: " (spec/explain-str ::server-spec/gridfire-server-request request))])
     (catch AssertionError _
@@ -203,7 +205,7 @@
 (defn start-server! [{:keys [log-dir port] :as config}]
   (when log-dir (set-log-path! log-dir))
   (log-str "Running server on port " port)
-  (active-fire-watcher/start! config stand-by-queue)
+  (active-fire-watcher/start! config =stand-by-queue=)
   (sockets/start-server! port (fn [request-msg] (schedule-handling! config request-msg)))
   (process-requests! config))
 
