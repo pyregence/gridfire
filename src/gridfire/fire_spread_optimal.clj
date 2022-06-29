@@ -819,7 +819,7 @@
         flame-length-matrix             (:flame-length-matrix matrices)
         directional-flame-length-matrix (:directional-flame-length-matrix matrices)
         alpha                           2.0 ;TODO parameterize in config.edn
-        suppression-dt                  1440.0 ; rhino fire suppress every 24 hours ;TODO parameterize in config.edn
+        suppression-dt                  1440.0] ; rhino fire suppress every 24 hours ;TODO parameterize in config.edn
     (doseq [[i j] ignited-cells]
       (compute-max-in-situ-values! inputs matrices band i j)
       (t/mset! directional-flame-length-matrix i j (t/mget flame-length-matrix i j)))
