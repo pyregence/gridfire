@@ -5,7 +5,11 @@
   This is an in-process (not distributed), singleton (its state is namespace-anchored, being held in Vars),
   single-threaded server, which implies some usage limitations (you can't have several servers in the same JVM,
   there's no resilience to JVM crashes, and you can't scale out to several worker processes behind the job queue.)"
-  (:require [clojure.core.async           :refer [<! >! >!! alts! chan go thread]]
+  {:clj-kondo/config
+   '{:config-in-comment
+     {:linters
+      {:unresolved-symbol {:level :off}}}}}
+  (:require [clojure.core.async           :refer [<! >!! alts! chan go thread]]
             [clojure.data.json            :as json]
             [clojure.java.io              :as io]
             [clojure.java.shell           :as sh]
