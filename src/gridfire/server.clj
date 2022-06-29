@@ -1,4 +1,10 @@
 (ns gridfire.server
+  "For exposing GridFire through a socket server, making it act as a worker process behind a job queue,
+  which sends notifications to the client as the handling progresses.
+
+  This is an in-process (not distributed), singleton (its state is namespace-anchored, being held in Vars),
+  single-threaded server, which implies some usage limitations (you can't have several servers in the same JVM,
+  there's no resilience to JVM crashes, and you can't scale out to several worker processes behind the job queue.)"
   (:require [clojure.core.async           :refer [<! >! >!! alts! chan go thread]]
             [clojure.data.json            :as json]
             [clojure.java.io              :as io]
