@@ -158,7 +158,13 @@
 
 (defonce *server-running? (atom false))
 
-(defn- process-requests! [config]
+(defn- process-requests-loop!
+  "Starts a logical process which listens to queued requests and processes them.
+
+  Requests are processed in order of priority, then FIFO.
+
+  Returns a core.async channel which will close when the server is stopped."
+  [config]
   (reset! *server-running? true)
   (go
     (loop [request @(first (alts! [=job-queue= =stand-by-queue=] :priority true))]
@@ -216,7 +222,7 @@
   (log-str "Running server on port " port)
   (active-fire-watcher/start! config =stand-by-queue=)
   (sockets/start-server! port (fn [request-msg] (schedule-handling! config request-msg)))
-  (process-requests! config))
+  (process-requests-loop! config))
 
 (defn stop-server! []
   (reset! *server-running? false)
