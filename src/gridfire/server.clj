@@ -184,7 +184,7 @@
       (nil-on-error)))
 
 
-(defn- handler! [config request-msg]
+(defn- schedule-handling! [config request-msg]
   (comment "Logically speaking, this function does" (process-request! (parse-request-msg request-msg) config) "."
            "However, in order to both limit the load and send progress-notification responses before completion,"
            "the handling goes through various queues and worker threads.")
@@ -204,7 +204,7 @@
   (when log-dir (set-log-path! log-dir))
   (log-str "Running server on port " port)
   (active-fire-watcher/start! config stand-by-queue)
-  (sockets/start-server! port (fn [request-msg] (handler! config request-msg)))
+  (sockets/start-server! port (fn [request-msg] (schedule-handling! config request-msg)))
   (process-requests! config))
 
 (defn stop-server! []
