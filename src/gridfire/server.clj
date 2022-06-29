@@ -204,7 +204,7 @@
   (when log-dir (set-log-path! log-dir))
   (log-str "Running server on port " port)
   (active-fire-watcher/start! config stand-by-queue)
-  (sockets/start-server! port (partial handler! config))
+  (sockets/start-server! port (fn [request-msg] (handler! config request-msg)))
   (process-requests! config))
 
 (defn stop-server! []
