@@ -196,8 +196,7 @@
             bin-size             5.0
             grouped-burn-vectors (group-burn-vectors centroid-cell bin-size burn-vectors)
             [bins-to-suppress
-             suppressed-count
-             _]                  (->> (compute-avg-dsr-data bin-size grouped-burn-vectors)
+             suppressed-count]   (->> (compute-avg-dsr-data bin-size grouped-burn-vectors)
                                       (compute-bins-to-suppress num-cells-to-suppress))
             bins-to-keep         (remove #(contains? (set bins-to-suppress) %) (keys grouped-burn-vectors))
             burn-vectors-to-keep (into []
