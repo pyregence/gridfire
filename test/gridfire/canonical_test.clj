@@ -51,6 +51,15 @@
                                          :canopy-base-height [:raster-2]
                                          :crown-bulk-density [:raster-100]})
 
+(def ^:private suppression-scenarios  {:fuel-model         [:blowdown-fbfm40]
+                                       :canopy-cover       [:zero-raster]
+                                       :slope              [:slp-10]
+                                       :wind-speed-20ft    [0]
+                                       :fuel-moisture      [0.0]
+                                       :foliar-moisture    [0]
+                                       :canopy-base-height [:zero-raster]
+                                       :crown-bulk-density [:zero-raster]})
+
 ;;; Helpers
 
 (defn- now []
@@ -71,7 +80,7 @@
 
 (defn- ->tif [filekey]
   {:source (str canonical-dir (name filekey) ".tif")
-   :type :geotiff})
+   :type   :geotiff})
 
 (defn- ->dem-tif [slope]
   (case slope
@@ -183,15 +192,15 @@
          (csv/write-csv out))))
 
 (defn- gen-scenario
-  [{:keys [datetime
-           fuel-model
-           canopy-cover
-           slope
-           fuel-moisture
-           foliar-moisture
-           wind-speed-20ft
-           canopy-base-height
-           crown-bulk-density] :as params}]
+  [{:keys                                                                                                                               [datetime
+                                                                                                                    fuel-model
+                                                                                                                    canopy-cover
+                                                                                                                    slope
+                                                                                                                    fuel-moisture
+                                                                                                                    foliar-moisture
+                                                                                                                    wind-speed-20ft
+                                                                                                                    canopy-base-height
+                                                                                                                    crown-bulk-density] :as params}]
   (deep-merge base-config
               {:params           params
                :landfire-layers  {:fuel-model   (->tif fuel-model)
@@ -209,25 +218,25 @@
 
 (defn- gen-scenarios [scenario-type scenarios]
   (deep-flatten
-    (let [datetime (now)]
-      (for [fuel-model         (:fuel-model scenarios)
-            canopy-cover       (:canopy-cover scenarios)
-            slope              (:slope scenarios)
-            fuel-moisture      (:fuel-moisture scenarios)
-            foliar-moisture    (:foliar-moisture scenarios)
-            wind-speed-20ft    (:wind-speed-20ft scenarios)
-            canopy-base-height (:canopy-base-height scenarios)
-            crown-bulk-density (:crown-bulk-density scenarios)]
-        (gen-scenario {:scenario-type      scenario-type
-                       :fuel-model         fuel-model
-                       :canopy-base-height canopy-base-height
-                       :canopy-cover       canopy-cover
-                       :crown-bulk-density crown-bulk-density
-                       :datetime           datetime
-                       :fuel-moisture      fuel-moisture
-                       :foliar-moisture    foliar-moisture
-                       :slope              slope
-                       :wind-speed-20ft    wind-speed-20ft})))))
+   (let [datetime (now)]
+     (for [fuel-model         (:fuel-model scenarios)
+           canopy-cover       (:canopy-cover scenarios)
+           slope              (:slope scenarios)
+           fuel-moisture      (:fuel-moisture scenarios)
+           foliar-moisture    (:foliar-moisture scenarios)
+           wind-speed-20ft    (:wind-speed-20ft scenarios)
+           canopy-base-height (:canopy-base-height scenarios)
+           crown-bulk-density (:crown-bulk-density scenarios)]
+       (gen-scenario {:scenario-type      scenario-type
+                      :fuel-model         fuel-model
+                      :canopy-base-height canopy-base-height
+                      :canopy-cover       canopy-cover
+                      :crown-bulk-density crown-bulk-density
+                      :datetime           datetime
+                      :fuel-moisture      fuel-moisture
+                      :foliar-moisture    foliar-moisture
+                      :slope              slope
+                      :wind-speed-20ft    wind-speed-20ft})))))
 
 ;;; Tests
 
@@ -256,8 +265,15 @@
     (results->csv test-file (map run-sim! (gen-scenarios :crown-spotting crown-spotting-scenarios)))))
 
 #_(deftest ^:crown-spotting test-crown-spotting-scenarios
-  (let [test-file (str "test-crown-spotting-"(now)".csv")]
-    (run-sim! (first (gen-scenarios :spotting crown-spotting-scenarios)))))
+    (let [test-file (str "test-crown-spotting-"(now)".csv")]
+      (run-sim! (first (gen-scenarios :spotting crown-spotting-scenarios)))))
+
+(deftest ^:suppression test-suppression-scenario
+  (run-sim! (-> (first (gen-scenarios :suppresion suppression-scenarios))
+                (assoc :output-layers {:directional-flame-length 72
+                                       :flame-length             :final})
+                (assoc :suppression {:suppression-dt          300
+                                     :suppression-coefficient 2.0}))))
 
 (comment
   (run-tests 'gridfire.canonical-test)

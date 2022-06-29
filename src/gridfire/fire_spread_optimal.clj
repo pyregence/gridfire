@@ -818,15 +818,16 @@
         band                            (min->hour ignition-start-time)
         flame-length-matrix             (:flame-length-matrix matrices)
         directional-flame-length-matrix (:directional-flame-length-matrix matrices)
-        alpha                           2.0 ;TODO parameterize in config.edn
-        suppression-dt                  1440.0] ; rhino fire suppress every 24 hours ;TODO parameterize in config.edn
+        suppression                     (:suppression inputs)
+        alpha                           (:suppression-coefficient suppression)
+        ^double suppression-dt          (:suppression-dt suppression)]
     (doseq [[i j] ignited-cells]
       (compute-max-in-situ-values! inputs matrices band i j)
       (t/mset! directional-flame-length-matrix i j (t/mget flame-length-matrix i j)))
     (loop [global-clock           ignition-start-time
            band                   band
            non-burn-period-clock  non-burn-period-clock
-           suppression-clock      (double (if suppression-dt (+ ignition-start-time suppression-dt) max-runtime))
+           suppression-clock      (double (if suppression (+ ignition-start-time suppression-dt) max-runtime))
            burn-vectors           (ignited-cells->burn-vectors inputs matrices ignited-cells [])
            spot-ignitions         {}
            spot-count             0
@@ -836,7 +837,7 @@
         (let [dt-until-max-runtime               (- ignition-stop-time global-clock)
               ^double dt-until-suppression-clock (when suppression-dt (- suppression-clock global-clock))]
           (cond
-            (and suppression-dt (= global-clock suppression-clock))
+            (and suppression (= global-clock suppression-clock))
             (let [max-runtime-fraction     (/ global-clock max-runtime)
                   [bvs-to-process-next
                    total-cells-suppressed] (suppression/suppress-burn-vectors max-runtime-fraction alpha total-cells-suppressed burn-vectors)]
@@ -853,7 +854,7 @@
             (let [timestep  (double (min non-burn-period-dt dt-until-max-runtime))
                   new-clock (+ global-clock timestep)
                   new-band  (min->hour new-clock)]
-              (if (and suppression-dt (<= suppression-clock new-clock))
+              (if (and suppression (<= suppression-clock new-clock))
                 (let [suppression-clocks            (iterate #(+ (double %) suppression-dt) suppression-clock)
                       suppression-clocks-to-process (into [suppression-clock] (take-while #(<= (double %) new-clock) suppression-clocks))
                       [bvs-to-process-next
