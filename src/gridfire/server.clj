@@ -1,5 +1,5 @@
 (ns gridfire.server
-  (:require [clojure.core.async           :refer [>! alts! chan go]]
+  (:require [clojure.core.async           :refer [<! >! >!! alts! chan go thread]]
             [clojure.data.json            :as json]
             [clojure.java.io              :as io]
             [clojure.java.shell           :as sh]
@@ -151,19 +151,22 @@
   (reset! server-running? true)
   (go
     (loop [request @(first (alts! [job-queue stand-by-queue] :priority true))]
-      (log-str "Processing request: " request)
-      (let [[status status-msg] (process-request! request config)]
-        (log-str "-> " status-msg)
-        (if (= (:type request) :active-fire)
-          (send-geosync-request! request config)
-          (send-gridfire-response! request config status status-msg)))
+      (<!
+        (thread
+          (comment "we use" (thread ...) "here because some operations are blocking, as explained in" (doc go) ".")
+          (log-str "Processing request: " request)
+          (let [[status status-msg] (process-request! request config)]
+            (log-str "-> " status-msg)
+            (if (= (:type request) :active-fire)
+              (send-geosync-request! request config)
+              (send-gridfire-response! request config status status-msg)))))
       (when @server-running?
         (recur @(first (alts! [job-queue stand-by-queue] :priority true)))))))
 
 (defn- maybe-add-to-queue! [request]
   (try
     (if (spec/valid? ::server-spec/gridfire-server-request request)
-      (do (>! job-queue request)
+      (do (>!! job-queue request)
           [2 (format "Added to job queue. You are number %d in line." @job-queue-size)])
       [1 (str "Invalid request: " (spec/explain-str ::server-spec/gridfire-server-request request))])
     (catch AssertionError _
@@ -172,7 +175,7 @@
       [1 (str "Validation error: " (ex-message e))])))
 
 (defn- handler! [config request-msg]
-  (go
+  (thread
     (log-str "Request: " request-msg)
     (if-let [request (-> request-msg
                          (json/read-str :key-fn (comp keyword camel->kebab))
