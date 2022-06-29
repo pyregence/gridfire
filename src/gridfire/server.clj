@@ -174,12 +174,23 @@
     (catch Exception e
       [1 (str "Validation error: " (ex-message e))])))
 
+
+(defn- parse-request-msg
+  "Parses the given JSON-encoded request message, returning a request map (or nil in case of invalid JSON)."
+  [^String request-msg]
+  (comment "Returns either a" ::server-spec/gridfire-server-request "or" nil "in case of a deserialization error.")
+  (-> request-msg
+      (json/read-str :key-fn (comp keyword camel->kebab))
+      (nil-on-error)))
+
+
 (defn- handler! [config request-msg]
+  (comment "Logically speaking, this function does" (process-request! (parse-request-msg request-msg) config) "."
+           "However, in order to both limit the load and send progress-notification responses before completion,"
+           "the handling goes through various queues and worker threads.")
   (thread
     (log-str "Request: " request-msg)
-    (if-let [request (-> request-msg
-                         (json/read-str :key-fn (comp keyword camel->kebab))
-                         (nil-on-error))]
+    (if-let [request (parse-request-msg request-msg)]
       (let [[status status-msg] (maybe-add-to-queue! request)]
         (log-str "-> " status-msg)
         (send-gridfire-response! request config status status-msg))
