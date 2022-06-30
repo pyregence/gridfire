@@ -124,10 +124,12 @@
 
 ;; TODO: Remove gridfire.config from the code base and use resources/elm_to_grid.clj instead.
 ;;       Try babashka's pod protocol to see if it's faster than shelling out.
-(defn- process-request! [request {:keys [software-dir override-config] :as config}]
-  (comment "WARNING: because of various files created in the process, this function is not thread-safe."
-           "Do not make several" (process-request! request0 config) (process-request! request1 config) ...
-           "calls in parallel for the same" config ".")
+(defn- process-request!
+  "Runs the requested simulation using the supplied config.
+
+  WARNING: because each simulation requires exclusive access to various resources (e.g all the processors),
+  do not make several parallel calls to this function."
+  [request {:keys [software-dir override-config] :as config}]
   (try
     (let [input-deck-path     (unzip-tar! request config)
           elmfire-data-file   (.getPath (io/file input-deck-path "elmfire.data"))
