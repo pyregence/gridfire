@@ -842,7 +842,11 @@
             (let [max-runtime-fraction           (/ global-clock max-runtime)
                   [bvs-to-process-next
                    total-cells-suppressed
-                   previous-num-perimeter-cells] (suppression/suppress-burn-vectors max-runtime-fraction alpha previous-num-perimeter-cells total-cells-suppressed burn-vectors)]
+                   previous-num-perimeter-cells] (suppression/suppress-burn-vectors max-runtime-fraction
+                                                                                    alpha
+                                                                                    previous-num-perimeter-cells
+                                                                                    total-cells-suppressed
+                                                                                    burn-vectors)]
               (recur global-clock
                      band
                      non-burn-period-clock
