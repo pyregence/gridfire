@@ -192,15 +192,12 @@
     (catch Exception e
       [1 (str "Validation error: " (ex-message e))])))
 
-
 (defn- parse-request-msg
   "Parses the given JSON-encoded request message, returning a request map (or nil in case of invalid JSON)."
-  [^String request-msg]
-  (comment "Returns either a" ::server-spec/gridfire-server-request "or" nil "in case of a deserialization error.")
+  [request-msg]
   (-> request-msg
       (json/read-str :key-fn (comp keyword camel->kebab))
       (nil-on-error)))
-
 
 (defn- schedule-handling! [config request-msg]
   (comment "Logically speaking, this function does" (process-request! (parse-request-msg request-msg) config) "."
