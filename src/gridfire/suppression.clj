@@ -184,13 +184,21 @@
             suppression-coefficient))
 
 (defn suppress-burn-vectors
-  [^double max-runtime-fraction ^double suppression-coefficient ^long previous-suppressed-count burn-vectors]
-  (let [active-perimeter-cells (into #{}
-                                     (map (juxt :i :j))
-                                     burn-vectors)
-        fraction-contained     (compute-fraction-contained max-runtime-fraction suppression-coefficient)
-        num-cells-to-suppress  (max 0 (- (long (* fraction-contained (+ (long (count active-perimeter-cells)) previous-suppressed-count)))
-                                         previous-suppressed-count))]
+  [max-runtime-fraction suppression-coefficient previous-num-perimeter-cells previous-suppressed-count burn-vectors]
+  (let [max-runtime-fraction         (double max-runtime-fraction)
+        suppression-coefficient      (double suppression-coefficient)
+        previous-num-perimeter-cells (long previous-num-perimeter-cells)
+        previous-suppressed-count    (long previous-suppressed-count)
+        active-perimeter-cells       (into #{}
+                                           (map (juxt :i :j))
+                                           burn-vectors)
+        fraction-contained           (compute-fraction-contained max-runtime-fraction suppression-coefficient)
+        num-tracked-perimeter-cells  (+ (long (count active-perimeter-cells)) previous-suppressed-count)
+        num-fizzled-perimeter-cells  (max 0 (- previous-num-perimeter-cells num-tracked-perimeter-cells))
+        num-perimeter-cells          (max previous-num-perimeter-cells num-tracked-perimeter-cells)
+        current-suppressed-count     (+ previous-suppressed-count num-fizzled-perimeter-cells)
+        next-suppressed-count        (long (* fraction-contained num-perimeter-cells))
+        num-cells-to-suppress        (- next-suppressed-count current-suppressed-count)]
     (if (> num-cells-to-suppress 0)
       (let [centroid-cell        (compute-centroid-cell active-perimeter-cells)
             bin-size             5.0
@@ -198,9 +206,10 @@
             [bins-to-suppress
              suppressed-count]   (->> (compute-avg-dsr-data bin-size grouped-burn-vectors)
                                       (compute-bins-to-suppress num-cells-to-suppress))
-            bins-to-keep         (remove #(contains? (set bins-to-suppress) %) (keys grouped-burn-vectors))
+            bins-to-suppress-set (set bins-to-suppress)
+            bins-to-keep         (remove #(contains? bins-to-suppress-set %) (keys grouped-burn-vectors))
             burn-vectors-to-keep (into []
                                        (mapcat #(get grouped-burn-vectors %))
                                        bins-to-keep)]
-        [burn-vectors-to-keep (+ previous-suppressed-count ^long suppressed-count)])
-      [burn-vectors previous-suppressed-count])))
+        [burn-vectors-to-keep (+ current-suppressed-count ^long suppressed-count) num-perimeter-cells])
+      [burn-vectors current-suppressed-count num-perimeter-cells])))
