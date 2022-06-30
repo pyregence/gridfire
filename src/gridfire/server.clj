@@ -118,16 +118,13 @@
     (let [input-deck-path     (unzip-tar! request config)
           elmfire-data-file   (.getPath (io/file input-deck-path "elmfire.data"))
           gridfire-edn-file   (.getPath (io/file input-deck-path "gridfire.edn"))
-          gridfire-output-dir (.getPath (io/file input-deck-path "outputs"))]
-      (if override-config
-        (let [{:keys [err out]} (sh/sh "resources/elm_to_grid.clj" "-e" elmfire-data-file "-o" override-config)]
-          (if err
-           (log-str err)
-           (log-str out)))
-        (let [{:keys [err out]} (sh/sh "resources/elm_to_grid.clj" "-e" elmfire-data-file)]
-          (if err
-            (log-str err)
-            (log-str out))))
+          gridfire-output-dir (.getPath (io/file input-deck-path "outputs"))
+          {:keys [err out]}   (if override-config
+                                (sh/sh "resources/elm_to_grid.clj" "-e" elmfire-data-file "-o" override-config)
+                                (sh/sh "resources/elm_to_grid.clj" "-e" elmfire-data-file))]
+      (if err
+        (log-str out "\n" err)
+        (log-str out))
       (send-gridfire-response! request config 2 "Running simulation.")
       (if (gridfire/process-config-file! gridfire-edn-file) ; Returns true on success
         (do (copy-post-process-scripts! software-dir gridfire-output-dir)
