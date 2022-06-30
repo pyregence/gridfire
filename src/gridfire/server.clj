@@ -1,5 +1,5 @@
 (ns gridfire.server
-  (:require [clojure.core.async           :refer [>!! alts! chan go]]
+  (:require [clojure.core.async           :refer [>! alts! chan go]]
             [clojure.data.json            :as json]
             [clojure.java.io              :as io]
             [clojure.java.shell           :as sh]
@@ -169,15 +169,16 @@
         (recur @(first (alts! [job-queue stand-by-queue] :priority true)))))))
 
 (defn- maybe-add-to-queue! [request]
-  (try
-    (if (spec/valid? ::server-spec/gridfire-server-request request)
-      (do (>!! job-queue request)
-          [2 (format "Added to job queue. You are number %d in line." @job-queue-size)])
-      [1 (str "Invalid request: " (spec/explain-str ::server-spec/gridfire-server-request request))])
-    (catch AssertionError _
-      [1 "Job queue limit exceeded! Dropping request!"])
-    (catch Exception e
-      [1 (str "Validation error: " (ex-message e))])))
+  (go
+   (try
+     (if (spec/valid? ::server-spec/gridfire-server-request request)
+       (do (>! job-queue request)
+           [2 (format "Added to job queue. You are number %d in line." @job-queue-size)])
+       [1 (str "Invalid request: " (spec/explain-str ::server-spec/gridfire-server-request request))])
+     (catch AssertionError _
+       [1 "Job queue limit exceeded! Dropping request!"])
+     (catch Exception e
+       [1 (str "Validation error: " (ex-message e))]))))
 
 (defn- handler! [config request-msg]
   (go

@@ -49,10 +49,10 @@
        (.normalize)
        (.toString)))
   ([output-dir directory tif-file-prefix]
-   (let [begin (if (relative-path? directory)
-                 (io/file output-dir directory (str tif-file-prefix ".tif"))
-                 (io/file directory (str tif-file-prefix ".tif")))]
-     (-> begin
+   (let [file-name (if (relative-path? directory)
+                     (io/file output-dir directory (str tif-file-prefix ".tif"))
+                     (io/file directory (str tif-file-prefix ".tif")))]
+     (-> file-name
          (.toPath)
          (.normalize)
          (.toString)))))
@@ -62,8 +62,7 @@
 ;;=============================================================================
 
 (defn write-config [{:keys [output-dir]} config-params]
-  (let [output-file      (io/file output-dir "gridfire.edn")
-        output-file-path (.getAbsolutePath output-file)]
+  (let [output-file-path (file-path output-dir "./gridfire.edn")]
     (println "Creating config file:" output-file-path)
     (with-open [writer (io/writer output-file-path)]
       (pprint config-params writer))))
@@ -443,11 +442,11 @@
 (defn convert-config! [{:keys [elmfire-data override-config] :as options}]
   (println "Converting configuration file to one that GridFire accepts.")
   (->> elmfire-data
-      (slurp)
-      (parse-elmfire)
-      (build-edn options)
-      (merge-override-config override-config)
-      (write-config options)))
+       (slurp)
+       (parse-elmfire)
+       (build-edn options)
+       (merge-override-config override-config)
+       (write-config options)))
 
 (def cli-options
   [["-e" "--elmfire-data FILE" "Path to an elmfire.data file"
@@ -466,7 +465,6 @@
   (println program-banner)
   (let [{:keys [options summary errors]} (parse-opts args cli-options)]
     ;; {:options   The options map, keyed by :id, mapped to the parsed value
-    ;;  :arguments A vector of unprocessed arguments
     ;;  :summary   A string containing a minimal options summary
     ;;  :errors    A vector of error message strings thrown during parsing; nil when no errors exist
     (cond
@@ -478,7 +476,7 @@
 
       ;; Valid --elmfire-data argument provided, so perform conversion
       (:elmfire-data options)
-      (convert-config! (assoc options :output-dir (.getAbsolutePath (.getParentFile (io/file (:elmfire-data options))))))
+      (convert-config! (assoc options :output-dir (.getParent (io/file (:elmfire-data options)))))
 
       ;; Incorrect CLI invocation
       :else
