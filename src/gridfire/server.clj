@@ -9,7 +9,7 @@
    '{:config-in-comment
      {:linters
       {:unresolved-symbol {:level :off}}}}}
-  (:require [clojure.core.async           :refer [<! >!! alts! chan go thread]]
+  (:require [clojure.core.async           :refer [>!! alts!! chan thread]]
             [clojure.data.json            :as json]
             [clojure.java.io              :as io]
             [clojure.java.shell           :as sh]
@@ -170,19 +170,16 @@
   Returns a core.async channel which will close when the server is stopped."
   [config]
   (reset! *server-running? true)
-  (go
-    (loop [request @(first (alts! [=job-queue= =stand-by-queue=] :priority true))]
-      (<!
-        (thread
-          (comment "we use" (thread ...) "here because some operations are blocking, as explained in" (doc go) ".")
-          (log-str "Processing request: " request)
-          (let [[status status-msg] (process-request! request config)]
-            (log-str "-> " status-msg)
-            (if (= (:type request) :active-fire)
-              (send-geosync-request! request config)
-              (send-gridfire-response! request config status status-msg)))))
+  (thread
+    (loop [request @(first (alts!! [=job-queue= =stand-by-queue=] :priority true))]
+      (log-str "Processing request: " request)
+      (let [[status status-msg] (process-request! request config)]
+        (log-str "-> " status-msg)
+        (if (= (:type request) :active-fire)
+          (send-geosync-request! request config)
+          (send-gridfire-response! request config status status-msg)))
       (when @*server-running?
-        (recur @(first (alts! [=job-queue= =stand-by-queue=] :priority true)))))))
+        (recur @(first (alts!! [=job-queue= =stand-by-queue=] :priority true)))))))
 
 (defn- maybe-add-to-queue! [request]
   (try
