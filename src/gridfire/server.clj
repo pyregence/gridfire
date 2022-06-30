@@ -5,10 +5,6 @@
   This is an in-process (not distributed), singleton (its state is namespace-anchored, being held in Vars),
   single-threaded server, which implies some usage limitations (you can't have several servers in the same JVM,
   there's no resilience to JVM crashes, and you can't scale out to several worker processes behind the job queue.)"
-  {:clj-kondo/config
-   '{:config-in-comment
-     {:linters
-      {:unresolved-symbol {:level :off}}}}}
   (:require [clojure.core.async           :refer [>!! alts!! chan thread]]
             [clojure.data.json            :as json]
             [clojure.java.io              :as io]
@@ -201,10 +197,10 @@
       (json/read-str :key-fn (comp keyword camel->kebab))
       (nil-on-error)))
 
+;; Logically speaking, this function does (process-request! (parse-request-msg request-msg) config).
+;; However, in order to both limit the load and send progress-notification responses before completion,
+;; the handling goes through various queues and worker threads.
 (defn- schedule-handling! [config request-msg]
-  (comment "Logically speaking, this function does" (process-request! (parse-request-msg request-msg) config) "."
-           "However, in order to both limit the load and send progress-notification responses before completion,"
-           "the handling goes through various queues and worker threads.")
   (thread
     (log-str "Request: " request-msg)
     (if-let [request (parse-request-msg request-msg)]
