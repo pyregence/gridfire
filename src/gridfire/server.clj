@@ -30,7 +30,7 @@
 (def date-from-format "yyyy-MM-dd HH:mm zzz")
 (def date-to-format   "yyyyMMdd_HHmmss")
 
-(defn- build-geosync-request [{:as _request, :keys [fire-name ignition-time]} {:as _config, :keys [host port]}]
+(defn- build-geosync-request [{:keys [fire-name ignition-time] :as _request} {:keys [host port] :as _config}]
   (let [timestamp (convert-date-string ignition-time date-from-format date-to-format)]
     (json/write-str
      {"action"             "add"
@@ -47,7 +47,7 @@
                                (:response-port geosync-server-config)
                                (build-geosync-request request config)))))
 
-(defn- build-gridfire-response [request {:as _config, :keys [host port]} status status-msg]
+(defn- build-gridfire-response [request {:keys [host port] :as _config} status status-msg]
   (json/write-str (merge request
                          {:status        status
                           :message       status-msg
@@ -109,7 +109,7 @@
 
 (defn- unzip-tar!
   "Unzips a tar file and returns the file path to the extracted folder."
-  [{:as _request, :keys [fire-name ignition-time type]} {:as _config, :keys [data-dir incoming-dir active-fire-dir]}]
+  [{:keys [fire-name ignition-time type] :as _request} {:keys [data-dir incoming-dir active-fire-dir] :as _config}]
   (let [file-name (build-file-name fire-name ignition-time)]
     (log-str "Unzipping input deck: " file-name)
     (sh-wrapper (if (= type :active-fire) active-fire-dir incoming-dir)
