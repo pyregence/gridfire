@@ -142,6 +142,14 @@
   ;Clock                                                                  2.53m    100%
 
   ;; TREATMENT
+  ;07/07 12:58:14 Running simulations
+  ;07/07 12:59:46 :run-simulation,
+  ;pId                  nCalls        Min        Max       Mean   MAD      Clock  Total
+  ;
+  ;:run-fire-spread         30     2.83s      5.73s      3.00s    ±7%     1.50m    100%
+  ;
+  ;Accounted                                                              1.50m    100%
+  ;Clock                                                                  1.50m    100%
 
   ;;;; What configuration are we benchmarking?
   (-> (slurp benchmark-config-file)

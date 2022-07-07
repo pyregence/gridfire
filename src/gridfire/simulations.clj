@@ -5,6 +5,7 @@
             [gridfire.conversion          :refer [min->hour kebab->snake snake->kebab]]
             [gridfire.fire-spread-optimal :refer [run-fire-spread]]
             [gridfire.outputs             :as outputs]
+            [gridfire.perturbations.pixel.hash-determined :as pixel-hdp]
             [gridfire.utils.random        :refer [my-rand-range]]
             [taoensso.tufte               :as tufte]
             [tech.v3.datatype             :as d]
@@ -203,12 +204,16 @@
                   (str "-index-multiplier")
                   keyword)))
 
+(def n-buckets 1024)
+
 (defn- get-value-fn
   [{:keys [perturbations] :as inputs} rand-gen layer-name i]
   (when-let [matrix-or-num (matrix-or-i inputs layer-name i)]
     (let [index-multiplier             (get-index-multiplier inputs layer-name)
           {:keys [spatial-type range]} (get perturbations layer-name)
-          [range-min range-max]        range]
+          [range-min range-max]        range
+          gen-perturbation             (fn gen-in-range [_h]
+                                         (my-rand-range rand-gen range-min range-max))]
       (cond
         (and (number? matrix-or-num) (nil? (get perturbations layer-name)))
         (fn
@@ -234,23 +239,17 @@
              (t/mget matrix-or-num b i j))))
 
         (and (number? matrix-or-num) (= spatial-type :pixel))
-        (let [band-cache            (atom 0)
-              perturbed-value-cache (atom {})
-              matrix-or-num         (double matrix-or-num)]
+        (let [matrix-or-num (double matrix-or-num)
+              h->perturb    (pixel-hdp/gen-hash->perturbation n-buckets gen-perturbation)]
           (fn
             (^double [i j]
-             (or (get @perturbed-value-cache [i j])
-                 (let [new-value (max 0.0 (+ matrix-or-num (my-rand-range rand-gen range-min range-max)))]
-                   (swap! perturbed-value-cache assoc [i j] new-value)
-                   new-value)))
-            (^double [b i j]
-             (when-not (= b @band-cache)
-               (reset! band-cache b)
-               (reset! perturbed-value-cache {}))
-             (or (get @perturbed-value-cache [i j]) ;TODO benchmark [i j] vs string i j
-                 (let [new-value (max 0.0 (+ matrix-or-num (my-rand-range rand-gen range-min range-max)))] ;TODO document we are snapping negative values to 0
-                   (swap! perturbed-value-cache assoc [i j] new-value)
-                   new-value)))))
+             (max 0.0 ;TODO document we are snapping negative values to 0
+                  (+ (double matrix-or-num)
+                     (pixel-hdp/resolve-perturbation-for-coords h->perturb i j))))
+            (^double [^long b ^long i ^long j]
+             (max 0.0 ;TODO document we are snapping negative values to 0
+                  (+ (double matrix-or-num)
+                     (pixel-hdp/resolve-perturbation-for-coords h->perturb b i j))))))
 
         (and (number? matrix-or-num) (= spatial-type :global))
         (let [perturbed-value-cache (atom nil)
@@ -268,46 +267,31 @@
                    new-value)))))
 
         (and (not (number? matrix-or-num)) (= spatial-type :pixel))
-        (let [band-cache            (atom 0)
-              perturbed-value-cache (atom {})]
+        (let [h->perturb (pixel-hdp/gen-hash->perturbation n-buckets gen-perturbation)]
           (if index-multiplier
             (let [index-multiplier (double index-multiplier)]
               (fn
                 (^double [^long i ^long j]
                  (let [row (long (* i index-multiplier))
                        col (long (* j index-multiplier))]
-                   (or (get @perturbed-value-cache [row col])
-                       (let [new-value (max 0.0 (+ ^double (t/mget matrix-or-num row col)
-                                                   (my-rand-range rand-gen range-min range-max)))]
-                         (swap! perturbed-value-cache assoc [row col] new-value)
-                         new-value))))
+                   (max 0.0 ;TODO document we are snapping negative values to 0
+                        (+ (double (t/mget matrix-or-num row col))
+                           (pixel-hdp/resolve-perturbation-for-coords h->perturb i j)))))
                 (^double [^long b ^long i ^long j]
-                 (when-not (= b @band-cache)
-                   (reset! band-cache b)
-                   (reset! perturbed-value-cache {}))
                  (let [row (long (* i index-multiplier))
                        col (long (* j index-multiplier))]
-                   (or (get @perturbed-value-cache [row col])
-                       (let [new-value (max 0.0 (+ ^double (t/mget matrix-or-num b row col)
-                                                   (my-rand-range rand-gen range-min range-max)))]
-                         (swap! perturbed-value-cache assoc [row col] new-value)
-                         new-value))))))
+                   (max 0.0 ;TODO document we are snapping negative values to 0
+                        (+ (double (t/mget matrix-or-num b row col))
+                           (pixel-hdp/resolve-perturbation-for-coords h->perturb b i j)))))))
             (fn
-              (^double [i j]
-               (or (get @perturbed-value-cache [i j])
-                   (let [new-value (max 0.0 (+ ^double (t/mget matrix-or-num i j)
-                                               (my-rand-range rand-gen range-min range-max)))]
-                     (swap! perturbed-value-cache assoc [i j] new-value)
-                     new-value)))
-              (^double [b i j]
-               (when-not (= b @band-cache)
-                 (reset! band-cache b)
-                 (reset! perturbed-value-cache {}))
-               (or (get @perturbed-value-cache [i j])
-                   (let [new-value (max 0.0 (+ ^double (t/mget matrix-or-num b i j)
-                                               (my-rand-range rand-gen range-min range-max)))]
-                     (swap! perturbed-value-cache assoc [i j] new-value)
-                     new-value))))))
+              (^double [^long i ^long j]
+               (max 0.0 ;TODO document we are snapping negative values to 0
+                    (+ (double (t/mget matrix-or-num i j))
+                       (pixel-hdp/resolve-perturbation-for-coords h->perturb i j))))
+              (^double [^long b ^long i ^long j]
+               (max 0.0 ;TODO document we are snapping negative values to 0
+                    (+ (double (t/mget matrix-or-num b i j))
+                       (pixel-hdp/resolve-perturbation-for-coords h->perturb i j)))))))
 
         (and (not (number? matrix-or-num)) (= spatial-type :global))
         (let [offset-cache (atom nil)]
