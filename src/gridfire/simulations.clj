@@ -417,6 +417,7 @@
                               :spotting                          spotting}
          simulation-results (tufte/p :run-fire-spread
                                      (run-fire-spread (map->SimulationInputs simulation-inputs)))]
+     #_#_ ;; removing the I/O overhead to get a better signal-to-noise ratio for simulation benchmarking.
      (when simulation-results
        (process-output-layers! inputs simulation-results envelope i)
        (process-aggregate-output-layers! inputs simulation-results)

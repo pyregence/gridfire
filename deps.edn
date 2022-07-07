@@ -1,21 +1,31 @@
 ;; [[file:org/GridFire.org::deps.edn][deps.edn]]
-{:paths ["src" "resources"]
+{:paths     ["src" "resources"]
 
- :deps {cnuernber/dtype-next                {:mvn/version "9.000"}
-        com.nextjournal/beholder            {:mvn/version "1.0.0"}
-        com.taoensso/tufte                  {:mvn/version "2.2.0"}
-        hikari-cp/hikari-cp                 {:mvn/version "2.13.0"}
-        org.clojars.lambdatronic/matrix-viz {:mvn/version "2022.02.03"}
-        org.clojure/clojure                 {:mvn/version "1.10.3"}
-        org.clojure/core.async              {:mvn/version "1.3.622"}
-        org.clojure/data.csv                {:mvn/version "1.0.0"}
-        org.clojure/data.json               {:mvn/version "2.4.0"}
-        org.clojure/java.jdbc               {:mvn/version "0.7.12"}
-        org.clojure/tools.cli               {:mvn/version "1.0.206"}
-        org.postgresql/postgresql           {:mvn/version "42.2.23"}
-        sig-gis/magellan                    {:mvn/version "2022.03.18"}
-        sig-gis/triangulum                  {:git/url "https://github.com/sig-gis/triangulum"
-                                             :sha     "5b179a97ebd8fbcbff51776db06d9770cb649b9d"}}
+ :deps      {vvvvalvalval/scope-capture               {:mvn/version "0.3.3"}
+             commons-codec/commons-codec              {:mvn/version "1.15"}
+             com.clojure-goes-fast/clj-async-profiler {:mvn/version "0.5.1"}
+             criterium/criterium                      {:mvn/version "0.4.5"}
+
+
+             cnuernber/dtype-next                     {:mvn/version "9.000"}
+             com.nextjournal/beholder                 {:mvn/version "1.0.0"}
+             com.taoensso/tufte                       {:mvn/version "2.2.0"}
+             hikari-cp/hikari-cp                      {:mvn/version "2.13.0"}
+             vvvvalvalval/matrix-viz
+             {:local/root "/Users/val/projects/SIG/matrix-viz"}
+             #_{:git/url "https://github.com/vvvvalvalval/matrix-viz.git"
+                :sha     "5f2879eb4865054cb8b49a923b5547128b876cc1"}
+
+             org.clojure/clojure                      {:mvn/version "1.10.3"}
+             org.clojure/core.async                   {:mvn/version "1.3.622"}
+             org.clojure/data.csv                     {:mvn/version "1.0.0"}
+             org.clojure/data.json                    {:mvn/version "2.4.0"}
+             org.clojure/java.jdbc                    {:mvn/version "0.7.12"}
+             org.clojure/tools.cli                    {:mvn/version "1.0.206"}
+             org.postgresql/postgresql                {:mvn/version "42.2.23"}
+             sig-gis/magellan                         {:mvn/version "2022.03.18"}
+             sig-gis/triangulum                       {:git/url "https://github.com/sig-gis/triangulum"
+                                                       :sha     "5b179a97ebd8fbcbff51776db06d9770cb649b9d"}}
 
  :mvn/repos {"osgeo" {:url "https://repo.osgeo.org/repository/release/"}}
 
@@ -26,6 +36,7 @@
            :repl              {:main-opts ["-e" "(require,'gridfire.core)"
                                            "-e" "(in-ns,'gridfire.core)"
                                            "-r"]}
+           :my-benchmark      {:main-opts ["-m" "gridfire.core"]}
            :gen-raster        {:main-opts ["-m" "gridfire.gen-raster"]}
            :make-uberjar      {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
                                :exec-fn      hf.depstar/uberjar
