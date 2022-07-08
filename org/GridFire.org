@@ -102,6 +102,7 @@ deps.edn for the current GridFire version is shown below.
 {:paths ["src" "resources"]
 
  :deps {cnuernber/dtype-next                {:mvn/version "9.000"}
+        commons-codec/commons-codec         {:mvn/version "1.15"}
         com.nextjournal/beholder            {:mvn/version "1.0.0"}
         com.taoensso/tufte                  {:mvn/version "2.2.0"}
         hikari-cp/hikari-cp                 {:mvn/version "2.13.0"}
@@ -4008,7 +4009,7 @@ Other output mappings:
 
 ** Section 6: Perturbations
 
-Gridfire supports puturbations of input rasters during simulations in
+Gridfire supports perturbations of input rasters during simulations in
 order to account for inherent uncertainty in the data. A uniform
 random sampling of values within a given range is used to address
 these uncertanties.
@@ -4025,8 +4026,8 @@ To specify this in the config file include the following mappings:
 The above config specify that a randomly selected value between -1.0
 and 1.0 should be added to the canopy height value. This perturbation
 will be applied globally to all cells. We could also, instead, specify
-that each cell should be perturbed individually by setting *:spatial-type*
-to *:pixel*.
+that each individual cell should be perturbed independently
+by setting *:spatial-type* to *:pixel*.
 
 Gridfire expects perturbations to be in imperial units. If these perturbations
 are meant to be in metric, you must include an entry for the units:
@@ -4036,6 +4037,142 @@ are meant to be in metric, you must include an entry for the units:
                                  :range        [-1.0 1.0]
                                  :units        :metric}}}
 #+end_src
+
+For efficient execution, a custom pseudo-random generation algorithm
+has been designed for ~{:spatial-type :pixel}~ perturbations,
+which we call Hash-Determined Pixel Perturbations. The tradeoff of this
+algorithm is efficient execution (very low cost in both time and memory usage)
+at the expense of a potentially slightly degraded pseudo-randomness.
+
+*** Hash-Determined Pixel Perturbations
+
+Logically, ~{:spatial-type :pixel}~ perturbations consist of filling a discrete grid
+with "white noise", without one independent random variable for grid cell ('pixel').
+Computationally, however, exhaustively realizing the whole grid of random perturbations
+would be prohibitively expensive, and also wasteful, since oftentimes only a small
+fraction of the perturbations are ever read by the simulation program - this is the case
+when the perturbations must happen on Hour-band × X × Y grid ( ~[b i j]~ in code),
+which can contain billions of cells, of only a few millions will actually use their perturbation
+during simulation.
+
+One strategy we previously used is laziness: sampling the per-pixel random variables
+as they are requested by the simulation, while maintaining a cache of the samples values,
+such that subsequent reads all see the same results.
+
+We have found a more efficient strategy, however, which we dubbed /Hash-Determined Pixel Perturbations/:
+HDPP apprixmates the \text{p}: \text{cell} \mapsto \text{perturbation} random function
+by a composition of:
+
+1. a deterministic hashing function \text{h}: \text{cell} \mapsto \text{hash-bucket},
+   where \text{hash-bucket} is an integer between 0 and 2^d (say, 1024)
+2. a random function \pi: \text{hash-bucket} \mapsto \text{perturbation}
+
+Concretely, the computation of perturbations goes as follows:
+
+1. Eagerly generate and store a 2^d-length array `h->perturb` of randomly-sampled pertubation values.
+2. When the perturbation for cell ~[b i j]~ is requested, compute it as:
+
+#+begin_src clojure
+(fn resolve-perturbation [h->perturb b i j]
+  (let [coords-hash (hash-pixel-coordinates b i j)]
+    (nth h->perturb coords-hash)))
+#+end_src
+
+The above pseudo-code is very close to Gridfire's actual implementation code for HDPP,
+which differs only to leverage more efficient JVM-primitive operations:
+
+#+name: hdpp-implementation
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/perturbations/pixel/hash_determined.clj :no-expand :comments link
+(ns gridfire.perturbations.pixel.hash-determined
+  "Implements 'Hash-Determined Pixel Perturbations' (a name chosen by the GridFire team),
+  an algorithm for efficiently emulating a 'white noise' random process on a large discrete grid,
+  without having to generate a random perturbation for each cell of the entire grid,
+  nor even for each requested cell."
+  (:import (org.apache.commons.codec.digest MurmurHash3)))
+
+(defn- is-power-of-2?
+  [^long n]
+  (if-not (pos-int? n)
+    false
+    (cond
+      (= n 1) true
+      (odd? n) false
+      :else (recur (quot n 2)))))
+
+(comment
+
+  (def n 2r1000)
+  (is-power-of-2? 2r1000)
+  (is-power-of-2? 2r1010)
+
+  *e)
+
+(defn gen-hash->perturbation
+  "Randomly populates an array mapping hash buckets to perturbations.
+
+  Given:
+  - n-buckets: a power of 2, the number of hash buckets,
+  - gen-perturbation: a 1-arg function, accepting a hash bucket h (an integer < n-buckets)
+    and returning a double, presumably sampled from the desired distribution of perturbations
+    (Typically, the argument h will not be used, but it might serve to implement a form of reproducible
+    pseudo-randomness.),
+
+  returns an array of length n-buckets."
+  ^doubles
+  [n-buckets gen-perturbation]
+  {:pre [(is-power-of-2? n-buckets)]}
+  (into-array
+    Double/TYPE
+    (map
+      gen-perturbation
+      (range n-buckets))))
+
+(defn resolve-perturbation-for-coords
+  "Resolves the random perturbation for the grid cell ('pixel') of the supplied coordinates,
+  using the h->perturb returned by #'gen-hash->perturbation.
+
+  This function is deterministic: all the randomness happened when h->perturb was created."
+  (^double [^doubles h->perturb ^long i ^long j]
+   (let [n-buckets   (alength h->perturb)
+         coords-hash (->
+                       (->> (int 36791)
+                            (MurmurHash3/hash32 i j))
+                       (bit-and (dec n-buckets)))]
+     (aget h->perturb coords-hash)))
+  (^double [^doubles h->perturb ^long b ^long i ^long j]
+   (let [n-buckets   (alength h->perturb)
+         coords-hash (->
+                       (->> (int 6053696) ;; randomly chosen seed.
+                            ;; Compared to clojure.core's (hash) or (hash-combine) functions, MurmurHash3 buys us 2 things:
+                            ;; 1. a guarantee of stable behaviour - the hashing functions will still return
+                            ;; the same results after upgrading. That's not guaranteed with (hash).
+                            ;; 2. Better performance, since those methods have primitive signatures.
+                            ;; (this performance gain was empirically observed).
+                            (MurmurHash3/hash32 i j)
+                            (MurmurHash3/hash32 b))
+                       (bit-and ;; fast modulo op - that's why we require n-buckets to be a power of 2.
+                         ;; NOTE there is no significant efficiency gain to replacing this expr with a hardcoded int like 2r111111111.
+                         (dec n-buckets)))]
+     (aget h->perturb coords-hash))))
+#+end_src
+
+This approach is very efficient, because we only generate and store 1024 random values,
+instead of one per requested pixel, and both Murmur3 hashing and small-constant-array lookup are very fast
+operations.
+
+Fundamentally, we are leveraging the fact that hashing functions like Murmur3 have been designed
+to efficiently emulate a form of randomness.
+
+With respect to simulation behaviour, such a perturbation process is effectively equivalent to
+"truly random" perturbations. The use of a hashing function might slightly degrade the quality of the randomness,
+creating more correlations than true IID randomness, but we have already have accepted a similar tradeoff
+by adopting pseudo-random generators like ~java.util.Random~. If our sampling algorithm for individual values
+was truly random, we would indeed be reducing the entropy of our perturbations process
+from billions of bits to a few thousands; but we're basing all this on deterministic pseudo-random generators anyway,
+which means that the entropy is, strictly speaking, 0.
+Visual inspection shows that an HDPP-generated perturbation map exhibits no more perceptible patterns
+than an iid-generated one.
+
 
 ** Section 7: Spotting
 
