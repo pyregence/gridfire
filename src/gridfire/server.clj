@@ -111,8 +111,7 @@
                 (format "tar -xf %s -C %s --one-top-level" (str file-name ".tar") data-dir))
     (.getPath (io/file data-dir file-name))))
 
-;; TODO: Remove gridfire.config from the code base and use resources/elm_to_grid.clj instead.
-;;       Try babashka's pod protocol to see if it's faster than shelling out.
+;;TODO Try babashka's pod protocol to see if it's faster than shelling out.
 (defn- process-request! [request {:keys [software-dir override-config] :as config}]
   (try
     (let [input-deck-path     (unzip-tar! request config)
