@@ -3470,13 +3470,13 @@ processing scripts will run to process binary outputs into a directory
 structure containing geoTIFF files and then packed into a tarball.
 This tarball is sent over scp into another server for processing.
 
-*** Pre processing dependencies
+*** Preprocessing dependencies
 
 The processing of active fire and match drop runs require the following package to work:
 
 - babashka
 
-*** Post processing dependencies
+*** Postprocessing dependencies
 
 The Post processing scripts require the following packages to work:
 
