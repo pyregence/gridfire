@@ -2,7 +2,7 @@
   (:require [clojure.spec.alpha   :as s]
             [gridfire.spec.common :as common]))
 
-(s/def ::spatial-type #{:global :pixel})
+(s/def ::spatial-type #{:global :pixel :smoothed-supergrid})
 
 (s/def ::range ::common/number-range)
 

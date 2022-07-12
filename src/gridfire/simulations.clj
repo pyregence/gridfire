@@ -210,7 +210,8 @@
   [{:keys [perturbations] :as inputs} rand-gen layer-name i]
   (when-let [matrix-or-num (matrix-or-i inputs layer-name i)]
     (let [index-multiplier             (get-index-multiplier inputs layer-name)
-          {:keys [spatial-type range]} (get perturbations layer-name)
+          pert                         (get perturbations layer-name)
+          {:keys [spatial-type range]} pert
           [range-min range-max]        range
           gen-perturbation             (fn gen-in-range [_h]
                                          (my-rand-range rand-gen range-min range-max))]
@@ -250,6 +251,109 @@
              (max 0.0 ;TODO document we are snapping negative values to 0
                   (+ (double matrix-or-num)
                      (pixel-hdp/resolve-perturbation-for-coords h->perturb b i j))))))
+
+        (= spatial-type :smoothed-supergrid)
+        (let [{:keys [num-rows num-cols max-runtime]} inputs
+              max-b              (/ (double max-runtime) 60.)
+              [sb si sj] (:gridfire.perturbation.smoothed-supergrid/supergrid-size pert)
+              [ppsc-b ppsc-i ppsc-j] (mapv
+                                       (fn pixels-per-supergrid-cell [s m] (/ (double m) (long s)))
+                                       [sb si sj]
+                                       [max-b num-rows num-cols])
+              ppsc-b             (double ppsc-b)
+              ppsc-i             (double ppsc-i)
+              ppsc-j             (double ppsc-j)
+              gen-sampled-grid   (reduce
+                                   (fn [g s]
+                                     (fn gen-tensor []
+                                       (vec (repeatedly s g))))
+                                   #(gen-perturbation nil)
+                                   (reverse
+                                     (map
+                                       (fn [s] (+ (long s) 2))
+                                       [sb si sj])))
+
+              sampled-grid       (t/->tensor (gen-sampled-grid))
+              ;; Why offset the supergrid? Pixels in the interior of supergrid cells
+              ;; tend to have different distributions (less variance, smoother local variation)
+              ;; than those near the boundaries.
+              ;; Randomly offsetting ensures that all cells have an equal change
+              ;; of being near the supergrid cell boundaries.
+              offsets            (repeatedly 3 #(my-rand-range (:rand-gen inputs) 0. 1.))
+              [o-b o-i o-j] offsets
+              o-b (double o-b)
+              o-i (double o-i)
+              o-j (double o-j)
+              lin-terpolate      (fn lin-terpolate ^double [^double frac ^double v0 ^double v1]
+                                   (+
+                                     (* (- 1. frac) v0)
+                                     (* frac v1)))
+              get-pert-at-coords (fn average-cube-corners ^double [^long b ^long i ^long j]
+                                   ;; Implements a linear spline smoothing algorithm.
+                                   (let [b-pos  (-> b (/ ppsc-b) (+ o-b))
+                                         i-pos  (-> i (/ ppsc-i) (+ o-i))
+                                         j-pos  (-> j (/ ppsc-j) (+ o-j))
+
+                                         b-pos- (-> b-pos (Math/floor) (long))
+                                         b-pos+ (inc b-pos-)
+                                         b-posf (- b-pos b-pos-)
+                                         i-pos- (-> i-pos (Math/floor) (long))
+                                         i-pos+ (inc i-pos-)
+                                         i-posf (- i-pos i-pos-)
+                                         j-pos- (-> j-pos (Math/floor) (long))
+                                         j-pos+ (inc j-pos-)
+                                         j-posf (- j-pos j-pos-)
+
+                                         p000   (t/mget sampled-grid b-pos- i-pos- j-pos-)
+                                         p001   (t/mget sampled-grid b-pos- i-pos- j-pos+)
+                                         p010   (t/mget sampled-grid b-pos- i-pos+ j-pos-)
+                                         p011   (t/mget sampled-grid b-pos- i-pos+ j-pos+)
+                                         p100   (t/mget sampled-grid b-pos+ i-pos- j-pos-)
+                                         p101   (t/mget sampled-grid b-pos+ i-pos- j-pos+)
+                                         p110   (t/mget sampled-grid b-pos+ i-pos+ j-pos-)
+                                         p111   (t/mget sampled-grid b-pos+ i-pos+ j-pos+)]
+                                     (lin-terpolate b-posf
+                                       (lin-terpolate i-posf
+                                         (lin-terpolate j-posf p000 p001)
+                                         (lin-terpolate j-posf p010 p011))
+                                       (lin-terpolate i-posf
+                                         (lin-terpolate j-posf p100 p101)
+                                         (lin-terpolate j-posf p110 p111)))))]
+          (if (number? matrix-or-num)
+            (let [matrix-or-num (double matrix-or-num)]
+              (if index-multiplier
+                (let [index-multiplier (double index-multiplier)]
+                  (fn
+                    (^double [^long i ^long j]
+                     (let [row (long (* i index-multiplier))
+                           col (long (* j index-multiplier))]
+                       (max 0.0 ;TODO document we are snapping negative values to 0
+                         (+ (double (t/mget matrix-or-num row col))
+                            (double (get-pert-at-coords 0 i j))))))
+                    (^double [^long b ^long i ^long j]
+                     (let [row (long (* i index-multiplier))
+                           col (long (* j index-multiplier))]
+                       (max 0.0 ;TODO document we are snapping negative values to 0
+                         (+ (double (t/mget matrix-or-num b row col))
+                            (double (get-pert-at-coords b i j))))))))
+                (fn
+                  (^double [^long i ^long j]
+                   (max 0.0                                   ;TODO document we are snapping negative values to 0
+                     (+ (double matrix-or-num)
+                        (double (get-pert-at-coords 0 i j)))))
+                  (^double [^long b ^long i ^long j]
+                   (max 0.0                                   ;TODO document we are snapping negative values to 0
+                     (+ (double matrix-or-num)
+                        (double (get-pert-at-coords b i j))))))))
+            (fn
+              (^double [^long i ^long j]
+               (max 0.0 ;TODO document we are snapping negative values to 0
+                 (+ (double (t/mget matrix-or-num i j))
+                    (double (get-pert-at-coords 0 i j)))))
+              (^double [^long b ^long i ^long j]
+               (max 0.0 ;TODO document we are snapping negative values to 0
+                 (+ (double (t/mget matrix-or-num b i j))
+                    (double (get-pert-at-coords b i j))))))))
 
         (and (number? matrix-or-num) (= spatial-type :global))
         (let [perturbed-value-cache (atom nil)
