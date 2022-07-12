@@ -1,5 +1,11 @@
 (ns gridfire.server
-  (:require [clojure.core.async           :refer [>! alts! chan go]]
+  "For exposing GridFire through a socket server, making it act as a worker process behind a job queue,
+  which sends notifications to the client as the handling progresses.
+
+  This is an in-process (not distributed), singleton (its state is namespace-anchored, being held in Vars),
+  single-threaded server, which implies some usage limitations (you can't have several servers in the same JVM,
+  there's no resilience to JVM crashes, and you can't scale out to several worker processes behind the job queue.)"
+  (:require [clojure.core.async           :refer [>!! alts!! chan thread]]
             [clojure.data.json            :as json]
             [clojure.java.io              :as io]
             [clojure.java.shell           :as sh]
@@ -23,7 +29,7 @@
 (def date-from-format "yyyy-MM-dd HH:mm zzz")
 (def date-to-format   "yyyyMMdd_HHmmss")
 
-(defn- build-geosync-request [{:keys [fire-name ignition-time]} {:keys [host port]}]
+(defn- build-geosync-request [{:keys [fire-name ignition-time] :as _request} {:keys [host port] :as _config}]
   (let [timestamp (convert-date-string ignition-time date-from-format date-to-format)]
     (json/write-str
      {"action"             "add"
@@ -40,7 +46,7 @@
                                (:response-port geosync-server-config)
                                (build-geosync-request request config)))))
 
-(defn- build-gridfire-response [request {:keys [host port]} status status-msg]
+(defn- build-gridfire-response [request {:keys [host port] :as _config} status status-msg]
   (json/write-str (merge request
                          {:status        status
                           :message       status-msg
@@ -102,7 +108,7 @@
 
 (defn- unzip-tar!
   "Unzips a tar file and returns the file path to the extracted folder."
-  [{:keys [fire-name ignition-time type]} {:keys [data-dir incoming-dir active-fire-dir]}]
+  [{:keys [fire-name ignition-time type] :as _request} {:keys [data-dir incoming-dir active-fire-dir] :as _config}]
   (let [file-name (build-file-name fire-name ignition-time)]
     (log-str "Unzipping input deck: " file-name)
     (sh-wrapper (if (= type :active-fire) active-fire-dir incoming-dir)
@@ -112,7 +118,12 @@
     (.getPath (io/file data-dir file-name))))
 
 ;;TODO Try babashka's pod protocol to see if it's faster than shelling out.
-(defn- process-request! [request {:keys [software-dir override-config] :as config}]
+(defn- process-request!
+  "Runs the requested simulation using the supplied config.
+
+  WARNING: because each simulation requires exclusive access to various resources (e.g all the processors),
+  do not make several parallel calls to this function."
+  [request {:keys [software-dir override-config] :as config}]
   (try
     (let [input-deck-path     (unzip-tar! request config)
           elmfire-data-file   (.getPath (io/file input-deck-path "elmfire.data"))
@@ -138,50 +149,65 @@
 ;; Job Queue Management
 ;;=============================================================================
 
-(defonce job-queue-size      (atom 0))
-(defonce stand-by-queue-size (atom 0))
+(defonce *job-queue-size      (atom 0))
+(defonce *stand-by-queue-size (atom 0))
 
-(defonce job-queue      (chan 10 (map (fn [x]
-                                        (swap! job-queue-size inc)
-                                        (delay (swap! job-queue-size dec) x)))))
+(defonce =job-queue=
+         (chan 10 (map (fn [x]
+                         (swap! *job-queue-size inc)
+                         (delay (swap! *job-queue-size dec) x)))))
 
-(defonce stand-by-queue (chan 10 (map (fn [x]
-                                        (swap! stand-by-queue-size inc)
-                                        (delay (swap! stand-by-queue-size dec) x)))))
+(defonce =stand-by-queue=
+         (chan 10 (map (fn [x]
+                         (swap! *stand-by-queue-size inc)
+                         (delay (swap! *stand-by-queue-size dec) x)))))
 
-(defonce server-running? (atom false))
+(defonce *server-running? (atom false))
 
-(defn- process-requests! [config]
-  (reset! server-running? true)
-  (go
-    (loop [request @(first (alts! [job-queue stand-by-queue] :priority true))]
+(defn- process-requests-loop!
+  "Starts a logical process which listens to queued requests and processes them.
+
+  Requests are processed in order of priority, then FIFO.
+
+  Returns a core.async channel which will close when the server is stopped."
+  [config]
+  (reset! *server-running? true)
+  (thread
+    (loop [request @(first (alts!! [=job-queue= =stand-by-queue=] :priority true))]
       (log-str "Processing request: " request)
       (let [[status status-msg] (process-request! request config)]
         (log-str "-> " status-msg)
         (if (= (:type request) :active-fire)
           (send-geosync-request! request config)
           (send-gridfire-response! request config status status-msg)))
-      (when @server-running?
-        (recur @(first (alts! [job-queue stand-by-queue] :priority true)))))))
+      (when @*server-running?
+        (recur @(first (alts!! [=job-queue= =stand-by-queue=] :priority true)))))))
 
 (defn- maybe-add-to-queue! [request]
-  (go
-   (try
-     (if (spec/valid? ::server-spec/gridfire-server-request request)
-       (do (>! job-queue request)
-           [2 (format "Added to job queue. You are number %d in line." @job-queue-size)])
-       [1 (str "Invalid request: " (spec/explain-str ::server-spec/gridfire-server-request request))])
-     (catch AssertionError _
-       [1 "Job queue limit exceeded! Dropping request!"])
-     (catch Exception e
-       [1 (str "Validation error: " (ex-message e))]))))
+  (try
+    (if (spec/valid? ::server-spec/gridfire-server-request request)
+      (do (>!! =job-queue= request)
+          [2 (format "Added to job queue. You are number %d in line." @*job-queue-size)])
+      [1 (str "Invalid request: " (spec/explain-str ::server-spec/gridfire-server-request request))])
+    (catch AssertionError _
+      [1 "Job queue limit exceeded! Dropping request!"])
+    (catch Exception e
+      [1 (str "Validation error: " (ex-message e))])))
 
-(defn- handler! [config request-msg]
-  (go
+(defn- parse-request-msg
+  "Parses the given JSON-encoded request message, returning a request map (or nil in case of invalid JSON)."
+  [request-msg]
+  (-> request-msg
+      (json/read-str :key-fn (comp keyword camel->kebab))
+      (nil-on-error)))
+
+;; Logically speaking, this function does (process-request! (parse-request-msg request-msg) config).
+;; However, in order to both limit the load and send progress-notification responses before completion,
+;; the handling goes through various queues and worker threads.
+(defn- schedule-handling! [config request-msg]
+  (thread
     (log-str "Request: " request-msg)
-    (if-let [request (-> request-msg
-                         (json/read-str :key-fn (comp keyword camel->kebab))
-                         (nil-on-error))]
+    (if-let [request (parse-request-msg request-msg)]
       (let [[status status-msg] (maybe-add-to-queue! request)]
         (log-str "-> " status-msg)
         (send-gridfire-response! request config status status-msg))
@@ -194,11 +220,11 @@
 (defn start-server! [{:keys [log-dir port] :as config}]
   (when log-dir (set-log-path! log-dir))
   (log-str "Running server on port " port)
-  (active-fire-watcher/start! config stand-by-queue)
-  (sockets/start-server! port (partial handler! config))
-  (process-requests! config))
+  (active-fire-watcher/start! config =stand-by-queue=)
+  (sockets/start-server! port (fn [request-msg] (schedule-handling! config request-msg)))
+  (process-requests-loop! config))
 
 (defn stop-server! []
-  (reset! server-running? false)
+  (reset! *server-running? false)
   (sockets/stop-server!)
   (active-fire-watcher/stop!))
