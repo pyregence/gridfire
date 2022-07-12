@@ -409,19 +409,24 @@
 (def regex-for-array-item #"^[A-Z0-9\_]+\(\d+\)")
 
 (defn convert-key [s]
-  (if (re-matches regex-for-array-item s)
-    (str/join "-" (str/split s #"[\(\)]"))
-    s))
+  (when (seq s)
+    (let [s-trimmed (str/trim s)]
+     (if (re-matches regex-for-array-item s-trimmed)
+       (str/join "-" (str/split s-trimmed #"[\(\)]"))
+       s-trimmed))))
 
 (defn convert-val [s]
-  (cond
-    (re-matches #"^-?[0-9]\d*\.(\d+)?$" s) (Double/parseDouble s)
-    (re-matches #"^-?\d+$" s)              (Integer/parseInt s)
-    (re-matches #".TRUE." s)               true
-    (re-matches #".FALSE." s)              false
-    (re-matches #"'[0-9a-zA-Z_.//]*'" s)   (subs s 1 (dec (count s)))
-    (str/includes? s "proj")               (get-srid (subs s 1 (dec (count s))))
-    :else                                  nil))
+  (when (seq s)
+    (let [s-trimmed  (str/trim s)
+          char-count (count s-trimmed)]
+      (cond
+        (re-matches #"^-?[0-9]\d*\.(\d+)?$" s-trimmed) (Double/parseDouble s-trimmed)
+        (re-matches #"^-?\d+$" s-trimmed)              (Integer/parseInt s-trimmed)
+        (re-matches #".TRUE." s-trimmed)               true
+        (re-matches #".FALSE." s-trimmed)              false
+        (re-matches #"'[0-9a-zA-Z_.//]*'" s-trimmed)   (subs s-trimmed 1 (dec char-count))
+        (str/includes? s-trimmed "proj")               (get-srid (subs s-trimmed 1 (dec char-count)))
+        :else                                          nil))))
 
 (defn parse-elmfire [s]
   (transduce (comp
@@ -430,8 +435,8 @@
              (completing
               (fn [acc [k v]]
                 (assoc acc
-                       (convert-key (str/trim k))
-                       (convert-val (str/trim v)))))
+                       (convert-key k)
+                       (convert-val v))))
              (sorted-map)
              (str/split s #"\n")))
 
