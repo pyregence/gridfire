@@ -409,14 +409,14 @@
 (def regex-for-array-item #"^[A-Z0-9\_]+\(\d+\)")
 
 (defn convert-key [s]
-  (when (seq s)
+  (when (string? s)
     (let [s-trimmed (str/trim s)]
      (if (re-matches regex-for-array-item s-trimmed)
        (str/join "-" (str/split s-trimmed #"[\(\)]"))
        s-trimmed))))
 
 (defn convert-val [s]
-  (when (seq s)
+  (when (string? s)
     (let [s-trimmed  (str/trim s)
           char-count (count s-trimmed)]
       (cond
