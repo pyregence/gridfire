@@ -3,7 +3,7 @@
             [clojure.java.io         :as io]
             [clojure.string          :as str]
             [gridfire.common         :refer [burnable-fuel-model?]]
-            [gridfire.conversion     :refer [conversion-table percent->dec]]
+            [gridfire.conversion     :refer [conversion-table ms->min percent->dec]]
             [gridfire.fetch          :as fetch]
             [gridfire.postgis-bridge :refer [with-db-connection-pool]]
             [gridfire.utils.random   :refer [draw-samples my-shuffle my-rand-nth]]
@@ -280,8 +280,17 @@
 
 (defn add-burn-period-params
   [{:keys [burn-period] :as inputs}]
-  (let [{:keys [weather-data-start-timestamp start end]} burn-period]
-   (-> inputs
-       (assoc :burn-period-start (or start "00:00"))
-       (assoc :burn-period-end   (or end   "24:00"))
-       (assoc :weather-data-start-timestamp (or weather-data-start-timestamp #inst "1970-01-01T00:00:00")))))
+  (let [{:keys [start end]} burn-period]
+    (-> inputs
+        (assoc :burn-period-start (or start "00:00"))
+        (assoc :burn-period-end   (or end   "24:00")))))
+
+(defn add-ignition-start-time
+  [{:keys [ignition-start-timestamp weather-start-timestamp simulations rand-gen] :as inputs}]
+  (if (and ignition-start-timestamp weather-start-timestamp)
+    (let [ignition-start-time (-> (- (double (inst-ms ignition-start-timestamp))
+                                     (double (inst-ms weather-start-timestamp)))
+                                  ms->min)]
+      (-> inputs
+          (assoc :ignition-start-times (draw-samples rand-gen simulations ignition-start-time))))
+    inputs))

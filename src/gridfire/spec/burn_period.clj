@@ -18,7 +18,8 @@
 
 (s/def ::burn-period
   (s/and (s/keys  :req-un [::start ::end ::weather-data-start-timestamp])
-         valid-burn-period-range?))
+         ::weather-start-timestamp
+         ::ignition-start-timestamp))
 
 ;; Test
 #_(s/explain ::burn-period {:start                        "08:00"
