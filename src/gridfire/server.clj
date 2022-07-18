@@ -7,6 +7,7 @@
   there's no resilience to JVM crashes, and you can't scale out to several worker processes behind the job queue.)"
   (:require [clojure.core.async           :refer [>!! alts!! chan thread]]
             [clojure.data.json            :as json]
+            [clojure.pprint               :refer [pprint]]
             [clojure.java.io              :as io]
             [clojure.java.shell           :as sh]
             [clojure.spec.alpha           :as spec]
@@ -18,7 +19,11 @@
             [gridfire.spec.server         :as server-spec]
             [gridfire.utils.server        :refer [nil-on-error throw-message]]
             [triangulum.logging           :refer [log log-str set-log-path!]]
-            [triangulum.utils             :refer [parse-as-sh-cmd]]))
+            [triangulum.utils             :refer [parse-as-sh-cmd]]
+            [clojure.edn :as edn])
+  (:import java.text.SimpleDateFormat
+           java.util.Calendar
+           java.util.TimeZone))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -59,6 +64,38 @@
     (sockets/send-to-server! response-host
                              response-port
                              (build-gridfire-response request config status status-msg))))
+
+;;=============================================================================
+;; Process override-config
+;;=============================================================================
+
+(defn- add-ignition-time [config ignition-time]
+  (assoc config :ignition-start-timestamp ignition-time))
+
+(defn- calc-weather-start-timestamp [ignition-date-time]
+  (doto (Calendar/getInstance (TimeZone/getTimeZone "UTC"))
+    (.setTime ignition-date-time)
+    (.set Calendar/MINUTE 0)))
+
+(defn- add-weather-start-timestamp
+  [{:keys [burn-period] :as _config} ignition-date-time]
+  (if burn-period
+    (assoc _config :weather-start-timestamp (calc-weather-start-timestamp ignition-date-time))
+    _config))
+
+(defn- write-config! [output-file config]
+  (println "Writing to config file:" output-file)
+  (with-open [writer (io/writer output-file)]
+    (pprint config writer)))
+
+(defn- process-override-config! [{:keys [ignition-time] :as _request} file]
+  (let [formatter          (SimpleDateFormat. "yyyy-MM-dd HH:mm zzz")
+        ignition-date-time (.parse formatter ignition-time)
+        config             (edn/read-string (slurp file))]
+    (write-config! file
+                   (-> config
+                       (add-ignition-time ignition-date-time)
+                       (add-weather-start-timestamp ignition-date-time)))))
 
 ;;=============================================================================
 ;; Shell Commands
@@ -130,7 +167,9 @@
           gridfire-edn-file   (.getPath (io/file input-deck-path "gridfire.edn"))
           gridfire-output-dir (.getPath (io/file input-deck-path "outputs"))
           {:keys [err out]}   (if override-config
-                                (sh/sh "resources/elm_to_grid.clj" "-e" elmfire-data-file "-o" override-config)
+                                (do
+                                  (process-override-config! request override-config)
+                                  (sh/sh "resources/elm_to_grid.clj" "-e" elmfire-data-file "-o" override-config))
                                 (sh/sh "resources/elm_to_grid.clj" "-e" elmfire-data-file))]
       (if err
         (log-str out "\n" err)
