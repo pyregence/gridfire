@@ -176,6 +176,12 @@
   [^double minutes]
   (* minutes 60.0))
 
+(defn ms->min
+  "Convert miliseconds to minutes."
+  ^double
+  [^double milliseconds]
+  (* milliseconds 0.000016667))
+
 (defn hour->min
   "Converts hours to minutes."
   ^double
