@@ -219,7 +219,7 @@
 (s/def ::output-flame-length-sum? boolean?)
 
 ;;=============================================================================
-;; Burn period
+;; Burn Period
 ;;=============================================================================
 
 (s/def ::burn-period-required-keys
@@ -228,17 +228,19 @@
         (and ignition-start-timestamp weather-start-timestamp))))
 
 ;;=============================================================================
-;; timestamps
+;; Timestamps
 ;;=============================================================================
 
-(defn- isBefore [t1 t2]
+(defn- not-after? [t1 t2]
   (<= (inst-ms t1) (inst-ms t2)))
 
 (s/def ::valid-timestamps
   (fn [{:keys [ignition-start-timestamp weather-start-timestamp]}]
     (or
      (every? nil? [ignition-start-timestamp weather-start-timestamp])
-     (isBefore weather-start-timestamp ignition-start-timestamp))))
+     (and weather-start-timestamp
+          ignition-start-timestamp
+          (not-after? weather-start-timestamp ignition-start-timestamp)))))
 
 ;;=============================================================================
 ;; Config Map
