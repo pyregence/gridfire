@@ -346,7 +346,6 @@
      ^double cell-size
      ^double ignition-start-time
      ignition-start-timestamp
-     weather-data-start-timestamp
      burn-period-start
      burn-period-end
      ^double max-runtime
