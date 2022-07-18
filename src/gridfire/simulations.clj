@@ -571,8 +571,6 @@
      get-foliar-moisture
      spotting])
 
-(require 'sc.api)
-
 (defn run-simulation!
   [^long i
    {:keys
