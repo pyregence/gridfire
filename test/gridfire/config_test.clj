@@ -158,8 +158,6 @@
                      config/parse-elmfire)
         results (config/extract-perturbations config)]
 
-    (is (s/valid? ::spec/perturbations results))
-
     (is (= {:wind-speed-20ft {:spatial-type :global :range [-2.0 2.0]}
             :wind-direction  {:spatial-type :global :range [-7.5 7.5]}
             :canopy-cover    {:spatial-type :global :range [-0.05 0.05]}

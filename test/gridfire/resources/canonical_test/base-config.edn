@@ -44,13 +44,8 @@
  :foliar-moisture     0  ; (%)
  :grass-suppression?  true
 
- :perturbations ;; FIXME remove after demo (convert to unit test)
- {:temperature {:spatial-type :smoothed-supergrid
-                ;; Supergrid size param: # of subdivisions along each of the (b, i, j) axes
-                ;; For a value of [sb si sj], the number of supergrid points will be (sb + 2)(si + 2) (sj + 2).
-                ;; Recommendation: stick to small integers to avoid making the perturbation too wiggly.
-                :gridfire.perturbation.smoothed-supergrid/supergrid-size [2 3 3]
-                :range [-10. 10.]}}
+ :perturbations {:temperature {:spatial-type :global
+                               :range        [-10. 10.]}}
 
  ;; Section 4: Number of simulations and (optional) random seed parameter
  :max-runtime               1440 ; 24 hrs   ; (minutes)
