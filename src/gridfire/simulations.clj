@@ -6,6 +6,7 @@
             [gridfire.fire-spread-optimal                 :refer [run-fire-spread]]
             [gridfire.outputs                             :as outputs]
             [gridfire.perturbations.pixel.hash-determined :as pixel-hdp]
+            [gridfire.utils.gaussian-processes            :as gridfire-gp]
             [gridfire.utils.random                        :refer [my-rand-range]]
             [taoensso.tufte                               :as tufte]
             [tech.v3.datatype                             :as d]
@@ -204,6 +205,105 @@
                   (str "-index-multiplier")
                   keyword)))
 
+(defn- update-covariant-groups
+  [inputs f]
+  (update inputs :gridfire.perturbations/covariant-groups
+    (fn [cgs]
+      (reduce-kv
+        (fn [cgs cg-name cg]
+          (assoc cgs
+            cg-name
+            (f cg-name cg)))
+        cgs
+        cgs))))
+
+(defn prepare-covariant-groups-samplers
+  [inputs]
+  (-> inputs
+      (update-covariant-groups
+        (fn [_cg-name cg]
+          (let [phys-q->stddev   (->> (:perturbations inputs)
+                                      (map
+                                        (fn [[q pert]]
+                                          [q (-> pert :gridfire.pertubation/std-dev (or 1.))]))
+                                      (into {}))
+                corr-m           (:gridfire.pertubations/correlation-matrix cg)
+                phys-qi->qj->cov (->> (:gridfire.pertubations/covariant-quantities cg)
+                                      (map-indexed
+                                        (fn [^long i qi]
+                                          [qi
+                                           (->> (:gridfire.pertubations/covariant-quantities cg)
+                                                (map-indexed
+                                                  (fn [^long j qj]
+                                                    [qj
+                                                     (-> (or
+                                                           (get-in corr-m [i j])
+                                                           (get-in corr-m [j i])
+                                                           (when (= i j) 1.))
+                                                         (double)
+                                                         (* (double (get phys-q->stddev qi)))
+                                                         (* (double (get phys-q->stddev qj))))]))
+                                                (into {}))]))
+                                      (into {}))
+                phys-cov-fn      (fn ^double [qi qj]
+                                   (-> phys-qi->qj->cov (get qi) (get qj)))
+
+                {:keys [num-rows num-cols max-runtime cell-size]} inputs
+                max-b            (/ (double max-runtime) 60.)
+                [sb si sj] (:gridfire.perturbation.smoothed-supergrid/supergrid-size cg)
+                [ppsc-b ppsc-i ppsc-j] (mapv
+                                         (fn pixels-per-supergrid-cell [s m] (/ (double m) (long s)))
+                                         [sb si sj]
+                                         [max-b num-rows num-cols])]
+            (assoc cg
+              :gridfire.perturbations/supergrid-sampler-fn
+              (gridfire-gp/multiplicative-gaussian-process-sampler
+                [[(:gridfire.pertubations/covariant-quantities cg) phys-cov-fn]
+                 [(vec
+                    (for [kb (range 0 (+ (long sb) 2))]
+                      (* (long kb) (double ppsc-b) 60.)))
+                  (gridfire-gp/kernel-from-correlation-config (:gridfire.pertubations/temporal-correlations cg))]
+                 [(vec
+                    (for [ki (range 0 (+ (long si) 2))
+                          kj (range 0 (+ (long sj) 2))]
+                      (gridfire-gp/->Point2D
+                        (* (long ki) (double ppsc-i) (double cell-size))
+                        (* (long kj) (double ppsc-j) (double cell-size)))))
+                  (gridfire-gp/kernel-from-correlation-config (:gridfire.pertubations/spatial-correlations cg))]]
+                cg)))))
+      (update :perturbations
+        (fn [q->pert]
+          (reduce-kv
+            (fn [q->p cg-name cg]
+              (reduce-kv
+                (fn [q->p q-pos q]
+                  (update q->p q
+                    (fn [pert]
+                      (assoc pert
+                        :gridfire.pertubation/covariant-group cg-name
+                        :gridfire.perturbation/q-index q-pos))))
+                q->p
+                (:gridfire.pertubations/covariant-quantities cg)))
+            q->pert
+            (:gridfire.perturbations/covariant-groups inputs))))))
+
+(defn add-sampled-covariant-supergrids
+  [inputs rand-gen]
+  (-> inputs
+      (update-covariant-groups
+        (fn [_cg-name cg]
+          (let [sample-supergrid (:gridfire.perturbations/supergrid-sampler-fn cg)
+                [_sb si sj]      (:gridfire.perturbation.smoothed-supergrid/supergrid-size cg)]
+            (assoc cg
+              :gridfire.perturbation.smoothed-supergrid/offsets (repeatedly 3 #(my-rand-range rand-gen 0. 1.))
+              :gridfire.perturbations/sampled-supergrid
+              (->
+                (sample-supergrid rand-gen)
+                (as-> sampled-t
+                  (let [shp-flat-space (vec (d/shape sampled-t))
+                        shp-2d-space   (into (pop shp-flat-space) [(+ (long si) 2) (+ (long sj) 2)])]
+                    (t/reshape sampled-t shp-2d-space))))))))))
+
 (def n-buckets 1024)
 
 (defn- get-value-fn
@@ -255,7 +355,9 @@
         (= spatial-type :smoothed-supergrid)
         (let [{:keys [num-rows num-cols max-runtime]} inputs
               max-b              (/ (double max-runtime) 60.)
-              [sb si sj] (:gridfire.perturbation.smoothed-supergrid/supergrid-size pert)
+              [sb si sj] (if-some [cg-name (:gridfire.pertubation/covariant-group pert)]
+                           (get-in inputs [:gridfire.perturbations/covariant-groups cg-name :gridfire.perturbation.smoothed-supergrid/supergrid-size])
+                           (:gridfire.perturbation.smoothed-supergrid/supergrid-size pert))
               [ppsc-b ppsc-i ppsc-j] (mapv
                                        (fn pixels-per-supergrid-cell [s m] (/ (double m) (long s)))
                                        [sb si sj]
@@ -263,23 +365,31 @@
               ppsc-b             (double ppsc-b)
               ppsc-i             (double ppsc-i)
               ppsc-j             (double ppsc-j)
-              gen-sampled-grid   (reduce
-                                   (fn [g s]
-                                     (fn gen-tensor []
-                                       (vec (repeatedly s g))))
-                                   #(gen-perturbation nil)
-                                   (reverse
-                                     (map
-                                       (fn [s] (+ (long s) 2))
-                                       [sb si sj])))
-
-              sampled-grid       (t/->tensor (gen-sampled-grid))
+              sampled-grid       (if-some [cg-name (:gridfire.pertubation/covariant-group pert)]
+                                   (->
+                                     inputs
+                                     (get-in [:gridfire.perturbations/covariant-groups cg-name
+                                              :gridfire.perturbations/sampled-supergrid])
+                                     (t/mget (:gridfire.perturbation/q-index pert)))
+                                   (let [gen-data (reduce
+                                                    (fn [g s]
+                                                      (fn gen-tensor []
+                                                        (vec (repeatedly s g))))
+                                                    #(gen-perturbation nil)
+                                                    (reverse
+                                                      (map
+                                                        (fn [s] (+ (long s) 2))
+                                                        [sb si sj])))]
+                                     (t/->tensor (gen-data))))
               ;; Why offset the supergrid? Pixels in the interior of supergrid cells
               ;; tend to have different distributions (less variance, smoother local variation)
               ;; than those near the boundaries.
               ;; Randomly offsetting ensures that all cells have an equal change
               ;; of being near the supergrid cell boundaries.
-              offsets            (repeatedly 3 #(my-rand-range (:rand-gen inputs) 0. 1.))
+              offsets            (if-some [cg-name (:gridfire.pertubation/covariant-group pert)]
+                                   (get-in inputs [:gridfire.perturbations/covariant-groups cg-name
+                                                   :gridfire.perturbation.smoothed-supergrid/offsets])
+                                   (repeatedly 3 #(my-rand-range (:rand-gen inputs) 0. 1.)))
               [o-b o-i o-j] offsets
               o-b (double o-b)
               o-i (double o-i)
@@ -461,6 +571,8 @@
      get-foliar-moisture
      spotting])
 
+(require 'sc.api)
+
 (defn run-simulation!
   [^long i
    {:keys
@@ -471,6 +583,7 @@
   (tufte/profile
    {:id :run-simulation}
    (let [rand-gen            (if random-seed (Random. (+ ^long random-seed i)) (Random.))
+         inputs              (add-sampled-covariant-supergrids inputs rand-gen)
          simulation-inputs   {:num-rows                          num-rows
                               :num-cols                          num-cols
                               :cell-size                         cell-size

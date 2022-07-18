@@ -59,7 +59,8 @@
       (inputs/add-fuel-moisture-params)
       (inputs/add-random-ignition-sites)
       (inputs/add-aggregate-matrices)
-      (inputs/add-burn-period-params)))
+      (inputs/add-burn-period-params)
+      (simulations/prepare-covariant-groups-samplers)))
 
 (defn load-config!
   [config-file-path]

@@ -8,7 +8,9 @@
 
 ;; FIXME: Define a ::units field since it is added by gridfire.config/convert-config! and elm_to_grid.clj
 (s/def ::perturbation
-  (s/keys :req-un [::spatial-type ::range]))
+  (s/keys :req-un [::spatial-type] :opt-un [::range]))
+
+;; TODO smoothed-supergrid perturbations and covariant-groups (Val, 18 Jul 2022)
 
 (s/def ::canopy-base-height            ::perturbation)
 (s/def ::canopy-cover                  ::perturbation)
