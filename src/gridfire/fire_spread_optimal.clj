@@ -1,5 +1,6 @@
 (ns gridfire.fire-spread-optimal
-  (:require [gridfire.common               :refer [burnable-cell?
+  (:require [clojure.string                :as s]
+            [gridfire.common               :refer [burnable-cell?
                                                    burnable-fuel-model?
                                                    calc-fuel-moisture
                                                    compute-terrain-distance
@@ -19,11 +20,9 @@
                                                    byram-fire-line-intensity
                                                    byram-flame-length
                                                    wind-adjustment-factor]]
-            [taoensso.tufte                :as tufte]
             [tech.v3.datatype              :as d]
             [tech.v3.datatype.functional   :as dfn]
-            [tech.v3.tensor                :as t]
-            [clojure.string                :as s])
+            [tech.v3.tensor                :as t])
   (:import java.time.ZoneId
            java.util.Date))
 
@@ -723,7 +722,8 @@
         max-runtime                      (double (:max-runtime inputs))
         ignition-start-time              (double (:ignition-start-time inputs))
         ignition-stop-time               (+ ignition-start-time max-runtime)
-        ignition-start-timestamp         (-> (.toInstant (:ignition-start-timestamp inputs))
+        ignition-start-timestamp         (-> ^Date (:ignition-start-timestamp inputs)
+                                             (.toInstant)
                                              (.atZone (ZoneId/of "UTC")))
         ignition-start-time-min-into-day (+ (hour->min (.getHour ignition-start-timestamp))
                                             (double (.getMinute ignition-start-timestamp)))

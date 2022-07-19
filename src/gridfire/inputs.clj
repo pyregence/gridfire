@@ -285,12 +285,11 @@
         (assoc :burn-period-start (or start "00:00"))
         (assoc :burn-period-end   (or end   "24:00")))))
 
-(defn add-ignition-start-time
-  [{:keys [ignition-start-timestamp weather-start-timestamp simulations rand-gen] :as inputs}]
+(defn add-ignition-start-times
+  [{:keys [ignition-start-timestamp weather-start-timestamp simulations] :as inputs}]
   (if (and ignition-start-timestamp weather-start-timestamp)
-    (let [ignition-start-time (-> (- (double (inst-ms ignition-start-timestamp))
-                                     (double (inst-ms weather-start-timestamp)))
-                                  ms->min)]
+    (let [ignition-start-time (ms->min (- (double (inst-ms ignition-start-timestamp))
+                                          (double (inst-ms weather-start-timestamp))))]
       (-> inputs
-          (assoc :ignition-start-times (draw-samples rand-gen simulations ignition-start-time))))
+          (assoc :ignition-start-times (repeat simulations ignition-start-time))))
     inputs))
