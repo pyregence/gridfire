@@ -7,9 +7,10 @@
   there's no resilience to JVM crashes, and you can't scale out to several worker processes behind the job queue.)"
   (:require [clojure.core.async           :refer [>!! alts!! chan thread]]
             [clojure.data.json            :as json]
-            [clojure.pprint               :refer [pprint]]
+            [clojure.edn                  :as edn]
             [clojure.java.io              :as io]
             [clojure.java.shell           :as sh]
+            [clojure.pprint               :refer [pprint]]
             [clojure.spec.alpha           :as spec]
             [clojure.string               :as str]
             [gridfire.active-fire-watcher :as active-fire-watcher]
@@ -19,8 +20,7 @@
             [gridfire.spec.server         :as server-spec]
             [gridfire.utils.server        :refer [nil-on-error throw-message]]
             [triangulum.logging           :refer [log log-str set-log-path!]]
-            [triangulum.utils             :refer [parse-as-sh-cmd]]
-            [clojure.edn :as edn])
+            [triangulum.utils             :refer [parse-as-sh-cmd]])
   (:import java.text.SimpleDateFormat
            java.util.Calendar
            java.util.TimeZone))
@@ -69,22 +69,19 @@
 ;; Process override-config
 ;;=============================================================================
 
-(defn- add-ignition-time [config ignition-time]
-  (assoc config :ignition-start-timestamp ignition-time))
+(defn- add-ignition-start-timestamp [config ignition-date-time]
+  (assoc config :ignition-start-timestamp ignition-date-time))
 
 (defn- calc-weather-start-timestamp [ignition-date-time]
   (doto (Calendar/getInstance (TimeZone/getTimeZone "UTC"))
     (.setTime ignition-date-time)
     (.set Calendar/MINUTE 0)))
 
-(defn- add-weather-start-timestamp
-  [{:keys [burn-period] :as _config} ignition-date-time]
-  (if burn-period
-    (assoc _config :weather-start-timestamp (calc-weather-start-timestamp ignition-date-time))
-    _config))
+(defn- add-weather-start-timestamp [config ignition-date-time]
+  (assoc config :weather-start-timestamp (calc-weather-start-timestamp ignition-date-time)))
 
 (defn- write-config! [output-file config]
-  (println "Writing to config file:" output-file)
+  (log-str "Writing to config file: " output-file)
   (with-open [writer (io/writer output-file)]
     (pprint config writer)))
 
@@ -94,7 +91,7 @@
         config             (edn/read-string (slurp file))]
     (write-config! file
                    (-> config
-                       (add-ignition-time ignition-date-time)
+                       (add-ignition-start-timestamp ignition-date-time)
                        (add-weather-start-timestamp ignition-date-time)))))
 
 ;;=============================================================================
