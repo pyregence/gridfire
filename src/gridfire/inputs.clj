@@ -290,6 +290,5 @@
   (if (and ignition-start-timestamp weather-start-timestamp)
     (let [ignition-start-time (ms->min (- (double (inst-ms ignition-start-timestamp))
                                           (double (inst-ms weather-start-timestamp))))]
-      (-> inputs
-          (assoc :ignition-start-times (repeat simulations ignition-start-time))))
-    inputs))
+      (assoc inputs :ignition-start-times (repeat simulations ignition-start-time)))
+    (assoc inputs :ignition-start-timestamp #inst "1970-01-01T00:00:00"))) ; adding no-op value for required parameter
