@@ -16,6 +16,8 @@
 
 ;; Weather
 
+(s/def ::weather-start-timestamp inst?)
+
 (s/def ::weather
   (s/or :matrix ::common/layer-coords
         :global ::common/number-sample))
@@ -74,6 +76,7 @@
 
 ;; Ignitions
 
+(s/def ::ignition-start-timestamp inst?)
 (s/def ::ignition-row ::common/integer-sample)
 (s/def ::ignition-col ::common/integer-sample)
 
@@ -216,6 +219,30 @@
 (s/def ::output-flame-length-sum? boolean?)
 
 ;;=============================================================================
+;; Burn Period
+;;=============================================================================
+
+(s/def ::burn-period-required-keys
+  (fn [{:keys [burn-period ignition-start-timestamp weather-start-timestamp]}]
+    (or (nil? burn-period)
+        (and ignition-start-timestamp weather-start-timestamp))))
+
+;;=============================================================================
+;; Timestamps
+;;=============================================================================
+
+(defn- not-after? [t1 t2]
+  (<= (inst-ms t1) (inst-ms t2)))
+
+(s/def ::valid-timestamps
+  (fn [{:keys [ignition-start-timestamp weather-start-timestamp]}]
+    (or
+     (every? nil? [ignition-start-timestamp weather-start-timestamp])
+     (and weather-start-timestamp
+          ignition-start-timestamp
+          (not-after? weather-start-timestamp ignition-start-timestamp)))))
+
+;;=============================================================================
 ;; Config Map
 ;;=============================================================================
 
@@ -230,7 +257,7 @@
              ::wind-from-direction
              ::landfire-layers]
     :opt-un [::max-runtime
-             ::burn-period
+             ::burn-period/burn-period
              ::simulations
              ::random-seed
              ::ellipse-adjustment-factor
@@ -241,6 +268,8 @@
              ::ignition-col
              ::ignition-layer
              ::ignition-csv
+             ::ignition-start-timestamp
+             ::weather-start-timestamp
              ::random-ignition
              ::relative-humidity
              ::fuel-moisture
@@ -262,4 +291,6 @@
    ::ignition-layer-or-ignition-csv
    ::max-runtime-or-ignition-csv
    ::simulations-or-ignition-csv
-   ::rh-or-fuel-moisture))
+   ::rh-or-fuel-moisture
+   ::burn-period-required-keys
+   ::valid-timestamps))
