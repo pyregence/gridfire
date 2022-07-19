@@ -4148,6 +4148,11 @@ config is as follows:
  :end                          "20:00"
  :weather-data-start-timestamp #inst "1970-01-01T00:00:00"}
 #+end_src
+
+The pre-processing script at `resources/burn_period_from_sunrise_sunset.clj`
+may be used to transform GridFire configuration files so that the `:burn-period`
+is resolved from (approximate) sunrise and sunset hours.
+
 * Example Configuration files
 
 Here is a complete sample configuration for using landfire layers from our postigs enabled
