@@ -60,7 +60,7 @@
       (inputs/add-random-ignition-sites)
       (inputs/add-aggregate-matrices)
       (inputs/add-burn-period-params)
-      (inputs/add-ignition-start-times))
+      (inputs/add-ignition-start-times)))
 
 (defn load-config!
   [config-file-path]
