@@ -40,8 +40,8 @@
      {"action"             "add"
       "dataDir"            (format "/var/www/html/fire_spread_forecast/%s/%s" fire-name timestamp)
       "geoserverWorkspace" (format "fire-spread-forecast_%s_%s" fire-name timestamp)
-      "responseHost"       "some.dead.org"
-      "responsePort"       12345})))
+      "responseHost"       "localhost"
+      "responsePort"       5555})))
 
 ;; FIXME: Pass the geosync-server-config values in through gridfire.cli rather than hardcoding them.
 (defn- send-geosync-request! [request]
