@@ -1,4 +1,7 @@
 (ns gridfire.suppression
+  "An algorithm emulating human interventions reacting to fire spread
+  by suppressing ('putting out') chosen contiguous segments of the
+  fire front, typically backing and flanking fires."
   (:require [gridfire.conversion :refer [rad->deg]]))
 
 (set! *unchecked-math* :warn-on-boxed)
@@ -18,31 +21,46 @@
     (/ (- (* avg-old count-old) (* avg-to-remove count-of-avg-to-remove))
        (- count-old count-of-avg-to-remove))))
 
+;; NOTE In the, unlikely, case that multiple contiguous bin-degree segments that
+;; satisfy our num-cellst-to-suppress that have the same average
+;; spread rate value, The entrie that is kept in the map will the the
+;; segment that was proccessed the latest.
 (defn- compute-contiguous-bins
-  "Return a sorted map of avg-dsr -> [list-of-bins cell-count]
-  given number of cells to suppress and a map of average directional
-  spread rate data with the form: degree-bins -> [average-dsr cell-count]"
-  [^long num-cells-to-suppress avg-dsr-data]
+  "Given number of cells to suppress and a map of average directional spread
+  rate data with the form: angular-slices -> [average-dsr cell-count] return a
+  sorted map where each map entry:
+
+  [`avg-dsr` [`list-of-bins` `cell-count`]]
+
+  represents a contiguous segment of the fire front, which we locate
+  by `list-of-bins`, the list of successive degree bins covering it; cell-count
+  represents the number of active perimiter cells in that segment, with
+  `cell-count` no smaller than num-cells-to-suppress, but possibly bigger. Note
+  that the returned segments will tend to overlap - think of a sliding window of
+  (up to num-cells-to-suppress) contiguous active cells, rotating around the
+  centroid: the segments returned by this function are regular snapshots of this
+  window."
+  [^long num-cells-to-suppress angular-slice->avg-dsr+num-cells]
   (loop [sorted-contiguous-bins (sorted-map)
-         bin-data               (into [] (seq avg-dsr-data))
+         bin-data               (into [] (seq angular-slice->avg-dsr+num-cells))
          cur-contiguous-bins    '()
          cur-dsr                0
          cur-count              0
-         i                      -1
-         j                      0]
+         left-idx               -1
+         right-idx              0]
     (cond
 
-      (= i 0)
+      (= left-idx 0)
       sorted-contiguous-bins
 
       ;; Do not include already suppressed regions in the longest
       ;; contiguous bin calculation.
-      (let [[_ [_ cell-count]] (nth bin-data j)
+      (let [[_ [_ cell-count]] (nth bin-data right-idx)
             cell-count         (double cell-count)]
         (and (< cur-count num-cells-to-suppress) (zero? cell-count)))
-      (let [next-j (if (= j (dec (count bin-data)))
-                     0
-                     (+ j 1))]
+      (let [next-right-idx (if (= right-idx (dec (count bin-data)))
+                             0
+                             (+ right-idx 1))]
         (recur (if (seq cur-contiguous-bins)
                  (assoc sorted-contiguous-bins cur-dsr [cur-contiguous-bins cur-count])
                  sorted-contiguous-bins)
@@ -50,26 +68,26 @@
                '()
                0
                0
-               (if (< j i) 0 next-j)
-               next-j))
+               (if (< right-idx left-idx) 0 next-right-idx)
+               next-right-idx))
 
       (< cur-count num-cells-to-suppress)
       ;; expand right
-      (let [[bin [avg-dsr cell-count]] (nth bin-data j)
+      (let [[bin [avg-dsr cell-count]] (nth bin-data right-idx)
             cell-count                 (long cell-count)]
         (recur sorted-contiguous-bins
                bin-data
                (conj cur-contiguous-bins bin)
                (combine-average cur-dsr cur-count avg-dsr cell-count)
                (+ cur-count cell-count)
-               i
-               (if (= j (dec (count bin-data)))
+               left-idx
+               (if (= right-idx (dec (count bin-data)))
                  0
-                 (+ j 1))))
+                 (+ right-idx 1))))
 
       :else
       ;; shrink left
-      (let [[_ [avg-dsr cell-count]] (nth bin-data (if (= -1 i) 0 i))
+      (let [[_ [avg-dsr cell-count]] (nth bin-data (if (= -1 left-idx) 0 left-idx))
             cell-count               (long cell-count)]
         (recur (assoc sorted-contiguous-bins cur-dsr [cur-contiguous-bins cur-count])
                bin-data
@@ -78,33 +96,38 @@
                (- cur-count cell-count)
                (long
                 (cond
-                  (= i (dec (count bin-data))) 0
-                  (= -1 i)                     1
-                  :else                        (+ i 1)))
-               j)))))
+                  (= left-idx (dec (count bin-data))) 0
+                  (= -1 left-idx)                     1
+                  :else                               (+ left-idx 1)))
+               right-idx)))))
 
 (defn- compute-sub-segment
-  [grouped-burn-vectors bins cells-needed]
-  (let [bins                  (set bins)
-        avg-dsr-data          (reduce (fn [acc [bin avg-dsr-data]]
-                                        (if (contains? bins bin)
-                                          (assoc acc bin avg-dsr-data)
-                                          (assoc acc bin [0.0 0.0]))) ;; Needed because the segment should not be treated as circular list
-                                      (sorted-map)
-                                      grouped-burn-vectors)
-        contiguous-bins       (compute-contiguous-bins cells-needed avg-dsr-data)
-        [_ [bins cell-count]] (first contiguous-bins)]
+  [bin->BurnVectors bins cells-needed]
+  (let [bins                             (set bins)
+        angular-slice->avg-dsr+num-cells (reduce (fn [acc [bin angular-slice->avg-dsr+num-cells]]
+                                                   (if (contains? bins bin)
+                                                     (assoc acc bin angular-slice->avg-dsr+num-cells)
+                                                     (assoc acc bin [0.0 0.0]))) ;; Needed because the segment should not be treated as circular list
+                                                 (sorted-map)
+                                                 bin->BurnVectors)
+        contiguous-bins                  (compute-contiguous-bins cells-needed angular-slice->avg-dsr+num-cells)
+        [_ [bins cell-count]]            (first contiguous-bins)]
     [bins cell-count]))
 
 (defn- compute-bins-to-suppress
-  "avg-dsr-data is a map of degree-bins -> [directional-flame-length cell-count]"
-  [^long num-cells-to-suppress avg-dsr-data]
-  (let [contiguous-bins       (compute-contiguous-bins num-cells-to-suppress avg-dsr-data)
-        [_ [bins cell-count]] (first contiguous-bins)
-        cell-count            (long cell-count)]
+  "Returns a tuple `bins-to-suppress` and `suppressed-count`.
+  This alogrithm will convert `angular-slice->avg-dsr+num-cells` to a sorted map of
+  `avg-dsr->angular-slices+num-cells`. Using this map the algorithm will collect
+  the sequence of angular-slices until we have a cell-count of at least
+  `num-cells-to-suppress`."
+  [^long num-cells-to-suppress angular-slice->avg-dsr+num-cells]
+  (let [avg-dsr->angular-slices+num-cells (compute-contiguous-bins num-cells-to-suppress angular-slice->avg-dsr+num-cells)
+        [_ [bins cell-count]]             (first avg-dsr->angular-slices+num-cells)
+        cell-count                        (long cell-count)]
     (if (>= cell-count num-cells-to-suppress)
       [bins cell-count 0]
-      (loop [[segment & rest-to-process] (rest contiguous-bins)
+      ;; The optimal segment does not contain enough cells, so we stich more:
+      (loop [[segment & rest-to-process] (rest avg-dsr->angular-slices+num-cells)
              cells-needed                (- num-cells-to-suppress cell-count)
              bins-to-suppress            bins]
         (if (and segment (pos? cells-needed))
@@ -112,7 +135,7 @@
                 cell-count            (long cell-count)]
             (if (<= cell-count cells-needed)
               (recur rest-to-process (- cells-needed cell-count) (into bins-to-suppress bins))
-              (let [[sub-segment-bins sub-segment-count] (compute-sub-segment avg-dsr-data bins cells-needed)
+              (let [[sub-segment-bins sub-segment-count] (compute-sub-segment angular-slice->avg-dsr+num-cells bins cells-needed)
                     sub-segment-count                    (long sub-segment-count)]
                 (recur rest-to-process (- cells-needed sub-segment-count) (into bins-to-suppress sub-segment-bins)))))
           [bins-to-suppress (- num-cells-to-suppress cells-needed)])))))
@@ -138,14 +161,22 @@
          burn-vectors)))
 
 (defn- compute-avg-dsr-data
-  [^double bin-size grouped-burn-vectors]
+  "Returns a sorted map where each map entry:
+
+  [`angular-slice` [`directional-flame-length` `cell-count`]]
+
+  represents a collection of stats computed for a `angular-slice`. The
+  `directional-flame-length`is the average value among the active
+  perimeter cells that fall within that bin. The `cell-count` is the
+  count of those perimeter cells."
+  [^double angular-slice-size bin->BurnVectors]
   (reduce (fn [acc bin]
-            (let [burn-vectors (get grouped-burn-vectors bin)]
+            (let [burn-vectors (get bin->BurnVectors bin)]
               (if (seq burn-vectors)
                 (assoc acc bin [(compute-avg-dsr burn-vectors) (compute-cell-count burn-vectors)])
                 (assoc acc bin [0.0 0.0]))))
           (sorted-map)
-          (range 0.0 (inc (/ 360 bin-size)))))
+          (range 0.0 (inc (/ 360 angular-slice-size)))))
 
 (defn- angle-cw-from-east ^double
   [^long i1 ^long j1 ^long i0 ^long j0]
@@ -156,18 +187,22 @@
       (+ theta 360.0)
       theta)))
 
-(defn- nearest-degree-bin ^double
-  [^double theta ^double bin-size]
-  (Math/floor (/ theta bin-size)))
+(defn- nearest-angular-slice ^double
+  [^double theta ^double angular-slice-size]
+  (Math/floor (/ theta angular-slice-size)))
 
 (defn- group-burn-vectors
-  "Returns a map of bin->vector of BurnVector grouped by bin-size
-  clockwise from EAST of centroid cell. Bin 0 = East = 90
-  degrees"
-  [centroid bin-size burn-vectors]
+  "Returns a map where each entry:
+
+  [`angular-slice` [BurnVector BurnVector ...]]
+
+  represents a collection of BurnVector that that fall within a `angular-slice`.
+  The `angular-slice` is defined as the degree clockwise from EAST of the
+  `centroid`cell. Bin 0 = East = 90 degrees."
+  [centroid angular-slice-size burn-vectors]
   (let [[i0 j0] centroid]
     (group-by (fn [burn-vector] (-> (angle-cw-from-east (:i burn-vector) (:j burn-vector) i0 j0)
-                                    (nearest-degree-bin bin-size)))
+                                    (nearest-angular-slice angular-slice-size)))
               burn-vectors)))
 
 (defn- compute-centroid-cell
@@ -201,15 +236,15 @@
         num-cells-to-suppress        (- next-suppressed-count current-suppressed-count)]
     (if (> num-cells-to-suppress 0)
       (let [centroid-cell        (compute-centroid-cell active-perimeter-cells)
-            bin-size             5.0
-            grouped-burn-vectors (group-burn-vectors centroid-cell bin-size burn-vectors)
+            angular-slice-size   5.0
+            bin->BurnVectors     (group-burn-vectors centroid-cell angular-slice-size burn-vectors)
             [bins-to-suppress
-             suppressed-count]   (->> (compute-avg-dsr-data bin-size grouped-burn-vectors)
+             suppressed-count]   (->> (compute-avg-dsr-data angular-slice-size bin->BurnVectors)
                                       (compute-bins-to-suppress num-cells-to-suppress))
             bins-to-suppress-set (set bins-to-suppress)
-            bins-to-keep         (remove #(contains? bins-to-suppress-set %) (keys grouped-burn-vectors))
+            bins-to-keep         (remove #(contains? bins-to-suppress-set %) (keys bin->BurnVectors))
             burn-vectors-to-keep (into []
-                                       (mapcat #(get grouped-burn-vectors %))
+                                       (mapcat #(get bin->BurnVectors %))
                                        bins-to-keep)]
         [burn-vectors-to-keep (+ current-suppressed-count ^long suppressed-count) num-perimeter-cells])
       [burn-vectors current-suppressed-count num-perimeter-cells])))
