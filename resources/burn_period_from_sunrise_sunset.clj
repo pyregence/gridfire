@@ -8,7 +8,8 @@
 
 ;;;; WARNING running this script in polar circles is at your own risk!
 
-(require '[clojure.tools.cli :as cli]
+(require '[clojure.java.io   :as io]
+         '[clojure.tools.cli :as cli]
          '[clojure.test      :as test])
 (import '(java.time Instant ZonedDateTime ZoneOffset))
 
@@ -446,12 +447,29 @@
    [nil "--weather-data-start-timestamp--rfc3339 INSTANT"
     :id :weather-data-start-timestamp
     :desc "RFC-3339-encoded :weather-data-start-timestamp, e.g 2022-07-19T16:54:09.073-00:00. Optional: can be supplied in gridfire.edn's :burn-period instead."
-    :parse-fn parse-weather-data-start-timestamp]])
+    :parse-fn parse-weather-data-start-timestamp]
+   [nil "--input-gf-config"
+    :id ::input-gf-config
+    :desc "(Optional.) The path to the input GridFire configuration file to read from."]
+   [nil "--output-gf-config LOCATION" "A file path to save the output."
+    :id ::output-gf-config
+    :desc "The path to the output GridFire configuration file to write to."]])
+
+(defn transform-config-by!
+  [cli-opts transform-fn]
+  (let [gf-config0    (or
+                        (some-> (::input-gf-config cli-opts)
+                          (slurp)
+                          (read-string))
+                        {})
+        gf-config1    (transform-fn gf-config0 cli-opts)]
+    (spit
+      (::output-gf-config cli-opts)
+      (pr-str gf-config1))))
 
 (defn main
   [cli-args]
-  (let [{:keys [options summary errors]} (cli/parse-opts cli-args cli-options)
-        gridfire-config (read *in*)]
+  (let [{:keys [options summary errors]} (cli/parse-opts cli-args cli-options)]
     (cond
       ;; Errors encountered during input parsing
       (seq errors)
@@ -462,10 +480,8 @@
 
       :else
       (do
-        (binding [*out* *err*]
-          (println program-banner))
-        (prn
-          (transform-gridfire-config gridfire-config options))))
+        (println program-banner)
+        (transform-config-by! options transform-gridfire-config)))
 
     ;; Exit cleanly
     (System/exit 0)))
@@ -475,5 +491,6 @@
 
 ;; The EDN-encoded GridFire config must be supplied via STDIN; a transformed config will be emitted via STDOUT.
 ;; Example usage:
-; $ cat test/gridfire/resources/canonical_test/base-config.edn | bb ./resources/burn_period_from_sunrise_sunset.clj --lat-deg 43.17 --lng-deg 5.6 --weather-data-start-timestamp--rfc3339 2022-07-19 --utc-offset-hours 2
+; $ bb ./resources/burn_period_from_sunrise_sunset.clj --lat-deg 43.17 --lng-deg 5.6 --weather-data-start-timestamp--rfc3339 2022-07-19 --utc-offset-hours 2 --output-gf-config "./my-override.edn"
+;; Checkpoint: in my-override.edn, you'll see:
 ; {... :burn-period {:weather-data-start-timestamp #inst "2022-07-19T00:00:00.000-00:00", :burn-period-start "06:14", :burn-period-end "21:14"}, ...}
