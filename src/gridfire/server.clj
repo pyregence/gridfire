@@ -111,18 +111,30 @@
 ;; Request Processing Functions
 ;;=============================================================================
 
-(defn- run-post-process-scripts! [request config output-dir]
-  (log-str "Running post-process scripts.")
-  (let [commands [["./elmfire_post.sh" "Running elmfire_post."]
-                  ["./make_tifs.sh" "Creating GeoTIFFs."]
-                  ["./build_geoserver_directory.sh"]
-                  ["./upload_tarball.sh"]
-                  ["./cleanup.sh"]]]
-    (doseq [[cmd response-msg] commands]
-      (when response-msg
-        (send-gridfire-response! request config 2 response-msg))
-      (-> (sh-wrapper output-dir {} true cmd)
-          (log :truncate? false :newline? false)))))
+(defn- run-cmd-map!
+  [request config output-dir cmd-map]
+  (when-some [response-msg (:gf-send-notif-before cmd-map)]
+    (send-gridfire-response! request config 2 response-msg))
+  (-> (sh/with-sh-dir output-dir
+        (sh/with-sh-env {:PATH path-env}
+          (let [{:keys [out err]} (apply sh/sh (:shell-cmd-args cmd-map))]
+            (str out err))))
+      (log :truncate? false :newline? false)))
+
+(defn run-cmd-maps!
+  [request config output-dir cmd-maps]
+  (->> cmd-maps
+       (run!
+         (fn [cmd-map]
+           (run-cmd-map! request config output-dir cmd-map)))))
+
+(defn- run-before-cmds!
+  [request config output-dir]
+  (run-cmd-maps! request config output-dir (:before-gridfire-run-cmds request)))
+
+(defn- run-after-cmds!
+  [request config output-dir]
+  (run-cmd-maps! request config output-dir (:after-gridfire-run-cmds request)))
 
 (defn- copy-post-process-scripts! [from-dir to-dir]
   (log-str "Copying post-process scripts into " to-dir)
@@ -158,26 +170,45 @@
   [request {:keys [software-dir override-config] :as config}]
   (try
     (let [input-deck-path     (unzip-tar! request config)
-          elmfire-data-file   (.getPath (io/file input-deck-path "elmfire.data"))
           gridfire-edn-file   (.getPath (io/file input-deck-path "gridfire.edn"))
-          gridfire-output-dir (.getPath (io/file input-deck-path "outputs"))
-          {:keys [err out]}   (if override-config
-                                (do
-                                  (process-override-config! request override-config)
-                                  (sh/sh "resources/elm_to_grid.clj" "-e" elmfire-data-file "-o" override-config))
-                                (sh/sh "resources/elm_to_grid.clj" "-e" elmfire-data-file))]
-      (if err
-        (log-str out "\n" err)
-        (log-str out))
+          gridfire-output-dir (.getPath (io/file input-deck-path "outputs"))]
+      (process-override-config! request override-config)
+      (comment
+        ;; FIXME REVIEW We've lost the following logic, hopefully that's OK? (Val, 28 Jul 2022)
+        ;; It means that callers will need to know when to provide -o OVERRIDE-CONFIG
+        ;; when submitting requests that invoke elm_to_grid.clj.
+        (if override-config
+          (sh/sh "resources/elm_to_grid.clj" "-e" elmfire-data-file "-o" override-config)
+          (sh/sh "resources/elm_to_grid.clj" "-e" elmfire-data-file)))
+      (run-before-cmds! request config gridfire-output-dir)
       (send-gridfire-response! request config 2 "Running simulation.")
       (if (gridfire/process-config-file! gridfire-edn-file) ; Returns true on success
-        (do (copy-post-process-scripts! software-dir gridfire-output-dir)
-            (run-post-process-scripts! request config gridfire-output-dir)
+        (do (copy-post-process-scripts!
+              software-dir
+              ;; FIXME REVIEW while we're at it, let's have a sub-directory for the scripts, it will be cleaner. Is that OK?
+              (str gridfire-output-dir "/gridfire_helper_scripts"))
+            (run-after-cmds! request config gridfire-output-dir)
             (sh/sh "rm" "-rf" (.getAbsolutePath (io/file input-deck-path)))
             [0 "Successful run! Results uploaded to GeoServer!"])
         (throw-message "Simulation failed. No results uploaded to GeoServer.")))
     (catch Exception e
       [1 (str "Processing error: " (ex-message e))])))
+
+(comment
+  ;; Example Gridfire request invoking pre/post-process scripts:
+  ;; FIXME REVIEW: is this API too expressive? Does it create security exploits? (Val, 25 Jul 2022)
+  ;; Is so, we might want to make the scripts-invoking API less open-ended.
+  {;; ...
+   :before-gridfire-run-cmds
+   [{:shell-cmd-args     ["./gridfire_helper_scripts/elm_to_grid.clj" "-e" "./elmfire.data" "-o" "./override.edn"]
+     :gf-log-shell-ouput true}]
+   :after-gridfire-run-cmds
+   [{:shell-cmd-args       ["./gridfire_helper_scripts/elmfire_post.sh"]
+     :gf-send-notif-before "Running elmfire_post."}
+    {:shell-cmd-args       ["./gridfire_helper_scripts/make_tifs.sh"]
+     :gf-send-notif-before "Creating GeoTIFFs."}
+    {:shell-cmd-args ["./gridfire_helper_scripts/build_geoserver_directory.sh"]}
+    {:shell-cmd-args ["./gridfire_helper_scripts/cleanup.sh"]}]})
 
 ;;=============================================================================
 ;; Job Queue Management
