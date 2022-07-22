@@ -16,8 +16,8 @@
     9  11 315.0)) ;NE
 
 (deftest ^:unit nearest-floor-test
-  (let [bin-size 5]
-    (are [degree expected-bin] (= (#'gridfire.suppression/nearest-degree-bin degree bin-size) expected-bin)
+  (let [slice-size 5]
+    (are [degree expected-bin] (= (#'gridfire.suppression/nearest-angular-slice degree slice-size) expected-bin)
       0.0  0.0
       2.5  0.0
       5.0  1.0
@@ -34,7 +34,7 @@
                (#'gridfire.suppression/remove-average (+ count-old count-new) avg-new count-new)))
         "should get the original average if adding and then removing the same average.")))
 
-(deftest compute-contiguous-bins-test
+(deftest compute-contiguous-slices-test
   (testing "simple case"
     (let [num-cells-to-suppress 100
           avg-dsr-data          {0.0 [2.0 25]
@@ -42,8 +42,8 @@
                                  2.0 [2.0 25]
                                  3.0 [2.0 25]}]
 
-      (is (= {2.0 ['(2.0 1.0 0.0 3.0) 100]}
-             (#'gridfire.suppression/compute-contiguous-bins num-cells-to-suppress avg-dsr-data)))))
+      (is (= {['(2.0 1.0 0.0 3.0) 2.0] 100}
+             (#'gridfire.suppression/compute-contiguous-slices num-cells-to-suppress avg-dsr-data)))))
 
   (testing "segments sorted by average spread-rate"
     (let [num-cells-to-suppress 6
@@ -53,11 +53,11 @@
                                  3.0 [3.0 2]
                                  4.0 [2.0 2]
                                  5.0 [1.0 2]}]
-      (is (= {2.0 ['(5.0 4.0 3.0) 6]
-              3.0 ['(0.0 5.0 4.0) 6]
-              4.0 ['(1.0 0.0 5.0) 6]
-              5.0 ['(2.0 1.0 0.0) 6]}
-             (#'gridfire.suppression/compute-contiguous-bins num-cells-to-suppress avg-dsr-data)))))
+      (is (= {['(5.0 4.0 3.0) 2.0] 6
+              ['(0.0 5.0 4.0) 3.0] 6
+              ['(1.0 0.0 5.0) 4.0] 6
+              ['(2.0 1.0 0.0) 5.0] 6}
+             (#'gridfire.suppression/compute-contiguous-slices num-cells-to-suppress avg-dsr-data)))))
 
   (testing "lowest averge spread rate segments span over bin 0.0"
     (let [num-cells-to-suppress 6
@@ -67,8 +67,8 @@
                                  3.0 [5.0 2]
                                  4.0 [4.0 2]
                                  5.0 [3.0 2]}]
-      (is (= {2.0 ['(1.0 0.0 5.0) 6]
-              3.0 ['(0.0 5.0 4.0) 6]
-              4.0 ['(5.0 4.0 3.0) 6]
-              5.0 ['(4.0 3.0 2.0) 6]}
-             (#'gridfire.suppression/compute-contiguous-bins num-cells-to-suppress avg-dsr-data))))))
+      (is (= {['(1.0 0.0 5.0) 2.0] 6
+              ['(0.0 5.0 4.0) 3.0] 6
+              ['(5.0 4.0 3.0) 4.0] 6
+              ['(4.0 3.0 2.0) 5.0] 6}
+             (#'gridfire.suppression/compute-contiguous-slices num-cells-to-suppress avg-dsr-data))))))
