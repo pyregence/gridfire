@@ -6,7 +6,7 @@
 
 (set! *unchecked-math* :warn-on-boxed)
 
-(defn- comangular-slicee-average
+(defn- combine-average
   [^double avg-old ^long count-old ^double avg-new ^long count-new]
   (if (zero? (+ count-old count-new))
     0.0
@@ -78,7 +78,7 @@
         (recur sorted-contiguous-angular-slices
                angular-slice-data
                (conj cur-contiguous-angular-slices angular-slice)
-               (comangular-slicee-average cur-dsr cur-count avg-dsr cell-count)
+               (combine-average cur-dsr cur-count avg-dsr cell-count)
                (+ cur-count cell-count)
                left-idx
                (if (= right-idx (dec (count angular-slice-data)))
