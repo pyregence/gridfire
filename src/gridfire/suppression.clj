@@ -198,7 +198,7 @@
 
   represents a collection of BurnVector that that fall within a `angular-slice`.
   The `angular-slice` is defined as the degree clockwise from EAST of the
-  `centroid`cell. Bin 0 = East = 90 degrees."
+  `centroid`cell. angular-slice 0 = East = 0.0 degrees."
   [centroid angular-slice-size burn-vectors]
   (let [[i0 j0] centroid]
     (group-by (fn [burn-vector] (-> (angle-cw-from-east (:i burn-vector) (:j burn-vector) i0 j0)
