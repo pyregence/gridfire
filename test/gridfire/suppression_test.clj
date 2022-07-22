@@ -34,7 +34,7 @@
                (#'gridfire.suppression/remove-average (+ count-old count-new) avg-new count-new)))
         "should get the original average if adding and then removing the same average.")))
 
-(deftest compute-contiguous-slices-test
+(deftest ^:unit compute-contiguous-slices-test
   (testing "simple case"
     (let [num-cells-to-suppress 100
           avg-dsr-data          {0.0 [2.0 25]
