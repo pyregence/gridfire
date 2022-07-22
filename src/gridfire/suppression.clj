@@ -21,27 +21,25 @@
     (/ (- (* avg-old count-old) (* avg-to-remove count-of-avg-to-remove))
        (- count-old count-of-avg-to-remove))))
 
-;; NOTE In the, unlikely, case that multiple contiguous slice-degree segments that
-;; satisfy our num-cellst-to-suppress that have the same average
-;; spread rate value, The entrie that is kept in the map will the the
-;; segment that was proccessed the latest.
 (defn- compute-contiguous-slices
   "Given number of cells to suppress and a map of average directional spread
-  rate data with the form: angular-slices -> [average-dsr cell-count] return a
+  rate data with the form: angular-slice -> [average-dsr cell-count] return a
   sorted map where each map entry:
 
-  [`avg-dsr` [`list-of-slices` `cell-count`]]
+  [[`list-of-slices` `avg-dsr`] `cell-count`]
 
   represents a contiguous segment of the fire front, which we locate
-  by `list-of-slices`, the list of successive degree slices covering it; cell-count
-  represents the number of active perimiter cells in that segment, with
-  `cell-count` no smaller than num-cells-to-suppress, but possibly bigger. Note
-  that the returned segments will tend to overlap - think of a sliding window of
-  (up to num-cells-to-suppress) contiguous active cells, rotating around the
-  centroid: the segments returned by this function are regular snapshots of this
-  window."
+  by `list-of-slices`, the list of successive degree slices covering
+  it; `cell-count`represents the number of active perimiter cells in
+  that segment, with `cell-count` no smaller than
+  `num-cells-to-suppress`, but possibly bigger. Note that the returned
+  segments will tend to overlap - think of a sliding window of (up to
+  `num-cells-to-suppress`) contiguous active cells, rotating around
+  the centroid: the segments returned by this function are regular
+  snapshots of this window."
   [^long num-cells-to-suppress angular-slice->avg-dsr+num-cells]
-  (loop [sorted-contiguous-slices (sorted-map)
+  (loop [sorted-contiguous-slices (sorted-map-by (fn [[_ x1] [_ x2]]
+                                                   (compare x1 x2)))
          slice-data               (into [] (seq angular-slice->avg-dsr+num-cells))
          cur-contiguous-slices    '()
          cur-dsr                  0
@@ -62,7 +60,7 @@
                              0
                              (+ right-idx 1))]
         (recur (if (seq cur-contiguous-slices)
-                 (assoc sorted-contiguous-slices cur-dsr [cur-contiguous-slices cur-count])
+                 (assoc sorted-contiguous-slices [cur-contiguous-slices cur-dsr] cur-count)
                  sorted-contiguous-slices)
                slice-data
                '()
@@ -89,7 +87,7 @@
       ;; shrink left
       (let [[_ [avg-dsr cell-count]] (nth slice-data (if (= -1 left-idx) 0 left-idx))
             cell-count               (long cell-count)]
-        (recur (assoc sorted-contiguous-slices cur-dsr [cur-contiguous-slices cur-count])
+        (recur (assoc sorted-contiguous-slices [cur-contiguous-slices cur-dsr] cur-count)
                slice-data
                (drop-last cur-contiguous-slices)
                (remove-average cur-dsr cur-count avg-dsr cell-count)
@@ -111,30 +109,31 @@
                                                  (sorted-map)
                                                  slice->BurnVectors)
         contiguous-slices                (compute-contiguous-slices cells-needed angular-slice->avg-dsr+num-cells)
-        [_ [slices cell-count]]          (first contiguous-slices)]
+        [[slices _] cell-count]          (first contiguous-slices)]
     [slices cell-count]))
 
 (defn- compute-slices-to-suppress
   "Returns a tuple `slices-to-suppress` and `suppressed-count`.
   This alogrithm will convert `angular-slice->avg-dsr+num-cells` to a sorted map of
-  `avg-dsr->angular-slices+num-cells`. Using this map the algorithm will collect
+  `angular-slices+avg-dsr->num-cells`. Using this map the algorithm will collect
   the sequence of angular-slices until we have a cell-count of at least
   `num-cells-to-suppress`."
   [^long num-cells-to-suppress angular-slice->avg-dsr+num-cells]
-  (let [avg-dsr->angular-slices+num-cells (compute-contiguous-slices num-cells-to-suppress angular-slice->avg-dsr+num-cells)
-        [_ [slices cell-count]]           (first avg-dsr->angular-slices+num-cells)
+  (let [angular-slices+avg-dsr->num-cells (compute-contiguous-slices num-cells-to-suppress angular-slice->avg-dsr+num-cells)
+        [[slices _] cell-count]           (first angular-slices+avg-dsr->num-cells)
         cell-count                        (long cell-count)]
     (if (>= cell-count num-cells-to-suppress)
       [slices cell-count 0]
       ;; The optimal segment does not contain enough cells, so we stich more:
-      (loop [[segment & rest-to-process] (rest avg-dsr->angular-slices+num-cells)
+      (loop [[segment & rest-to-process] (rest angular-slices+avg-dsr->num-cells)
              cells-needed                (- num-cells-to-suppress cell-count)
              slices-to-suppress          slices]
         (if (and segment (pos? cells-needed))
-          (let [[_ [slices cell-count]] segment
+          (let [[[slices _] cell-count] segment
                 cell-count              (long cell-count)]
             (if (<= cell-count cells-needed)
               (recur rest-to-process (- cells-needed cell-count) (into slices-to-suppress slices))
+              ;; this segment has more than we need, compute subsegment:
               (let [[sub-segment-slices sub-segment-count] (compute-sub-segment angular-slice->avg-dsr+num-cells slices cells-needed)
                     sub-segment-count                      (long sub-segment-count)]
                 (recur rest-to-process (- cells-needed sub-segment-count) (into slices-to-suppress sub-segment-slices)))))
