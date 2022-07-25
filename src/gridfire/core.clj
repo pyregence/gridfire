@@ -82,12 +82,3 @@
     (catch Exception e
       (log-str (ex-message e)))))
 ;; gridfire-core ends here
-
-
-(comment
-
-  (load-config! "../rhino-benchmark-input-deck/gridfire-supression.edn")
-
-  (process-config-file! "../rhino-benchmark-input-deck/gridfire-supression.edn")
-
-  *e)
