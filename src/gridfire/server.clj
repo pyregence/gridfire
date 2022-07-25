@@ -34,22 +34,22 @@
 (def date-from-format "yyyy-MM-dd HH:mm zzz")
 (def date-to-format   "yyyyMMdd_HHmmss")
 
-(defn- build-geosync-request [{:keys [fire-name ignition-time] :as _request}]
+(defn- build-geosync-request [{:keys [fire-name ignition-time] :as _request} {:keys [host] :as _config}]
   (let [timestamp (convert-date-string ignition-time date-from-format date-to-format)]
     (json/write-str
      {"action"             "add"
       "dataDir"            (format "/var/www/html/fire_spread_forecast/%s/%s" fire-name timestamp)
       "geoserverWorkspace" (format "fire-spread-forecast_%s_%s" fire-name timestamp)
-      "responseHost"       "localhost"
+      "responseHost"       host
       "responsePort"       5555})))
 
 ;; FIXME: Pass the geosync-server-config values in through gridfire.cli rather than hardcoding them.
-(defn- send-geosync-request! [request]
+(defn- send-geosync-request! [request config]
   (let [geosync-server-config {:response-host "data.pyregence.org" :response-port 31337}]
     (when (spec/valid? ::server-spec/gridfire-server-response-minimal geosync-server-config)
       (sockets/send-to-server! (:response-host geosync-server-config)
                                (:response-port geosync-server-config)
-                               (build-geosync-request request)))))
+                               (build-geosync-request request config)))))
 
 (defn- build-gridfire-response [request {:keys [host port] :as _config} status status-msg]
   (json/write-str (merge request
@@ -214,7 +214,7 @@
       (let [[status status-msg] (process-request! request config)]
         (log-str "-> " status-msg)
         (if (= (:type request) :active-fire)
-          (send-geosync-request! request)
+          (send-geosync-request! request config)
           (send-gridfire-response! request config status status-msg)))
       (when @*server-running?
         (recur @(first (alts!! [=job-queue= =stand-by-queue=] :priority true)))))))
