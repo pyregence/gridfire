@@ -19,8 +19,7 @@
             [gridfire.simple-sockets      :as sockets]
             [gridfire.spec.server         :as server-spec]
             [gridfire.utils.server        :refer [nil-on-error throw-message]]
-            [triangulum.logging           :refer [log log-str set-log-path!]]
-            [triangulum.utils             :refer [parse-as-sh-cmd]])
+            [triangulum.logging           :refer [log log-str set-log-path!]])
   (:import java.text.SimpleDateFormat
            java.util.Calendar
            java.util.TimeZone))
@@ -98,15 +97,6 @@
 
 (def path-env (System/getenv "PATH"))
 
-(defn- sh-wrapper [dir env verbose & commands]
-  (sh/with-sh-dir dir
-    (sh/with-sh-env (merge {:PATH path-env} env)
-      (reduce (fn [acc cmd]
-                (let [{:keys [out err]} (apply sh/sh (parse-as-sh-cmd cmd))]
-                  (str acc (when verbose out) err)))
-              ""
-              commands))))
-
 ;;=============================================================================
 ;; Request Processing Functions
 ;;=============================================================================
@@ -138,14 +128,17 @@
 
 (defn- copy-post-process-scripts! [from-dir to-dir]
   (log-str "Copying post-process scripts into " to-dir)
-  (sh-wrapper from-dir
-              {}
-              false
-              (str "cp resources/elmfire_post.sh " to-dir)
-              (str "cp resources/make_tifs.sh " to-dir)
-              (str "cp resources/build_geoserver_directory.sh " to-dir)
-              (str "cp resources/upload_tarball.sh " to-dir)
-              (str "cp resources/cleanup.sh " to-dir)))
+  (sh/with-sh-dir from-dir
+    (run!
+      (fn [sh-args] (apply sh/sh sh-args))
+      (->> ["resources/elmfire_post.sh"
+            "resources/make_tifs.sh"
+            "resources/build_geoserver_directory.sh"
+            "resources/upload_tarball.sh"
+            "resources/cleanup.sh"]
+           (mapv
+             (fn [script-rel-path]
+               ["cp" script-rel-path to-dir]))))))
 
 (defn- build-file-name [fire-name ignition-time]
   (str/join "_" [fire-name (convert-date-string ignition-time date-from-format date-to-format) "001"]))
@@ -155,10 +148,13 @@
   [{:keys [fire-name ignition-time type] :as _request} {:keys [data-dir incoming-dir active-fire-dir] :as _config}]
   (let [file-name (build-file-name fire-name ignition-time)]
     (log-str "Unzipping input deck: " file-name)
-    (sh-wrapper (if (= type :active-fire) active-fire-dir incoming-dir)
-                {}
-                false
-                (format "tar -xf %s -C %s --one-top-level" (str file-name ".tar") data-dir))
+    (sh/with-sh-env {:PATH path-env}
+      (sh/with-sh-dir (if (= type :active-fire) active-fire-dir incoming-dir)
+        (sh/sh
+          "tar" "-x"
+          "--file" (str file-name ".tar")
+          "--directory" data-dir
+          "--one-top-level")))
     (.getPath (io/file data-dir file-name))))
 
 ;;TODO Try babashka's pod protocol to see if it's faster than shelling out.
@@ -200,8 +196,7 @@
   ;; Is so, we might want to make the scripts-invoking API less open-ended.
   {;; ...
    :before-gridfire-run-cmds
-   [{:shell-cmd-args     ["./gridfire_helper_scripts/elm_to_grid.clj" "-e" "./elmfire.data" "-o" "./override.edn"]
-     :gf-log-shell-ouput true}]
+   [{:shell-cmd-args     ["./gridfire_helper_scripts/elm_to_grid.clj" "-e" "./elmfire.data" "-o" "./override.edn"]}]
    :after-gridfire-run-cmds
    [{:shell-cmd-args       ["./gridfire_helper_scripts/elmfire_post.sh"]
      :gf-send-notif-before "Running elmfire_post."}
