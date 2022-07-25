@@ -80,19 +80,24 @@
 (defn- add-weather-start-timestamp [config ignition-date-time]
   (assoc config :weather-start-timestamp (calc-weather-start-timestamp ignition-date-time)))
 
+(defn- add-suppression [config {:keys [suppression-dt suppression-coefficient] :as _supression-params}]
+  (assoc config :suppression {:suppression-dt         suppression-dt
+                              :suppression-coefficent suppression-coefficient}))
+
 (defn- write-config! [output-file config]
   (log-str "Writing to config file: " output-file)
   (with-open [writer (io/writer output-file)]
     (pprint config writer)))
 
-(defn- process-override-config! [{:keys [ignition-time] :as _request} file]
+(defn- process-override-config! [{:keys [ignition-time suppression] :as _request} file]
   (let [formatter          (SimpleDateFormat. "yyyy-MM-dd HH:mm zzz")
         ignition-date-time (.parse formatter ignition-time)
         config             (edn/read-string (slurp file))]
     (write-config! file
-                   (-> config
-                       (add-ignition-start-timestamp ignition-date-time)
-                       (add-weather-start-timestamp ignition-date-time)))))
+                   (cond-> config
+                     :always     (add-ignition-start-timestamp ignition-date-time)
+                     :always     (add-weather-start-timestamp ignition-date-time)
+                     suppression (add-suppression suppression)))))
 
 ;;=============================================================================
 ;; Shell Commands
@@ -142,14 +147,20 @@
 
 (defn- unzip-tar!
   "Unzips a tar file and returns the file path to the extracted folder."
-  [{:keys [fire-name ignition-time type] :as _request} {:keys [data-dir incoming-dir active-fire-dir] :as _config}]
-  (let [file-name (build-file-name fire-name ignition-time)]
-    (log-str "Unzipping input deck: " file-name)
-    (sh-wrapper (if (= type :active-fire) active-fire-dir incoming-dir)
+  [{:keys [fire-name ignition-time type suppression] :as _request} {:keys [data-dir incoming-dir active-fire-dir] :as _config}]
+  (let [working-dir   (if (= type :active-fire) active-fire-dir incoming-dir)
+        tar           (str (build-file-name fire-name ignition-time) ".tar")
+        out-file-name (build-file-name (if suppression (str fire-name "-suppressed") fire-name)
+                                       ignition-time)
+        out-file-path (str data-dir "/" out-file-name)]
+    (sh/sh "mkdir" "-p" out-file-path)
+    (sh-wrapper working-dir
                 {}
-                false
-                (format "tar -xf %s -C %s --one-top-level" (str file-name ".tar") data-dir))
-    (.getPath (io/file data-dir file-name))))
+                true
+                (format "tar -xf %s -C %s --strip-components 1"
+                        tar
+                        out-file-path))
+    (.getPath (io/file data-dir out-file-name))))
 
 ;;TODO Try babashka's pod protocol to see if it's faster than shelling out.
 (defn- process-request!

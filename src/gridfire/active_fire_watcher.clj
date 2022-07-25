@@ -39,31 +39,34 @@
 (defn- still-waiting? [^long last-mod-time]
   (< (- (now) last-mod-time) 5000)) ; wait up to 5 seconds
 
-(defn- count-down [job-queue path-str]
+(defn- count-down [{:keys [suppression?] :as _config} job-queue path-str]
   (go-loop [^long last-mod-time (get @download-in-progress path-str)]
     (if (still-waiting? last-mod-time)
       (do (<! (timeout 1000))
           (recur (get @download-in-progress path-str)))
       (do (log-str "SCP Complete: " path-str)
           (swap! download-in-progress dissoc path-str)
-          (>! job-queue (build-job path-str))))))
+          (let [job (build-job path-str)]
+            (>! job-queue job)
+            (when suppression? (>! job-queue (assoc job :suppression {:suppression-dt         1440.0 ;TODO remove hard code
+                                                                      :suppression-coefficent 2.0})))))))) ;TODO remove hard code
 
-(defn- handler [job-queue]
+(defn- handler [config job-queue]
   (fn [{:keys [type path]}]
     (let [path-str (.toString path)]
       (case type
         :create (do (log-str "Active Fire input deck detected: " path-str)
                     (swap! download-in-progress assoc path-str (now))
-                    (count-down job-queue path-str))
+                    (count-down config job-queue path-str))
         :modify (swap! download-in-progress assoc path-str (now)) ; reset counter
         nil))))
 
 (defonce directory-watcher (atom nil))
 
-(defn start! [{:keys [active-fire-dir]} job-queue]
+(defn start! [{:keys [active-fire-dir] :as config} job-queue]
   (when (and active-fire-dir (nil? @directory-watcher))
     (reset! directory-watcher
-            (beholder/watch (handler job-queue) active-fire-dir))))
+            (beholder/watch (handler config job-queue) active-fire-dir))))
 
 (defn stop! []
   (when @directory-watcher
