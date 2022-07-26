@@ -34,19 +34,20 @@
 (def date-from-format "yyyy-MM-dd HH:mm zzz")
 (def date-to-format   "yyyyMMdd_HHmmss")
 
-(defn- build-geosync-request [{:keys [fire-name ignition-time] :as _request} {:keys [geosync-data-dir] :as _config}]
+(defn- build-geosync-request [{:keys [fire-name ignition-time] :as _request}
+                              {:keys [geosync-data-dir host] :as _config}]
   (let [timestamp (convert-date-string ignition-time date-from-format date-to-format)]
     (json/write-str
      {"action"             "add"
       "dataDir"            (format "%s/%s/%s" geosync-data-dir fire-name timestamp)
       "geoserverWorkspace" (format "fire-spread-forecast_%s_%s" fire-name timestamp)
-      "responseHost"       "some.dead.org"
-      "responsePort"       12345})))
+      "responseHost"       host
+      "responsePort"       5555})))
 
-(defn- send-geosync-request! [request {:keys [geosync-host geosync-port] :as _config}]
+(defn- send-geosync-request! [request {:keys [geosync-host geosync-port] :as config}]
   (sockets/send-to-server! geosync-host
                            geosync-port
-                           (build-geosync-request request _config)))
+                           (build-geosync-request request config)))
 
 (defn- build-gridfire-response [request {:keys [host port] :as _config} status status-msg]
   (json/write-str (merge request
