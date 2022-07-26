@@ -39,7 +39,7 @@
 (defn- still-waiting? [^long last-mod-time]
   (< (- (now) last-mod-time) 5000)) ; wait up to 5 seconds
 
-(defn- count-down [{:keys [suppression?] :as _config} job-queue path-str]
+(defn- count-down [{:keys [also-simulate-suppression?] :as _config} job-queue path-str]
   (go-loop [^long last-mod-time (get @download-in-progress path-str)]
     (if (still-waiting? last-mod-time)
       (do (<! (timeout 1000))
@@ -48,7 +48,7 @@
           (swap! download-in-progress dissoc path-str)
           (let [job (build-job path-str)]
             (>! job-queue job)
-            (when suppression? (>! job-queue (assoc job :suppression {:suppression-dt         1440.0 ;TODO remove hard code
+            (when also-simulate-suppression? (>! job-queue (assoc job :suppression {:suppression-dt         1440.0 ;TODO remove hard code
                                                                       :suppression-coefficent 2.0})))))))) ;TODO remove hard code
 
 (defn- handler [config job-queue]
