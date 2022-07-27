@@ -24,7 +24,7 @@
 ;;-----------------------------------------------------------------------------
 
 (deftest ^:unit unzip-tar-test
-  (sh "mv" "test/unzip-fire-test_19700101_000000_001.tar" "test/gridfire/server_test/active-fires")
+  (sh "cp" "test/gridfire/resources/server_test/unzip-fire-test_19700101_000000_001.tar" active-fire-dir)
   (let [request-base {:fire-name     "unzip-fire-test"
                       :ignition-time "1970-01-01 00:00 UTC"
                       :type          :active-fire}

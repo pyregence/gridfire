@@ -153,14 +153,17 @@
         out-file-name (build-file-name (if suppression (str fire-name "-suppressed") fire-name)
                                        ignition-time)
         out-file-path (str data-dir "/" out-file-name)]
-    (sh/sh "mkdir" "-p" out-file-path)
-    (sh-wrapper working-dir
-                {}
-                true
-                (format "tar -xf %s -C %s --strip-components 1"
-                        tar
-                        out-file-path))
-    (.getPath (io/file data-dir out-file-name))))
+    (if (.exists (io/file (str working-dir "/" tar)))
+      (do
+        (sh/sh "mkdir" "-p" out-file-path)
+        (sh-wrapper working-dir
+                    {}
+                    true
+                    (format "tar -xf %s -C %s --strip-components 1"
+                            tar
+                            out-file-path))
+        (.getPath (io/file data-dir out-file-name)))
+      (throw (Exception. (str "tar file does not exist: " (.getAbsolutePath (io/file (str working-dir "/" tar)))))))))
 
 ;;TODO Try babashka's pod protocol to see if it's faster than shelling out.
 (defn- process-request!
