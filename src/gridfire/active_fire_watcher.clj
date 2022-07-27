@@ -48,8 +48,9 @@
           (swap! download-in-progress dissoc path-str)
           (let [job (build-job path-str)]
             (>! job-queue job)
-            (when also-simulate-suppression? (>! job-queue (assoc job :suppression {:suppression-dt         1440.0 ;TODO remove hard code
-                                                                      :suppression-coefficent 2.0})))))))) ;TODO remove hard code
+            (when also-simulate-suppression?
+              (>! job-queue (assoc job :suppression {:suppression-dt         1440.0 ;TODO remove hard code
+                                                     :suppression-coefficent 2.0})))))))) ;TODO remove hard code
 
 (defn- handler [config job-queue]
   (fn [{:keys [type path]}]
