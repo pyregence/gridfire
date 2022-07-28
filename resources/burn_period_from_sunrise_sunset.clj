@@ -308,7 +308,7 @@
         y-floor       (->
                         (ZonedDateTime/of
                           (.getYear dt)
-                          (int 1) (int 1)                   ;; January 1st
+                          (int 1) (int 1)                   ; January 1st
                           (int 0) (int 0) (int 0)
                           (int 0)
                           ZoneOffset/UTC)
@@ -316,7 +316,7 @@
         y-ceil       (->
                        (ZonedDateTime/of
                          (-> (.getYear dt) (inc) (int))
-                         (int 1) (int 1)                   ;; January 1st
+                         (int 1) (int 1)                   ; January 1st
                          (int 0) (int 0) (int 0)
                          (int 0)
                          ZoneOffset/UTC)
@@ -359,7 +359,7 @@
 (defn infer-burn-period
   "Resolves the :burn-period map,
   given a `bp-info` map which may contain the same keys
-  as a regurlar GridFire :burn-period,
+  as a regular GridFire :burn-period,
   and some more information specific to this script."
   [{wds-t     :weather-data-start-timestamp
     bp-length :burn-period-length
