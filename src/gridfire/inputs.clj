@@ -105,7 +105,7 @@
              :ignition-rows             (mapv #(Long/parseLong (get % 0)) ignitions)
              :ignition-cols             (mapv #(Long/parseLong (get % 1)) ignitions)
              :ignition-start-times      (mapv #(Double/parseDouble (get % 2)) ignitions)
-             :max-runtime-samples       (mapv #(Double/parseDouble (get % 4)) ignitions)
+             :max-runtime-samples       (mapv #(Double/parseDouble (get % 3)) ignitions)
              :simulations          (count ignitions)))
     inputs))
 
