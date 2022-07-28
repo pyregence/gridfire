@@ -3,13 +3,14 @@
             [clojure.java.io         :as io]
             [clojure.string          :as str]
             [gridfire.common         :refer [burnable-fuel-model?]]
-            [gridfire.conversion     :refer [conversion-table ms->min percent->dec]]
+            [gridfire.conversion     :refer [conversion-table min->ms ms->min percent->dec]]
             [gridfire.fetch          :as fetch]
             [gridfire.postgis-bridge :refer [with-db-connection-pool]]
             [gridfire.utils.random   :refer [draw-samples my-shuffle my-rand-nth]]
             [gridfire.utils.server   :refer [throw-message]]
             [tech.v3.tensor          :as t])
-  (:import java.util.Random))
+  (:import java.util.Random
+           java.util.Date))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -101,10 +102,10 @@
     (let [ignitions (with-open [reader (io/reader ignition-csv)]
                       (doall (rest (csv/read-csv reader))))]
       (assoc inputs
-             :ignition-rows        (mapv #(Long/parseLong (get % 0)) ignitions)
-             :ignition-cols        (mapv #(Long/parseLong (get % 1)) ignitions)
-             :ignition-start-times (mapv #(Double/parseDouble (get % 2)) ignitions)
-             :max-runtime-samples  (mapv #(Double/parseDouble (get % 3)) ignitions)
+             :ignition-rows             (mapv #(Long/parseLong (get % 0)) ignitions)
+             :ignition-cols             (mapv #(Long/parseLong (get % 1)) ignitions)
+             :ignition-start-times      (mapv #(Double/parseDouble (get % 2)) ignitions)
+             :max-runtime-samples       (mapv #(Double/parseDouble (get % 4)) ignitions)
              :simulations          (count ignitions)))
     inputs))
 
@@ -286,9 +287,24 @@
         (assoc :burn-period-end   (or end   "24:00")))))
 
 (defn add-ignition-start-times
-  [{:keys [ignition-start-timestamp weather-start-timestamp simulations] :as inputs}]
-  (if (and ignition-start-timestamp weather-start-timestamp)
+  [{:keys [ignition-start-times ignition-start-timestamp weather-start-timestamp simulations] :as inputs}]
+  (if (and (not ignition-start-times) ignition-start-timestamp weather-start-timestamp)
     (let [ignition-start-time (ms->min (- (double (inst-ms ignition-start-timestamp))
                                           (double (inst-ms weather-start-timestamp))))]
       (assoc inputs :ignition-start-times (repeat simulations ignition-start-time)))
-    (assoc inputs :ignition-start-timestamp #inst "1970-01-01T00:00:00"))) ; adding no-op value for required parameter
+    inputs))
+
+(defn add-ignition-start-timestamps
+  [{:keys [ignition-start-times simulations ignition-start-timestamp weather-start-timestamp] :as inputs}]
+  (let [compute-ignition-start-timestamp (fn [ignition-start-time]
+                                           (-> (+ (double (inst-ms weather-start-timestamp))
+                                                  (min->ms ignition-start-time))
+                                               (long)
+                                               (Date.)))
+        ignition-start-timestamps        (cond
+                                           ignition-start-timestamp (repeat simulations ignition-start-timestamp)
+                                           ignition-start-times     (mapv compute-ignition-start-timestamp ignition-start-times)
+                                           :else                    (repeat simulations #inst "1970-01-01T00-00:00"))] ; adding no-op value for required parameter
+    (-> inputs
+        (assoc :ignition-start-timestamps ignition-start-timestamps)
+        (dissoc :ignition-start-timestamp))))
