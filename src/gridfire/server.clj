@@ -190,21 +190,6 @@
     (catch Exception e
       [1 (str "Processing error: " (ex-message e))])))
 
-(comment
-  ;; Example Gridfire request invoking pre/post-process scripts:
-  ;; FIXME REVIEW: is this API too expressive? Does it create security exploits? (Val, 25 Jul 2022)
-  ;; Is so, we might want to make the scripts-invoking API less open-ended.
-  {;; ...
-   :before-gridfire-run-cmds
-   [{:shell-cmd-args     ["./gridfire_helper_scripts/elm_to_grid.clj" "-e" "./elmfire.data" "-o" "./override.edn"]}]
-   :after-gridfire-run-cmds
-   [{:shell-cmd-args       ["./gridfire_helper_scripts/elmfire_post.sh"]
-     :gf-send-notif-before "Running elmfire_post."}
-    {:shell-cmd-args       ["./gridfire_helper_scripts/make_tifs.sh"]
-     :gf-send-notif-before "Creating GeoTIFFs."}
-    {:shell-cmd-args ["./gridfire_helper_scripts/build_geoserver_directory.sh"]}
-    {:shell-cmd-args ["./gridfire_helper_scripts/cleanup.sh"]}]})
-
 ;;=============================================================================
 ;; Job Queue Management
 ;;=============================================================================
