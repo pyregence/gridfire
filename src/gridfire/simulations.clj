@@ -6,6 +6,8 @@
             [gridfire.conversion    :refer [min->hour kebab->snake snake->kebab]]
             [gridfire.fire-spread   :refer [run-fire-spread]]
             [gridfire.outputs       :as outputs]
+            [gridfire.utils.async   :as gf-async]
+            [manifold.deferred      :as mfd]
             [taoensso.tufte         :as tufte])
   (:import java.util.Random))
 
@@ -48,13 +50,23 @@
   [{:keys [simulation-id] :as config}
    {:keys [global-clock burn-time-matrix] :as fire-spread-results}
    name layer timestep envelope]
-  (doseq [output-time (range 0 (inc global-clock) timestep)]
-    (let [matrix          (if (= layer "burn_history")
-                            (to-color-map-values layer output-time)
-                            (fire-spread-results layer))
-          filtered-matrix (layer-snapshot burn-time-matrix matrix output-time)]
-      (outputs/output-geotiff config filtered-matrix name envelope simulation-id output-time)
-      (outputs/output-png config filtered-matrix name envelope simulation-id output-time))))
+  (->> (range 0 (inc global-clock) timestep)
+       (mapv
+         (fn [output-time]
+           (->
+             (outputs/exec-in-outputs-writing-pool
+               (fn []
+                 (let [matrix (if (= layer "burn_history")
+                                (to-color-map-values layer output-time)
+                                (fire-spread-results layer))]
+                   (layer-snapshot burn-time-matrix matrix output-time))))
+             (mfd/chain
+               (fn [filtered-matrix]
+                 (mfd/zip
+                   (outputs/output-geotiff config filtered-matrix name envelope simulation-id output-time)
+                   (outputs/output-png config filtered-matrix name envelope simulation-id output-time))))
+             (gf-async/nil-when-completed))))
+       (gf-async/nil-when-all-completed)))
 
 (def layer-name->matrix
   [["fire_spread"         :fire-spread-matrix]
@@ -76,23 +88,33 @@
   (let [layers (if output-layers
                  (filter-output-layers output-layers)
                  layer-name->matrix)]
-    (doseq [[name layer] layers]
-      (let [kw       (keyword (snake->kebab name))
-            timestep (get output-layers kw)]
-        (if (int? timestep)
-          (process-output-layers-timestepped config
-                                             fire-spread-results
-                                             name
-                                             layer
-                                             timestep
-                                             envelope)
-          (let [matrix (if (= layer "burn_history")
+    (->> layers
+         (mapv
+           (fn [[name layer]]
+             (let [kw       (keyword (snake->kebab name))
+                   timestep (get output-layers kw)]
+               (if (int? timestep)
+                 (process-output-layers-timestepped config
+                   fire-spread-results
+                   name
+                   layer
+                   timestep
+                   envelope)
+                 (->
+                   (outputs/exec-in-outputs-writing-pool
+                     (fn []
+                       (if (= layer "burn_history")
                          (to-color-map-values layer global-clock)
-                         (fire-spread-results layer))]
-            (when output-geotiffs?
-              (outputs/output-geotiff config matrix name envelope simulation-id))
-            (when output-pngs?
-              (outputs/output-png config matrix name envelope simulation-id))))))))
+                         (fire-spread-results layer))))
+                   (mfd/chain
+                     (fn f [matrix]
+                       (mfd/zip
+                         (when output-geotiffs?
+                           (outputs/output-geotiff config matrix name envelope simulation-id))
+                         (when output-pngs?
+                           (outputs/output-png config matrix name envelope simulation-id)))))
+                   (gf-async/nil-when-completed))))))
+         (gf-async/nil-when-all-completed))))
 
 (defn process-burn-count!
   [{:keys [fire-spread-matrix burn-time-matrix global-clock]}
@@ -127,16 +149,19 @@
    {:keys [burn-time-matrix flame-length-matrix spread-rate-matrix fire-type-matrix]}
    simulation]
   (when output-binary?
-    (let [output-name (format "toa_0001_%05d.bin" (inc simulation))
-          output-path (if output-directory
-                        (.getPath (io/file output-directory output-name))
-                        output-name)]
-      (binary/write-matrices-as-binary output-path
-                                       [:float :float :float :int]
-                                       [(m/emap #(if (pos? %) (* 60 %) %) burn-time-matrix)
-                                        flame-length-matrix
-                                        spread-rate-matrix
-                                        fire-type-matrix]))))
+    (outputs/exec-in-outputs-writing-pool
+      (fn []
+        (let [output-name (format "toa_0001_%05d.bin" (inc simulation))
+              output-path (if output-directory
+                            (.getPath (io/file output-directory output-name))
+                            output-name)]
+          ;; NOTE that's not parallelizable, as it writes all matrices to the same file.
+          (binary/write-matrices-as-binary output-path
+                                           [:float :float :float :int]
+                                           [(m/emap #(if (pos? %) (* 60 %) %) burn-time-matrix)
+                                            flame-length-matrix
+                                            spread-rate-matrix
+                                            fire-type-matrix]))))))
 
 (defn cells-to-acres
   [cell-size num-cells]
@@ -204,9 +229,13 @@
                                                 input-variations
                                                 {:initial-ignition-site initial-ignition-site})))]
      (when fire-spread-results
-       (process-output-layers! inputs fire-spread-results envelope i)
-       (process-aggregate-output-layers! inputs fire-spread-results)
-       (process-binary-output! inputs fire-spread-results i))
+       (->
+         (mfd/zip
+           (process-output-layers! inputs fire-spread-results envelope i)
+           (process-aggregate-output-layers! inputs fire-spread-results)
+           (process-binary-output! inputs fire-spread-results i))
+         (gf-async/nil-when-completed)
+         (deref)))
      (when output-csvs?
        (merge
         input-variations

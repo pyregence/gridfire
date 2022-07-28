@@ -16,7 +16,8 @@
         org.postgresql/postgresql           {:mvn/version "42.2.23"}
         sig-gis/magellan                    {:mvn/version "20210401"}
         sig-gis/triangulum                  {:git/url "https://github.com/sig-gis/triangulum"
-                                             :sha     "5b179a97ebd8fbcbff51776db06d9770cb649b9d"}}
+                                             :sha     "5b179a97ebd8fbcbff51776db06d9770cb649b9d"}
+        manifold/manifold                   {:mvn/version "0.2.4"}}
 
  :mvn/repos {"osgeo" {:url "https://repo.osgeo.org/repository/release/"}}
 
