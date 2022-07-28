@@ -1,18 +1,21 @@
 ;; [[file:../../org/GridFire.org::postgis-bridge][postgis-bridge]]
 (ns gridfire.postgis-bridge
-  (:require [clojure.core.matrix :as m]
-            [clojure.java.jdbc   :as jdbc])
-  (:import org.postgresql.jdbc.PgArray
-           java.util.UUID))
+  (:require [clojure.java.jdbc :as jdbc]
+            [hikari-cp.core    :as h]
+            [tech.v3.datatype  :as d]
+            [tech.v3.tensor    :as t])
+  (:import java.util.UUID
+           org.postgresql.jdbc.PgArray))
 
-(m/set-current-implementation :vectorz)
+(set! *unchecked-math* :warn-on-boxed)
 
 (defn extract-matrix [result]
   (->> result
        :matrix
-       (#(.getArray ^PgArray %))
-       (m/emap #(or % -1.0))
-       m/matrix))
+       (#(.getArray ^PgArray %)) ; Note: I can pass a HashMap of {String,Class}
+       t/->tensor                ; to automatically convert SQL types to Java types.
+       (d/emap #(or % -1.0) nil) ; FIXME: is this step necessary?
+       d/clone))                 ; What happens to null values when read?
 
 (defn build-rescale-query [rescaled-table-name resolution table-name]
   (format (str "CREATE TEMPORARY TABLE %s "
@@ -42,6 +45,48 @@
 (defn build-meta-query [table-name]
   (format "SELECT (ST_Metadata(rast)).* FROM %s" table-name))
 
+(defn- parse-subname [subname]
+  {:database (re-find #"(?<=\/)[\w]*$" subname)
+   :port     (re-find #"(?<=:)[0-9]*[0-9](?=\/)" subname)
+   :server   (re-find #"(?<=\/)[\w]*(?=:)" subname)})
+
+(defn build-datasource-options [{:keys [user password subname]}]
+  (let [{:keys [database port server]} (parse-subname subname)]
+      {:auto-commit        true
+       :read-only          false
+       :connection-timeout 30000
+       :validation-timeout 5000
+       :idle-timeout       600000
+       :max-lifetime       1800000
+       :minimum-idle       10
+       :maximum-pool-size  10
+       :pool-name          "db-pool"
+       :adapter            "postgresql"
+       :username           user
+       :password           password
+       :database-name      database
+       :server-name        server
+       :port-number        port
+       :register-mbeans    false}))
+
+(defonce db-pool-cache (atom nil))
+
+(defn make-db-pool [db-spec]
+  (or @db-pool-cache
+      (reset! db-pool-cache (h/make-datasource (build-datasource-options db-spec)))))
+
+(defn close-db-pool []
+  (h/close-datasource @db-pool-cache)
+  (reset! db-pool-cache nil))
+
+(defmacro with-db-connection-pool [db-spec & body]
+  `(if-let [db-spec# ~db-spec]
+     (let [_#      (make-db-pool db-spec#)
+           result# (do ~@body)]
+       (close-db-pool)
+       result#)
+     (do ~@body)))
+
 (defn postgis-raster-to-matrix
   "Send a SQL query to the PostGIS database given by db-spec for a
   raster tile from table table-name. Optionally resample the raster to
@@ -61,7 +106,7 @@
    :numbands 10,
    :matrix #vectorz/matrix Large matrix with shape: [10,534,486]}"
   [db-spec table-name & [resolution threshold]]
-  (jdbc/with-db-transaction [conn db-spec]
+  (jdbc/with-db-transaction [conn {:datasource (make-db-pool db-spec)}]
     (let [table-name      (if-not resolution
                             table-name
                             (let [rescaled-table-name (str "gridfire_" (subs (str (UUID/randomUUID)) 0 8))
@@ -75,6 +120,8 @@
           threshold-query (build-threshold-query threshold)
           data-query      (build-data-query threshold threshold-query metadata table-name)
           matrix          (when-let [results (seq (jdbc/query conn [data-query]))]
-                            (m/matrix (mapv extract-matrix results)))]
+                            (if (= (count results) 1)
+                              (extract-matrix (first results))
+                              (t/->tensor (mapv extract-matrix results))))]
       (assoc metadata :matrix matrix))))
 ;; postgis-bridge ends here

@@ -1,39 +1,29 @@
 (ns gridfire.binary-output
+  (:require [clojure.java.io :as io]
+            [gridfire.common :refer [non-zero-indices non-zero-count]]
+            [taoensso.tufte  :as tufte]
+            [tech.v3.tensor  :as t])
   (:import (java.io DataInputStream DataOutputStream)
-           (java.nio ByteBuffer))
-  (:require [clojure.java.io     :as io]
-            [clojure.core.matrix :as m]
-            [taoensso.tufte      :as tufte]))
+           (java.nio ByteBuffer)))
 
-(m/set-current-implementation :vectorz)
+(set! *unchecked-math* :warn-on-boxed)
 
 ;; We assume that matrix[0,0] is the upper left corner.
 (defn non-zero-data [matrix]
-  (let [row-count (m/row-count matrix)]
-    (transduce
-     (comp (map-indexed (fn [row cols]
-                          (when (pos? (count cols))
-                            (let [y (- row-count row)]
-                              {:x (mapv inc cols) ; 1 -> m left to right
-                               :y (into [] (repeat (count cols) y)) ; n -> 1 top to bottom
-                               :v (mapv (fn [col] (m/mget matrix row col)) cols)}))))
-           (remove nil?))
-     (completing
-      (fn [m1 m2]
-        {:x (into (:x m1) (:x m2))
-         :y (into (:y m1) (:y m2))
-         :v (into (:v m1) (:v m2))}))
-     {:x []
-      :y []
-      :v []}
-     (m/non-zero-indices matrix))))
+  (let [[^long rows _] (:shape (t/tensor->dimensions matrix))
+        {:keys
+         [row-idxs
+          col-idxs]} (non-zero-indices matrix)]
+    {:x (mapv inc col-idxs)
+     :y (mapv #(- rows ^long %) row-idxs)
+     :v (mapv (fn [row col] (t/mget matrix row col)) row-idxs col-idxs)}))
 
 ;;FIXME max-row max-col is not correct. Need dimensions in binary file.
 (defn indices-to-matrix [indices ttype]
-  (let [^ints rows (indices :y)
-        ^ints cols (indices :x)
-        max-row    (apply max rows)
-        max-col    (apply max cols)]
+  (let [^ints rows   (indices :y)
+        ^ints cols   (indices :x)
+        ^int max-row (reduce max rows)
+        ^int max-col (reduce max cols)]
     (if (= ttype :int)
       (let [^ints values (indices :v)
             matrix       (make-array Integer/TYPE max-row max-col)]
@@ -41,18 +31,18 @@
           (let [true-row (- max-row (aget rows i))
                 true-col (dec (aget cols i))]
             (aset matrix true-row true-col (aget values i))))
-        (m/matrix matrix))
+        (t/->tensor matrix))
       (let [^floats values (indices :v)
             matrix         (make-array Float/TYPE max-row max-col)]
         (dotimes [i (count values)]
           (let [true-row (- max-row (aget rows i))
                 true-col (dec (aget cols i))]
             (aset matrix true-row true-col (aget values i))))
-        (m/matrix matrix)))))
+        (t/->tensor matrix)))))
 
 ;;FIXME optimize
 (defn write-matrix-as-binary [matrix file-name]
-  (let [num-burned-cells (m/non-zero-count matrix)
+  (let [num-burned-cells (non-zero-count matrix)
         burned-data      (non-zero-data matrix)]
     (with-open [out (DataOutputStream. (io/output-stream file-name))]
       (.writeInt out (int num-burned-cells))               ; Int32
@@ -76,7 +66,7 @@
   [file-name types matrices]
   (tufte/p
    :write-matrices-as-binary
-   (let [num-burned-cells (m/non-zero-count (first matrices))
+   (let [num-burned-cells (non-zero-count (first matrices))
          data             (mapv non-zero-data matrices)]
      (with-open [out (DataOutputStream. (io/output-stream file-name))]
        (.writeInt out (int num-burned-cells)) ; Int32
@@ -97,8 +87,8 @@
   (with-open [in (DataInputStream. (io/input-stream file-name))]
     (let [num-burned-cells (.readInt in)] ; Int32
       (indices-to-matrix
-       {:x (into-array Integer/TYPE (repeatedly num-burned-cells #(.readInt in)))  ; Int32
-        :y (into-array Integer/TYPE (repeatedly num-burned-cells #(.readInt in)))  ; Int32
+       {:x (into-array Integer/TYPE (repeatedly num-burned-cells #(.readInt in))) ; Int32
+        :y (into-array Integer/TYPE (repeatedly num-burned-cells #(.readInt in))) ; Int32
         :v (into-array Float/TYPE (repeatedly num-burned-cells #(.readFloat in)))} ; Float32
        :float))))
 
@@ -111,8 +101,8 @@
           _                (.read in ys-bytes)
           xs               (int-array num-burned-cells)
           ys               (int-array num-burned-cells)
-          _               (.get (.asIntBuffer (ByteBuffer/wrap xs-bytes)) xs)
-          _               (.get (.asIntBuffer (ByteBuffer/wrap ys-bytes)) ys)] ; Int32
+          _                (.get (.asIntBuffer (ByteBuffer/wrap xs-bytes)) xs)
+          _                (.get (.asIntBuffer (ByteBuffer/wrap ys-bytes)) ys)] ; Int32
       (mapv (fn [ttype]
               (indices-to-matrix
                {:x xs

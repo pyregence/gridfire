@@ -21,29 +21,44 @@
 
 ;; Tests fuel model weighting factors, rothermel equations, and byram's flame length and fire line intensity under fully cured conditions
 (deftest ^:unit rothermel-surface-fire-spread-no-wind-no-slope-test-dry
-  (doseq [num sb40-fuel-models]
-    (let [gridfire-fuel-model                                     (moisturize (build-fuel-model num) (test-fuel-moisture :dry))
-          {:keys [spread-rate reaction-intensity residence-time]} (rothermel-surface-fire-spread-no-wind-no-slope gridfire-fuel-model)
-          corrected-spread-rate                                   (if (grass-fuel-model? num) (* 2.0 spread-rate) spread-rate)
-          corrected-spread-rate-ch-per-hr                         (/ corrected-spread-rate 1.1)
-          fire-line-intensity                                     (->> (anderson-flame-depth corrected-spread-rate residence-time)
-                                                                       (byram-fire-line-intensity reaction-intensity))
-          flame-length                                            (byram-flame-length fire-line-intensity)
-          [ros_max fli fl ri _ rt _]                              (behaveplus5-surface-fire-values-dry-no-wind-no-slope (:name gridfire-fuel-model))]
-      (is (within ros_max corrected-spread-rate-ch-per-hr 0.1))
-      (is (within ri reaction-intensity 12.0))
-      (is (within rt residence-time 0.01))
-      (is (within fli fire-line-intensity 0.5))
-      (is (within fl flame-length 0.05)))))
+  (testing "Fully cured conditions."
+    (doseq [number sb40-fuel-models]
+      (let [gridfire-fuel-model                                     (moisturize (build-fuel-model number) (test-fuel-moisture :dry))
+            {:keys [spread-rate reaction-intensity residence-time]} (rothermel-surface-fire-spread-no-wind-no-slope gridfire-fuel-model)
+            corrected-spread-rate-ch-per-hr                         (/ spread-rate 1.1)
+            fire-line-intensity                                     (->> (anderson-flame-depth spread-rate residence-time)
+                                                                         (byram-fire-line-intensity reaction-intensity))
+            flame-length                                            (byram-flame-length fire-line-intensity)
+            [ros_max fli fl ri _ rt _]                              (behaveplus5-surface-fire-values-dry-no-wind-no-slope (:name gridfire-fuel-model))]
+        (is (within ros_max corrected-spread-rate-ch-per-hr 0.1))
+        (is (within ri reaction-intensity 12.0))
+        (is (within rt residence-time 0.01))
+        (is (within fli fire-line-intensity 0.5))
+        (is (within fl flame-length 0.05)))))
+
+  (testing "Fully cured conditions with grass fuel suppression enabled."
+    (doseq [number sb40-fuel-models]
+      (let [gridfire-fuel-model                                     (moisturize (build-fuel-model number) (test-fuel-moisture :dry))
+            {:keys [spread-rate reaction-intensity residence-time]} (rothermel-surface-fire-spread-no-wind-no-slope gridfire-fuel-model true)
+            corrected-spread-rate                                   (if (grass-fuel-model? number) (* 2.0 spread-rate) spread-rate)
+            corrected-spread-rate-ch-per-hr                         (/ corrected-spread-rate 1.1)
+            fire-line-intensity                                     (->> (anderson-flame-depth corrected-spread-rate residence-time)
+                                                                         (byram-fire-line-intensity reaction-intensity))
+            flame-length                                            (byram-flame-length fire-line-intensity)
+            [ros_max fli fl ri _ rt _]                              (behaveplus5-surface-fire-values-dry-no-wind-no-slope (:name gridfire-fuel-model))]
+        (is (within ros_max corrected-spread-rate-ch-per-hr 0.1))
+        (is (within ri reaction-intensity 12.0))
+        (is (within rt residence-time 0.01))
+        (is (within fli fire-line-intensity 0.5))
+        (is (within fl flame-length 0.05))))))
 
 ;; Tests fuel model weighting factors, rothermel equations, and byram's flame length and fire line intensity under 50% cured conditions
 (deftest ^:unit rothermel-surface-fire-spread-no-wind-no-slope-test-mid
-  (doseq [num sb40-fuel-models]
-    (let [gridfire-fuel-model                                     (moisturize (build-fuel-model num) (test-fuel-moisture :mid))
+  (doseq [number sb40-fuel-models]
+    (let [gridfire-fuel-model                                     (moisturize (build-fuel-model number) (test-fuel-moisture :mid))
           {:keys [spread-rate reaction-intensity residence-time]} (rothermel-surface-fire-spread-no-wind-no-slope gridfire-fuel-model)
-          corrected-spread-rate                                   (if (grass-fuel-model? num) (* 2.0 spread-rate) spread-rate)
-          corrected-spread-rate-ch-per-hr                         (/ corrected-spread-rate 1.1)
-          fire-line-intensity                                     (->> (anderson-flame-depth corrected-spread-rate residence-time)
+          corrected-spread-rate-ch-per-hr                         (/ spread-rate 1.1)
+          fire-line-intensity                                     (->> (anderson-flame-depth spread-rate residence-time)
                                                                        (byram-fire-line-intensity reaction-intensity))
           flame-length                                            (byram-flame-length fire-line-intensity)
           [ros_max fli fl ri _ rt _]                              (behaveplus5-surface-fire-values-mid-no-wind-no-slope (:name gridfire-fuel-model))]
@@ -58,16 +73,15 @@
 ;; conditions with 10mph wind speed and 20% slope. Also tests phi_W
 ;; and phi_S from the rothermel equations.
 (deftest ^:unit rothermel-surface-fire-spread-with-wind-and-slope-test-mid
-  (doseq [num sb40-fuel-models]
-    (let [gridfire-fuel-model                                     (moisturize (build-fuel-model num) (test-fuel-moisture :mid))
-          {:keys [spread-rate reaction-intensity residence-time
+  (doseq [number sb40-fuel-models]
+    (let [gridfire-fuel-model                                     (moisturize (build-fuel-model number) (test-fuel-moisture :mid))
+          {:keys [_spread-rate reaction-intensity residence-time
                   get-phi_W get-phi_S] :as spread-info-min}       (rothermel-surface-fire-spread-no-wind-no-slope gridfire-fuel-model)
-          corrected-spread-rate                                   (if (grass-fuel-model? num) (* 2.0 spread-rate) spread-rate)
           midflame-wind-speed                                     (mph->fpm 10.0)
           slope                                                   0.2 ;; vertical feet/horizontal feet
-          {:keys [max-spread-rate max-spread-direction
-                  effective-wind-speed eccentricity]}             (rothermel-surface-fire-spread-max (assoc spread-info-min :spread-rate corrected-spread-rate)
-                                                                                                     midflame-wind-speed 0.0 slope 0.0 1.0)
+          {:keys [max-spread-rate _max-spread-direction
+                  _effective-wind-speed _eccentricity]}             (rothermel-surface-fire-spread-max spread-info-min
+                                                                                                       midflame-wind-speed 0.0 slope 0.0 1.0)
           max-spread-rate-ch-per-hr                               (/ max-spread-rate 1.1)
           phi_W                                                   (get-phi_W midflame-wind-speed)
           phi_S                                                   (get-phi_S slope)
@@ -88,15 +102,14 @@
 ;; conditions with 10mph wind speed and 20% slope. Also tests max
 ;; spread direction and effective wind speed for cross-slope winds.
 (deftest ^:unit rothermel-surface-fire-spread-with-cross-wind-and-slope-test-mid-90-180
-  (doseq [num sb40-fuel-models]
-    (let [gridfire-fuel-model                                     (moisturize (build-fuel-model num) (test-fuel-moisture :mid))
-          {:keys [spread-rate reaction-intensity residence-time
-                  get-phi_W get-phi_S] :as spread-info-min}       (rothermel-surface-fire-spread-no-wind-no-slope gridfire-fuel-model)
-          corrected-spread-rate                                   (if (grass-fuel-model? num) (* 2.0 spread-rate) spread-rate)
+  (doseq [number sb40-fuel-models]
+    (let [gridfire-fuel-model                                     (moisturize (build-fuel-model number) (test-fuel-moisture :mid))
+          {:keys [reaction-intensity residence-time
+                  _get-phi_W _get-phi_S] :as spread-info-min}       (rothermel-surface-fire-spread-no-wind-no-slope gridfire-fuel-model)
           midflame-wind-speed                                     (mph->fpm 10.0)
           slope                                                   0.2 ;; vertical feet/horizontal feet
           {:keys [max-spread-rate max-spread-direction
-                  effective-wind-speed eccentricity]}             (rothermel-surface-fire-spread-max (assoc spread-info-min :spread-rate corrected-spread-rate)
+                  effective-wind-speed _eccentricity]}             (rothermel-surface-fire-spread-max spread-info-min
                                                                                                      midflame-wind-speed 90.0 slope 180.0 1.0)
           max-spread-rate-ch-per-hr                               (/ max-spread-rate 1.1)
           effective-wind-speed-mph                                (/ effective-wind-speed 88.0)
@@ -115,15 +128,14 @@
 ;; conditions with 10mph wind speed and 20% slope. Also tests max
 ;; spread direction and effective wind speed for cross-slope winds.
 (deftest ^:unit rothermel-surface-fire-spread-with-cross-wind-and-slope-test-mid-135-180
-  (doseq [num sb40-fuel-models]
-    (let [gridfire-fuel-model                                     (moisturize (build-fuel-model num) (test-fuel-moisture :mid))
-          {:keys [spread-rate reaction-intensity residence-time
-                  get-phi_W get-phi_S] :as spread-info-min}       (rothermel-surface-fire-spread-no-wind-no-slope gridfire-fuel-model)
-          corrected-spread-rate                                   (if (grass-fuel-model? num) (* 2.0 spread-rate) spread-rate)
+  (doseq [number sb40-fuel-models]
+    (let [gridfire-fuel-model                                     (moisturize (build-fuel-model number) (test-fuel-moisture :mid))
+          {:keys [reaction-intensity residence-time
+                  _get-phi_W _get-phi_S] :as spread-info-min}       (rothermel-surface-fire-spread-no-wind-no-slope gridfire-fuel-model)
           midflame-wind-speed                                     (mph->fpm 10.0)
           slope                                                   0.2 ;; vertical feet/horizontal feet
           {:keys [max-spread-rate max-spread-direction
-                  effective-wind-speed eccentricity]}             (rothermel-surface-fire-spread-max (assoc spread-info-min :spread-rate corrected-spread-rate)
+                  effective-wind-speed eccentricity]}             (rothermel-surface-fire-spread-max spread-info-min
                                                                                                      midflame-wind-speed 135.0 slope 180.0 1.0)
           max-spread-rate-ch-per-hr                               (/ max-spread-rate 1.1)
           effective-wind-speed-mph                                (/ effective-wind-speed 88.0)
@@ -151,27 +163,4 @@
 
 (comment
   (run-tests)
-
-  (testing "Arithmetic"
-    (testing "with positive integers"
-      (is (= 4 (+ 2 2)))
-      (is (= 7 (+ 3 4))))
-    (testing "with negative integers"
-      (is (= -4 (+ -2 -2)))
-      (is (= -1 (+ 3 -4)))))
-
-  (deftest addition
-    (is (= 4 (+ 2 2)) "Addition works")
-    (is (= 7 (+ 3 4)) "Yep, still works"))
-
-  (deftest subtraction
-    (is (= 1 (- 4 3)))
-    (is (= 3 (- 7 4))))
-
-  (deftest arithmetic
-    (addition)
-    (subtraction))
-
-  (defn test-ns-hook []
-    (arithmetic))
   )

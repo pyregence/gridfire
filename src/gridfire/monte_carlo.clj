@@ -3,14 +3,13 @@
   (:require [clojure.java.io :as io]
             [clojure.data.csv :as csv]
             [clojure.java.jdbc :as jdbc]
-            [clojure.core.matrix :as m]
-            [clojure.core.matrix.operators :as mop]
             [clojure.core.reducers :as r]
             [gridfire.surface-fire :refer [degrees-to-radians]]
             [gridfire.fire-spread :refer [random-cell run-fire-spread]]
-            [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]))
-
-(m/set-current-implementation :vectorz)
+            [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]
+            [tech.v3.datatype :as d]
+            [tech.v3.datatype.functional :as dfn]
+            [tech.v3.tensor :as t]))
 
 (defn postprocess-simulation-results
   [wrf-cell-id lon lat cell-offset-in-neighborhood output-directory results-table]
@@ -74,13 +73,13 @@
                                               fuel-moisture foliar-moisture
                                               ellipse-adjustment-factor ignition-site)]
     (if fire-results
-      (let [flame-lengths       (filterv pos? (m/eseq (:flame-length-matrix fire-results)))
+      (let [flame-lengths       (filterv pos? (t/tensor->buffer (:flame-length-matrix fire-results)))
             burned-cells        (count flame-lengths)
             fire-size           (cells-to-acres cell-size burned-cells)
-            flame-length-mean   (/ (m/esum flame-lengths) burned-cells)
+            flame-length-mean   (/ (dfn/sum flame-lengths) burned-cells)
             ;; flame-length-stddev (->> flame-lengths
-            ;;                          (m/emap #(Math/pow (- flame-length-mean %) 2.0))
-            ;;                          (m/esum)
+            ;;                          (d/emap #(Math/pow (- flame-length-mean %) 2.0) nil)
+            ;;                          (dfn/sum)
             ;;                          (#(/ % burned-cells))
             ;;                          (Math/sqrt))]
             ]
@@ -134,11 +133,11 @@
   [landfire-layers cell-size ignition-sites weather-readings lw-moisture max-wrf-sample-index
    burn-duration ellipse-adjustment-factor]
   (let [landfire-layers (assoc landfire-layers
-                               :elevation          (m/emap #(* % 3.28) (landfire-layers :elevation)) ; m -> ft
-                               :slope              (m/emap #(Math/tan (degrees-to-radians %)) (landfire-layers :slope)) ; degrees -> %
-                               :canopy-height      (m/emap #(* % 3.28) (landfire-layers :canopy-height)) ; m -> ft
-                               :canopy-base-height (m/emap #(* % 3.28) (landfire-layers :canopy-base-height)) ; m -> ft
-                               :crown-bulk-density (m/emap #(* % 0.0624) (landfire-layers :crown-bulk-density)))] ; kg/m^3 -> lb/ft^3
+                               :elevation          (d/clone (d/emap #(* % 3.28) nil (landfire-layers :elevation))) ; m -> ft
+                               :slope              (d/clone (d/emap #(Math/tan (degrees-to-radians %)) nil (landfire-layers :slope))) ; degrees -> %
+                               :canopy-height      (d/clone (d/emap #(* % 3.28) nil (landfire-layers :canopy-height))) ; m -> ft
+                               :canopy-base-height (d/clone (d/emap #(* % 3.28) nil (landfire-layers :canopy-base-height))) ; m -> ft
+                               :crown-bulk-density (d/clone (d/emap #(* % 0.0624) nil (landfire-layers :crown-bulk-density))))] ; kg/m^3 -> lb/ft^3
     (mapv (fn [ignition-site]
             (let [weather-sample (rand-int max-wrf-sample-index)]
               (compute-fire-behavior-metrics! weather-readings lw-moisture burn-duration cell-size

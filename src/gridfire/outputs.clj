@@ -1,14 +1,12 @@
 (ns gridfire.outputs
-  (:require [clojure.core.matrix  :as m]
-            [clojure.data.csv     :as csv]
+  (:require [clojure.data.csv     :as csv]
             [clojure.java.io      :as io]
             [clojure.string       :as str]
             [gridfire.utils.async :as gf-async]
-            [manifold.deferred    :as mfd]
             [magellan.core        :refer [matrix-to-raster write-raster]]
-            [matrix-viz.core      :refer [save-matrix-as-png]]))
-
-(m/set-current-implementation :vectorz)
+            [manifold.deferred    :as mfd]
+            [matrix-viz.core      :refer [save-matrix-as-png]]
+            [tech.v3.datatype     :as d]))
 
 #_(set! *unchecked-math* :warn-on-boxed)
 
@@ -155,7 +153,7 @@
                    (exec-in-outputs-writing-pool
                      (fn []
                        (let [output-time        (* band timestep)
-                             probability-matrix (m/emap #(/ % simulations) matrix)]
+                             probability-matrix (d/clone (d/emap #(/ % simulations) nil matrix))]
                          [output-time probability-matrix])))
                    (mfd/chain
                      (fn [[output-time probability-matrix]]
@@ -166,7 +164,7 @@
         (->
           (exec-in-outputs-writing-pool
             (fn []
-              (m/emap #(/ % simulations) burn-count-matrix)))
+              (d/clone (d/emap #(/ % simulations) nil burn-count-matrix))))
           (mfd/chain
             (fn [probability-matrix]
               (mfd/zip
@@ -219,7 +217,7 @@
                  (mapv (fn [{:keys [ignition-row ignition-col max-runtime temperature relative-humidity
                                     wind-speed-20ft wind-from-direction foliar-moisture ellipse-adjustment-factor
                                     fire-size flame-length-mean flame-length-stddev fire-line-intensity-mean
-                                    fire-line-intensity-stddev simulation crown-fire-size spot-count]}]
+                                    fire-line-intensity-stddev simulation surface-fire-size crown-fire-size spot-count]}]
                          [simulation
                           ignition-row
                           ignition-col
@@ -236,9 +234,10 @@
                           fire-line-intensity-mean
                           fire-line-intensity-stddev
                           crown-fire-size
-                          spot-count]))
+                          spot-count
+                          surface-fire-size]))
                  (cons ["simulation" "ignition-row" "ignition-col" "max-runtime" "temperature" "relative-humidity"
                         "wind-speed-20ft" "wind-from-direction" "foliar-moisture" "ellipse-adjustment-factor"
                         "fire-size" "flame-length-mean" "flame-length-stddev" "fire-line-intensity-mean"
-                        "fire-line-intensity-stddev" "crown-fire-size" "spot-count"])
+                        "fire-line-intensity-stddev" "crown-fire-size" "spot-count" "surface-fire-size"])
                  (csv/write-csv out-file))))))))

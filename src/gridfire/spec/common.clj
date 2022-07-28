@@ -8,10 +8,10 @@
 
 (s/def ::ordered-pair (fn [[a b]] (< a b)))
 
-(s/def ::percent (s/and float? #(<= 0.0 % 1.0)))
+(s/def ::ratio (s/and float? #(<= 0.0 % 10.0)))
 
-(s/def ::percent-range
-  (s/and (s/coll-of ::percent :kind vector? :count 2)
+(s/def ::ratio-range
+  (s/and (s/coll-of ::ratio :kind vector? :count 2)
          ::ordered-pair))
 
 (s/def ::integer-range
@@ -26,9 +26,9 @@
   (s/and (s/coll-of number? :kind vector? :count 2)
          ::ordered-pair))
 
-(s/def ::percent-or-range
-  (s/or :percent ::percent
-        :range   ::percent-range))
+(s/def ::ratio-or-range
+  (s/or :ratio ::ratio
+        :range ::ratio-range))
 
 (s/def ::integer-or-range
   (s/or :integer integer?
@@ -42,10 +42,10 @@
   (s/or :number number?
         :range  ::number-range))
 
-(s/def ::percent-sample
-  (s/or :percent ::percent
-        :range   ::percent-range
-        :list    (s/coll-of ::percent :kind list?)))
+(s/def ::ratio-sample
+  (s/or :ratio ::ratio
+        :range ::ratio-range
+        :list  (s/coll-of ::ratio :kind list?)))
 
 (s/def ::integer-sample
   (s/or :integer integer?
@@ -75,8 +75,8 @@
 ;; File Access
 ;;=============================================================================
 
-(def file-path-regex      #"^(((\.\.){1}/)*|(/){1})?(([\w\-]*)/)*([\w\-\.]+)$")
-(def directory-path-regex #"^(((\.\.){1}/)*|(/){1})?(([\w\-]*)/)*([\w\-]+)/?$")
+(def file-path-regex      #"^(((\.){1,2}/)*|(/){1})?(([\w\-]*)/)*([\w\-\.]+)$")
+(def directory-path-regex #"^(((\.){1,2}/)*|(/){1})?(([\w\-]*)/)*([\w\-]+)/?$")
 
 (s/def ::file-path      (s/and string? #(re-matches file-path-regex %)))
 (s/def ::directory-path (s/and string? #(re-matches directory-path-regex %)))
@@ -102,11 +102,11 @@
 
 (def postgis-sql-regex #"[a-z0-9]+(\.[a-z0-9]+)? WHERE rid=[0-9]+")
 
-(def path-to-geotiff-regex #"[a-z_\-\s0-9\.\/]+(\/[a-z_\-\s0-9\.]+)*\.tif")
+(def geotiff-regex #".*\.tif$")
 
 (s/def ::sql (s/and string? #(re-matches postgis-sql-regex %)))
 
-(s/def ::geotiff (s/and string? #(re-matches path-to-geotiff-regex %) ::readable-file))
+(s/def ::geotiff (s/and ::readable-file #(re-matches geotiff-regex %)))
 
 (s/def ::source (s/or :sql     ::sql
                       :geotiff ::geotiff))
@@ -126,8 +126,8 @@
 (s/def ::layer-coords (s/or :sql ::sql
                             :map ::postgis-or-geotiff))
 
-(s/def ::number-or-layer-coords
-  (s/or :number number?
+(s/def ::ratio-or-layer-coords
+  (s/or :ratio  ::ratio
         :raster ::layer-coords))
 
 ;;=============================================================================

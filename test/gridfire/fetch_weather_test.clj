@@ -1,10 +1,12 @@
 (ns gridfire.fetch-weather-test
-  (:require [clojure.core.matrix :as m]
-            [clojure.java.jdbc   :as jdbc]
-            [clojure.test        :refer [deftest is]]
-            [gridfire.fetch      :as fetch]
-            [gridfire.inputs     :as inputs]
-            [magellan.core       :refer [read-raster]])
+  (:require [clojure.java.jdbc           :as jdbc]
+            [clojure.test                :refer [deftest is use-fixtures]]
+            [gridfire.fetch              :as fetch]
+            [gridfire.inputs             :as inputs]
+            [gridfire.utils.test         :as utils]
+            [magellan.core               :refer [read-raster]]
+            [tech.v3.tensor              :as t]
+            [tech.v3.datatype.functional :as dfn])
   (:import java.util.Random))
 
 ;;-----------------------------------------------------------------------------
@@ -22,7 +24,8 @@
 (def test-config-base
   {:db-spec     db-spec
    :simulations 1
-   :random-seed 1234567890})
+   :random-seed 1234567890
+   :rand-gen    (Random. 1234567890)})
 
 ;;-----------------------------------------------------------------------------
 ;; Utils
@@ -30,6 +33,13 @@
 
 (defn in-file-path [filename]
   (str resources-path filename))
+
+
+;;-----------------------------------------------------------------------------
+;; Fixtures
+;;-----------------------------------------------------------------------------
+
+(use-fixtures :once utils/with-reset-db-pool)
 
 ;;-----------------------------------------------------------------------------
 ;; Tests
@@ -44,22 +54,22 @@
         postgis-config  (merge test-config-base
                                {:temperature {:type   :postgis
                                               :source postgis-table}})
-        geotiff-results (:matrix (fetch/weather geotiff-config (:temperature geotiff-config)))
-        postgis-results (:matrix (fetch/weather postgis-config (:temperature postgis-config)))]
+        geotiff-results (:matrix (fetch/weather-layer geotiff-config :temperature))
+        postgis-results (:matrix (fetch/weather-layer postgis-config :temperature))]
 
-    (is (every? m/matrix? geotiff-results))
+    (is (every? t/tensor? geotiff-results))
 
-    (is (every? m/matrix? postgis-results))
+    (is (every? t/tensor? postgis-results))
 
-    (is (= geotiff-results postgis-results))
+    (is (dfn/equals geotiff-results postgis-results))
 
     (let [numbands (count (:bands (read-raster (in-file-path geotiff-file))))]
-      (is (= numbands (m/dimension-count geotiff-results 0))))
+      (is (= numbands (-> (t/tensor->dimensions geotiff-results) :shape first))))
 
     (let [results  (jdbc/with-db-connection [conn (:db-spec test-config-base)]
                      (jdbc/query conn [(str "SELECT (ST_Metadata(rast)).numbands FROM " postgis-table)]))
           numbands (:numbands (first results))]
-      (is (= numbands (m/dimension-count geotiff-results 0))))))
+      (is (= numbands (-> (t/tensor->dimensions geotiff-results) :shape first))))))
 
 (deftest ^:database fetch-relative-humidity-test
   (let [geotiff-file    "rh_to_sample.tif"
@@ -70,22 +80,22 @@
         postgis-config  (merge test-config-base
                                {:relative-humidity {:type   :postgis
                                                     :source postgis-table}})
-        geotiff-results (:matrix (fetch/weather geotiff-config (:relative-humidity geotiff-config)))
-        postgis-results (:matrix (fetch/weather postgis-config (:relative-humidity postgis-config)))]
+        geotiff-results (:matrix (fetch/weather-layer geotiff-config :relative-humidity))
+        postgis-results (:matrix (fetch/weather-layer postgis-config :relative-humidity))]
 
-    (is (every? m/matrix? geotiff-results))
+    (is (every? t/tensor? geotiff-results))
 
-    (is (every? m/matrix? postgis-results))
+    (is (every? t/tensor? postgis-results))
 
-    (is (= geotiff-results postgis-results))
+    (is (dfn/equals geotiff-results postgis-results))
 
     (let [numbands (count (:bands (read-raster (in-file-path geotiff-file))))]
-      (is (= numbands (m/dimension-count geotiff-results 0))))
+      (is (= numbands (-> (t/tensor->dimensions geotiff-results) :shape first))))
 
     (let [results  (jdbc/with-db-connection [conn (:db-spec test-config-base)]
                      (jdbc/query conn [(str "SELECT (ST_Metadata(rast)).numbands FROM " postgis-table)]))
           numbands (:numbands (first results))]
-      (is (= numbands (m/dimension-count postgis-results 0))))))
+      (is (= numbands (-> (t/tensor->dimensions postgis-results) :shape first))))))
 
 (deftest ^:database fetch-wind-speed-20ft-test
   (let [geotiff-file    "ws_to_sample.tif"
@@ -96,22 +106,22 @@
         postgis-config  (merge test-config-base
                                {:wind-speed-20ft {:type   :postgis
                                                   :source postgis-table}})
-        geotiff-results (:matrix (fetch/weather geotiff-config (:wind-speed-20ft geotiff-config)))
-        postgis-results (:matrix (fetch/weather postgis-config (:wind-speed-20ft postgis-config)))]
+        geotiff-results (:matrix (fetch/weather-layer geotiff-config :wind-speed-20ft))
+        postgis-results (:matrix (fetch/weather-layer postgis-config :wind-speed-20ft))]
 
-    (is (every? m/matrix? geotiff-results))
+    (is (every? t/tensor? geotiff-results))
 
-    (is (every? m/matrix? postgis-results))
+    (is (every? t/tensor? postgis-results))
 
-    (is (= geotiff-results postgis-results))
+    (is (dfn/equals geotiff-results postgis-results))
 
     (let [numbands (count (:bands (read-raster (in-file-path geotiff-file))))]
-      (is (= numbands (m/dimension-count geotiff-results 0))))
+      (is (= numbands (-> (t/tensor->dimensions geotiff-results) :shape first))))
 
     (let [results  (jdbc/with-db-connection [conn (:db-spec test-config-base)]
                      (jdbc/query conn [(str "SELECT (ST_Metadata(rast)).numbands FROM " postgis-table)]))
           numbands (:numbands (first results))]
-      (is (= numbands (m/dimension-count postgis-results 0))))))
+      (is (= numbands (-> (t/tensor->dimensions postgis-results) :shape first))))))
 
 (deftest ^:database fetch-wind-from-direction-test
   (let [geotiff-file    "wd_to_sample.tif"
@@ -122,42 +132,39 @@
         postgis-config  (merge test-config-base
                                {:wind-from-direction {:type   :postgis
                                                       :source postgis-table}})
-        geotiff-results (:matrix (fetch/weather geotiff-config (:wind-from-direction geotiff-config)))
-        postgis-results (:matrix (fetch/weather postgis-config (:wind-from-direction postgis-config)))]
+        geotiff-results (:matrix (fetch/weather-layer geotiff-config :wind-from-direction))
+        postgis-results (:matrix (fetch/weather-layer postgis-config :wind-from-direction))]
 
-    (is (every? m/matrix? geotiff-results))
+    (is (every? t/tensor? geotiff-results))
 
-    (is (every? m/matrix? postgis-results))
+    (is (every? t/tensor? postgis-results))
 
-    (is (= geotiff-results postgis-results))
+    (is (dfn/equals geotiff-results postgis-results))
 
     (let [numbands (count (:bands (read-raster (in-file-path geotiff-file))))]
-      (is (= numbands (m/dimension-count geotiff-results 0))))
+      (is (= numbands (-> (t/tensor->dimensions geotiff-results) :shape first))))
 
     (let [results  (jdbc/with-db-connection [conn (:db-spec test-config-base)]
                      (jdbc/query conn [(str "SELECT (ST_Metadata(rast)).numbands FROM " postgis-table)]))
           numbands (:numbands (first results))]
-      (is (= numbands (m/dimension-count postgis-results 0))))))
-
+      (is (= numbands (-> (t/tensor->dimensions postgis-results) :shape first))))))
 
 (deftest ^:database get-weather-from-range-test
-  (let [config         (merge test-config-base
-                              {:temperature [0 100]
-                               :simulations 10})
-        rand-generator (Random. (:random-seed config))
-        results        (inputs/get-weather config rand-generator :temperature {})]
+  (let [config  (assoc test-config-base
+                       :temperature [0 100]
+                       :simulations 10)
+        results (inputs/get-weather config :temperature)]
 
     (is (vector results))
 
-    (is (every? int? results))))
+    (is (every? double? results))))
 
 (deftest ^:database get-weather-from-list-test
-  (let [tmp-list       '(0 10 20 30)
-        config         (merge test-config-base
-                              {:temperature tmp-list
-                               :simulations 10})
-        rand-generator (Random. (:random-seed config))
-        results        (inputs/get-weather config rand-generator :temperature {})]
+  (let [tmp-list (list 0 10 20 30)
+        config   (assoc test-config-base
+                        :temperature tmp-list
+                        :simulations 10)
+        results  (inputs/get-weather config :temperature)]
 
     (is (vector results))
 
@@ -166,11 +173,10 @@
     (is (= (set results) (set tmp-list)))))
 
 (deftest ^:database get-weather-scalar-from-test
-  (let [config         (merge test-config-base
-                              {:temperature 42
-                               :simulations 10})
-        rand-generator (Random. (:random-seed config))
-        results        (inputs/get-weather config rand-generator :temperature {})]
+  (let [config  (assoc test-config-base
+                       :temperature 42
+                       :simulations 10)
+        results (inputs/get-weather config :temperature)]
 
     (is (vector results))
 

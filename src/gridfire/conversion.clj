@@ -1,10 +1,8 @@
 (ns gridfire.conversion
-  (:require [clojure.core.matrix :as m]
-            [clojure.string      :as str])
+  (:require [clojure.string   :as str]
+            [tech.v3.datatype :as d])
   (:import java.text.SimpleDateFormat
            java.util.TimeZone))
-
-(m/set-current-implementation :vectorz)
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -44,19 +42,25 @@
   "Convert degrees to radians."
   ^double
   [^double degrees]
-  (* degrees 0.017453292519943295)) ; (/ Math/PI 180.0) = 0.017453292519943295
-
-(defn deg->percent
-  "Convert degrees to percent."
-  ^double
-  [^double degrees]
-  (Math/tan (deg->rad degrees)))
+  (Math/toRadians degrees))
 
 (defn rad->deg
   "Convert radians to degrees."
   ^double
   [^double radians]
-  (* radians 57.29577951308232)) ; (/ 180.0 Math/PI) = 57.29577951308232
+  (Math/toDegrees radians))
+
+(defn deg->ratio
+  "Convert degrees to ratio."
+  ^double
+  [^double degrees]
+  (-> degrees Math/toRadians Math/tan))
+
+(defn ratio->deg
+  "Convert ratio to degrees."
+  ^double
+  [^double ratio]
+  (-> ratio Math/atan Math/toDegrees))
 
 (defn m->ft
   "Convert meters to feet."
@@ -100,6 +104,18 @@
   [^double km-hr]
   (* km-hr 0.621371192237334))
 
+(defn wind-speed-20ft->wind-speed-10m
+  "Convert wind speed at 20ft to wind speed at 10m."
+  ^double
+  [^double wind-speed-20ft]
+  (/ wind-speed-20ft 0.87))
+
+(defn wind-speed-10m->wind-speed-20ft
+  "Convert wind speed at 10m to wind speed at 20ft."
+  ^double
+  [^double wind-speed-10m]
+  (* 0.87 wind-speed-10m))
+
 (defn Btu-ft-s->kW-m
   "Convert BTU per feet per second to kilowatt per meter."
   ^double
@@ -111,6 +127,18 @@
   ^double
   [^double kW-m]
   (* kW-m 0.28887942532730604))
+
+(defn Btu-lb->kJ-kg
+  "Convert BTU per lb to kilojoule per kilogram."
+  ^double
+  [^double Btu-lb]
+  (* Btu-lb 2.3259999996185))
+
+(defn kJ-kg->Btu-lb
+  "Convert kilojoule per kilogram to BTU per lb."
+  ^double
+  [^double kJ-kg]
+  (/ kJ-kg 2.3259999996185))
 
 (defn kg-m3->lb-ft3
   "Convert kilogram per cubic meter to pound per cubic foot."
@@ -148,6 +176,12 @@
   [^double minutes]
   (* minutes 60.0))
 
+(defn ms->min
+  "Convert milliseconds to minutes."
+  ^double
+  [^double milliseconds]
+  (* milliseconds 0.000016667))
+
 (defn hour->min
   "Converts hours to minutes."
   ^double
@@ -158,7 +192,7 @@
   "Converts minutes to hours. (rounds down)"
   ^long
   [^double minutes]
-  (long (quot minutes 60.0)))
+  (long (/ minutes 60.0)))
 
 (defn convert-date-string
   "Convert a date string between two formats."
@@ -203,14 +237,20 @@
   (str/replace kebab-string #"-" "_"))
 
 (def conversion-table
-  {:elevation          {:metric m->ft}
-   :slope              {nil deg->percent}
-   :canopy-height      {:metric m->ft}
-   :canopy-base-height {:metric m->ft}
-   :crown-bulk-density {:metric kg-m3->lb-ft3}
-   :wind-speed-20ft    {:metric mps->mph}
-   :temperature        {:metric C->F
-                        :absolute K->F}})
+  {:elevation                     {:metric   m->ft}
+   :slope                         {nil       deg->ratio}
+   :canopy-base-height            {:metric   m->ft}
+   :canopy-height                 {:metric   m->ft}
+   :crown-bulk-density            {:metric   kg-m3->lb-ft3}
+   :temperature                   {:metric   C->F
+                                   :absolute K->F}
+   :relative-humidity             {:ratio    dec->percent}
+   :wind-speed-20ft               {:metric   mps->mph}
+   :fuel-moisture-dead-1hr        {:percent  percent->dec}
+   :fuel-moisture-dead-10hr       {:percent  percent->dec}
+   :fuel-moisture-dead-100hr      {:percent  percent->dec}
+   :fuel-moisture-live-herbaceous {:percent  percent->dec}
+   :fuel-moisture-live-woody      {:percent  percent->dec}})
 
 (defn valid-multiplier?
   [x]
@@ -225,9 +265,3 @@
     (if (valid-multiplier? multiplier)
       (fn ^double [^double x] (* x multiplier))
       nil)))
-
-(defn to-imperial!
-  [layer {:keys [units multiplier] :or {multiplier 1.0}} layer-name]
-  (if-let [converter (get-units-converter layer-name units multiplier)]
-    (update layer :matrix #(m/emap! converter %))
-    layer))

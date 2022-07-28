@@ -1,5 +1,6 @@
 (ns gridfire.spec.config
   (:require [clojure.spec.alpha          :as s]
+            [gridfire.spec.burn-period   :as burn-period]
             [gridfire.spec.common        :as common]
             [gridfire.spec.perturbations :as perturbations]))
 
@@ -14,6 +15,8 @@
 (s/def ::foliar-moisture ::common/number-sample)
 
 ;; Weather
+
+(s/def ::weather-start-timestamp inst?)
 
 (s/def ::weather
   (s/or :matrix ::common/layer-coords
@@ -73,6 +76,7 @@
 
 ;; Ignitions
 
+(s/def ::ignition-start-timestamp inst?)
 (s/def ::ignition-row ::common/integer-sample)
 (s/def ::ignition-col ::common/integer-sample)
 
@@ -98,13 +102,25 @@
    :boolean boolean?
    :map     (common/one-or-more-keys [::ignition-mask ::edge-buffer])))
 
+(s/def ::simulations-or-ignition-csv
+  (fn [{:keys [simulations ignition-csv]}]
+    (or simulations ignition-csv)))
+
+(s/def ::max-runtime-or-ignition-csv
+  (fn [{:keys [max-runtime ignition-csv]}]
+    (or max-runtime ignition-csv)))
+
+(s/def ::ignition-layer-or-ignition-csv
+  (fn [{:keys [ignition-layer ignition-csv]}]
+    (not (and ignition-layer ignition-csv))))
+
 ;; Fuel Moisture
 
-(s/def ::1hr        ::common/number-or-layer-coords)
-(s/def ::10hr       ::common/number-or-layer-coords)
-(s/def ::100hr      ::common/number-or-layer-coords)
-(s/def ::woody      ::common/number-or-layer-coords)
-(s/def ::herbaceous ::common/number-or-layer-coords)
+(s/def ::1hr        ::common/ratio-or-layer-coords)
+(s/def ::10hr       ::common/ratio-or-layer-coords)
+(s/def ::100hr      ::common/ratio-or-layer-coords)
+(s/def ::woody      ::common/ratio-or-layer-coords)
+(s/def ::herbaceous ::common/ratio-or-layer-coords)
 
 (s/def ::dead
   (s/keys :req-un [::1hr ::10hr ::100hr]))
@@ -112,12 +128,12 @@
 (s/def ::live
   (s/keys :req-un [::woody ::herbaceous]))
 
-(s/def ::fuel-moisture-layers
+(s/def ::fuel-moisture
   (s/keys :req-un [::dead ::live]))
 
 (s/def ::rh-or-fuel-moisture
-  (fn [{:keys [relative-humidity fuel-moisture-layers]}]
-    (or relative-humidity fuel-moisture-layers)))
+  (fn [{:keys [relative-humidity fuel-moisture]}]
+    (or relative-humidity fuel-moisture)))
 
 ;; Spotting
 
@@ -126,7 +142,7 @@
 (s/def ::flin-exp                     ::common/number-or-range-map)
 (s/def ::ws-exp                       ::common/number-or-range-map)
 (s/def ::normalized-distance-variance ::common/number-or-range-map)
-(s/def ::crown-fire-spotting-percent  ::common/percent-or-range)
+(s/def ::crown-fire-spotting-percent  ::common/ratio-or-range)
 
 (s/def ::valid-fuel-range             (fn [[lo hi]] (< 0 lo hi 205)))
 (s/def ::fuel-number-range            (s/and ::common/integer-range ::valid-fuel-range))
@@ -158,7 +174,13 @@
     ::perturbations/temperature
     ::perturbations/relative-humidity
     ::perturbations/wind-speed-20ft
-    ::perturbations/wind-direction]))
+    ::perturbations/wind-direction
+    ::perturbations/fuel-moisture-dead-1hr
+    ::perturbations/fuel-moisture-dead-10hr
+    ::perturbations/fuel-moisture-dead-100hr
+    ::perturbations/fuel-moisture-live-herbaceous
+    ::perturbations/fuel-moisture-live-woody
+    ::perturbations/foliar-moisture]))
 
 ;; Outputs
 
@@ -179,6 +201,7 @@
 (s/def ::fire-line-intensity ::output-frequency)
 (s/def ::spread-rate         ::output-frequency)
 (s/def ::burn-history        ::output-frequency)
+(s/def ::fire-type           ::output-frequency)
 
 (s/def ::output-layers
   (common/one-or-more-keys
@@ -186,7 +209,8 @@
     ::flame-length
     ::fire-line-intensity
     ::spread-rate
-    ::burn-history]))
+    ::burn-history
+    ::fire-type]))
 
 (s/def ::output-burn-probability  ::output-frequency) ; FIXME: Why isn't this also just boolean?
 (s/def ::output-burn-count?       boolean?)
@@ -195,22 +219,47 @@
 (s/def ::output-flame-length-sum? boolean?)
 
 ;;=============================================================================
+;; Burn Period
+;;=============================================================================
+
+(s/def ::burn-period-required-keys
+  (fn [{:keys [burn-period ignition-start-timestamp weather-start-timestamp]}]
+    (or (nil? burn-period)
+        (and ignition-start-timestamp weather-start-timestamp))))
+
+;;=============================================================================
+;; Timestamps
+;;=============================================================================
+
+(defn- not-after? [t1 t2]
+  (<= (inst-ms t1) (inst-ms t2)))
+
+(s/def ::valid-timestamps
+  (fn [{:keys [ignition-start-timestamp weather-start-timestamp]}]
+    (or
+     (every? nil? [ignition-start-timestamp weather-start-timestamp])
+     (and weather-start-timestamp
+          ignition-start-timestamp
+          (not-after? weather-start-timestamp ignition-start-timestamp)))))
+
+;;=============================================================================
 ;; Config Map
 ;;=============================================================================
 
 (s/def ::config
   (s/and
    (s/keys
-    :req-un [::max-runtime
-             ::simulations
-             ::srid
+    :req-un [::srid
              ::cell-size
              ::foliar-moisture
              ::temperature
              ::wind-speed-20ft
              ::wind-from-direction
              ::landfire-layers]
-    :opt-un [::random-seed
+    :opt-un [::max-runtime
+             ::burn-period/burn-period
+             ::simulations
+             ::random-seed
              ::ellipse-adjustment-factor
              ::fractional-distance-combination
              ::parallel-strategy
@@ -219,9 +268,11 @@
              ::ignition-col
              ::ignition-layer
              ::ignition-csv
+             ::ignition-start-timestamp
+             ::weather-start-timestamp
              ::random-ignition
              ::relative-humidity
-             ::fuel-moisture-layers
+             ::fuel-moisture
              ::spotting
              ::perturbations
              ::output-directory
@@ -237,4 +288,9 @@
              ::output-spot-count?
              ::output-flame-length-max?
              ::output-flame-length-sum?])
-   ::rh-or-fuel-moisture))
+   ::ignition-layer-or-ignition-csv
+   ::max-runtime-or-ignition-csv
+   ::simulations-or-ignition-csv
+   ::rh-or-fuel-moisture
+   ::burn-period-required-keys
+   ::valid-timestamps))

@@ -1,16 +1,16 @@
 ;; [[file:../../org/GridFire.org::gridfire-core][gridfire-core]]
 (ns gridfire.core
-  (:require [clojure.core.reducers :as r]
-            [clojure.edn           :as edn]
-            [clojure.spec.alpha    :as spec]
-            [gridfire.fire-spread  :refer [rothermel-fast-wrapper]]
-            [gridfire.inputs       :as inputs]
-            [gridfire.outputs      :as outputs]
-            [gridfire.simulations  :as simulations]
-            [gridfire.spec.config  :as config-spec]
-            [manifold.deferred     :as mfd]
-            [taoensso.tufte        :as tufte]
-            [triangulum.logging    :refer [log log-str]]))
+  (:require [clojure.core.reducers        :as r]
+            [clojure.edn                  :as edn]
+            [clojure.spec.alpha           :as spec]
+            [gridfire.fire-spread-optimal :refer [rothermel-fast-wrapper-optimal]]
+            [gridfire.inputs              :as inputs]
+            [gridfire.outputs             :as outputs]
+            [gridfire.simulations         :as simulations]
+            [gridfire.spec.config         :as config-spec]
+            [manifold.deferred            :as mfd]
+            [taoensso.tufte               :as tufte]
+            [triangulum.logging           :refer [log log-str]]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -24,7 +24,6 @@
     (deref))
   :success)
 
-;; TODO: Disable this to see how much performance is gained.
 (defmacro with-multithread-profiling
   [& body]
   `(do (tufte/remove-handler! :accumulating)
@@ -38,25 +37,19 @@
 
 (defn run-simulations!
   [{:keys [^long simulations parallel-strategy] :as inputs}]
-  (with-multithread-profiling
+  (with-multithread-profiling ; TODO: Disable this to see how much performance is gained.
     (log-str "Running simulations")
-    (let [parallel-bin-size (max 1 (quot simulations (.availableProcessors (Runtime/getRuntime))))
+    (let [parallel-bin-size 1
           reducer-fn        (if (= parallel-strategy :between-fires)
                               #(into [] (r/fold parallel-bin-size r/cat r/append! %))
                               #(into [] %))
-          summary-stats     (with-redefs [rothermel-fast-wrapper (memoize rothermel-fast-wrapper)]
+          summary-stats     (with-redefs [rothermel-fast-wrapper-optimal (memoize rothermel-fast-wrapper-optimal)]
                               (->> (range simulations)
                                    (vec)
                                    (r/map #(simulations/run-simulation! % inputs))
                                    (r/remove nil?)
                                    (reducer-fn)))]
       (assoc inputs :summary-stats summary-stats))))
-
-(defn ensure-ignitable-sites
-  [inputs config-file-path]
-  (if (seq (:ignitable-sites inputs))
-    inputs
-    (log-str (format "Invalid config file [%s]: No valid ignition sites." config-file-path))))
 
 (defn load-inputs!
   [config]
@@ -65,15 +58,19 @@
       (inputs/add-misc-params)
       (inputs/add-ignition-csv)
       (inputs/add-sampled-params)
+      (inputs/add-perturbation-params)
       (inputs/add-weather-params)
-      (inputs/add-ignitable-sites)
-      (inputs/add-aggregate-matrices)))
+      (inputs/add-fuel-moisture-params)
+      (inputs/add-random-ignition-sites)
+      (inputs/add-aggregate-matrices)
+      (inputs/add-burn-period-params)
+      (inputs/add-ignition-start-times)))
 
 (defn load-config!
   [config-file-path]
   (let [config (edn/read-string (slurp config-file-path))]
     (if (spec/valid? ::config-spec/config config)
-      config
+      (assoc config :config-file-path config-file-path)
       (log-str (format "Invalid config file [%s]:\n%s"
                        config-file-path
                        (spec/explain-str ::config-spec/config config))))))
@@ -84,7 +81,6 @@
     (some-> config-file-path
             (load-config!)
             (load-inputs!)
-            (ensure-ignitable-sites config-file-path)
             (run-simulations!)
             (write-outputs!))
     (catch Exception e

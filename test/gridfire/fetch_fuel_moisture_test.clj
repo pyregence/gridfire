@@ -1,61 +1,39 @@
 (ns gridfire.fetch-fuel-moisture-test
-  (:require [clojure.core.matrix       :as m]
-            [clojure.test              :refer [deftest is testing]]
-            [gridfire.fetch            :as fetch]
-            [gridfire.magellan-bridge  :refer [geotiff-raster-to-matrix]]
-            [gridfire.utils.test       :as utils]))
+  (:require
+   [clojure.test                :refer [deftest are]]
+   [gridfire.fetch              :as fetch]
+   [gridfire.magellan-bridge    :refer [geotiff-raster-to-matrix]]
+   [gridfire.utils.test         :as utils]
+   [gridfire.conversion         :as convert]
+   [tech.v3.datatype            :as d]
+   [tech.v3.datatype.functional :as dfn]))
 
 (def resources-path "test/gridfire/resources/weather-test")
 
+(defn- equal-matrix?
+  [inputs category size]
+  (let [matrix (-> (get-in inputs [:fuel-moisture category size :source])
+                   geotiff-raster-to-matrix
+                   :matrix)]
+    (dfn/equals (:matrix (fetch/fuel-moisture-layer inputs category size))
+                (d/clone (d/emap convert/percent->dec nil matrix)))))
+
 (deftest ^:unit fuel-moisture-test
-  (let [layers               {:dead {:1hr   {:type   :geotiff
-                                             :source (utils/in-file-path resources-path "m1_to_sample.tif")}
-                                     :10hr  {:type   :geotiff
-                                             :source (utils/in-file-path resources-path "m10_to_sample.tif")}
-                                     :100hr {:type   :geotiff
-                                             :source (utils/in-file-path resources-path "m100_to_sample.tif")}}
-                              :live {:woody      {:type   :geotiff
-                                                  :source (utils/in-file-path resources-path "mlw_to_sample.tif")}
-                                     :herbaceous {:type   :geotiff
-                                                  :source (utils/in-file-path resources-path "mlh_to_sample.tif")}}}
-        fuel-moisture-layers (fetch/fuel-moisture-layers {:fuel-moisture-layers layers})]
+  (let [inputs {:fuel-moisture
+                {:dead {:1hr   {:type   :geotiff
+                                :source (utils/in-file-path resources-path "m1_to_sample.tif")}
+                        :10hr  {:type   :geotiff
+                                :source (utils/in-file-path resources-path "m10_to_sample.tif")}
+                        :100hr {:type   :geotiff
+                                :source (utils/in-file-path resources-path "m100_to_sample.tif")}}
+                 :live {:woody      {:type   :geotiff
+                                     :source (utils/in-file-path resources-path "mlw_to_sample.tif")}
+                        :herbaceous {:type   :geotiff
+                                     :source (utils/in-file-path resources-path "mlh_to_sample.tif")}}}}]
 
-    (testing "dead 1hr moisture"
-      (let [fetched-raster (get-in fuel-moisture-layers [:dead :1hr :matrix])
-            raster         (m/emap #(* % 0.01) (:matrix (geotiff-raster-to-matrix (utils/in-file-path resources-path "m1_to_sample.tif"))))]
-
-        (is (some? fetched-raster))
-
-        (is (= fetched-raster raster))))
-
-    (testing "dead 10hr moisture"
-      (let [fetched-raster (get-in fuel-moisture-layers [:dead :10hr :matrix])
-            raster         (m/emap #(* % 0.01) (:matrix (geotiff-raster-to-matrix (utils/in-file-path resources-path "m10_to_sample.tif"))))]
-
-        (is (some? fetched-raster))
-
-        (is (= fetched-raster raster))))
-
-    (testing "dead 10hr moisture"
-      (let [fetched-raster (get-in fuel-moisture-layers [:dead :100hr :matrix])
-            raster         (m/emap #(* % 0.01) (:matrix (geotiff-raster-to-matrix (utils/in-file-path resources-path "m100_to_sample.tif"))))]
-
-        (is (some? fetched-raster))
-
-        (is (= fetched-raster raster))))
-
-    (testing "live woody moisture"
-      (let [fetched-raster (get-in fuel-moisture-layers [:live :woody :matrix])
-            raster         (m/emap #(* % 0.01) (first (:matrix (geotiff-raster-to-matrix (utils/in-file-path resources-path "mlw_to_sample.tif")))))]
-
-        (is (some? fetched-raster))
-
-        (is (= fetched-raster raster))))
-
-    (testing "live herbaceous moisture"
-      (let [fetched-raster (get-in fuel-moisture-layers [:live :herbaceous :matrix])
-            raster         (m/emap #(* % 0.01) (first (:matrix (geotiff-raster-to-matrix (utils/in-file-path resources-path "mlh_to_sample.tif")))))]
-
-        (is (some? fetched-raster))
-
-        (is (= fetched-raster raster))))))
+    (are [category size] (equal-matrix? inputs category size)
+      :dead :1hr
+      :dead :10hr
+      :dead :100hr
+      :live :herbaceous
+      :live :woody)))
