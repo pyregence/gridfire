@@ -4135,18 +4135,22 @@ value pair at the top level of the config file:
 
 Gridfire allows you to specify a burn period in the day that fires are
 allowed to burn. By default it is set to burn from "00:00" to "24:00".
-To specifiy a different period you must include a `:burn-period` key at
-the top level of the config file. The spec for the `:burn-period`
-config is as follows:
+To specify a different period, you must include a few keys at the top
+level of the config file.
+
+1. *:burn-period*: map with the following keys:
 
 - *:start* : a string with the format HH:MM
 - *:end* : a string with the format HH:MM
-- *:weather-data-start-timestamp* : an instant timestamp
+
+2. *:weather-start-timestamp* : inst (timezone aware)
+
+3. *:ignition-start-timestamp* : inst (timezone aware)
 
 #+begin_src clojure
-{:start                        "08:00"
- :end                          "20:00"
- :weather-data-start-timestamp #inst "1970-01-01T00:00:00"}
+{:burn-period               {:start "08:00", :end "9:00"}
+ :weather-start-timestamp   #inst "2022-07-12T09:00:00.000+00:00"
+ :ignition-start-timestamp  #inst "2022-07-12T09:05:00.000-00:00"}
 #+end_src
 
 The pre-processing script at `resources/burn_period_from_sunrise_sunset.clj`

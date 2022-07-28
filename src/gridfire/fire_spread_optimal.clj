@@ -1,5 +1,6 @@
 (ns gridfire.fire-spread-optimal
-  (:require [gridfire.common               :refer [burnable-cell?
+  (:require [clojure.string                :as s]
+            [gridfire.common               :refer [burnable-cell?
                                                    burnable-fuel-model?
                                                    calc-fuel-moisture
                                                    compute-terrain-distance
@@ -19,11 +20,9 @@
                                                    byram-fire-line-intensity
                                                    byram-flame-length
                                                    wind-adjustment-factor]]
-            [taoensso.tufte                :as tufte]
             [tech.v3.datatype              :as d]
             [tech.v3.datatype.functional   :as dfn]
-            [tech.v3.tensor                :as t]
-            [clojure.string :as s])
+            [tech.v3.tensor                :as t])
   (:import java.time.ZoneId
            java.util.Date))
 
@@ -723,19 +722,22 @@
         max-runtime                      (double (:max-runtime inputs))
         ignition-start-time              (double (:ignition-start-time inputs))
         ignition-stop-time               (+ ignition-start-time max-runtime)
-        weather-data-start-timestamp     (:weather-data-start-timestamp inputs)
-        ignition-start-timestamp         (-> (.toInstant ^Date weather-data-start-timestamp)
-                                             (.atZone (ZoneId/of "UTC"))
-                                             (.plusMinutes ignition-start-time))
+        ignition-start-timestamp         (-> ^Date (:ignition-start-timestamp inputs)
+                                             (.toInstant)
+                                             (.atZone (ZoneId/of "UTC")))
         ignition-start-time-min-into-day (+ (hour->min (.getHour ignition-start-timestamp))
                                             (double (.getMinute ignition-start-timestamp)))
         burn-period-start                (parse-burn-period (:burn-period-start inputs))
-        burn-period-end                  (parse-burn-period (:burn-period-end inputs))
+        burn-period-end                  (let [bp-end (parse-burn-period (:burn-period-end inputs))]
+                                           (if (< bp-end burn-period-start)
+                                             (+ bp-end 1440.0)
+                                             bp-end))
         burn-period-dt                   (- burn-period-end burn-period-start)
         non-burn-period-dt               (- 1440.0 burn-period-dt)
         burn-period-clock                (+ ignition-start-time
                                             (double
                                              (cond
+
                                                (< ignition-start-time-min-into-day burn-period-start)
                                                (- burn-period-start ignition-start-time-min-into-day)
 

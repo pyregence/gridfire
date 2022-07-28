@@ -11,7 +11,7 @@ cd geoserver
 scp $FIRENAME-${START_DATE}_$START_TIME.tar gridfire@data.pyregence.org:/home/gridfire/incoming/tar/gridfire-$FIRENAME-${START_DATE}_$START_TIME.tar
 
 echo "Extracting tarball to ${FIRE_SPREAD_FORECAST_PROD} on data.pyregence.org"
-ssh gridfire@data.pyregence.org "sudo chmod g+rw ${FIRE_SPREAD_FORECAST_PROD}/${FIRENAME}/${START_DATE}_${START_TIME}; cd /home/gridfire/incoming/tar; tar -xf gridfire-$FIRENAME-${START_DATE}_$START_TIME.tar -C ${FIRE_SPREAD_FORECAST_PROD} --no-overwrite-dir; rm -f gridfire-$FIRENAME-${START_DATE}_$START_TIME.tar; sudo chmod g+rw ${FIRE_SPREAD_FORECAST_PROD}/${FIRENAME}/${START_DATE}_${START_TIME}"
+ssh gridfire@data.pyregence.org "sudo chmod -R g+rw ${FIRE_SPREAD_FORECAST_PROD}/${FIRENAME}; rm -rf ${FIRE_SPREAD_FORECAST_PROD}/${FIRENAME}/${START_DATE}_${START_TIME}/gridfire; cd /home/gridfire/incoming/tar; tar -xf gridfire-$FIRENAME-${START_DATE}_$START_TIME.tar -C ${FIRE_SPREAD_FORECAST_PROD} --no-overwrite-dir; rm -f gridfire-$FIRENAME-${START_DATE}_$START_TIME.tar; sudo chmod -R g+rw ${FIRE_SPREAD_FORECAST_PROD}/${FIRENAME}"
 mv *.tar ..
 
 # Process new geoserver directory
@@ -23,7 +23,7 @@ echo "Uploading $FIRENAME-${START_DATE}_$START_TIME.tar to data.pyregence.org"
 scp $FIRENAME-${START_DATE}_$START_TIME.tar gridfire@data.pyregence.org:/incoming/gridfire-$FIRENAME-${START_DATE}_$START_TIME.tar
 
 echo "Extracting tarball to ${FIRE_SPREAD_FORECAST_DEV} on data.pyregence.org"
-ssh gridfire@data.pyregence.org "sudo chmod g+rw ${FIRE_SPREAD_FORECAST_DEV}/${FIRENAME}/${START_DATE}_${START_TIME}; cd /incoming; tar -xf gridfire-$FIRENAME-${START_DATE}_$START_TIME.tar -C ${FIRE_SPREAD_FORECAST_DEV} --no-overwrite-dir; rm gridfire-$FIRENAME-${START_DATE}_$START_TIME.tar; sudo chmod g+rw ${FIRE_SPREAD_FORECAST_DEV}/${FIRENAME}/${START_DATE}_${START_TIME}"
+ssh gridfire@data.pyregence.org "sudo chmod -R g+rw ${FIRE_SPREAD_FORECAST_DEV}/${FIRENAME}; rm -rf ${FIRE_SPREAD_FORECAST_DEV}/${FIRENAME}/${START_DATE}_${START_TIME}/gridfire; cd /incoming; tar -xf gridfire-$FIRENAME-${START_DATE}_$START_TIME.tar -C ${FIRE_SPREAD_FORECAST_DEV} --no-overwrite-dir; rm gridfire-$FIRENAME-${START_DATE}_$START_TIME.tar; sudo chmod -R g+rw ${FIRE_SPREAD_FORECAST_DEV}/${FIRENAME}"
 #mv *.tar ..
 
 exit 0

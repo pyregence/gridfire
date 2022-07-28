@@ -7,8 +7,10 @@
   there's no resilience to JVM crashes, and you can't scale out to several worker processes behind the job queue.)"
   (:require [clojure.core.async           :refer [>!! alts!! chan thread]]
             [clojure.data.json            :as json]
+            [clojure.edn                  :as edn]
             [clojure.java.io              :as io]
             [clojure.java.shell           :as sh]
+            [clojure.pprint               :refer [pprint]]
             [clojure.spec.alpha           :as spec]
             [clojure.string               :as str]
             [gridfire.active-fire-watcher :as active-fire-watcher]
@@ -18,7 +20,10 @@
             [gridfire.spec.server         :as server-spec]
             [gridfire.utils.server        :refer [nil-on-error throw-message]]
             [triangulum.logging           :refer [log log-str set-log-path!]]
-            [triangulum.utils             :refer [parse-as-sh-cmd]]))
+            [triangulum.utils             :refer [parse-as-sh-cmd]])
+  (:import java.text.SimpleDateFormat
+           java.util.Calendar
+           java.util.TimeZone))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -29,22 +34,20 @@
 (def date-from-format "yyyy-MM-dd HH:mm zzz")
 (def date-to-format   "yyyyMMdd_HHmmss")
 
-(defn- build-geosync-request [{:keys [fire-name ignition-time] :as _request} {:keys [host port] :as _config}]
+(defn- build-geosync-request [{:keys [fire-name ignition-time] :as _request}
+                              {:keys [geosync-data-dir host] :as _config}]
   (let [timestamp (convert-date-string ignition-time date-from-format date-to-format)]
     (json/write-str
      {"action"             "add"
-      "dataDir"            (format "/var/www/html/fire_spread_forecast/%s/%s" fire-name timestamp)
+      "dataDir"            (format "%s/%s/%s" geosync-data-dir fire-name timestamp)
       "geoserverWorkspace" (format "fire-spread-forecast_%s_%s" fire-name timestamp)
       "responseHost"       host
-      "responsePort"       port})))
+      "responsePort"       5555})))
 
-;; FIXME: Pass the geosync-server-config values in through gridfire.cli rather than hardcoding them.
-(defn- send-geosync-request! [request config]
-  (let [geosync-server-config {:response-host "data.pyregence.org" :response-port 31337}]
-    (when (spec/valid? ::server-spec/gridfire-server-response-minimal geosync-server-config)
-      (sockets/send-to-server! (:response-host geosync-server-config)
-                               (:response-port geosync-server-config)
-                               (build-geosync-request request config)))))
+(defn- send-geosync-request! [request {:keys [geosync-host geosync-port] :as config}]
+  (sockets/send-to-server! geosync-host
+                           geosync-port
+                           (build-geosync-request request config)))
 
 (defn- build-gridfire-response [request {:keys [host port] :as _config} status status-msg]
   (json/write-str (merge request
@@ -59,6 +62,35 @@
     (sockets/send-to-server! response-host
                              response-port
                              (build-gridfire-response request config status status-msg))))
+
+;;=============================================================================
+;; Process override-config
+;;=============================================================================
+
+(defn- add-ignition-start-timestamp [config ignition-date-time]
+  (assoc config :ignition-start-timestamp ignition-date-time))
+
+(defn- calc-weather-start-timestamp [ignition-date-time]
+  (doto (Calendar/getInstance (TimeZone/getTimeZone "UTC"))
+    (.setTime ignition-date-time)
+    (.set Calendar/MINUTE 0)))
+
+(defn- add-weather-start-timestamp [config ignition-date-time]
+  (assoc config :weather-start-timestamp (calc-weather-start-timestamp ignition-date-time)))
+
+(defn- write-config! [output-file config]
+  (log-str "Writing to config file: " output-file)
+  (with-open [writer (io/writer output-file)]
+    (pprint config writer)))
+
+(defn- process-override-config! [{:keys [ignition-time] :as _request} file]
+  (let [formatter          (SimpleDateFormat. "yyyy-MM-dd HH:mm zzz")
+        ignition-date-time (.parse formatter ignition-time)
+        config             (edn/read-string (slurp file))]
+    (write-config! file
+                   (-> config
+                       (add-ignition-start-timestamp ignition-date-time)
+                       (add-weather-start-timestamp ignition-date-time)))))
 
 ;;=============================================================================
 ;; Shell Commands
@@ -130,7 +162,9 @@
           gridfire-edn-file   (.getPath (io/file input-deck-path "gridfire.edn"))
           gridfire-output-dir (.getPath (io/file input-deck-path "outputs"))
           {:keys [err out]}   (if override-config
-                                (sh/sh "resources/elm_to_grid.clj" "-e" elmfire-data-file "-o" override-config)
+                                (do
+                                  (process-override-config! request override-config)
+                                  (sh/sh "resources/elm_to_grid.clj" "-e" elmfire-data-file "-o" override-config))
                                 (sh/sh "resources/elm_to_grid.clj" "-e" elmfire-data-file))]
       (if err
         (log-str out "\n" err)
