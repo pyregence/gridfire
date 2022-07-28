@@ -291,7 +291,7 @@
   (if (and (not ignition-start-times) ignition-start-timestamp weather-start-timestamp)
     (let [ignition-start-time (ms->min (- (double (inst-ms ignition-start-timestamp))
                                           (double (inst-ms weather-start-timestamp))))]
-      (assoc inputs :ignition-start-times (repeat simulations ignition-start-time)))
+      (assoc inputs :ignition-start-times (vec (repeat simulations ignition-start-time))))
     inputs))
 
 (defn add-ignition-start-timestamps
@@ -302,9 +302,9 @@
                                                (long)
                                                (Date.)))
         ignition-start-timestamps        (cond
-                                           ignition-start-timestamp (repeat simulations ignition-start-timestamp)
+                                           ignition-start-timestamp (vec (repeat simulations ignition-start-timestamp))
                                            ignition-start-times     (mapv compute-ignition-start-timestamp ignition-start-times)
-                                           :else                    (repeat simulations #inst "1970-01-01T00-00:00"))] ; adding no-op value for required parameter
+                                           :else                    (vec (repeat simulations #inst "1970-01-01T00-00:00")))] ; adding no-op value for required parameter
     (-> inputs
         (assoc :ignition-start-timestamps ignition-start-timestamps)
         (dissoc :ignition-start-timestamp))))
