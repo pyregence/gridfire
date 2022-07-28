@@ -356,13 +356,6 @@
   (test/is (= "00:00" (format-fractional-hour 0.)))
   (test/is (= "23:59" (format-fractional-hour 23.99))))
 
-(defn guess-utc-offset-from-longitude
-  [^double lng]
-  (-> lng
-      (/ Math/PI)
-      (* 12.)
-      (Math/round)))
-
 (defn infer-burn-period
   "Resolves the :burn-period map,
   given a `bp-info` map which may contain the same keys
@@ -371,16 +364,14 @@
   [{wds-t     :weather-data-start-timestamp
     bp-length :burn-period-length
     bp-frac   :burn-period-frac
-    ::keys    [utc-offset-hours lat-deg lng-deg]
+    ::keys    [lat-deg lng-deg]
     :or       {bp-frac 0.5}
     :as       _bp-info}]
   (let [gamma            (gamma-at-instant wds-t)
         lat              (deg->rad lat-deg)
         lng              (deg->rad lng-deg)
-        utc-offset-hours (or utc-offset-hours
-                           (guess-utc-offset-from-longitude lng))
-        h-sunrise        (+ (sunrise-hour lat lng gamma) utc-offset-hours)
-        h-sunset         (+ (sunset-hour lat lng gamma) utc-offset-hours)
+        h-sunrise        (sunrise-hour lat lng gamma)
+        h-sunset         (sunset-hour lat lng gamma)
         [h-start h-end]
         (if (nil? bp-length)
           [h-sunrise h-sunset]
@@ -399,25 +390,23 @@
     (=
       ;; Almost correct, Météo France says 6:15 / 21:14.
       {:weather-data-start-timestamp #inst"2022-07-19T16:54:09.073-00:00",
-       :burn-period-start            "06:15",
-       :burn-period-end              "21:13"}
+       :burn-period-start            "04:15",
+       :burn-period-end              "19:13"}
       (infer-burn-period
         {:weather-data-start-timestamp #inst"2022-07-19T16:54:09.073-00:00"
          ::lat-deg                     43.17
-         ::lng-deg                     5.60
-         ::utc-offset-hours            2}))
+         ::lng-deg                     5.60}))
     "correct sunrise/sunset hours for La Ciotat, France on 2022-07-19.")
 
   (test/is
     (=
       {:weather-data-start-timestamp #inst"2022-07-19T16:54:09.073-00:00",
-       :burn-period-start            "10:14",
-       :burn-period-end              "20:14"}
+       :burn-period-start            "08:14",
+       :burn-period-end              "18:14"}
       (infer-burn-period
         {:weather-data-start-timestamp #inst"2022-07-19T16:54:09.073-00:00"
          ::lat-deg                     43.17
          ::lng-deg                     5.60
-         ::utc-offset-hours            2
          :burn-period-length           10
          ;; Centering on 15:14 :
          :burn-period-frac            (/ (- 15. 6.) (- 21. 6.))}))
@@ -469,10 +458,6 @@
    [nil "--lng-deg NUMBER" "Longitude coordinate, in degrees."
     :id ::lng-deg
     :parse-fn parse-lng-deg]
-   [nil "--utc-offset-hours INTEGER"
-    :id ::utc-offset-hours
-    :desc "Number of hours offset to UTC, e.g 2 for CEST, -7 for PDT."
-    :parse-fn parse-utc-offset-hours]
    [nil "--weather-data-start-timestamp--rfc3339 INSTANT"
     :id :weather-data-start-timestamp
     :desc "RFC-3339-encoded :weather-data-start-timestamp, e.g 2022-07-19T16:54:09.073-00:00. Optional: can be supplied in gridfire.edn's :burn-period instead."
