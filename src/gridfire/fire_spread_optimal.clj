@@ -863,8 +863,7 @@
                   new-band  (min->hour new-clock)]
               (if (and suppression (<= suppression-clock new-clock))
                 (let [suppression-clocks             (iterate #(+ (double %) suppression-dt) suppression-clock)
-                      suppression-clocks-to-process  (into [] (take-while #(<= (double %) new-clock) suppression-clocks))
-                      last-suppression-clock         (double (last suppression-clocks-to-process))
+                      last-suppression-clock         (double (last (take-while #(<= (double %) new-clock) suppression-clocks)))
                       [bvs-to-process-next
                        total-cells-suppressed
                        previous-num-perimeter-cells] (suppression/suppress-burn-vectors (/ last-suppression-clock max-runtime)
