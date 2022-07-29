@@ -3992,7 +3992,7 @@ To control the output of the burn probability layer, which is
 calcualted as the number of times a cell burned divided by the number
 of simulations, include the following mapping:
 
-- *output-*burn-probability*: timestep (in minutes) or keyword `:final`
+- *output-burn-probability*: timestep (in minutes) or keyword `:final`
 
 #+begin_src clojure
 {:output-burn-probability 10}
@@ -4002,27 +4002,27 @@ To specify the output of the flame length sum layer,
 which is the sum of flame lengths across simulations, include
 the following mapping:
 
-- *output-*flame-length-sum*: keyword `:max` or `:directional`
+- *output-flame-length-sum*: keyword `:max` or `:directional`
 
 #+begin_src clojure
-{:output-flame-length-sum true}
+{:output-flame-length-sum :max}
 #+end_src
 
 To specify the output of the flame length max layer,
 which is the max of flame lengths across simulations, include
 the following mapping:
 
-- *output-*flame-length-max*: keyword `:max` or `:directional`
+- *output-flame-length-max*: keyword `:max` or `:directional`
 
 #+begin_src clojure
-{:output-flame-length-max true}
+{:output-flame-length-max :directional}
 #+end_src
 
 To specify the output of the burn count layer, which is the number of
 times a cell has burned across simulations, include the following
 mapping:
 
-- *output-*burn-count*: bolean
+- *output-burn-count*: bolean
 
 #+begin_src clojure
 {:output-burn-count true}
@@ -4033,7 +4033,7 @@ To specify the output of the spot count layer, which is the number of
 times a spot ignition occured in a cell, include the following
 mapping:
 
-- *output-*spot-count*: bolean
+- *output-spot-count*: bolean
 
 #+begin_src clojure
 {:output-spot-count true}

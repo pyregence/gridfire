@@ -212,9 +212,7 @@
 (s/def ::output-burn-probability  ::output-frequency) ; FIXME: Why isn't this also just boolean?
 (s/def ::output-burn-count?       boolean?)
 (s/def ::output-spot-count?       boolean?)
-(s/def ::output-flame-length-max? boolean?)
 (s/def ::output-flame-length-max  #{:max :directional})
-(s/def ::output-flame-length-sum? boolean?)
 (s/def ::output-flame-length-sum  #{:max :directional})
 
 ;;=============================================================================
@@ -259,8 +257,8 @@
              ::output-burn-probability
              ::output-burn-count?
              ::output-spot-count?
-             ::output-flame-length-max?
-             ::output-flame-length-sum?])
+             ::output-flame-length-max
+             ::output-flame-length-sum])
    ::ignition-layer-or-ignition-csv
    ::max-runtime-or-ignition-csv
    ::simulations-or-ignition-csv

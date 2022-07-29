@@ -76,13 +76,13 @@
             (output-png outputs probability-matrix output-name envelope)))))))
 
 (defn write-flame-length-sum-layer!
-  [{:keys [envelope output-flame-length-sum? output-flame-length-sum flame-length-sum-matrix] :as outputs}]
-  (when (or output-flame-length-sum? output-flame-length-sum)
+  [{:keys [envelope output-flame-length-sum flame-length-sum-matrix] :as outputs}]
+  (when output-flame-length-sum
     (output-geotiff outputs flame-length-sum-matrix "flame_length_sum" envelope)))
 
 (defn write-flame-length-max-layer!
-  [{:keys [envelope output-flame-length-max? output-flame-length-max flame-length-max-matrix] :as outputs}]
-  (when (or output-flame-length-max? output-flame-length-max)
+  [{:keys [envelope output-flame-length-max flame-length-max-matrix] :as outputs}]
+  (when output-flame-length-max
     (output-geotiff outputs flame-length-max-matrix "flame_length_max" envelope)))
 
 (defn write-burn-count-layer!
