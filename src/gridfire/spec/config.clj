@@ -160,6 +160,16 @@
                    ::crown-fire-spotting-percent]
           :opt-un [::surface-fire-spotting]))
 
+;; Suppression
+
+(s/def ::suppression-dt number?)
+
+(s/def ::suppression-coefficient number?)
+
+(s/def ::suppression
+  (s/keys :req-un [::suppression-dt
+                   ::suppression-coefficient]))
+
 ;; Perturbations
 
 (s/def ::perturbations
@@ -247,6 +257,7 @@
              ::relative-humidity
              ::fuel-moisture
              ::spotting
+             ::suppression
              ::perturbations
              ::output-directory
              ::outfile-suffix

@@ -1037,6 +1037,9 @@
   |                                    |                    | :num-firebrands -> long                                   |
   |                                    |                    | :surface-fire-spotting -> map                             |
   |                                    |                    | :crown-fire-spotting-percent -> double or [double double] |
+  |------------------------------------+--------------------+-----------------------------------------------------------|
+  | :suppression                       | map                | :suppression-dt -> double                                 |
+  |                                    |                    | :suppression-coefficient -> double                        |
   |------------------------------------+--------------------+-----------------------------------------------------------|"
   (fn [inputs]
     (if (vector? (:initial-ignition-site inputs))
