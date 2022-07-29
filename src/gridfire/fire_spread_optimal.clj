@@ -268,6 +268,7 @@
    cell-size get-elevation i j]
   (let [i                    (long i)
         j                    (long j)
+        burn-probability     (double burn-probability)
         max-spread-rate      (t/mget max-spread-rate-matrix i j)
         max-spread-direction (t/mget max-spread-direction-matrix i j)
         eccentricity         (t/mget eccentricity-matrix i j)]
@@ -291,7 +292,7 @@
                     270.0 (- j 1)
                     315.0 (- j 1))]
         (when (and (in-bounds-optimal? num-rows num-cols new-i new-j)
-                   (> (double burn-probability) ^double (t/mget fire-spread-matrix new-i new-j)))
+                   (> burn-probability ^double (t/mget fire-spread-matrix new-i new-j)))
           (let [spread-rate      (compute-spread-rate max-spread-rate
                                                       max-spread-direction
                                                       eccentricity
@@ -820,9 +821,9 @@
 
                                                :else
                                                (- burn-period-start ignition-start-time-min-into-day))))
-        non-burn-period-clock (+ burn-period-clock burn-period-dt)
-        ignition-start-time   (max ignition-start-time burn-period-clock)
-        band                  (min->hour ignition-start-time)]
+        non-burn-period-clock            (+ burn-period-clock burn-period-dt)
+        ignition-start-time              (max ignition-start-time burn-period-clock)
+        band                             (min->hour ignition-start-time)]
     (initialize-fire-in-situ-values! inputs matrices band ignited-cells)
     (loop [global-clock          ignition-start-time
            band                  band
@@ -922,9 +923,12 @@
      fire-type-matrix
      firebrand-count-matrix
      flame-length-matrix
+     directional-flame-length-matrix
      max-spread-direction-matrix
      max-spread-rate-matrix
      modified-time-matrix
+     residence-time-matrix
+     reaction-intensity-matrix
      spot-matrix
      spread-rate-matrix
      spread-rate-sum-matrix
@@ -1058,22 +1062,25 @@
                                 (t/reshape shape)
                                 (add-ignited-cells! ignited-cells ignition-start-time))]
     (map->SimulationMatrices
-     {:burn-time-matrix            burn-time-matrix
-      :eccentricity-matrix         (d/clone negative-burn-scar)
-      :fire-line-intensity-matrix  negative-burn-scar
-      :fire-spread-matrix          (d/clone positive-burn-scar)
-      :fire-type-matrix            (d/clone negative-burn-scar)
-      :firebrand-count-matrix      (when spotting (t/new-tensor shape :datatype :int32))
-      :flame-length-matrix         (d/clone negative-burn-scar)
-      :max-spread-direction-matrix (d/clone negative-burn-scar)
-      :max-spread-rate-matrix      (d/clone negative-burn-scar)
-      :modified-time-matrix        (t/new-tensor shape :datatype :int32)
-      :spot-matrix                 (when spotting (t/new-tensor shape))
-      :spread-rate-matrix          (d/clone negative-burn-scar)
-      :spread-rate-sum-matrix      (t/new-tensor shape)
-      :travel-lines-matrix         (t/new-tensor shape :datatype :short)
-      :x-magnitude-sum-matrix      (t/new-tensor shape)
-      :y-magnitude-sum-matrix      (t/new-tensor shape)})))
+     {:burn-time-matrix                burn-time-matrix
+      :eccentricity-matrix             (d/clone negative-burn-scar)
+      :fire-line-intensity-matrix      negative-burn-scar
+      :fire-spread-matrix              (d/clone positive-burn-scar)
+      :fire-type-matrix                (d/clone negative-burn-scar)
+      :firebrand-count-matrix          (when spotting (t/new-tensor shape :datatype :int32))
+      :flame-length-matrix             (d/clone negative-burn-scar)
+      :directional-flame-length-matrix (d/clone negative-burn-scar)
+      :max-spread-direction-matrix     (d/clone negative-burn-scar)
+      :max-spread-rate-matrix          (d/clone negative-burn-scar)
+      :modified-time-matrix            (t/new-tensor shape :datatype :int32)
+      :residence-time-matrix           (d/clone negative-burn-scar)
+      :reaction-intensity-matrix       (d/clone negative-burn-scar)
+      :spot-matrix                     (when spotting (t/new-tensor shape))
+      :spread-rate-matrix              (d/clone negative-burn-scar)
+      :spread-rate-sum-matrix          (t/new-tensor shape)
+      :travel-lines-matrix             (t/new-tensor shape :datatype :short)
+      :x-magnitude-sum-matrix          (t/new-tensor shape)
+      :y-magnitude-sum-matrix          (t/new-tensor shape)})))
 
 ;; TODO: Move this step into run-simulations to avoid running it in every thread
 (defn- get-perimeter-cells
