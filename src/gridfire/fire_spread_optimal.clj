@@ -13,7 +13,7 @@
             [gridfire.fuel-models-optimal  :refer [fuel-models-precomputed
                                                    moisturize]]
             [gridfire.spotting-optimal     :as spot-optimal]
-            [gridfire.suppression           :as suppression]
+            [gridfire.suppression          :as suppression]
             [gridfire.surface-fire-optimal :refer [rothermel-surface-fire-spread-no-wind-no-slope
                                                    rothermel-surface-fire-spread-max
                                                    compute-spread-rate
@@ -820,7 +820,7 @@
         directional-flame-length-matrix (:directional-flame-length-matrix matrices)
         suppression                     (:suppression inputs)
         alpha                           (:suppression-coefficient suppression)
-        suppression-dt                  (double (:suppression-dt suppression))]
+        suppression-dt                  (some-> suppression :suppression-dt double)]
     (doseq [[i j] ignited-cells]
       (compute-max-in-situ-values! inputs matrices band i j)
       (t/mset! directional-flame-length-matrix i j (t/mget flame-length-matrix i j)))
@@ -863,27 +863,25 @@
                   new-band  (min->hour new-clock)]
               (if (and suppression (<= suppression-clock new-clock))
                 (let [suppression-clocks             (iterate #(+ (double %) suppression-dt) suppression-clock)
-                      suppression-clocks-to-process  (into [suppression-clock] (take-while #(<= (double %) new-clock) suppression-clocks))
+                      suppression-clocks-to-process  (into [] (take-while #(<= (double %) new-clock) suppression-clocks))
+                      last-suppression-clock         (double (last suppression-clocks-to-process))
                       [bvs-to-process-next
                        total-cells-suppressed
-                       previous-num-perimeter-cells] (reduce (fn [[burn-vectors previous-suppressed-count] ^double suppression-clock]
-                                                               (suppression/suppress-burn-vectors (/ suppression-clock max-runtime)
-                                                                                                  alpha
-                                                                                                  previous-num-perimeter-cells
-                                                                                                  previous-suppressed-count
-                                                                                                  burn-vectors))
-                                                             [burn-vectors total-cells-suppressed]
-                                                             suppression-clocks-to-process)]
+                       previous-num-perimeter-cells] (suppression/suppress-burn-vectors (/ last-suppression-clock max-runtime)
+                                                                                        alpha
+                                                                                        previous-num-perimeter-cells
+                                                                                        total-cells-suppressed
+                                                                                        burn-vectors)]
                   (recur new-clock
                          new-band
                          (+ new-clock burn-period-dt)
-                         (double (first (drop-while #(<= (double %) new-clock) suppression-clocks)))
+                         (+ last-suppression-clock suppression-dt)
                          bvs-to-process-next
                          (if (zero? non-burn-period-dt)
                            spot-ignitions
                            {})
                          spot-count
-                         (+ total-cells-suppressed)
+                         total-cells-suppressed
                          previous-num-perimeter-cells))
                 (recur new-clock
                        new-band
