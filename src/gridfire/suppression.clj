@@ -30,7 +30,7 @@
 
   represents a contiguous segment of the fire front, which we locate
   by `list-of-slices`, the list of successive degree slices covering
-  it; `cell-count`represents the number of active perimeter cells in
+  it; `cell-count` represents the number of active perimeter cells in
   that segment, with `cell-count` no smaller than
   `num-cells-to-suppress`, but possibly bigger. Note that the returned
   segments will tend to overlap - think of a sliding window of (up to
@@ -165,7 +165,7 @@
   [`angular-slice` [`directional-spread-rate` `cell-count`]]
 
   represents a collection of stats computed for an `angular-slice`. The
-  `directional-flame-length`is the average value among the active
+  `directional-spread-rate` is the average value among the active
   perimeter cells that fall within that slice. The `cell-count` is the
   count of those perimeter cells."
   [^double angular-slice-size slice->BurnVectors]
@@ -195,9 +195,9 @@
 
   [`angular-slice` [BurnVector BurnVector ...]]
 
-  represents a collection of BurnVector that fall within an `angular-slice`.
+  represents a collection of BurnVectors that fall within an `angular-slice`.
   The `angular-slice` is defined as the degree clockwise from EAST of the
-  `centroid`cell. angular-slice 0 = East = 0.0 degrees."
+  `centroid` cell. angular-slice 0 = East = 0.0 degrees."
   [centroid ^double angular-slice-size burn-vectors]
   (let [[i0 j0] centroid]
     (group-by (fn [burn-vector] (-> (angle-cw-from-east (:i burn-vector) (:j burn-vector) i0 j0)
