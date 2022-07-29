@@ -13,6 +13,7 @@
             [gridfire.fuel-models-optimal  :refer [fuel-models-precomputed
                                                    moisturize]]
             [gridfire.spotting-optimal     :as spot-optimal]
+            [gridfire.suppression          :as suppression]
             [gridfire.surface-fire-optimal :refer [rothermel-surface-fire-spread-no-wind-no-slope
                                                    rothermel-surface-fire-spread-max
                                                    compute-spread-rate
@@ -816,42 +817,97 @@
         ignition-start-time             (max ignition-start-time burn-period-clock)
         band                            (min->hour ignition-start-time)
         flame-length-matrix             (:flame-length-matrix matrices)
-        directional-flame-length-matrix (:directional-flame-length-matrix matrices)]
+        directional-flame-length-matrix (:directional-flame-length-matrix matrices)
+        suppression                     (:suppression inputs)
+        alpha                           (:suppression-coefficient suppression)
+        suppression-dt                  (some-> suppression :suppression-dt double)]
     (doseq [[i j] ignited-cells]
       (compute-max-in-situ-values! inputs matrices band i j)
       (t/mset! directional-flame-length-matrix i j (t/mget flame-length-matrix i j)))
-    (loop [global-clock          ignition-start-time
-           band                  band
-           non-burn-period-clock non-burn-period-clock
-           burn-vectors          (ignited-cells->burn-vectors inputs matrices ignited-cells [])
-           spot-ignitions        {}
-           spot-count            0]
+    (loop [global-clock                 ignition-start-time
+           band                         band
+           non-burn-period-clock        non-burn-period-clock
+           suppression-clock            (double (if suppression (+ ignition-start-time suppression-dt) max-runtime))
+           burn-vectors                 (ignited-cells->burn-vectors inputs matrices ignited-cells [])
+           spot-ignitions               {}
+           spot-count                   0
+           total-cells-suppressed       0
+           previous-num-perimeter-cells 0]
       (if (and (< global-clock ignition-stop-time)
                (or (seq burn-vectors) (seq spot-ignitions)))
-        (let [dt-until-max-runtime (- ignition-stop-time global-clock)]
-          (if (= global-clock non-burn-period-clock)
-            (let [timestep  (min non-burn-period-dt dt-until-max-runtime)
+        (let [dt-until-max-runtime               (- ignition-stop-time global-clock)
+              ^double dt-until-suppression-clock (when suppression-dt (- suppression-clock global-clock))]
+          (cond
+            (and suppression (= global-clock suppression-clock))
+            (let [max-runtime-fraction           (/ global-clock max-runtime)
+                  [bvs-to-process-next
+                   total-cells-suppressed
+                   previous-num-perimeter-cells] (suppression/suppress-burn-vectors max-runtime-fraction
+                                                                                    alpha
+                                                                                    previous-num-perimeter-cells
+                                                                                    total-cells-suppressed
+                                                                                    burn-vectors)]
+              (recur global-clock
+                     band
+                     non-burn-period-clock
+                     (+ global-clock suppression-dt)
+                     bvs-to-process-next
+                     spot-ignitions
+                     spot-count
+                     total-cells-suppressed
+                     previous-num-perimeter-cells))
+
+            (= global-clock non-burn-period-clock)
+            (let [timestep  (double (min non-burn-period-dt dt-until-max-runtime))
                   new-clock (+ global-clock timestep)
                   new-band  (min->hour new-clock)]
-              (recur new-clock
-                     new-band
-                     (+ new-clock burn-period-dt)
-                     burn-vectors
-                     (if (zero? non-burn-period-dt)
-                       spot-ignitions
-                       {})
-                     spot-count))
+              (if (and suppression (<= suppression-clock new-clock))
+                (let [suppression-clocks             (iterate #(+ (double %) suppression-dt) suppression-clock)
+                      last-suppression-clock         (double (last (take-while #(<= (double %) new-clock) suppression-clocks)))
+                      [bvs-to-process-next
+                       total-cells-suppressed
+                       previous-num-perimeter-cells] (suppression/suppress-burn-vectors (/ last-suppression-clock max-runtime)
+                                                                                        alpha
+                                                                                        previous-num-perimeter-cells
+                                                                                        total-cells-suppressed
+                                                                                        burn-vectors)]
+                  (recur new-clock
+                         new-band
+                         (+ new-clock burn-period-dt)
+                         (+ last-suppression-clock suppression-dt)
+                         bvs-to-process-next
+                         (if (zero? non-burn-period-dt)
+                           spot-ignitions
+                           {})
+                         spot-count
+                         total-cells-suppressed
+                         previous-num-perimeter-cells))
+                (recur new-clock
+                       new-band
+                       (+ new-clock burn-period-dt)
+                       suppression-clock
+                       burn-vectors
+                       (if (zero? non-burn-period-dt)
+                         spot-ignitions
+                         {})
+                       spot-count
+                       total-cells-suppressed
+                       previous-num-perimeter-cells)))
+
+            :else
             (let [dt-until-new-hour              (- 60.0 (rem global-clock 60.0))
-                  dt-until-non-burn-period-clock (-  non-burn-period-clock global-clock)
+                  dt-until-non-burn-period-clock (- non-burn-period-clock global-clock)
                   bvs                            (if (and (> global-clock ignition-start-time)
                                                           (or (= dt-until-new-hour 60.0)
                                                               (= dt-until-non-burn-period-clock burn-period-dt)))
                                                    (recompute-burn-vectors inputs matrices band burn-vectors)
                                                    burn-vectors)
-                  timestep                       (-> (compute-dt cell-size bvs)
-                                                     (min dt-until-new-hour)
-                                                     (min dt-until-max-runtime)
-                                                     (min dt-until-non-burn-period-clock))
+                  timestep                       (double
+                                                  (cond-> (compute-dt cell-size bvs)
+                                                    dt-until-new-hour              (min dt-until-new-hour)
+                                                    dt-until-max-runtime           (min dt-until-max-runtime)
+                                                    dt-until-non-burn-period-clock (min dt-until-non-burn-period-clock)
+                                                    dt-until-suppression-clock     (min dt-until-suppression-clock)))
                   new-clock                      (+ global-clock timestep)
                   [grown-bvs
                    ignited-cells]                (grow-burn-vectors! matrices global-clock timestep bvs)
@@ -862,7 +918,7 @@
                                                       (transition-burn-vectors inputs matrices band global-clock new-clock 0.99))
                   promoted-transitioned-bvs      (->> transitioned-bvs
                                                       (ignited-cells->burn-vectors inputs matrices transition-ignited-cells)
-                                                      (promote-burn-vectors inputs matrices global-clock new-clock 0.99))
+                                                      (promote-burn-vectors inputs matrices global-clock new-clock 0.99)) ;TODO optimize, promoting twice
                   [spot-bvs
                    spot-ignite-now-count
                    spot-ignite-later
@@ -874,7 +930,7 @@
                                                                              new-clock
                                                                              global-clock)
                   promoted-spot-bvs              (->> (into promoted-transitioned-bvs spot-bvs)
-                                                      (promote-burn-vectors inputs matrices global-clock new-clock 1.49))
+                                                      (promote-burn-vectors inputs matrices global-clock new-clock 1.49)) ;TODO optimize, promoting thrice
                   [transition-promoted-spot-bvs
                    _]                            (transition-burn-vectors inputs matrices band global-clock new-clock 0.49 promoted-spot-bvs)]
               (compute-directional-in-situ-values! matrices (-> ignited-cells
@@ -883,9 +939,12 @@
               (recur new-clock
                      (min->hour new-clock)
                      non-burn-period-clock
+                     suppression-clock
                      transition-promoted-spot-bvs
                      spot-ignite-later
-                     (+ spot-count ^long spot-ignite-now-count)))))
+                     (+ spot-count ^long spot-ignite-now-count)
+                     total-cells-suppressed
+                     previous-num-perimeter-cells))))
         (let [fire-type-matrix (:fire-type-matrix matrices)]
           {:exit-condition                  (if (>= global-clock ignition-stop-time) :max-runtime-reached :no-burnable-fuels)
            :global-clock                    global-clock
@@ -978,6 +1037,9 @@
   |                                    |                    | :num-firebrands -> long                                   |
   |                                    |                    | :surface-fire-spotting -> map                             |
   |                                    |                    | :crown-fire-spotting-percent -> double or [double double] |
+  |------------------------------------+--------------------+-----------------------------------------------------------|
+  | :suppression                       | map                | :suppression-dt -> double                                 |
+  |                                    |                    | :suppression-coefficient -> double                        |
   |------------------------------------+--------------------+-----------------------------------------------------------|"
   (fn [inputs]
     (if (vector? (:initial-ignition-site inputs))
