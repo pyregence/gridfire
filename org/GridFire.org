@@ -4022,7 +4022,7 @@ To specify the output of the burn count layer, which is the number of
 times a cell has burned across simulations, include the following
 mapping:
 
-- *output-burn-count*: bolean
+- *output-burn-count*: boolean
 
 #+begin_src clojure
 {:output-burn-count true}
@@ -4033,7 +4033,7 @@ To specify the output of the spot count layer, which is the number of
 times a spot ignition occured in a cell, include the following
 mapping:
 
-- *output-spot-count*: bolean
+- *output-spot-count*: boolean
 
 #+begin_src clojure
 {:output-spot-count true}
