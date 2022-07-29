@@ -32,11 +32,17 @@
   by `list-of-slices`, the list of successive degree slices covering
   it; `cell-count` represents the number of active perimeter cells in
   that segment, with `cell-count` no smaller than
-  `num-cells-to-suppress`, but possibly bigger. Note that the returned
-  segments will tend to overlap - think of a sliding window of (up to
-  `num-cells-to-suppress`) contiguous active cells, rotating around
-  the centroid: the segments returned by this function are regular
-  snapshots of this window."
+  `num-cells-to-suppress`, but possibly bigger.
+
+  NOTE: This constraint may be violated if a segment is adjacent to an
+  already suppressed slice, in which case the segment will be included
+  in the returned map even if its `cell-count` is smaller than
+  `num-cells-to-suppress`.
+
+  Note that the returned segments will tend to overlap - think of a
+  sliding window of (up to `num-cells-to-suppress`) contiguous active
+  cells, rotating around the centroid: the segments returned by this
+  function are regular snapshots of this window."
   [^long num-cells-to-suppress angular-slice->avg-dsr+num-cells]
   (loop [sorted-contiguous-slices (sorted-map-by (fn [[_ x1] [_ x2]]
                                                    (compare x1 x2)))
@@ -112,6 +118,9 @@
         [[slices _] cell-count]          (first contiguous-slices)]
     [slices cell-count]))
 
+;; FIXME: This algorithm sums the cell counts of each segment, but it
+;; never checks to see if the segments overlap, which suggests that we
+;; will often undersuppress vs `num-cells-to-suppress`.
 (defn- compute-slices-to-suppress
   "Returns a tuple of `slices-to-suppress` and `suppressed-count`.
   This algorithm will convert `angular-slice->avg-dsr+num-cells` to a sorted map of
