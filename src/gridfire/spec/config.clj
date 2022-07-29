@@ -241,6 +241,17 @@
              ignition-start-timestamp
              (not-after? weather-start-timestamp ignition-start-timestamp)))))
 
+
+;;=============================================================================
+;; Mutually exlusive-keys
+;;=============================================================================
+
+(s/def ::mutually-exlusive-keys
+  (fn [{:keys [ignition-start-timestamp ignitions-csv]}]
+    (or (and ignition-start-timestamp (nil? ignitions-csv))
+        (and (nil? ignition-start-timestamp) ignitions-csv)
+        (every? nil? [ignition-start-timestamp ignitions-csv]))))
+
 ;;=============================================================================
 ;; Config Map
 ;;=============================================================================
@@ -292,4 +303,5 @@
    ::simulations-or-ignition-csv
    ::rh-or-fuel-moisture
    ::burn-period-required-keys
-   ::valid-timestamps))
+   ::valid-timestamps
+   ::mutually-exlusive-keys))

@@ -9,8 +9,8 @@
             [gridfire.utils.random   :refer [draw-samples my-shuffle my-rand-nth]]
             [gridfire.utils.server   :refer [throw-message]]
             [tech.v3.tensor          :as t])
-  (:import java.util.Random
-           java.util.Date))
+  (:import java.util.Date
+           java.util.Random))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -102,10 +102,10 @@
     (let [ignitions (with-open [reader (io/reader ignition-csv)]
                       (doall (rest (csv/read-csv reader))))]
       (assoc inputs
-             :ignition-rows             (mapv #(Long/parseLong (get % 0)) ignitions)
-             :ignition-cols             (mapv #(Long/parseLong (get % 1)) ignitions)
-             :ignition-start-times      (mapv #(Double/parseDouble (get % 2)) ignitions)
-             :max-runtime-samples       (mapv #(Double/parseDouble (get % 3)) ignitions)
+             :ignition-rows        (mapv #(Long/parseLong (get % 0)) ignitions)
+             :ignition-cols        (mapv #(Long/parseLong (get % 1)) ignitions)
+             :ignition-start-times (mapv #(Double/parseDouble (get % 2)) ignitions)
+             :max-runtime-samples  (mapv #(Double/parseDouble (get % 3)) ignitions)
              :simulations          (count ignitions)))
     inputs))
 
@@ -288,7 +288,7 @@
 
 (defn add-ignition-start-times
   [{:keys [ignition-start-times ignition-start-timestamp weather-start-timestamp simulations] :as inputs}]
-  (if (and (not ignition-start-times) ignition-start-timestamp weather-start-timestamp)
+  (if (and (nil? ignition-start-times) ignition-start-timestamp weather-start-timestamp)
     (let [ignition-start-time (ms->min (- (double (inst-ms ignition-start-timestamp))
                                           (double (inst-ms weather-start-timestamp))))]
       (assoc inputs :ignition-start-times (vec (repeat simulations ignition-start-time))))
@@ -296,11 +296,9 @@
 
 (defn add-ignition-start-timestamps
   [{:keys [ignition-start-times simulations ignition-start-timestamp weather-start-timestamp] :as inputs}]
-  (let [compute-ignition-start-timestamp (fn [ignition-start-time]
-                                           (-> (+ (double (inst-ms weather-start-timestamp))
-                                                  (min->ms ignition-start-time))
-                                               (long)
-                                               (Date.)))
+  (let [weather-start-ms                 (min->ms weather-start-timestamp)
+        compute-ignition-start-timestamp (fn [ignition-start-time]
+                                           (Date. (+ weather-start-ms (min->ms ignition-start-time))))
         ignition-start-timestamps        (cond
                                            ignition-start-timestamp (vec (repeat simulations ignition-start-timestamp))
                                            ignition-start-times     (mapv compute-ignition-start-timestamp ignition-start-times)
