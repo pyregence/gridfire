@@ -6,7 +6,7 @@
 
 (set! *unchecked-math* :warn-on-boxed)
 
-(defn- combine-average
+(defn- combine-average ^double
   [^double avg-old ^long count-old ^double avg-new ^long count-new]
   (if (zero? (+ count-old count-new))
     0.0
@@ -14,7 +14,7 @@
           (* avg-new count-new))
        (+ count-old count-new))))
 
-(defn- remove-average
+(defn- remove-average ^double
   [^double avg-old ^long count-old ^double avg-to-remove ^long count-of-avg-to-remove]
   (if (zero? (- count-old count-of-avg-to-remove))
     0.0
@@ -100,21 +100,21 @@
                right-idx)))))
 
 (defn- compute-sub-segment
-  [slice->BurnVectors slices cells-needed]
+  [angular-slice->avg-dsr+num-cells slices cells-needed]
   (let [slices                           (set slices)
-        angular-slice->avg-dsr+num-cells (reduce (fn [acc [slice angular-slice->avg-dsr+num-cells]]
+        angular-slice->avg-dsr+num-cells (reduce (fn [acc [slice avg-dsr+num-cells]]
                                                    (if (contains? slices slice)
-                                                     (assoc acc slice angular-slice->avg-dsr+num-cells)
+                                                     (assoc acc slice avg-dsr+num-cells)
                                                      (assoc acc slice [0.0 0.0]))) ;; Needed because the segment should not be treated as circular list
                                                  (sorted-map)
-                                                 slice->BurnVectors)
+                                                 angular-slice->avg-dsr+num-cells) ;; FIXME: This seems inefficient
         contiguous-slices                (compute-contiguous-slices cells-needed angular-slice->avg-dsr+num-cells)
         [[slices _] cell-count]          (first contiguous-slices)]
     [slices cell-count]))
 
 (defn- compute-slices-to-suppress
-  "Returns a tuple `slices-to-suppress` and `suppressed-count`.
-  This alogrithm will convert `angular-slice->avg-dsr+num-cells` to a sorted map of
+  "Returns a tuple of `slices-to-suppress` and `suppressed-count`.
+  This algorithm will convert `angular-slice->avg-dsr+num-cells` to a sorted map of
   `angular-slices+avg-dsr->num-cells`. Using this map the algorithm will collect
   the sequence of angular-slices until we have a cell-count of at least
   `num-cells-to-suppress`."
@@ -123,8 +123,8 @@
         [[slices _] cell-count]           (first angular-slices+avg-dsr->num-cells)
         cell-count                        (long cell-count)]
     (if (>= cell-count num-cells-to-suppress)
-      [slices cell-count 0]
-      ;; The optimal segment does not contain enough cells, so we stich more:
+      [slices cell-count]
+      ;; The optimal segment does not contain enough cells, so we add more segments:
       (loop [[segment & rest-to-process] (rest angular-slices+avg-dsr->num-cells)
              cells-needed                (- num-cells-to-suppress cell-count)
              slices-to-suppress          slices]
@@ -162,9 +162,9 @@
 (defn- compute-avg-dsr-data
   "Returns a sorted map where each map entry:
 
-  [`angular-slice` [`directional-flame-length` `cell-count`]]
+  [`angular-slice` [`directional-spread-rate` `cell-count`]]
 
-  represents a collection of stats computed for a `angular-slice`. The
+  represents a collection of stats computed for an `angular-slice`. The
   `directional-flame-length`is the average value among the active
   perimeter cells that fall within that slice. The `cell-count` is the
   count of those perimeter cells."
@@ -175,7 +175,7 @@
                 (assoc acc slice [(compute-avg-dsr burn-vectors) (compute-cell-count burn-vectors)])
                 (assoc acc slice [0.0 0.0]))))
           (sorted-map)
-          (range 0.0 (inc (/ 360 angular-slice-size)))))
+          (range 0.0 (/ 360.0 angular-slice-size))))
 
 (defn- angle-cw-from-east ^double
   [^long i1 ^long j1 ^long i0 ^long j0]
@@ -195,10 +195,10 @@
 
   [`angular-slice` [BurnVector BurnVector ...]]
 
-  represents a collection of BurnVector that that fall within a `angular-slice`.
+  represents a collection of BurnVector that fall within an `angular-slice`.
   The `angular-slice` is defined as the degree clockwise from EAST of the
   `centroid`cell. angular-slice 0 = East = 0.0 degrees."
-  [centroid angular-slice-size burn-vectors]
+  [centroid ^double angular-slice-size burn-vectors]
   (let [[i0 j0] centroid]
     (group-by (fn [burn-vector] (-> (angle-cw-from-east (:i burn-vector) (:j burn-vector) i0 j0)
                                     (nearest-angular-slice angular-slice-size)))
