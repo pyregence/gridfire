@@ -30,7 +30,7 @@
 
   represents a contiguous segment of the fire front, which we locate
   by `list-of-slices`, the list of successive degree slices covering
-  it; `cell-count`represents the number of active perimiter cells in
+  it; `cell-count`represents the number of active perimeter cells in
   that segment, with `cell-count` no smaller than
   `num-cells-to-suppress`, but possibly bigger. Note that the returned
   segments will tend to overlap - think of a sliding window of (up to
@@ -41,7 +41,7 @@
   (loop [sorted-contiguous-slices (sorted-map-by (fn [[_ x1] [_ x2]]
                                                    (compare x1 x2)))
          slice-data               (into [] (seq angular-slice->avg-dsr+num-cells))
-         cur-contiguous-slices    '()
+         cur-contiguous-slices    []
          cur-dsr                  0
          cur-count                0
          left-idx                 -1
@@ -54,7 +54,7 @@
       ;; Do not include already suppressed regions in the longest
       ;; contiguous slice calculation.
       (let [[_ [_ cell-count]] (nth slice-data right-idx)
-            cell-count         (double cell-count)]
+            cell-count         (long cell-count)]
         (and (< cur-count num-cells-to-suppress) (zero? cell-count)))
       (let [next-right-idx (if (= right-idx (dec (count slice-data)))
                              0
@@ -63,7 +63,7 @@
                  (assoc sorted-contiguous-slices [cur-contiguous-slices cur-dsr] cur-count)
                  sorted-contiguous-slices)
                slice-data
-               '()
+               []
                0
                0
                (if (< right-idx left-idx) 0 next-right-idx)
@@ -89,7 +89,7 @@
             cell-count               (long cell-count)]
         (recur (assoc sorted-contiguous-slices [cur-contiguous-slices cur-dsr] cur-count)
                slice-data
-               (drop-last cur-contiguous-slices)
+               (subvec cur-contiguous-slices 1)
                (remove-average cur-dsr cur-count avg-dsr cell-count)
                (- cur-count cell-count)
                (long
