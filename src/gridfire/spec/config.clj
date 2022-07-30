@@ -163,6 +163,16 @@
                    ::crown-fire-spotting-percent]
           :opt-un [::surface-fire-spotting]))
 
+;; Suppression
+
+(s/def ::suppression-dt number?)
+
+(s/def ::suppression-coefficient number?)
+
+(s/def ::suppression
+  (s/keys :req-un [::suppression-dt
+                   ::suppression-coefficient]))
+
 ;; Perturbations
 
 (s/def ::perturbations
@@ -215,8 +225,8 @@
 (s/def ::output-burn-probability  ::output-frequency) ; FIXME: Why isn't this also just boolean?
 (s/def ::output-burn-count?       boolean?)
 (s/def ::output-spot-count?       boolean?)
-(s/def ::output-flame-length-max? boolean?)
-(s/def ::output-flame-length-sum? boolean?)
+(s/def ::output-flame-length-max  #{:max :directional})
+(s/def ::output-flame-length-sum  #{:max :directional})
 
 ;;=============================================================================
 ;; Burn Period
@@ -274,6 +284,7 @@
              ::relative-humidity
              ::fuel-moisture
              ::spotting
+             ::suppression
              ::perturbations
              ::output-directory
              ::outfile-suffix
@@ -286,8 +297,8 @@
              ::output-burn-probability
              ::output-burn-count?
              ::output-spot-count?
-             ::output-flame-length-max?
-             ::output-flame-length-sum?])
+             ::output-flame-length-max
+             ::output-flame-length-sum])
    ::ignition-layer-or-ignition-csv
    ::max-runtime-or-ignition-csv
    ::simulations-or-ignition-csv

@@ -269,13 +269,13 @@
 
 (defn add-aggregate-matrices
   [{:keys
-    [max-runtime-samples num-rows num-cols output-burn-count? output-burn-probability output-flame-length-sum?
-     output-flame-length-max? output-spot-count?] :as inputs}]
+    [max-runtime-samples num-rows num-cols output-burn-count? output-burn-probability
+     output-flame-length-sum output-flame-length-max output-spot-count?] :as inputs}]
   (assoc inputs
          :burn-count-matrix       (when (or output-burn-count? output-burn-probability)
                                     (initialize-burn-count-matrix output-burn-probability max-runtime-samples num-rows num-cols))
-         :flame-length-sum-matrix (when output-flame-length-sum? (t/new-tensor [num-rows num-cols]))
-         :flame-length-max-matrix (when output-flame-length-max? (t/new-tensor [num-rows num-cols]))
+         :flame-length-sum-matrix (when output-flame-length-sum (t/new-tensor [num-rows num-cols]))
+         :flame-length-max-matrix (when output-flame-length-max (t/new-tensor [num-rows num-cols]))
          :spot-count-matrix       (when output-spot-count? (t/new-tensor [num-rows num-cols]))))
 
 (defn add-burn-period-params
