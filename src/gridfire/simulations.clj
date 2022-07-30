@@ -54,13 +54,13 @@
    {:keys [global-clock burn-time-matrix] :as fire-spread-results}
    name layer timestep envelope]
   (let [global-clock (double global-clock)]
-   (doseq [output-time (range 0 (inc global-clock) timestep)]
-     (let [matrix          (if (= layer "burn_history")
-                             (to-color-map-values layer output-time)
-                             (fire-spread-results layer))
-           filtered-matrix (layer-snapshot burn-time-matrix matrix output-time)]
-       (outputs/output-geotiff config filtered-matrix name envelope simulation-id output-time)
-       (outputs/output-png config filtered-matrix name envelope simulation-id output-time)))))
+    (doseq [output-time (range 0 (inc global-clock) timestep)]
+      (let [matrix          (if (= layer "burn_history")
+                              (to-color-map-values layer output-time)
+                              (fire-spread-results layer))
+            filtered-matrix (layer-snapshot burn-time-matrix matrix output-time)]
+        (outputs/output-geotiff config filtered-matrix name envelope simulation-id output-time)
+        (outputs/output-png config filtered-matrix name envelope simulation-id output-time)))))
 
 (def layer-name->matrix
   [["fire_spread"              :fire-spread-matrix]
@@ -108,31 +108,37 @@
   (if (int? timestep)
     (let [global-clock (double global-clock)
           timestep     (long timestep)]
-     (doseq [^double clock (range 0 (inc global-clock) timestep)]
-       (let [filtered-fire-spread (d/clone
-                                   (d/emap (fn [^double layer-value ^double burn-time]
-                                             (if (<= burn-time clock)
-                                               layer-value
-                                               0.0))
-                                           :float64
-                                           fire-spread-matrix
-                                           burn-time-matrix))
-             band                 (int (quot clock timestep))
-             burn-count-matrix-i  (nth burn-count-matrix band)]
-         (d/copy! (dfn/+ burn-count-matrix-i filtered-fire-spread) burn-count-matrix-i))))
+      (doseq [^double clock (range 0 (inc global-clock) timestep)]
+        (let [filtered-fire-spread (d/clone
+                                    (d/emap (fn [^double layer-value ^double burn-time]
+                                              (if (<= burn-time clock)
+                                                layer-value
+                                                0.0))
+                                            :float64
+                                            fire-spread-matrix
+                                            burn-time-matrix))
+              band                 (int (quot clock timestep))
+              burn-count-matrix-i  (nth burn-count-matrix band)]
+          (d/copy! (dfn/+ burn-count-matrix-i filtered-fire-spread) burn-count-matrix-i))))
     (d/copy! (dfn/+ burn-count-matrix fire-spread-matrix) burn-count-matrix)))
 
 (defn process-aggregate-output-layers!
-  [{:keys [burn-count-matrix flame-length-max-matrix flame-length-sum-matrix
+  [{:keys [output-flame-length-sum output-flame-length-max burn-count-matrix flame-length-max-matrix flame-length-sum-matrix
            output-burn-probability spot-count-matrix]} fire-spread-results]
   (when-let [timestep output-burn-probability]
     (process-burn-count! fire-spread-results burn-count-matrix timestep))
   (when flame-length-sum-matrix
-    (d/copy! (dfn/+ flame-length-sum-matrix (:flame-length-matrix fire-spread-results))
-             flame-length-sum-matrix))
+    (if (= output-flame-length-sum :directional)
+      (d/copy! (dfn/+ flame-length-sum-matrix (:directional-flame-length-matrix fire-spread-results))
+               flame-length-sum-matrix)
+      (d/copy! (dfn/+ flame-length-sum-matrix (:flame-length-matrix fire-spread-results))
+               flame-length-sum-matrix)))
   (when flame-length-max-matrix
-    (d/copy! (dfn/max flame-length-max-matrix (:flame-length-matrix fire-spread-results))
-             flame-length-max-matrix))
+    (if (= output-flame-length-max :directional)
+      (d/copy! (dfn/max flame-length-max-matrix (:directional-flame-length-matrix fire-spread-results))
+               flame-length-max-matrix)
+      (d/copy! (dfn/max flame-length-max-matrix (:flame-length-matrix fire-spread-results))
+               flame-length-max-matrix)))
   (when spot-count-matrix
     (d/copy! (dfn/+ spot-count-matrix (:spot-matrix fire-spread-results))
              spot-count-matrix)))
@@ -379,43 +385,44 @@
    {:keys
     [num-rows num-cols grass-suppression? output-csvs? envelope ignition-matrix cell-size max-runtime-samples
      ignition-rows ignition-cols ellipse-adjustment-factor-samples random-seed ignition-start-times spotting
-     burn-period-start burn-period-end weather-data-start-timestamp]
+     burn-period-start burn-period-end weather-data-start-timestamp suppression]
     :as inputs}]
   (tufte/profile
    {:id :run-simulation}
-   (let [rand-gen            (if random-seed (Random. (+ ^long random-seed i)) (Random.))
-         simulation-inputs   {:num-rows                          num-rows
-                              :num-cols                          num-cols
-                              :cell-size                         cell-size
-                              :rand-gen                          rand-gen
-                              :initial-ignition-site             (or ignition-matrix
-                                                                     [(ignition-rows i) (ignition-cols i)])
-                              :ignition-start-time               (get ignition-start-times i 0.0)
-                              :weather-data-start-timestamp      weather-data-start-timestamp
-                              :burn-period-start                 burn-period-start
-                              :burn-period-end                   burn-period-end
-                              :max-runtime                       (max-runtime-samples i)
-                              :get-aspect                        (get-value-fn inputs rand-gen :aspect i)
-                              :get-canopy-height                 (get-value-fn inputs rand-gen :canopy-height i)
-                              :get-canopy-base-height            (get-value-fn inputs rand-gen :canopy-base-height i)
-                              :get-canopy-cover                  (get-value-fn inputs rand-gen :canopy-cover i)
-                              :get-crown-bulk-density            (get-value-fn inputs rand-gen :crown-bulk-density i)
-                              :get-fuel-model                    (get-value-fn inputs rand-gen :fuel-model i)
-                              :get-slope                         (get-value-fn inputs rand-gen :slope i)
-                              :get-elevation                     (get-value-fn inputs rand-gen :elevation i)
-                              :get-temperature                   (get-value-fn inputs rand-gen :temperature i)
-                              :get-relative-humidity             (get-value-fn inputs rand-gen :relative-humidity i)
-                              :get-wind-speed-20ft               (get-value-fn inputs rand-gen :wind-speed-20ft i)
-                              :get-wind-from-direction           (get-value-fn inputs rand-gen :wind-from-direction i)
-                              :get-fuel-moisture-dead-1hr        (get-value-fn inputs rand-gen :fuel-moisture-dead-1hr i)
-                              :get-fuel-moisture-dead-10hr       (get-value-fn inputs rand-gen :fuel-moisture-dead-10hr i)
-                              :get-fuel-moisture-dead-100hr      (get-value-fn inputs rand-gen :fuel-moisture-dead-100hr i)
-                              :get-fuel-moisture-live-herbaceous (get-value-fn inputs rand-gen :fuel-moisture-live-herbaceous i)
-                              :get-fuel-moisture-live-woody      (get-value-fn inputs rand-gen :fuel-moisture-live-woody i)
-                              :get-foliar-moisture               (get-value-fn inputs rand-gen :foliar-moisture i)
-                              :ellipse-adjustment-factor         (ellipse-adjustment-factor-samples i)
-                              :grass-suppression?                (true? grass-suppression?)
-                              :spotting                          spotting}
+   (let [rand-gen           (if random-seed (Random. (+ ^long random-seed i)) (Random.))
+         simulation-inputs  {:num-rows                          num-rows
+                             :num-cols                          num-cols
+                             :cell-size                         cell-size
+                             :rand-gen                          rand-gen
+                             :initial-ignition-site             (or ignition-matrix
+                                                                    [(ignition-rows i) (ignition-cols i)])
+                             :ignition-start-time               (get ignition-start-times i 0.0)
+                             :weather-data-start-timestamp      weather-data-start-timestamp
+                             :burn-period-start                 burn-period-start
+                             :burn-period-end                   burn-period-end
+                             :max-runtime                       (max-runtime-samples i)
+                             :get-aspect                        (get-value-fn inputs rand-gen :aspect i)
+                             :get-canopy-height                 (get-value-fn inputs rand-gen :canopy-height i)
+                             :get-canopy-base-height            (get-value-fn inputs rand-gen :canopy-base-height i)
+                             :get-canopy-cover                  (get-value-fn inputs rand-gen :canopy-cover i)
+                             :get-crown-bulk-density            (get-value-fn inputs rand-gen :crown-bulk-density i)
+                             :get-fuel-model                    (get-value-fn inputs rand-gen :fuel-model i)
+                             :get-slope                         (get-value-fn inputs rand-gen :slope i)
+                             :get-elevation                     (get-value-fn inputs rand-gen :elevation i)
+                             :get-temperature                   (get-value-fn inputs rand-gen :temperature i)
+                             :get-relative-humidity             (get-value-fn inputs rand-gen :relative-humidity i)
+                             :get-wind-speed-20ft               (get-value-fn inputs rand-gen :wind-speed-20ft i)
+                             :get-wind-from-direction           (get-value-fn inputs rand-gen :wind-from-direction i)
+                             :get-fuel-moisture-dead-1hr        (get-value-fn inputs rand-gen :fuel-moisture-dead-1hr i)
+                             :get-fuel-moisture-dead-10hr       (get-value-fn inputs rand-gen :fuel-moisture-dead-10hr i)
+                             :get-fuel-moisture-dead-100hr      (get-value-fn inputs rand-gen :fuel-moisture-dead-100hr i)
+                             :get-fuel-moisture-live-herbaceous (get-value-fn inputs rand-gen :fuel-moisture-live-herbaceous i)
+                             :get-fuel-moisture-live-woody      (get-value-fn inputs rand-gen :fuel-moisture-live-woody i)
+                             :get-foliar-moisture               (get-value-fn inputs rand-gen :foliar-moisture i)
+                             :ellipse-adjustment-factor         (ellipse-adjustment-factor-samples i)
+                             :grass-suppression?                (true? grass-suppression?)
+                             :spotting                          spotting
+                             :suppression                       suppression}
          simulation-results (tufte/p :run-fire-spread
                                      (run-fire-spread (map->SimulationInputs simulation-inputs)))]
      (when simulation-results
