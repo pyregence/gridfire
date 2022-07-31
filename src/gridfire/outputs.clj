@@ -49,7 +49,7 @@
 ;; resolved to nil upon completion of the function's side-effects,
 ;; so that they can easily be run in parallel,
 ;; and coordinated with minimal thread-blocking.
-;; Manifold DeferredS are semantically equivalent to Promises in other languages;
+;; Manifold Deferreds are semantically equivalent to Promises in other languages;
 ;; using them makes async flow control straightforward to implement,
 ;; while reaping the benefits of parallelizing
 ;; into well-instrumented Thread pools without blocking threads.
@@ -99,10 +99,10 @@
    (exec-in-outputs-writing-pool
      (fn []
        (let [file-name (output-filename name
-                         outfile-suffix
-                         (str simulation-id)
-                         output-time
-                         ".tif")]
+                                        outfile-suffix
+                                        (str simulation-id)
+                                        output-time
+                                        ".tif")]
          (-> (matrix-to-raster name matrix envelope)
              (write-raster (if output-directory
                              (str/join "/" [output-directory file-name])
@@ -120,15 +120,15 @@
    (exec-in-outputs-writing-pool
      (fn []
        (let [file-name (output-filename name
-                         outfile-suffix
-                         (str simulation-id)
-                         output-time
-                         ".png")]
+                                        outfile-suffix
+                                        (str simulation-id)
+                                        output-time
+                                        ".png")]
          (save-matrix-as-png :color 4 -1.0
-           matrix
-           (if output-directory
-             (str/join "/" [output-directory file-name])
-             (file-name))))))))
+                             matrix
+                             (if output-directory
+                               (str/join "/" [output-directory file-name])
+                               (file-name))))))))
 
 (defn write-landfire-layers!
   [{:keys [output-landfire-inputs? outfile-suffix landfire-rasters envelope]}]
@@ -139,7 +139,8 @@
              (exec-in-outputs-writing-pool
                (fn []
                  (-> (matrix-to-raster (name layer) matrix envelope)
-                     (write-raster (str (name layer) outfile-suffix ".tif"))))))))))
+                     (write-raster (str (name layer) outfile-suffix ".tif")))))))
+         (gf-async/nil-when-all-completed))))
 
 (defn write-burn-probability-layer!
   [{:keys [output-burn-probability simulations envelope output-pngs? burn-count-matrix] :as outputs}]
@@ -159,7 +160,8 @@
                      (fn [[output-time probability-matrix]]
                        (mfd/zip
                          (output-geotiff outputs probability-matrix output-name envelope nil output-time)
-                         (output-png outputs probability-matrix output-name envelope nil output-time)))))))
+                         (when output-pngs?
+                           (output-png outputs probability-matrix output-name envelope nil output-time))))))))
              (gf-async/nil-when-all-completed))
         (->
           (exec-in-outputs-writing-pool

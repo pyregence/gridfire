@@ -102,11 +102,11 @@
                    timestep (get output-layers kw)]
                (if (int? timestep)
                  (process-output-layers-timestepped config
-                   fire-spread-results
-                   name
-                   layer
-                   timestep
-                   envelope)
+                                                    fire-spread-results
+                                                    name
+                                                    layer
+                                                    timestep
+                                                    envelope)
                  (->
                    (outputs/exec-in-outputs-writing-pool
                      (fn []
@@ -114,7 +114,7 @@
                          (to-color-map-values layer global-clock)
                          (fire-spread-results layer))))
                    (mfd/chain
-                     (fn f [matrix]
+                     (fn [matrix]
                        (mfd/zip
                          (when output-geotiffs?
                            (outputs/output-geotiff config matrix name envelope simulation-id))
