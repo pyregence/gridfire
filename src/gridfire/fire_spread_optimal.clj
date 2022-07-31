@@ -216,9 +216,8 @@
         (t/mset! eccentricity-matrix              i j max-eccentricity)
         (t/mset! modified-time-matrix             i j (inc band))
         (when compute-directional-values?
-            (t/mset! residence-time-matrix            i j residence-time))
-        (when compute-directional-values?
-         (t/mset! reaction-intensity-matrix        i j reaction-intensity))
+          (t/mset! residence-time-matrix          i j residence-time)
+          (t/mset! reaction-intensity-matrix      i j reaction-intensity))
         (store-if-max! spread-rate-matrix         i j max-spread-rate)
         (store-if-max! flame-length-matrix        i j (byram-flame-length max-fire-line-intensity))
         (store-if-max! fire-line-intensity-matrix i j max-fire-line-intensity)
@@ -229,9 +228,8 @@
         (t/mset! eccentricity-matrix              i j eccentricity)
         (t/mset! modified-time-matrix             i j (inc band))
         (when compute-directional-values?
-         (t/mset! residence-time-matrix            i j residence-time))
-        (when compute-directional-values?
-         (t/mset! reaction-intensity-matrix        i j reaction-intensity))
+          (t/mset! residence-time-matrix          i j residence-time)
+          (t/mset! reaction-intensity-matrix      i j reaction-intensity))
         (store-if-max! spread-rate-matrix         i j max-spread-rate)
         (store-if-max! flame-length-matrix        i j (byram-flame-length max-surface-intensity))
         (store-if-max! fire-line-intensity-matrix i j max-surface-intensity)
