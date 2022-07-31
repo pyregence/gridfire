@@ -1097,10 +1097,10 @@
       :reaction-intensity-matrix       (when compute-directional-values? (t/new-tensor shape))
       :spot-matrix                     (when spotting (t/new-tensor shape))
       :spread-rate-matrix              (t/new-tensor shape)
-      :spread-rate-sum-matrix          (t/new-tensor shape)
+      :spread-rate-sum-matrix          (when compute-directional-values? (t/new-tensor shape))
       :travel-lines-matrix             (t/new-tensor shape :datatype :short)
-      :x-magnitude-sum-matrix          (t/new-tensor shape)
-      :y-magnitude-sum-matrix          (t/new-tensor shape)})))
+      :x-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape))
+      :y-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape))})))
 
 (defmethod run-fire-spread :ignition-point
   [inputs]
@@ -1149,10 +1149,10 @@
       :reaction-intensity-matrix       (when compute-directional-values? (d/clone negative-burn-scar))
       :spot-matrix                     (when spotting (t/new-tensor shape))
       :spread-rate-matrix              (d/clone negative-burn-scar)
-      :spread-rate-sum-matrix          (t/new-tensor shape)
+      :spread-rate-sum-matrix          (when compute-directional-values? (t/new-tensor shape))
       :travel-lines-matrix             (t/new-tensor shape :datatype :short)
-      :x-magnitude-sum-matrix          (t/new-tensor shape)
-      :y-magnitude-sum-matrix          (t/new-tensor shape)})))
+      :x-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape))
+      :y-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape))})))
 
 ;; TODO: Move this step into run-simulations to avoid running it in every thread
 (defn- get-perimeter-cells
