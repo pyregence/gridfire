@@ -5,7 +5,9 @@
             [gridfire.conversion          :refer [min->hour kebab->snake snake->kebab]]
             [gridfire.fire-spread-optimal :refer [run-fire-spread]]
             [gridfire.outputs             :as outputs]
+            [gridfire.utils.async         :as gf-async]
             [gridfire.utils.random        :refer [my-rand-range]]
+            [manifold.deferred            :as mfd]
             [taoensso.tufte               :as tufte]
             [tech.v3.datatype             :as d]
             [tech.v3.datatype.functional  :as dfn]
@@ -53,14 +55,25 @@
   [{:keys [simulation-id] :as config}
    {:keys [global-clock burn-time-matrix] :as fire-spread-results}
    name layer timestep envelope]
-  (let [global-clock (double global-clock)]
-    (doseq [output-time (range 0 (inc global-clock) timestep)]
-      (let [matrix          (if (= layer "burn_history")
-                              (to-color-map-values layer output-time)
-                              (fire-spread-results layer))
-            filtered-matrix (layer-snapshot burn-time-matrix matrix output-time)]
-        (outputs/output-geotiff config filtered-matrix name envelope simulation-id output-time)
-        (outputs/output-png config filtered-matrix name envelope simulation-id output-time)))))
+  (let [global-clock (double global-clock)
+        output-times (range 0 (inc global-clock) timestep)]
+    (->> output-times
+         (mapv
+           (fn [output-time]
+             (->
+               (outputs/exec-in-outputs-writing-pool
+                 (fn []
+                   (let [matrix (if (= layer "burn_history")
+                                  (to-color-map-values layer output-time)
+                                  (fire-spread-results layer))]
+                     (layer-snapshot burn-time-matrix matrix output-time))))
+               (mfd/chain
+                 (fn [filtered-matrix]
+                   (mfd/zip
+                     (outputs/output-geotiff config filtered-matrix name envelope simulation-id output-time)
+                     (outputs/output-png config filtered-matrix name envelope simulation-id output-time))))
+               (gf-async/nil-when-completed))))
+         (gf-async/nil-when-all-completed))))
 
 (def layer-name->matrix
   [["fire_spread"              :fire-spread-matrix]
@@ -83,23 +96,33 @@
   (let [layers (if output-layers
                  (filter-output-layers output-layers)
                  layer-name->matrix)]
-    (doseq [[name layer] layers]
-      (let [kw       (keyword (snake->kebab name))
-            timestep (get output-layers kw)]
-        (if (int? timestep)
-          (process-output-layers-timestepped config
-                                             fire-spread-results
-                                             name
-                                             layer
-                                             timestep
-                                             envelope)
-          (let [matrix (if (= layer "burn_history")
+    (->> layers
+         (mapv
+           (fn [[name layer]]
+             (let [kw       (keyword (snake->kebab name))
+                   timestep (get output-layers kw)]
+               (if (int? timestep)
+                 (process-output-layers-timestepped config
+                                                    fire-spread-results
+                                                    name
+                                                    layer
+                                                    timestep
+                                                    envelope)
+                 (->
+                   (outputs/exec-in-outputs-writing-pool
+                     (fn []
+                       (if (= layer "burn_history")
                          (to-color-map-values layer global-clock)
-                         (fire-spread-results layer))]
-            (when output-geotiffs?
-              (outputs/output-geotiff config matrix name envelope simulation-id))
-            (when output-pngs?
-              (outputs/output-png config matrix name envelope simulation-id))))))))
+                         (fire-spread-results layer))))
+                   (mfd/chain
+                     (fn [matrix]
+                       (mfd/zip
+                         (when output-geotiffs?
+                           (outputs/output-geotiff config matrix name envelope simulation-id))
+                         (when output-pngs?
+                           (outputs/output-png config matrix name envelope simulation-id)))))
+                   (gf-async/nil-when-completed))))))
+         (gf-async/nil-when-all-completed))))
 
 (defn process-burn-count!
   [{:keys [fire-spread-matrix burn-time-matrix global-clock]}
@@ -148,19 +171,21 @@
    {:keys [burn-time-matrix flame-length-matrix spread-rate-matrix fire-type-matrix]}
    ^long simulation]
   (when output-binary?
-    (let [output-name (format "toa_0001_%05d.bin" (inc simulation))
-          output-path (if output-directory
-                        (.getPath (io/file output-directory output-name))
-                        output-name)]
-      (binary/write-matrices-as-binary output-path
-                                       [:float :float :float :int]
-                                       [(->> burn-time-matrix
-                                             (d/emap (fn ^double [^double x] (if (pos? x) (* 60.0 x) x)) :float64)
-                                             (d/clone))
-                                        flame-length-matrix
-                                        spread-rate-matrix
-                                        fire-type-matrix]))))
-
+    (outputs/exec-in-outputs-writing-pool
+      (fn []
+        (let [output-name (format "toa_0001_%05d.bin" (inc simulation))
+              output-path (if output-directory
+                            (.getPath (io/file output-directory output-name))
+                            output-name)]
+          ;; NOTE that's not parallelizable, as the matrices get written to the same file.
+          (binary/write-matrices-as-binary output-path
+                                           [:float :float :float :int]
+                                           [(->> burn-time-matrix
+                                                 (d/emap (fn ^double [^double x] (if (pos? x) (* 60.0 x) x)) :float64)
+                                                 (d/clone))
+                                            flame-length-matrix
+                                            spread-rate-matrix
+                                            fire-type-matrix]))))))
 (defn cells-to-acres ^double
   [^double cell-size ^long num-cells]
   (let [acres-per-cell (/ (* cell-size cell-size) 43560.0)]
@@ -427,9 +452,13 @@
          simulation-results (tufte/p :run-fire-spread
                                      (run-fire-spread (map->SimulationInputs simulation-inputs)))]
      (when simulation-results
-       (process-output-layers! inputs simulation-results envelope i)
-       (process-aggregate-output-layers! inputs simulation-results)
-       (process-binary-output! inputs simulation-results i))
+       (->
+         (mfd/zip
+           (process-output-layers! inputs simulation-results envelope i)
+           (process-aggregate-output-layers! inputs simulation-results)
+           (process-binary-output! inputs simulation-results i))
+         (gf-async/nil-when-completed)
+         (deref)))
      (when output-csvs?
        (-> simulation-inputs
            (dissoc :get-aspect
