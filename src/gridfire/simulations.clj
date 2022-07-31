@@ -358,6 +358,7 @@
      burn-period-start
      burn-period-end
      ^double max-runtime
+     compute-directional-values?
      get-aspect
      get-canopy-base-height
      get-canopy-cover
@@ -402,6 +403,8 @@
                              :burn-period-start                 burn-period-start
                              :burn-period-end                   burn-period-end
                              :max-runtime                       (max-runtime-samples i)
+                             :compute-directional-values?       (or (= (:output-flame-length-sum inputs) :directional)
+                                                                    (= (:output-flame-length-max inputs) :directional))
                              :get-aspect                        (get-value-fn inputs rand-gen :aspect i)
                              :get-canopy-base-height            (get-value-fn inputs rand-gen :canopy-base-height i)
                              :get-canopy-cover                  (get-value-fn inputs rand-gen :canopy-cover i)

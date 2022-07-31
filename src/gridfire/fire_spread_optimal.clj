@@ -508,15 +508,16 @@
 
 (defn- promote-burn-vectors
   [inputs matrices global-clock new-clock max-fractional-distance burn-vectors]
-  (let [num-rows                (:num-rows inputs)
-        num-cols                (:num-cols inputs)
-        get-fuel-model          (:get-fuel-model inputs)
-        fire-spread-matrix      (:fire-spread-matrix matrices)
-        burn-time-matrix        (:burn-time-matrix matrices)
-        travel-lines-matrix     (:travel-lines-matrix matrices)
-        global-clock            (double global-clock)
-        new-clock               (double new-clock)
-        max-fractional-distance (double max-fractional-distance)]
+  (let [num-rows                    (:num-rows inputs)
+        num-cols                    (:num-cols inputs)
+        get-fuel-model              (:get-fuel-model inputs)
+        compute-directional-values? (:compute-directinal-values? inputs)
+        fire-spread-matrix          (:fire-spread-matrix matrices)
+        burn-time-matrix            (:burn-time-matrix matrices)
+        travel-lines-matrix         (:travel-lines-matrix matrices)
+        global-clock                (double global-clock)
+        new-clock                   (double new-clock)
+        max-fractional-distance     (double max-fractional-distance)]
     (persistent!
      (reduce
       (fn [acc burn-vector]
@@ -547,7 +548,8 @@
                                 225.0 (- j 1)
                                 270.0 (- j 1)
                                 315.0 (- j 1))]
-              (update-directional-magnitude-values! matrices direction spread-rate i j)
+              (when compute-directional-values?
+                (update-directional-magnitude-values! matrices direction spread-rate i j))
               (if (and (burnable-cell? get-fuel-model fire-spread-matrix burn-probability
                                        num-rows num-cols new-i new-j)
                        (or (not (diagonal? direction))
@@ -787,16 +789,19 @@
 
 (defn- initialize-fire-in-situ-values!
   [inputs matrices band ignited-cells]
-  (let [flame-length-matrix             (:flame-length-matrix matrices)
+  (let [compute-directinal-values?      (:compute-directinal-values? inputs)
+        flame-length-matrix             (:flame-length-matrix matrices)
         directional-flame-length-matrix (:directional-flame-length-matrix matrices)]
     (doseq [[i j] ignited-cells]
       (compute-max-in-situ-values! inputs matrices band i j)
-      (t/mset! directional-flame-length-matrix i j (t/mget flame-length-matrix i j)))))
+      (when compute-directinal-values?
+        (t/mset! directional-flame-length-matrix i j (t/mget flame-length-matrix i j))))))
 
 ;; FIXME Update target spread rate on burn-vectors if new band > band
 (defn- run-loop
   [inputs matrices ignited-cells]
-  (let [cell-size                        (double (:cell-size inputs))
+  (let [compute-directional-values?      (:compute-directional-values? inputs)
+        cell-size                        (double (:cell-size inputs))
         max-runtime                      (double (:max-runtime inputs))
         ignition-start-time              (double (:ignition-start-time inputs))
         ignition-stop-time               (+ ignition-start-time max-runtime)
@@ -941,9 +946,10 @@
                    _]                            (transition-burn-vectors inputs matrices band global-clock new-clock 0.49 promoted-spot-bvs)]
               ;; TODO if spot ignitions is updated to have varying burn probability make sure there are no duplicates
               ;; of ignited cells in this list of ignited cells passed to compute-directional-in-stiu-values!
-              (compute-directional-in-situ-values! matrices (-> ignited-cells
-                                                                (into transition-ignited-cells)
-                                                                (into spot-ignited-cells)))
+              (when compute-directional-values?
+                (compute-directional-in-situ-values! matrices (-> ignited-cells
+                                                                  (into transition-ignited-cells)
+                                                                  (into spot-ignited-cells))))
               (recur new-clock
                      (min->hour new-clock)
                      non-burn-period-clock
@@ -1063,17 +1069,18 @@
 
 (defn- initialize-point-ignition-matrices
   [inputs]
-  (let [num-rows            (long (:num-rows inputs))
-        num-cols            (long (:num-cols inputs))
-        [i j]               (:initial-ignition-site inputs)
-        ignition-start-time (:ignition-start-time inputs)
-        spotting            (:spotting inputs)
-        shape               [num-rows num-cols]
-        burn-time-matrix    (-> (* num-rows num-cols)
-                                (double-array -1.0)
-                                (t/ensure-tensor)
-                                (t/reshape shape)
-                                (t/mset! i j ignition-start-time))]
+  (let [num-rows                    (long (:num-rows inputs))
+        num-cols                    (long (:num-cols inputs))
+        [i j]                       (:initial-ignition-site inputs)
+        ignition-start-time         (:ignition-start-time inputs)
+        spotting                    (:spotting inputs)
+        compute-directional-values? (:compute-directional-values? inputs)
+        shape                       [num-rows num-cols]
+        burn-time-matrix            (-> (* num-rows num-cols)
+                                        (double-array -1.0)
+                                        (t/ensure-tensor)
+                                        (t/reshape shape)
+                                        (t/mset! i j ignition-start-time))]
     (map->SimulationMatrices
      {:burn-time-matrix                burn-time-matrix
       :eccentricity-matrix             (t/new-tensor shape)
@@ -1082,12 +1089,12 @@
       :fire-type-matrix                (t/new-tensor shape)
       :firebrand-count-matrix          (when spotting (t/new-tensor shape :datatype :int32))
       :flame-length-matrix             (t/new-tensor shape)
-      :directional-flame-length-matrix (t/new-tensor shape)
+      :directional-flame-length-matrix (when compute-directional-values? (t/new-tensor shape))
       :max-spread-direction-matrix     (t/new-tensor shape)
       :max-spread-rate-matrix          (t/new-tensor shape)
       :modified-time-matrix            (t/new-tensor shape :datatype :int32)
-      :residence-time-matrix           (t/new-tensor shape)
-      :reaction-intensity-matrix       (t/new-tensor shape)
+      :residence-time-matrix           (when compute-directional-values? (t/new-tensor shape))
+      :reaction-intensity-matrix       (when compute-directinal-values? (t/new-tensor shape))
       :spot-matrix                     (when spotting (t/new-tensor shape))
       :spread-rate-matrix              (t/new-tensor shape)
       :spread-rate-sum-matrix          (t/new-tensor shape)
@@ -1113,18 +1120,19 @@
 
 (defn- initialize-perimeter-ignition-matrices
   [inputs ignited-cells]
-  (let [num-rows            (long (:num-rows inputs))
-        num-cols            (long (:num-cols inputs))
-        positive-burn-scar  (:initial-ignition-site inputs)
-        ignition-start-time (:ignition-start-time inputs)
-        spotting            (:spotting inputs)
-        shape               [num-rows num-cols]
-        negative-burn-scar  (d/clone (dfn/* -1.0 positive-burn-scar))
-        burn-time-matrix    (-> (* num-rows num-cols)
-                                (double-array -1.0)
-                                (t/ensure-tensor)
-                                (t/reshape shape)
-                                (add-ignited-cells! ignited-cells ignition-start-time))]
+  (let [num-rows                    (long (:num-rows inputs))
+        num-cols                    (long (:num-cols inputs))
+        positive-burn-scar          (:initial-ignition-site inputs)
+        ignition-start-time         (:ignition-start-time inputs)
+        spotting                    (:spotting inputs)
+        compute-directional-values? (:compute-directional-values? inputs)
+        shape                       [num-rows num-cols]
+        negative-burn-scar          (d/clone (dfn/* -1.0 positive-burn-scar))
+        burn-time-matrix            (-> (* num-rows num-cols)
+                                        (double-array -1.0)
+                                        (t/ensure-tensor)
+                                        (t/reshape shape)
+                                        (add-ignited-cells! ignited-cells ignition-start-time))]
     (map->SimulationMatrices
      {:burn-time-matrix                burn-time-matrix
       :eccentricity-matrix             (d/clone negative-burn-scar)
@@ -1133,12 +1141,12 @@
       :fire-type-matrix                (d/clone negative-burn-scar)
       :firebrand-count-matrix          (when spotting (t/new-tensor shape :datatype :int32))
       :flame-length-matrix             (d/clone negative-burn-scar)
-      :directional-flame-length-matrix (d/clone negative-burn-scar)
+      :directional-flame-length-matrix (when compute-directional-values? (d/clone negative-burn-scar))
       :max-spread-direction-matrix     (d/clone negative-burn-scar)
       :max-spread-rate-matrix          (d/clone negative-burn-scar)
       :modified-time-matrix            (t/new-tensor shape :datatype :int32)
-      :residence-time-matrix           (d/clone negative-burn-scar)
-      :reaction-intensity-matrix       (d/clone negative-burn-scar)
+      :residence-time-matrix           (when compute-directional-values? (d/clone negative-burn-scar))
+      :reaction-intensity-matrix       (when compute-directional-values? (d/clone negative-burn-scar))
       :spot-matrix                     (when spotting (t/new-tensor shape))
       :spread-rate-matrix              (d/clone negative-burn-scar)
       :spread-rate-sum-matrix          (t/new-tensor shape)
