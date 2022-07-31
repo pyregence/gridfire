@@ -387,7 +387,8 @@
    {:keys
     [num-rows num-cols grass-suppression? output-csvs? envelope ignition-matrix cell-size max-runtime-samples
      ignition-rows ignition-cols ellipse-adjustment-factor-samples random-seed ignition-start-times spotting
-     burn-period-start burn-period-end ignition-start-timestamps suppression]
+     burn-period-start burn-period-end ignition-start-timestamps suppression output-flame-length-sum
+     output-flame-length-max]
     :as inputs}]
   (tufte/profile
    {:id :run-simulation}
@@ -403,8 +404,8 @@
                              :burn-period-start                 burn-period-start
                              :burn-period-end                   burn-period-end
                              :max-runtime                       (max-runtime-samples i)
-                             :compute-directional-values?       (or (= (:output-flame-length-sum inputs) :directional)
-                                                                    (= (:output-flame-length-max inputs) :directional))
+                             :compute-directional-values?       (or (= output-flame-length-max :directional)
+                                                                    (= output-flame-length-sum :directional))
                              :get-aspect                        (get-value-fn inputs rand-gen :aspect i)
                              :get-canopy-base-height            (get-value-fn inputs rand-gen :canopy-base-height i)
                              :get-canopy-cover                  (get-value-fn inputs rand-gen :canopy-cover i)

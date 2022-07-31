@@ -109,7 +109,8 @@
 
 (defn- compute-max-in-situ-values!
   [inputs matrices band i j]
-  (let [get-slope                             (:get-slope inputs)
+  (let [compute-directional-values?           (:compute-directional-values? inputs)
+        get-slope                             (:get-slope inputs)
         get-aspect                            (:get-aspect inputs)
         get-canopy-cover                      (:get-canopy-cover inputs)
         get-canopy-height                     (:get-canopy-height inputs)
@@ -214,8 +215,10 @@
         (t/mset! max-spread-direction-matrix      i j max-spread-direction)
         (t/mset! eccentricity-matrix              i j max-eccentricity)
         (t/mset! modified-time-matrix             i j (inc band))
-        (t/mset! residence-time-matrix            i j residence-time)
-        (t/mset! reaction-intensity-matrix        i j reaction-intensity)
+        (when compute-directional-values?
+            (t/mset! residence-time-matrix            i j residence-time))
+        (when compute-directional-values?
+         (t/mset! reaction-intensity-matrix        i j reaction-intensity))
         (store-if-max! spread-rate-matrix         i j max-spread-rate)
         (store-if-max! flame-length-matrix        i j (byram-flame-length max-fire-line-intensity))
         (store-if-max! fire-line-intensity-matrix i j max-fire-line-intensity)
@@ -225,8 +228,10 @@
         (t/mset! max-spread-direction-matrix      i j max-spread-direction)
         (t/mset! eccentricity-matrix              i j eccentricity)
         (t/mset! modified-time-matrix             i j (inc band))
-        (t/mset! residence-time-matrix            i j residence-time)
-        (t/mset! reaction-intensity-matrix        i j reaction-intensity)
+        (when compute-directional-values?
+         (t/mset! residence-time-matrix            i j residence-time))
+        (when compute-directional-values?
+         (t/mset! reaction-intensity-matrix        i j reaction-intensity))
         (store-if-max! spread-rate-matrix         i j max-spread-rate)
         (store-if-max! flame-length-matrix        i j (byram-flame-length max-surface-intensity))
         (store-if-max! fire-line-intensity-matrix i j max-surface-intensity)
