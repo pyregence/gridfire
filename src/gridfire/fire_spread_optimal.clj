@@ -511,7 +511,7 @@
   (let [num-rows                    (:num-rows inputs)
         num-cols                    (:num-cols inputs)
         get-fuel-model              (:get-fuel-model inputs)
-        compute-directional-values? (:compute-directinal-values? inputs)
+        compute-directional-values? (:compute-directional-values? inputs)
         fire-spread-matrix          (:fire-spread-matrix matrices)
         burn-time-matrix            (:burn-time-matrix matrices)
         travel-lines-matrix         (:travel-lines-matrix matrices)
@@ -789,12 +789,12 @@
 
 (defn- initialize-fire-in-situ-values!
   [inputs matrices band ignited-cells]
-  (let [compute-directinal-values?      (:compute-directinal-values? inputs)
+  (let [compute-directional-values?     (:compute-directional-values? inputs)
         flame-length-matrix             (:flame-length-matrix matrices)
         directional-flame-length-matrix (:directional-flame-length-matrix matrices)]
     (doseq [[i j] ignited-cells]
       (compute-max-in-situ-values! inputs matrices band i j)
-      (when compute-directinal-values?
+      (when compute-directional-values?
         (t/mset! directional-flame-length-matrix i j (t/mget flame-length-matrix i j))))))
 
 ;; FIXME Update target spread rate on burn-vectors if new band > band
@@ -1094,7 +1094,7 @@
       :max-spread-rate-matrix          (t/new-tensor shape)
       :modified-time-matrix            (t/new-tensor shape :datatype :int32)
       :residence-time-matrix           (when compute-directional-values? (t/new-tensor shape))
-      :reaction-intensity-matrix       (when compute-directinal-values? (t/new-tensor shape))
+      :reaction-intensity-matrix       (when compute-directional-values? (t/new-tensor shape))
       :spot-matrix                     (when spotting (t/new-tensor shape))
       :spread-rate-matrix              (t/new-tensor shape)
       :spread-rate-sum-matrix          (t/new-tensor shape)
