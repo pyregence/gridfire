@@ -854,7 +854,7 @@
               ^double dt-until-suppression-clock (when suppression-dt (- suppression-clock global-clock))]
           (cond
             (and suppression (= global-clock suppression-clock))
-            (let [max-runtime-fraction           (/ global-clock max-runtime)
+            (let [max-runtime-fraction           (/ (- global-clock ignition-start-time) max-runtime)
                   [bvs-to-process-next
                    total-cells-suppressed
                    previous-num-perimeter-cells] (suppression/suppress-burn-vectors max-runtime-fraction
@@ -881,7 +881,7 @@
                       last-suppression-clock         (double (last (take-while #(<= (double %) new-clock) suppression-clocks)))
                       [bvs-to-process-next
                        total-cells-suppressed
-                       previous-num-perimeter-cells] (suppression/suppress-burn-vectors (/ last-suppression-clock max-runtime)
+                       previous-num-perimeter-cells] (suppression/suppress-burn-vectors (/ (- last-suppression-clock ignition-start-time) max-runtime)
                                                                                         alpha
                                                                                         previous-num-perimeter-cells
                                                                                         total-cells-suppressed
