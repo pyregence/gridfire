@@ -853,7 +853,7 @@
         (let [dt-until-max-runtime               (- ignition-stop-time global-clock)
               ^double dt-until-suppression-clock (when suppression-dt (- suppression-clock global-clock))]
           (cond
-            (and suppression (= global-clock suppression-clock))
+            (and suppression (= global-clock suppression-clock)) ;; REVIEW floating-point inaccuracy ? (not likely)
             (let [max-runtime-fraction           (/ global-clock max-runtime)
                   [bvs-to-process-next
                    total-cells-suppressed
@@ -1191,3 +1191,35 @@
       (run-loop inputs
                 (initialize-perimeter-ignition-matrices inputs ignited-cells)
                 ignited-cells))))
+
+
+(comment
+
+  ;; How likely are floating-point inaccuracies?
+  (->>
+    (repeatedly
+      10000
+      (fn []
+        (let [t (* (rand) 1e3)
+              dt (* (rand) 1e-2)]
+          (=
+            t
+            (-> t (- dt) (+ dt))))))
+    (frequencies))
+  => {true 10000}
+
+
+  (->>
+    (repeatedly
+      10000
+      (fn []
+        (let [t (* (rand) 1)
+              dt (* (rand) 1e-1)]
+          (=
+            t
+            (-> t (- dt) (+ dt))))))
+    (frequencies))
+  => {true 9751, false 249}
+
+  ;; I haven't managed to get a higher proportion, see below.
+  *e)

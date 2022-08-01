@@ -3,7 +3,6 @@
   by suppressing ('putting out') chosen contiguous segments of the
   fire front, typically backing and flanking fires."
   (:require [gridfire.conversion :refer [rad->deg]]))
-
 (set! *unchecked-math* :warn-on-boxed)
 
 (defn- combine-average ^double
@@ -38,6 +37,8 @@
   already suppressed slice, in which case the segment will be included
   in the returned map even if its `cell-count` is smaller than
   `num-cells-to-suppress`.
+
+  FIXME is there is double-counting, investigate the above note.
 
   Note that the returned segments will tend to overlap - think of a
   sliding window of (up to `num-cells-to-suppress`) contiguous active
@@ -228,7 +229,7 @@
 
 (defn suppress-burn-vectors
   [max-runtime-fraction suppression-coefficient previous-num-perimeter-cells previous-suppressed-count burn-vectors]
-  (let [max-runtime-fraction         (double max-runtime-fraction)
+  (let [max-runtime-fraction         (double max-runtime-fraction) ; FIXME do we trust that this has a reasonable value in CONUS runs? Too large would nullify the effect of suppression.
         suppression-coefficient      (double suppression-coefficient)
         previous-num-perimeter-cells (long previous-num-perimeter-cells)
         previous-suppressed-count    (long previous-suppressed-count)
@@ -240,6 +241,7 @@
         num-fizzled-perimeter-cells  (max 0 (- previous-num-perimeter-cells num-tracked-perimeter-cells))
         num-perimeter-cells          (max previous-num-perimeter-cells num-tracked-perimeter-cells)
         current-suppressed-count     (+ previous-suppressed-count num-fizzled-perimeter-cells)
+        ;; FIXME is num-perimeter-cells estimated correctly?
         next-suppressed-count        (long (* fraction-contained num-perimeter-cells))
         num-cells-to-suppress        (- next-suppressed-count current-suppressed-count)]
     (if (> num-cells-to-suppress 0)
@@ -254,5 +256,15 @@
             burn-vectors-to-keep   (into []
                                          (mapcat #(get slice->BurnVectors %))
                                          slices-to-keep)]
+        ;; FIXME is there no erroneous double-counting in suppressed-count? Let's check it out below:
+        (assert
+          (= suppressed-count
+            (->> slices-to-suppress-set
+                 (mapcat #(get slice->BurnVectors %))
+                 (map (juxt :i :j))
+                 (set)
+                 (count)))
+          "suppressed-count is not estimated correctly.")
+        ;; FIXME do num-cells-to-suppress and suppressed-count tend to be very different?
         [burn-vectors-to-keep (+ current-suppressed-count ^long suppressed-count) num-perimeter-cells])
       [burn-vectors current-suppressed-count num-perimeter-cells])))
