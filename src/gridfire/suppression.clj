@@ -118,35 +118,68 @@
         [[slices _] cell-count]          (first contiguous-slices)]
     [slices cell-count]))
 
-;; FIXME: This algorithm sums the cell counts of each segment, but it
-;; never checks to see if the segments overlap, which suggests that we
-;; will often undersuppress vs `num-cells-to-suppress`.
 (defn- compute-slices-to-suppress
-  "Returns a tuple of `slices-to-suppress` and `suppressed-count`.
+  "Chooses slices to be suppressed, and reports the number of suppressed cells.
+
+  Given:
+  - num-cells-to-suppress: a number of cells, the suppression objective,
+  - angular-slice->avg-dsr+num-cells: a map of statistics over all angular slices,
+
+  returns a tuple [slices-to-suppress suppressed-count], in which:
+  - slices-to-suppress is the set of angular slices to suppress, chosen as a tradeoff
+  between contiguity, closeness to the num-cells-to-suppress objective,
+  and low average spread rate.
+  - suppressed-count is the number of cells in slices-to-suppress,
+  which is returned to save callers the work of re-computing it.
+  Warning: it may well be that suppressed-count > num-cells-to-suppress.
+
   This algorithm will convert `angular-slice->avg-dsr+num-cells` to a sorted map of
-  `angular-slices+avg-dsr->num-cells`. Using this map the algorithm will collect
-  the sequence of angular-slices until we have a cell-count of at least
-  `num-cells-to-suppress`."
+  `angular-slices+avg-dsr->num-cells`, representing candidate segments for suppression.
+  Using this map the algorithm will collect the sequence of angular-slices
+  until we have a cell-count of at least `num-cells-to-suppress`, if possible."
   [^long num-cells-to-suppress angular-slice->avg-dsr+num-cells]
-  (let [angular-slices+avg-dsr->num-cells (compute-contiguous-slices num-cells-to-suppress angular-slice->avg-dsr+num-cells)
-        [[slices _] cell-count]           (first angular-slices+avg-dsr->num-cells)
-        cell-count                        (long cell-count)]
-    (if (>= cell-count num-cells-to-suppress)
-      [slices cell-count]
-      ;; The optimal segment does not contain enough cells, so we add more segments:
-      (loop [[segment & rest-to-process] (rest angular-slices+avg-dsr->num-cells)
-             cells-needed                (- num-cells-to-suppress cell-count)
-             slices-to-suppress          slices]
-        (if (and segment (pos? cells-needed))
-          (let [[[slices _] cell-count] segment
-                cell-count              (long cell-count)]
-            (if (<= cell-count cells-needed)
-              (recur rest-to-process (- cells-needed cell-count) (into slices-to-suppress slices))
+  ;; NOTE this algorithm is most likely under-optimized;
+  ;; having said that, it's probably not a performance bottleneck
+  ;; (suppression events are typically few and far between)
+  ;; and experience has shown that we'd better make this right
+  ;; before making it fast.
+  ;; TODO enhance performance or rethink the overall suppression algorithm.
+  (letfn [(n-cells-in-slices ^long [slices]
+            (transduce
+              (map (fn n-cells-in-slice [slice]
+                     (let [[_ num-cells] (get angular-slice->avg-dsr+num-cells slice)]
+                       num-cells)))
+              (completing +)
+              0
+              slices))]
+    (let [angular-slices+avg-dsr->num-cells (compute-contiguous-slices num-cells-to-suppress angular-slice->avg-dsr+num-cells)]
+      (loop [remaining-segments angular-slices+avg-dsr->num-cells
+             n-cells-needed     (long num-cells-to-suppress)
+             slices-to-suppress #{}]
+        (if-some [segment (when (pos? n-cells-needed)
+                            (first remaining-segments))]
+          (let [[[slices _]] segment
+                yet-unsuppressed-slices (remove slices-to-suppress slices)
+                n-would-be-suppressed   (long (n-cells-in-slices yet-unsuppressed-slices))]
+            (if (<= n-would-be-suppressed n-cells-needed)
+              (let [new-n-cells-needed     (- n-cells-needed n-would-be-suppressed)
+                    new-slices-to-suppress (into slices-to-suppress yet-unsuppressed-slices)]
+                (recur
+                  (rest remaining-segments)
+                  new-n-cells-needed
+                  new-slices-to-suppress))
               ;; this segment has more than we need, compute subsegment:
-              (let [[sub-segment-slices sub-segment-count] (compute-sub-segment angular-slice->avg-dsr+num-cells slices cells-needed)
-                    sub-segment-count                      (long sub-segment-count)]
-                (recur rest-to-process (- cells-needed sub-segment-count) (into slices-to-suppress sub-segment-slices)))))
-          [slices-to-suppress (- num-cells-to-suppress cells-needed)])))))
+              (let [[sub-segment-slices _] (compute-sub-segment angular-slice->avg-dsr+num-cells slices n-cells-needed)
+                    n-more-suppressed      (long (n-cells-in-slices (remove slices-to-suppress sub-segment-slices)))
+                    new-n-cells-needed     (- n-cells-needed n-more-suppressed)
+                    new-slices-to-suppress (into slices-to-suppress sub-segment-slices)]
+                (recur
+                  (rest remaining-segments)
+                  new-n-cells-needed
+                  new-slices-to-suppress))))
+          ;; no more segments needed or available, so we return:
+          (let [n-suppressed (- num-cells-to-suppress n-cells-needed)]
+            [slices-to-suppress n-suppressed]))))))
 
 (defn- average
   [coll]
