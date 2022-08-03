@@ -381,16 +381,14 @@
                                  (* bp-frac h-sunset))]
             [(-> h-center (- bp-half-length))
              (-> h-center (+ bp-half-length))]))]
-    {:weather-start-timestamp wds-t
-     :start                   (format-fractional-hour h-start)
+    {:start                   (format-fractional-hour h-start)
      :end                     (format-fractional-hour h-end)}))
 
 (test/deftest infer-burn-period-example
   (test/is
     (=
       ;; Almost correct, Météo France says 6:15 / 21:14.
-      {:weather-start-timestamp #inst"2022-07-19T16:54:09.073-00:00",
-       :start                   "04:15",
+      {:start                   "04:15",
        :end                     "19:13"}
       (infer-burn-period
         {:weather-start-timestamp #inst"2022-07-19T16:54:09.073-00:00"
@@ -400,8 +398,7 @@
 
   (test/is
     (=
-      {:weather-start-timestamp #inst"2022-07-19T16:54:09.073-00:00",
-       :start                   "08:14",
+      {:start                   "08:14",
        :end                     "18:14"}
       (infer-burn-period
         {:weather-start-timestamp #inst"2022-07-19T16:54:09.073-00:00"
@@ -523,4 +520,4 @@
 ;; Example usage:
 ; $ bb ./resources/burn_period_from_sunrise_sunset.clj --lat-deg 43.17 --lng-deg 5.6 --weather-start-timestamp--rfc3339 2022-07-19 --output-gf-config "./my-override.edn"
 ;; Checkpoint: in my-override.edn, you'll see:
-; {... :weather-start-timestamp #inst "2022-07-19T00:00:00.000-00:00", :burn-period {:burn-period-start "04:14", :burn-period-end "19:14"}, ...}
+; {... :weather-start-timestamp #inst "2022-07-19T00:00:00.000-00:00", :burn-period {:start "04:14", :end "19:14"} ...}
