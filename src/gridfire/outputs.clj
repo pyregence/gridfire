@@ -1,14 +1,14 @@
 (ns gridfire.outputs
-  (:require [clojure.data.csv     :as csv]
-            [clojure.java.io      :as io]
-            [clojure.string       :as str]
-            [gridfire.utils.async :as gf-async]
-            [magellan.core        :refer [matrix-to-raster write-raster]]
-            [manifold.deferred    :as mfd]
-            [matrix-viz.core      :refer [save-matrix-as-png]]
-            [tech.v3.datatype     :as d]))
+  (:require [clojure.data.csv            :as csv]
+            [clojure.java.io             :as io]
+            [clojure.string              :as str]
+            [gridfire.utils.async        :as gf-async]
+            [magellan.core               :refer [matrix-to-raster write-raster]]
+            [manifold.deferred           :as mfd]
+            [matrix-viz.core             :refer [save-matrix-as-png]]
+            [tech.v3.datatype.functional :as dfn]))
 
-#_(set! *unchecked-math* :warn-on-boxed)
+(set! *unchecked-math* :warn-on-boxed)
 
 (defn output-filename [name outfile-suffix simulation-id output-time ext]
   (as-> [name outfile-suffix simulation-id (when output-time (str "t" output-time))] $
@@ -153,8 +153,8 @@
                  (->
                    (exec-in-outputs-writing-pool
                      (fn []
-                       (let [output-time        (* band timestep)
-                             probability-matrix (d/clone (d/emap #(/ % simulations) nil matrix))]
+                       (let [output-time        (* (long band) (long timestep))
+                             probability-matrix (dfn// matrix (long simulations))]
                          [output-time probability-matrix])))
                    (mfd/chain
                      (fn [[output-time probability-matrix]]
@@ -166,7 +166,7 @@
         (->
           (exec-in-outputs-writing-pool
             (fn []
-              (d/clone (d/emap #(/ % simulations) nil burn-count-matrix))))
+              (dfn// burn-count-matrix (long simulations))))
           (mfd/chain
             (fn [probability-matrix]
               (mfd/zip

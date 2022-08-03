@@ -842,7 +842,7 @@
     (loop [global-clock                 ignition-start-time
            band                         band
            non-burn-period-clock        non-burn-period-clock
-           suppression-clock            (double (if suppression (+ ignition-start-time suppression-dt) max-runtime))
+           suppression-clock            (double (if suppression (+ ignition-start-time (double suppression-dt)) max-runtime))
            burn-vectors                 (ignited-cells->burn-vectors inputs matrices ignited-cells [])
            spot-ignitions               {}
            spot-count                   0
@@ -865,19 +865,19 @@
               (recur global-clock
                      band
                      non-burn-period-clock
-                     (+ global-clock suppression-dt)
+                     (+ global-clock (double suppression-dt))
                      bvs-to-process-next
                      spot-ignitions
                      spot-count
-                     total-cells-suppressed
-                     previous-num-perimeter-cells))
+                     (long total-cells-suppressed)
+                     (long previous-num-perimeter-cells)))
 
             (= global-clock non-burn-period-clock)
             (let [timestep  (double (min non-burn-period-dt dt-until-max-runtime))
                   new-clock (+ global-clock timestep)
                   new-band  (min->hour new-clock)]
               (if (and suppression (<= suppression-clock new-clock))
-                (let [suppression-clocks             (iterate #(+ (double %) suppression-dt) suppression-clock)
+                (let [suppression-clocks             (iterate #(+ (double %) (double suppression-dt)) suppression-clock)
                       last-suppression-clock         (double (last (take-while #(<= (double %) new-clock) suppression-clocks)))
                       [bvs-to-process-next
                        total-cells-suppressed
@@ -889,14 +889,14 @@
                   (recur new-clock
                          new-band
                          (+ new-clock burn-period-dt)
-                         (+ last-suppression-clock suppression-dt)
+                         (+ last-suppression-clock (double suppression-dt))
                          bvs-to-process-next
                          (if (zero? non-burn-period-dt)
                            spot-ignitions
                            {})
                          spot-count
-                         total-cells-suppressed
-                         previous-num-perimeter-cells))
+                         (long total-cells-suppressed)
+                         (long previous-num-perimeter-cells)))
                 (recur new-clock
                        new-band
                        (+ new-clock burn-period-dt)
@@ -1102,6 +1102,7 @@
       :spread-rate-matrix              (t/new-tensor shape)
       :spread-rate-sum-matrix          (when compute-directional-values? (t/new-tensor shape))
       :travel-lines-matrix             (t/new-tensor shape :datatype :short)
+      ;; FIXME what are those?
       :x-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape))
       :y-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape))})))
 

@@ -298,7 +298,7 @@
   [{:keys [ignition-start-times simulations ignition-start-timestamp weather-start-timestamp] :as inputs}]
   (let [weather-start-ms                 (inst-ms weather-start-timestamp)
         compute-ignition-start-timestamp (fn [ignition-start-time]
-                                           (Date. (+ weather-start-ms (min->ms ignition-start-time))))
+                                           (Date. (+ (long weather-start-ms) (min->ms ignition-start-time))))
         ignition-start-timestamps        (cond
                                            ignition-start-timestamp (vec (repeat simulations ignition-start-timestamp))
                                            ignition-start-times     (mapv compute-ignition-start-timestamp ignition-start-times)
