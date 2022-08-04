@@ -154,7 +154,7 @@
               slices))]
     (let [angular-slices+avg-dsr->num-cells (compute-contiguous-slices num-cells-to-suppress angular-slice->avg-dsr+num-cells)]
       (loop [remaining-segments angular-slices+avg-dsr->num-cells
-             n-cells-needed     (long num-cells-to-suppress)
+             n-cells-needed     num-cells-to-suppress
              slices-to-suppress #{}]
         (if-some [segment (when (pos? n-cells-needed)
                             (first remaining-segments))]
