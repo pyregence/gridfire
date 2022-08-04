@@ -63,7 +63,7 @@
              (->
                (outputs/exec-in-outputs-writing-pool
                  (fn []
-                   (let [matrix (if (= layer "burn_history")
+                   (let [matrix (if (= name "burn_history")
                                   (to-color-map-values layer output-time)
                                   (fire-spread-results layer))]
                      (layer-snapshot burn-time-matrix matrix output-time))))
