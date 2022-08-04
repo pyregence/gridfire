@@ -1,5 +1,7 @@
 (ns gridfire.active-fire-watcher
   (:require [clojure.core.async   :refer [<! >! go-loop timeout]]
+            [clojure.edn          :as edn]
+            [clojure.string       :as s]
             [gridfire.conversion  :refer [convert-date-string]]
             [nextjournal.beholder :as beholder]
             [triangulum.logging   :refer [log-str]])
@@ -27,6 +29,12 @@
                                          "yyyyMMdd_HHmmss"
                                          "yyyy-MM-dd HH:mm zzz")}))
 
+(defn- suppress? [{:keys [also-simulate-suppression? suppression-white-list]} file-path]
+  (and also-simulate-suppression?
+       (some #(s/includes? file-path %) (-> (slurp suppression-white-list)
+                                            (edn/read-string)
+                                            (:suppression-white-list)))))
+
 ;;=============================================================================
 ;; Server
 ;;=============================================================================
@@ -39,7 +47,7 @@
 (defn- still-waiting? [^long last-mod-time]
   (< (- (now) last-mod-time) 5000)) ; wait up to 5 seconds
 
-(defn- count-down [{:keys [also-simulate-suppression?] :as _config} job-queue path-str]
+(defn- count-down [config job-queue path-str]
   (go-loop [^long last-mod-time (get @download-in-progress path-str)]
     (if (still-waiting? last-mod-time)
       (do (<! (timeout 1000))
@@ -48,7 +56,7 @@
           (swap! download-in-progress dissoc path-str)
           (let [job (build-job path-str)]
             (>! job-queue job)
-            (when also-simulate-suppression?
+            (when (suppress? config path-str)
               (>! job-queue (assoc job :suppression {:suppression-dt         1440.0 ;TODO remove hard code
                                                      :suppression-coefficent 2.0})))))))) ;TODO remove hard code
 

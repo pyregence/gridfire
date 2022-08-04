@@ -278,3 +278,14 @@
   (reset! *server-running? false)
   (sockets/stop-server!)
   (active-fire-watcher/stop!))
+
+;; TODO write spec for server
+;; Sample config
+#_{:software-dir               "/home/kcheung/work/code/gridfire"
+ :incoming-dir               "/home/kcheung/work/servers/chickadee/incoming"
+ :active-fire-dir            "/home/kcheung/work/servers/chickadee/incoming/active_fires"
+ :data-dir                   "/home/kcheung/work/servers/chickadee/data"
+ :override-config            "/home/kcheung/work/servers/chickadee/gridfire-base.edn"
+ :log-dir                    "/home/kcheung/work/servers/chickadee/log"
+ :suppression-white-list     "/home/kcheung/work/servers/chickadee/suppression-white-list.edn"
+ :also-simulate-suppression? true}
