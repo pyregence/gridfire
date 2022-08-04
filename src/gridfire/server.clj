@@ -80,7 +80,7 @@
 (defn- add-weather-start-timestamp [config ignition-date-time]
   (assoc config :weather-start-timestamp (calc-weather-start-timestamp ignition-date-time)))
 
-(defn- add-suppression [config {:keys [suppression-dt suppression-coefficient] :as _supression-params}]
+(defn- add-suppression [config {:keys [suppression-dt suppression-coefficient] :as _suppression-params}]
   (assoc config :suppression {:suppression-dt         suppression-dt
                               :suppression-coefficent suppression-coefficient}))
 
@@ -147,23 +147,24 @@
 
 (defn- unzip-tar!
   "Unzips a tar file and returns the file path to the extracted folder."
-  [{:keys [fire-name ignition-time type suppression] :as _request} {:keys [data-dir incoming-dir active-fire-dir] :as _config}]
+  [{:keys [fire-name ignition-time type suppression] :as _request}
+   {:keys [data-dir incoming-dir active-fire-dir] :as _config}]
   (let [working-dir   (if (= type :active-fire) active-fire-dir incoming-dir)
-        tar           (str (build-file-name fire-name ignition-time) ".tar")
+        tar-file-name (str (build-file-name fire-name ignition-time) ".tar")
         out-file-name (build-file-name (if suppression (str fire-name "-suppressed") fire-name)
                                        ignition-time)
-        out-file-path (str data-dir "/" out-file-name)]
-    (if (.exists (io/file (str working-dir "/" tar)))
+        out-file-path (.getAbsolutePath (io/file data-dir out-file-name))]
+    (if (.exists (io/file working-dir tar-file-name))
       (do
         (sh/sh "mkdir" "-p" out-file-path)
         (sh-wrapper working-dir
                     {}
                     true
                     (format "tar -xf %s -C %s --strip-components 1"
-                            tar
+                            tar-file-name
                             out-file-path))
         (.getPath (io/file data-dir out-file-name)))
-      (throw (Exception. (str "tar file does not exist: " (.getAbsolutePath (io/file (str working-dir "/" tar)))))))))
+      (throw (Exception. (str "tar file does not exist: " (.getAbsolutePath (io/file working-dir tar-file-name))))))))
 
 ;;TODO Try babashka's pod protocol to see if it's faster than shelling out.
 (defn- process-request!
