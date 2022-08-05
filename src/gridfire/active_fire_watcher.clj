@@ -1,5 +1,7 @@
 (ns gridfire.active-fire-watcher
   (:require [clojure.core.async   :refer [<! >! go-loop timeout]]
+            [clojure.edn          :as edn]
+            [clojure.string       :as s]
             [gridfire.conversion  :refer [convert-date-string]]
             [nextjournal.beholder :as beholder]
             [triangulum.logging   :refer [log-str]])
@@ -27,6 +29,12 @@
                                          "yyyyMMdd_HHmmss"
                                          "yyyy-MM-dd HH:mm zzz")}))
 
+(defn- suppress? [{:keys [also-simulate-suppression? suppression-white-list]} file-path]
+  (and also-simulate-suppression?
+       (some #(s/includes? file-path %) (-> (slurp suppression-white-list)
+                                            (edn/read-string)
+                                            (:suppression-white-list)))))
+
 ;;=============================================================================
 ;; Server
 ;;=============================================================================
@@ -39,31 +47,35 @@
 (defn- still-waiting? [^long last-mod-time]
   (< (- (now) last-mod-time) 5000)) ; wait up to 5 seconds
 
-(defn- count-down [job-queue path-str]
+(defn- count-down [config job-queue path-str]
   (go-loop [^long last-mod-time (get @download-in-progress path-str)]
     (if (still-waiting? last-mod-time)
       (do (<! (timeout 1000))
           (recur (get @download-in-progress path-str)))
       (do (log-str "SCP Complete: " path-str)
           (swap! download-in-progress dissoc path-str)
-          (>! job-queue (build-job path-str))))))
+          (let [job (build-job path-str)]
+            (>! job-queue job)
+            (when (suppress? config path-str)
+              (>! job-queue (assoc job :suppression {:suppression-dt         1440.0 ;TODO remove hard code
+                                                     :suppression-coefficent 2.0})))))))) ;TODO remove hard code
 
-(defn- handler [job-queue]
+(defn- handler [config job-queue]
   (fn [{:keys [type path]}]
     (let [path-str (.toString path)]
       (case type
         :create (do (log-str "Active Fire input deck detected: " path-str)
                     (swap! download-in-progress assoc path-str (now))
-                    (count-down job-queue path-str))
+                    (count-down config job-queue path-str))
         :modify (swap! download-in-progress assoc path-str (now)) ; reset counter
         nil))))
 
 (defonce directory-watcher (atom nil))
 
-(defn start! [{:keys [active-fire-dir]} job-queue]
+(defn start! [{:keys [active-fire-dir] :as config} job-queue]
   (when (and active-fire-dir (nil? @directory-watcher))
     (reset! directory-watcher
-            (beholder/watch (handler job-queue) active-fire-dir))))
+            (beholder/watch (handler config job-queue) active-fire-dir))))
 
 (defn stop! []
   (when @directory-watcher

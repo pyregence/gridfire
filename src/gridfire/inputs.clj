@@ -3,13 +3,14 @@
             [clojure.java.io         :as io]
             [clojure.string          :as str]
             [gridfire.common         :refer [burnable-fuel-model?]]
-            [gridfire.conversion     :refer [conversion-table ms->min percent->dec]]
+            [gridfire.conversion     :refer [conversion-table min->ms ms->min percent->dec]]
             [gridfire.fetch          :as fetch]
             [gridfire.postgis-bridge :refer [with-db-connection-pool]]
             [gridfire.utils.random   :refer [draw-samples my-shuffle my-rand-nth]]
             [gridfire.utils.server   :refer [throw-message]]
             [tech.v3.tensor          :as t])
-  (:import java.util.Random))
+  (:import java.util.Date
+           java.util.Random))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -269,13 +270,13 @@
 
 (defn add-aggregate-matrices
   [{:keys
-    [max-runtime-samples num-rows num-cols output-burn-count? output-burn-probability output-flame-length-sum?
-     output-flame-length-max? output-spot-count?] :as inputs}]
+    [max-runtime-samples num-rows num-cols output-burn-count? output-burn-probability
+     output-flame-length-sum output-flame-length-max output-spot-count?] :as inputs}]
   (assoc inputs
          :burn-count-matrix       (when (or output-burn-count? output-burn-probability)
                                     (initialize-burn-count-matrix output-burn-probability max-runtime-samples num-rows num-cols))
-         :flame-length-sum-matrix (when output-flame-length-sum? (t/new-tensor [num-rows num-cols]))
-         :flame-length-max-matrix (when output-flame-length-max? (t/new-tensor [num-rows num-cols]))
+         :flame-length-sum-matrix (when output-flame-length-sum (t/new-tensor [num-rows num-cols]))
+         :flame-length-max-matrix (when output-flame-length-max (t/new-tensor [num-rows num-cols]))
          :spot-count-matrix       (when output-spot-count? (t/new-tensor [num-rows num-cols]))))
 
 (defn add-burn-period-params
@@ -286,9 +287,22 @@
         (assoc :burn-period-end   (or end   "24:00")))))
 
 (defn add-ignition-start-times
-  [{:keys [ignition-start-timestamp weather-start-timestamp simulations] :as inputs}]
-  (if (and ignition-start-timestamp weather-start-timestamp)
+  [{:keys [ignition-start-times ignition-start-timestamp weather-start-timestamp simulations] :as inputs}]
+  (if (and (nil? ignition-start-times) ignition-start-timestamp weather-start-timestamp)
     (let [ignition-start-time (ms->min (- (double (inst-ms ignition-start-timestamp))
                                           (double (inst-ms weather-start-timestamp))))]
-      (assoc inputs :ignition-start-times (repeat simulations ignition-start-time)))
-    (assoc inputs :ignition-start-timestamp #inst "1970-01-01T00:00:00"))) ; adding no-op value for required parameter
+      (assoc inputs :ignition-start-times (vec (repeat simulations ignition-start-time))))
+    inputs))
+
+(defn add-ignition-start-timestamps
+  [{:keys [ignition-start-times simulations ignition-start-timestamp weather-start-timestamp] :as inputs}]
+  (let [weather-start-ms                 (inst-ms (or weather-start-timestamp #inst "1970-01-01T00-00:00"))
+        compute-ignition-start-timestamp (fn [ignition-start-time]
+                                           (Date. (+ weather-start-ms (min->ms ignition-start-time))))
+        ignition-start-timestamps        (cond
+                                           ignition-start-timestamp (vec (repeat simulations ignition-start-timestamp))
+                                           ignition-start-times     (mapv compute-ignition-start-timestamp ignition-start-times)
+                                           :else                    (vec (repeat simulations #inst "1970-01-01T00-00:00")))] ; adding no-op value for required parameter
+    (-> inputs
+        (assoc :ignition-start-timestamps ignition-start-timestamps)
+        (dissoc :ignition-start-timestamp))))

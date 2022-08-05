@@ -163,6 +163,16 @@
                    ::crown-fire-spotting-percent]
           :opt-un [::surface-fire-spotting]))
 
+;; Suppression
+
+(s/def ::suppression-dt number?)
+
+(s/def ::suppression-coefficient number?)
+
+(s/def ::suppression
+  (s/keys :req-un [::suppression-dt
+                   ::suppression-coefficient]))
+
 ;; Perturbations
 
 (s/def ::perturbations
@@ -215,17 +225,17 @@
 (s/def ::output-burn-probability  ::output-frequency) ; FIXME: Why isn't this also just boolean?
 (s/def ::output-burn-count?       boolean?)
 (s/def ::output-spot-count?       boolean?)
-(s/def ::output-flame-length-max? boolean?)
-(s/def ::output-flame-length-sum? boolean?)
+(s/def ::output-flame-length-max  #{:max :directional})
+(s/def ::output-flame-length-sum  #{:max :directional})
 
 ;;=============================================================================
 ;; Burn Period
 ;;=============================================================================
 
 (s/def ::burn-period-required-keys
-  (fn [{:keys [burn-period ignition-start-timestamp weather-start-timestamp]}]
+  (fn [{:keys [burn-period weather-start-timestamp]}]
     (or (nil? burn-period)
-        (and ignition-start-timestamp weather-start-timestamp))))
+        weather-start-timestamp)))
 
 ;;=============================================================================
 ;; Timestamps
@@ -236,11 +246,20 @@
 
 (s/def ::valid-timestamps
   (fn [{:keys [ignition-start-timestamp weather-start-timestamp]}]
-    (or
-     (every? nil? [ignition-start-timestamp weather-start-timestamp])
-     (and weather-start-timestamp
-          ignition-start-timestamp
-          (not-after? weather-start-timestamp ignition-start-timestamp)))))
+    (or (nil? ignition-start-timestamp)
+        (and weather-start-timestamp
+             ignition-start-timestamp
+             (not-after? weather-start-timestamp ignition-start-timestamp)))))
+
+;;=============================================================================
+;; Mutually exclusive-keys
+;;=============================================================================
+
+(s/def ::mutually-exclusive-keys
+  (fn [{:keys [ignition-start-timestamp ignition-csv]}]
+    (or (and ignition-start-timestamp (nil? ignition-csv))
+        (and (nil? ignition-start-timestamp) ignition-csv)
+        (every? nil? [ignition-start-timestamp ignition-csv]))))
 
 ;;=============================================================================
 ;; Config Map
@@ -274,6 +293,7 @@
              ::relative-humidity
              ::fuel-moisture
              ::spotting
+             ::suppression
              ::perturbations
              ::output-directory
              ::outfile-suffix
@@ -286,11 +306,12 @@
              ::output-burn-probability
              ::output-burn-count?
              ::output-spot-count?
-             ::output-flame-length-max?
-             ::output-flame-length-sum?])
+             ::output-flame-length-max
+             ::output-flame-length-sum])
    ::ignition-layer-or-ignition-csv
    ::max-runtime-or-ignition-csv
    ::simulations-or-ignition-csv
    ::rh-or-fuel-moisture
    ::burn-period-required-keys
-   ::valid-timestamps))
+   ::valid-timestamps
+   ::mutually-exclusive-keys))
