@@ -79,8 +79,8 @@
   (assoc config :weather-start-timestamp (calc-weather-start-timestamp ignition-date-time)))
 
 (defn- add-suppression [config {:keys [suppression-dt suppression-coefficient] :as _suppression-params}]
-  (assoc config :suppression {:suppression-dt         suppression-dt
-                              :suppression-coefficent suppression-coefficient}))
+  (assoc config :suppression {:suppression-dt          suppression-dt
+                              :suppression-coefficient suppression-coefficient}))
 
 (defn- write-config! [output-file config]
   (log-str "Writing to config file: " output-file)
