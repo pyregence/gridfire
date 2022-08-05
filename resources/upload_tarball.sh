@@ -16,7 +16,7 @@ cd geoserver
 scp ${FIRE}.tar ${DEST_HOST}:${DEST_DIRECTORY_PROD}/gridfire-${FIRE}.tar
 
 echo "Extracting tarball to ${FIRE_SPREAD_FORECAST_PROD} on gridfire@${DEST_HOST}"
-ssh gridfire@${DEST_HOST} "rm -rf ${FIRE_SPREAD_FORECAST_PROD}/${FIRENAME}/${START_DATE}_${START_TIME}/gridfire; cd ${DEST_DIRECTORY_PROD}; tar -xf gridfire-${FIRE}.tar -C ${FIRE_SPREAD_FORECAST_PROD} --no-overwrite-dir; rm -f gridfire-${FIRE}.tar; chmod -R g+rw ${FIRE_SPREAD_FORECAST_DEV}/${FIRENAME}; chmod -R g+rw ${FIRE_SPREAD_FORECAST_PROD}/${FIRENAME}/${START_DATE}_${START_TIME}/gridfire"
+ssh gridfire@${DEST_HOST} "rm -rf ${FIRE_SPREAD_FORECAST_PROD}/${FIRENAME}/${START_DATE}_${START_TIME}/gridfire; cd ${DEST_DIRECTORY_PROD}; tar -xf gridfire-${FIRE}.tar -C ${FIRE_SPREAD_FORECAST_PROD} --no-overwrite-dir; rm -f gridfire-${FIRE}.tar; chmod -R g+rw ${FIRE_SPREAD_FORECAST_PROD}/${FIRENAME}; chmod -R g+rw ${FIRE_SPREAD_FORECAST_PROD}/${FIRENAME}/${START_DATE}_${START_TIME}/gridfire"
 mv *.tar ..
 
 # Process new geoserver directory
