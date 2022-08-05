@@ -57,8 +57,8 @@
           (let [job (build-job path-str)]
             (>! job-queue job)
             (when (suppress? config path-str)
-              (>! job-queue (assoc job :suppression {:suppression-dt         1440.0 ;TODO remove hard code
-                                                     :suppression-coefficent 2.0})))))))) ;TODO remove hard code
+              (>! job-queue (assoc job :suppression {:suppression-dt          1440.0 ;TODO remove hard code
+                                                     :suppression-coefficient 2.0})))))))) ;TODO remove hard code
 
 (defn- handler [config job-queue]
   (fn [{:keys [type path]}]
