@@ -34,13 +34,14 @@
 (def date-from-format "yyyy-MM-dd HH:mm zzz")
 (def date-to-format   "yyyyMMdd_HHmmss")
 
-(defn- build-geosync-request [{:keys [fire-name ignition-time] :as _request}
+(defn- build-geosync-request [{:keys [fire-name ignition-time suppression] :as _request}
                               {:keys [geosync-data-dir host] :as _config}]
-  (let [timestamp (convert-date-string ignition-time date-from-format date-to-format)]
+  (let [updated-fire-name (if suppression (str fire-name "-suppressed") fire-name)
+        timestamp         (convert-date-string ignition-time date-from-format date-to-format)]
     (json/write-str
      {"action"             "add"
-      "dataDir"            (format "%s/%s/%s" geosync-data-dir fire-name timestamp)
-      "geoserverWorkspace" (format "fire-spread-forecast_%s_%s" fire-name timestamp)
+      "dataDir"            (format "%s/%s/%s" geosync-data-dir updated-fire-name timestamp)
+      "geoserverWorkspace" (format "fire-spread-forecast_%s_%s" updated-fire-name timestamp)
       "responseHost"       host
       "responsePort"       5555})))
 
