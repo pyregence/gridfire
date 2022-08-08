@@ -88,15 +88,15 @@
   (with-open [writer (io/writer output-file)]
     (pprint config writer)))
 
-(defn- process-override-config! [{:keys [ignition-time suppression] :as _request} file]
+(defn- process-override-config! [{:keys [ignition-time] :as request} file]
   (let [formatter          (SimpleDateFormat. "yyyy-MM-dd HH:mm zzz")
         ignition-date-time (.parse formatter ignition-time)
         config             (edn/read-string (slurp file))]
     (write-config! file
                    (cond-> config
-                     :always     (add-ignition-start-timestamp ignition-date-time)
-                     :always     (add-weather-start-timestamp ignition-date-time)
-                     suppression (add-suppression suppression)))))
+                     :always                (add-ignition-start-timestamp ignition-date-time)
+                     :always                (add-weather-start-timestamp ignition-date-time)
+                     (:suppression request) (add-suppression (:suppression request))))))
 
 ;;=============================================================================
 ;; Shell Commands
