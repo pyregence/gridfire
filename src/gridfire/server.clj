@@ -79,24 +79,33 @@
 (defn- add-weather-start-timestamp [config ignition-date-time]
   (assoc config :weather-start-timestamp (calc-weather-start-timestamp ignition-date-time)))
 
-(defn- add-suppression [config {:keys [suppression-dt suppression-coefficient] :as _suppression-params}]
-  (assoc config :suppression {:suppression-dt          suppression-dt
-                              :suppression-coefficient suppression-coefficient}))
-
 (defn- write-config! [output-file config]
   (log-str "Writing to config file: " output-file)
   (with-open [writer (io/writer output-file)]
     (pprint config writer)))
 
-(defn- process-override-config! [{:keys [ignition-time] :as request} file]
+(defn- process-override-config! [{:keys [ignition-time] :as _request} file]
   (let [formatter          (SimpleDateFormat. "yyyy-MM-dd HH:mm zzz")
         ignition-date-time (.parse formatter ignition-time)
         config             (edn/read-string (slurp file))]
     (write-config! file
-                   (cond-> config
-                     :always                (add-ignition-start-timestamp ignition-date-time)
-                     :always                (add-weather-start-timestamp ignition-date-time)
-                     (:suppression request) (add-suppression (:suppression request))))))
+                   (-> config
+                       (add-ignition-start-timestamp ignition-date-time)
+                       (add-weather-start-timestamp ignition-date-time)))))
+
+;;=============================================================================
+;; Process suppression-params
+;;=============================================================================
+
+(defn- add-suppression [config {:keys [suppression-dt suppression-coefficient] :as _suppression-params}]
+  (assoc config :suppression {:suppression-dt          suppression-dt
+                              :suppression-coefficient suppression-coefficient}))
+
+(defn- update-suppression-params! [gridfire-edn-path {:keys [suppression] :as _request}]
+  (let [config (edn/read-string (slurp gridfire-edn-path))]
+    (if suppression
+      (write-config! gridfire-edn-path (add-suppression config suppression))
+      config)))
 
 ;;=============================================================================
 ;; Shell Commands
@@ -180,7 +189,8 @@
           {:keys [err out]}   (if override-config
                                 (do
                                   (process-override-config! request override-config)
-                                  (sh/sh "resources/elm_to_grid.clj" "-e" elmfire-data-file "-o" override-config))
+                                  (sh/sh "resources/elm_to_grid.clj" "-e" elmfire-data-file "-o" override-config)
+                                  (update-suppression-params! gridfire-edn-file request))
                                 (sh/sh "resources/elm_to_grid.clj" "-e" elmfire-data-file))]
       (if err
         (log-str out "\n" err)
