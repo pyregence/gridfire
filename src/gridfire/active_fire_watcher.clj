@@ -15,7 +15,7 @@
 
 (def file-name-regex #"[^/]*(?=[.][a-zA-Z]+$)")
 
-(def fire-name-regex #"[a-zA-Z]*[-[a-zA-Z2-9]]*")
+(def fire-name-regex #"[a-zA-Z]*[-[a-zA-Z0-9]]*")
 
 (def ignition-time-regex #"\d{8}_\d{6}")
 
