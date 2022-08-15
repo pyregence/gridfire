@@ -4043,6 +4043,34 @@ are meant to be in metric, you must include an entry for the units:
                                  :units        :metric}}}
 #+end_src
 
+*** What to expect from perturbations
+
+The typical intent of perturbations is to *propagate uncertainty* about the inputs, which can mean:
+
+1. verifying that simulation outcomes are robust to small changes in the inputs.
+2. in a MCMC mindset, sampling the effects of inputs uncertainty on simulation outcomes.
+
+WARNING: in order to achieve this last goal, *the probability distribution of perturbations must be representative of your beliefs about input uncertainty.*
+It's quite likely that independently-sampled uniform distributions will fall short of this requirement,
+as realistic uncertainty about weather and landscape will involve non-uniform distributions and correlations between inputs;
+that is a limitation of GridFire's *{:spatial-type :global}* perturbations, in which case we recommend
+that you model your uncertainty using a less-trivial sort of probability distribution (such as a multivariate Gaussian, or mixture thereof)
+and sample from it upstream of GridFire.
+
+*Pixel perturbations are also not good at modeling input uncertainty:* while they do provide a form spatial variability,
+that variability is not realistic for modeling inputs uncertainty, as it lacks the spatial correlations which are
+essential to inputs uncertainty. For example, inaccuracies in weather forecasting will never look like random i.i.d noise (a.k.a "static"):
+the actual temperatures will be consistently above or below the forecast on large contiguous regions. In other words,
+Pixel perturbations are not good at exploring the subspace of credible inputs;
+they will mostly move the inputs in directions orthogonal to that subspace.
+
+However, *pixel perturbations can be useful for re-creating small-scale spatial heterogeneity* (for example,
+the fact that canopy height might not be constant even on a small scale). This concern is orthogonal to propagating
+uncertainty: it's likely more relevant to view it as a parameter for tuning the fire-spread algorithm. If Percolation Theory
+and statistical physics are any indication, the fire-spreading behavior might respond with sharp threshold effects
+to varying the amplitude of pixel perturbations: if you are relying on this, tune carefully.
+
+
 ** Section 7: Spotting
 
 Gridfire supports spot fires.
