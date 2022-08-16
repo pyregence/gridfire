@@ -252,119 +252,131 @@
   [{:keys [perturbations] :as inputs} rand-gen layer-name i]
   {:post [(or (nil? %) (grid-lookup/suitable-for-primitive-lookup? %))]}
   (when-let [matrix-or-num (matrix-or-i inputs layer-name i)]
-    (let [index-multiplier             (get-index-multiplier inputs layer-name)
+    (let [index-multiplier (get-index-multiplier inputs layer-name)
           {:keys [spatial-type range]} (get perturbations layer-name)
-          [range-min range-max]        range
-          gen-perturbation             (fn gen-in-range [_h]
-                                         (my-rand-range rand-gen range-min range-max))]
+          [range-min range-max] range
+          gen-perturbation (fn gen-in-range [_h]
+                             (my-rand-range rand-gen range-min range-max))]
       (cond
         (and (number? matrix-or-num) (nil? (get perturbations layer-name)))
         (fn
-          (^double [^long _i ^long _j] matrix-or-num)
-          (^double [^long _b ^long _i ^long _j] matrix-or-num))
+          (^double [_i _j] matrix-or-num)
+          (^double [_b _i _j] matrix-or-num))
 
         (and (not (number? matrix-or-num)) (nil? (get perturbations layer-name)))
         (if index-multiplier
           (let [index-multiplier (double index-multiplier)]
             (fn
-              (^double [^long i ^long j]
-               (let [row (long (* i index-multiplier))
+              (^double [i j]
+               (let [i   (long i)
+                     j   (long j)
+                     row (long (* i index-multiplier))
                      col (long (* j index-multiplier))]
                  (t/mget matrix-or-num row col)))
-              (^double [^long b ^long i ^long j]
-               (let [row (long (* i index-multiplier))
+              (^double [b i j]
+               (let [i   (long i)
+                     j   (long j)
+                     row (long (* i index-multiplier))
                      col (long (* j index-multiplier))]
                  (t/mget matrix-or-num b row col)))))
           (fn
-            (^double [^long i ^long j]
+            (^double [i j]
              (t/mget matrix-or-num i j))
-            (^double [^long b ^long i ^long j]
+            (^double [b i j]
              (t/mget matrix-or-num b i j))))
 
         (and (number? matrix-or-num) (= spatial-type :pixel))
         (let [matrix-or-num (double matrix-or-num)
               h->perturb    (pixel-hdp/gen-hash->perturbation n-buckets gen-perturbation)]
           (fn
-            (^double [^long i ^long j]
-             (max 0.0 ;TODO document we are snapping negative values to 0
-                  (+ (double matrix-or-num)
-                     (pixel-hdp/resolve-perturbation-for-coords h->perturb i j))))
-            (^double [^long b ^long i ^long j]
-             (max 0.0 ;TODO document we are snapping negative values to 0
-                  (+ (double matrix-or-num)
-                     (pixel-hdp/resolve-perturbation-for-coords h->perturb b i j))))))
+            (^double [i j]
+             (max 0.0                                       ;TODO document we are snapping negative values to 0
+               (+ (double matrix-or-num)
+                 (pixel-hdp/resolve-perturbation-for-coords h->perturb i j))))
+            (^double [b i j]
+             (max 0.0                                       ;TODO document we are snapping negative values to 0
+               (+ (double matrix-or-num)
+                 (pixel-hdp/resolve-perturbation-for-coords h->perturb b i j))))))
 
         (and (number? matrix-or-num) (= spatial-type :global))
         (let [perturbed-value-cache (atom nil)
               matrix-or-num         (double matrix-or-num)]
           (fn
-            (^double [^long _i ^long  _j]
+            (^double [_i _j]
              (or @perturbed-value-cache
-                 (let [new-value (max 0.0 (+ matrix-or-num (my-rand-range rand-gen range-min range-max)))]
-                   (reset! perturbed-value-cache new-value)
-                   new-value)))
-            (^double [^long b ^long _i ^long _j]
+               (let [new-value (max 0.0 (+ matrix-or-num (my-rand-range rand-gen range-min range-max)))]
+                 (reset! perturbed-value-cache new-value)
+                 new-value)))
+            (^double [b _i _j]
              (or (get @perturbed-value-cache b)
-                 (let [new-value (max 0.0 (+ matrix-or-num (my-rand-range rand-gen range-min range-max)))]
-                   (reset! perturbed-value-cache {b new-value})
-                   new-value)))))
+               (let [new-value (max 0.0 (+ matrix-or-num (my-rand-range rand-gen range-min range-max)))]
+                 (reset! perturbed-value-cache {b new-value})
+                 new-value)))))
 
         (and (not (number? matrix-or-num)) (= spatial-type :pixel))
         (let [h->perturb (pixel-hdp/gen-hash->perturbation n-buckets gen-perturbation)]
           (if index-multiplier
             (let [index-multiplier (double index-multiplier)]
               (fn
-                (^double [^long i ^long j]
-                 (let [row (long (* i index-multiplier))
+                (^double [i j]
+                 (let [i   (long i)
+                       j   (long j)
+                       row (long (* i index-multiplier))
                        col (long (* j index-multiplier))]
-                   (max 0.0 ;TODO document we are snapping negative values to 0
-                        (+ (double (t/mget matrix-or-num row col))
-                           (pixel-hdp/resolve-perturbation-for-coords h->perturb i j)))))
-                (^double [^long b ^long i ^long j]
-                 (let [row (long (* i index-multiplier))
+                   (max 0.0                                 ;TODO document we are snapping negative values to 0
+                     (+ (double (t/mget matrix-or-num row col))
+                       (pixel-hdp/resolve-perturbation-for-coords h->perturb i j)))))
+                (^double [b i j]
+                 (let [i   (long i)
+                       j   (long j)
+                       row (long (* i index-multiplier))
                        col (long (* j index-multiplier))]
-                   (max 0.0 ;TODO document we are snapping negative values to 0
-                        (+ (double (t/mget matrix-or-num b row col))
-                           (pixel-hdp/resolve-perturbation-for-coords h->perturb b i j)))))))
-            (fn
-              (^double [^long i ^long j]
-               (max 0.0 ;TODO document we are snapping negative values to 0
-                    (+ (double (t/mget matrix-or-num i j))
-                       (pixel-hdp/resolve-perturbation-for-coords h->perturb i j))))
-              (^double [^long b ^long i ^long j]
-               (max 0.0 ;TODO document we are snapping negative values to 0
-                    (+ (double (t/mget matrix-or-num b i j))
+                   (max 0.0                                 ;TODO document we are snapping negative values to 0
+                     (+ (double (t/mget matrix-or-num b row col))
                        (pixel-hdp/resolve-perturbation-for-coords h->perturb b i j)))))))
+            (fn
+              (^double [i j]
+               (max 0.0                                     ;TODO document we are snapping negative values to 0
+                 (+ (double (t/mget matrix-or-num i j))
+                   (pixel-hdp/resolve-perturbation-for-coords h->perturb i j))))
+              (^double [b i j]
+               (max 0.0                                     ;TODO document we are snapping negative values to 0
+                 (+ (double (t/mget matrix-or-num b i j))
+                   (pixel-hdp/resolve-perturbation-for-coords h->perturb b i j)))))))
 
         (and (not (number? matrix-or-num)) (= spatial-type :global))
         (let [offset-cache (atom nil)]
           (if index-multiplier
             (let [index-multiplier (double index-multiplier)]
               (fn
-                (^double [^long i ^long j]
-                 (let [row            (long (* i index-multiplier))
+                (^double [i j]
+                 (let [i              (long i)
+                       j              (long j)
+                       row            (long (* i index-multiplier))
                        col            (long (* j index-multiplier))
                        ^double offset (or @offset-cache
-                                          (reset! offset-cache (my-rand-range rand-gen range-min range-max)))]
+                                        (reset! offset-cache (my-rand-range rand-gen range-min range-max)))]
                    (max 0.0 (+ ^double (t/mget matrix-or-num row col) offset))))
-                (^double [^long b ^long i ^long j]
-                 (let [row            (long (* i index-multiplier))
+                (^double [b i j]
+                 (let [i              (long i)
+                       j              (long j)
+                       row            (long (* i index-multiplier))
                        col            (long (* j index-multiplier))
                        ^double offset (or (get @offset-cache b)
-                                          (let [new-offset (my-rand-range rand-gen range-min range-max)]
-                                            (reset! offset-cache {b new-offset})
-                                            new-offset))]
-                   (max 0.0 (+ ^double (t/mget matrix-or-num b row col) offset))))))
-            (fn
-              (^double [^long i ^long j]
-               (let [^double offset (or @offset-cache
-                                        (reset! offset-cache (my-rand-range rand-gen range-min range-max)))]
-                 (max 0.0 (+ ^double (t/mget matrix-or-num i j) offset))))
-              (^double [^long b ^long i ^long j]
-               (let [^double offset (or (get @offset-cache b)
                                         (let [new-offset (my-rand-range rand-gen range-min range-max)]
                                           (reset! offset-cache {b new-offset})
                                           new-offset))]
+                   (max 0.0 (+ ^double (t/mget matrix-or-num b row col) offset))))))
+            (fn
+              (^double [i j]
+               (let [^double offset (or @offset-cache
+                                      (reset! offset-cache (my-rand-range rand-gen range-min range-max)))]
+                 (max 0.0 (+ ^double (t/mget matrix-or-num i j) offset))))
+              (^double [b i j]
+               (let [^double offset (or (get @offset-cache b)
+                                      (let [new-offset (my-rand-range rand-gen range-min range-max)]
+                                        (reset! offset-cache {b new-offset})
+                                        new-offset))]
                  (max 0.0 (+ ^double (t/mget matrix-or-num b i j) offset)))))))))))
 
 (defrecord SimulationInputs

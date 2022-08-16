@@ -5,7 +5,7 @@
   - b: 'hourly Band', a 1h-resolution temporal-grid coordinate;
   - i: matrix row, a spatial-grid coordinate, discretizing the y axis (yes, you read that right);
   - j: matrix column, a spatial-grid coordinate, discretizing the x axis;"
-  (:import (clojure.lang IFn$LD IFn$LLD IFn$LLLD)))
+  (:import (clojure.lang IFn$LD IFn$LLD IFn$LLLD IFn$OD IFn$OOD IFn$OOOD)))
 
 (defn suitable-for-primitive-lookup?
   "Whether the given value can be used as the 1st argument to (double-at v & coords)"
@@ -14,26 +14,47 @@
   ;; that's convenient, but strictly speaking these are implementation details
   ;; of Clojure execution.
   (or
-    (instance? IFn$LD v)
-    (instance? IFn$LLD v)
-    (instance? IFn$LLLD v)))
+    (instance? IFn$OD v)
+    (instance? IFn$OOD v)
+    (instance? IFn$OOOD v)))
+
+(definline double-at-B*
+  "See double-at-BIJ*."
+  [f b]
+  (let [fsym (-> (gensym 'f) (vary-meta assoc :tag `IFn$OD))]
+    `(let [~fsym ~f]
+       (.invokePrim ~fsym ~b))))
 
 (definline double-at-b*
-  "See double-at-bij*."
+  "Like (double-at-b* ...), but with primitive-typed coordinates."
   [f b]
   (let [fsym (-> (gensym 'f) (vary-meta assoc :tag `IFn$LD))]
     `(let [~fsym ~f]
        (.invokePrim ~fsym ~b))))
 
+(definline double-at-IJ*
+  "See double-at-BIJ*."
+  [f i j]
+  (let [fsym (-> (gensym 'f) (vary-meta assoc :tag `IFn$OOD))]
+    `(let [~fsym ~f]
+       (.invokePrim ~fsym ~i ~j))))
+
 (definline double-at-ij*
-  "See double-at-bij*."
+  "Like (double-at-IJ* ...), but with primitive-typed coordinates."
   [f i j]
   (let [fsym (-> (gensym 'f) (vary-meta assoc :tag `IFn$LLD))]
     `(let [~fsym ~f]
        (.invokePrim ~fsym ~i ~j))))
 
-(definline double-at-bij*
+(definline double-at-BIJ*
   "Like (double-at ...), but will emit directly-inlined code, which can improve efficiency."
+  [f b i j]
+  (let [fsym (-> (gensym 'f) (vary-meta assoc :tag `IFn$OOOD))]
+    `(let [~fsym ~f]
+       (.invokePrim ~fsym ~b ~i ~j))))
+
+(definline double-at-bij*
+  "Like (double-at-BIJ* ...), but with primitive-typed coordinates."
   [f b i j]
   (let [fsym (-> (gensym 'f) (vary-meta assoc :tag `IFn$LLLD))]
     `(let [~fsym ~f]
@@ -53,7 +74,7 @@
             (+ 1 1))]
       (fn my-computation ^double []
         (+ 3.
-          (double-at-ij* f 2 3)))))
+          (double-at-IJ* f 2 3)))))
   ;public final class grid_lookup$fn__44795$my_computation__44798 extends AFunction implements D
   ;{
   ;    Object f;
@@ -82,13 +103,19 @@
   *e)
 
 (defn double-at
-  "Looks up a double-typed value at the given grid coordinates, avoiding boxing of primitives."
-  (^double [getter ^long b]
-   (double-at-b* getter b))
-  (^double [getter ^long i ^long j]
-   (double-at-ij* getter i j))
-  (^double [getter ^long b ^long i ^long j]
-   (double-at-bij* getter b i j)))
+  "Looks up a double-typed value at the given grid coordinates,
+  avoiding boxing of the returned value."
+  ;; You might wonder why we're not accepting ^long arguments;
+  ;; that's because, in our typical usage, we'll have to pass boxed Long
+  ;; coordinates to (t/mget ...) anyway. Un-boxing to primitive long,
+  ;; then re-boxing to new Long objects, would actually create much more work
+  ;; than passing the same Long objects all along.
+  (^double [getter b]
+   (double-at-B* getter b))
+  (^double [getter i j]
+   (double-at-IJ* getter i j))
+  (^double [getter b i j]
+   (double-at-BIJ* getter b i j)))
 
 (comment
   ;; (double-at ...) does allow lookup without primitive boxing:
