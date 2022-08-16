@@ -1,5 +1,6 @@
 (ns gridfire.simulations-test
-  (:require [gridfire.simulations :as simulations]
+  (:require [gridfire.grid-lookup :as grid-lookup]
+            [gridfire.simulations :as simulations]
             [clojure.test :refer [deftest is testing]]
             [tech.v3.tensor :as t])
   (:import java.util.Random))
@@ -20,14 +21,14 @@
                           :temperature-samples [10]}
             get-layer-fn (#'simulations/get-value-fn inputs (Random. 1234) :temperature 0)]
 
-        (is (= 10 (get-layer-fn 0 0 0)))))
+        (is (= 10 (grid-lookup/double-at get-layer-fn 0 0 0)))))
 
     (testing "matrix"
       (let [inputs       {:perturbations      nil
                           :temperature-matrix (identical-matrix 72 10 10 1.0)}
             get-layer-fn (#'simulations/get-value-fn inputs (Random. 1234) :temperature 0)]
 
-        (is (= 1.0 (get-layer-fn 0 0 0))))))
+        (is (= 1.0 (grid-lookup/double-at get-layer-fn 0 0 0))))))
 
   (testing "with perturbations"
     (testing "scalar"
@@ -37,7 +38,7 @@
                             :temperature-samples [10]}
               get-layer-fn (#'simulations/get-value-fn inputs (Random. 1234) :temperature 0)]
 
-          (is (<= 9.0 (get-layer-fn 0 0 0) 11.0))))
+          (is (<= 9.0 (grid-lookup/double-at get-layer-fn 0 0 0) 11.0))))
 
       (testing "spatial type global"
         (let [inputs {:perturbations       {:temperature {:spatial-type :global
@@ -46,7 +47,7 @@
 
               get-layer-fn (#'simulations/get-value-fn inputs (Random. 1234) :temperature 0)]
 
-          (is (<= 9.0 (get-layer-fn 0 0 0) 11.0)))))
+          (is (<= 9.0 (grid-lookup/double-at get-layer-fn 0 0 0) 11.0)))))
 
     (testing "matrix"
       (testing "spatial type pixel"
@@ -55,7 +56,7 @@
                             :temperature-matrix (identical-matrix 72 100 100 1.0)}
               get-layer-fn (#'simulations/get-value-fn inputs (Random. 1234) :temperature 0)]
 
-          (is (<= 0.0 (get-layer-fn 0 0 0) 2.0))))
+          (is (<= 0.0 (grid-lookup/double-at get-layer-fn 0 0 0) 2.0))))
 
       (testing "spatial type global"
         (let [inputs       {:perturbations      {:temperature {:spatial-type :global
@@ -63,4 +64,4 @@
                             :temperature-matrix (identical-matrix 72 100 100 1.0)}
               get-layer-fn (#'simulations/get-value-fn inputs (Random. 1234) :temperature 0)]
 
-          (is (<= 0.0 (get-layer-fn 0 0 0) 2.0)))))))
+          (is (<= 0.0 (grid-lookup/double-at get-layer-fn 0 0 0) 2.0)))))))

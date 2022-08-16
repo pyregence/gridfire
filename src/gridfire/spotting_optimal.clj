@@ -5,6 +5,7 @@
                                                   compute-terrain-distance
                                                   in-bounds-optimal?]]
             [gridfire.conversion          :as convert]
+            [gridfire.grid-lookup         :as grid-lookup]
             [gridfire.utils.random        :refer [my-rand-range]]
             [tech.v3.tensor               :as t])
   (:import java.util.Random))
@@ -289,7 +290,7 @@
     (when (and surface-fire-spotting
                (> fire-line-intensity ^double (:critical-fire-line-intensity surface-fire-spotting)))
       (let [fuel-range-percents (:spotting-percent surface-fire-spotting)
-            fuel-model-number   (long (get-fuel-model i j))
+            fuel-model-number   (long (grid-lookup/double-at get-fuel-model i j))
             spot-percent        (surface-spot-percent fuel-range-percents fuel-model-number rand-gen)]
         (>= spot-percent (my-rand-range rand-gen 0.0 1.0))))))
 
@@ -342,8 +343,8 @@
         crown-fire?                (> (t/mget fire-type-matrix i j) 1.0)]
     (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
       (let [band                    (long (/ burn-time 60.0))
-            ws                      (get-wind-speed-20ft band i j)
-            wd                      (get-wind-from-direction band i j)
+            ws                      (grid-lookup/double-at get-wind-speed-20ft band i j)
+            wd                      (grid-lookup/double-at get-wind-from-direction band i j)
             deltas                  (sample-wind-dir-deltas inputs
                                                             fire-line-intensity-matrix
                                                             (convert/mph->mps ws)
@@ -355,11 +356,13 @@
         (->> (for [[x y] firebrands]
                (when (and
                       (in-bounds-optimal? num-rows num-cols x y)
-                      (burnable-fuel-model? (get-fuel-model x y)))
-                 (let [temperature          (get-temperature band x y)
+                      (burnable-fuel-model? (grid-lookup/double-at get-fuel-model x y)))
+                 (let [temperature          (grid-lookup/double-at get-temperature band x y)
                        fine-fuel-moisture   (if get-fuel-moisture-dead-1hr
-                                              (get-fuel-moisture-dead-1hr band x y)
-                                              (calc-fuel-moisture (get-relative-humidity band i j) temperature :dead :1hr))
+                                              (grid-lookup/double-at get-fuel-moisture-dead-1hr band x y)
+                                              (calc-fuel-moisture
+                                                (grid-lookup/double-at get-relative-humidity band i j)
+                                                temperature :dead :1hr))
                        ignition-probability (schroeder-ign-prob (convert/F->C (double temperature)) fine-fuel-moisture)
                        decay-constant       (double (:decay-constant spotting))
                        spotting-distance    (convert/ft->m

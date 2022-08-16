@@ -4,6 +4,7 @@
             [gridfire.common                              :refer [get-neighbors in-bounds?]]
             [gridfire.conversion                          :refer [min->hour kebab->snake snake->kebab]]
             [gridfire.fire-spread-optimal                 :refer [run-fire-spread]]
+            [gridfire.grid-lookup                         :as grid-lookup]
             [gridfire.outputs                             :as outputs]
             [gridfire.perturbations.pixel.hash-determined :as pixel-hdp]
             [gridfire.utils.random                        :refer [my-rand-range]]
@@ -207,7 +208,17 @@
 (def n-buckets 1024)
 
 (defn- get-value-fn
+  "Pre-computes a 'getter' for resolving perturbed input values in the GridFire space-time grid.
+
+  Returns a 'getter' object, to be called with (gridfire.grid-lookup/double-at getter b i j)
+  in order to resolve the input value at coordinates [b i j].
+  At the time of writing, this getter object will be a function, but that's an implementation detail,
+  do not rely on it.
+
+  The perturbed value might be lazily computed, and its computation may involve pseudo-randomness,
+  but (grid-lookup/double-at ...) several times at the same coordinates will always return the same results."
   [{:keys [perturbations] :as inputs} rand-gen layer-name i]
+  {:post [(or (nil? %) (grid-lookup/suitable-for-primitive-lookup? %))]}
   (when-let [matrix-or-num (matrix-or-i inputs layer-name i)]
     (let [index-multiplier             (get-index-multiplier inputs layer-name)
           {:keys [spatial-type range]} (get perturbations layer-name)
@@ -217,8 +228,8 @@
       (cond
         (and (number? matrix-or-num) (nil? (get perturbations layer-name)))
         (fn
-          (^double [_ _] matrix-or-num)
-          (^double [_ _ _] matrix-or-num))
+          (^double [^long _i ^long _j] matrix-or-num)
+          (^double [^long _b ^long _i ^long _j] matrix-or-num))
 
         (and (not (number? matrix-or-num)) (nil? (get perturbations layer-name)))
         (if index-multiplier
@@ -233,16 +244,16 @@
                      col (long (* j index-multiplier))]
                  (t/mget matrix-or-num b row col)))))
           (fn
-            (^double [i j]
+            (^double [^long i ^long j]
              (t/mget matrix-or-num i j))
-            (^double [b i j]
+            (^double [^long b ^long i ^long j]
              (t/mget matrix-or-num b i j))))
 
         (and (number? matrix-or-num) (= spatial-type :pixel))
         (let [matrix-or-num (double matrix-or-num)
               h->perturb    (pixel-hdp/gen-hash->perturbation n-buckets gen-perturbation)]
           (fn
-            (^double [i j]
+            (^double [^long i ^long j]
              (max 0.0 ;TODO document we are snapping negative values to 0
                   (+ (double matrix-or-num)
                      (pixel-hdp/resolve-perturbation-for-coords h->perturb i j))))
@@ -255,12 +266,12 @@
         (let [perturbed-value-cache (atom nil)
               matrix-or-num         (double matrix-or-num)]
           (fn
-            (^double [_ _]
+            (^double [^long _i ^long  _j]
              (or @perturbed-value-cache
                  (let [new-value (max 0.0 (+ matrix-or-num (my-rand-range rand-gen range-min range-max)))]
                    (reset! perturbed-value-cache new-value)
                    new-value)))
-            (^double [b _ _]
+            (^double [^long b ^long _i ^long _j]
              (or (get @perturbed-value-cache b)
                  (let [new-value (max 0.0 (+ matrix-or-num (my-rand-range rand-gen range-min range-max)))]
                    (reset! perturbed-value-cache {b new-value})
@@ -313,11 +324,11 @@
                                             new-offset))]
                    (max 0.0 (+ ^double (t/mget matrix-or-num b row col) offset))))))
             (fn
-              (^double [i j]
+              (^double [^long i ^long j]
                (let [^double offset (or @offset-cache
                                         (reset! offset-cache (my-rand-range rand-gen range-min range-max)))]
                  (max 0.0 (+ ^double (t/mget matrix-or-num i j) offset))))
-              (^double [b i j]
+              (^double [^long b ^long i ^long j]
                (let [^double offset (or (get @offset-cache b)
                                         (let [new-offset (my-rand-range rand-gen range-min range-max)]
                                           (reset! offset-cache {b new-offset})
