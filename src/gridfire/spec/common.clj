@@ -8,7 +8,7 @@
 
 (s/def ::ordered-pair (fn [[a b]] (< a b)))
 
-(s/def ::ratio (s/and float? #(<= 0.0 % 1.0)))
+(s/def ::ratio (s/and float? #(<= 0.0 % 10.0)))
 
 (s/def ::ratio-range
   (s/and (s/coll-of ::ratio :kind vector? :count 2)

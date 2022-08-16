@@ -8,6 +8,7 @@
             [gridfire.outputs             :as outputs]
             [gridfire.simulations         :as simulations]
             [gridfire.spec.config         :as config-spec]
+            [manifold.deferred            :as mfd]
             [taoensso.tufte               :as tufte]
             [triangulum.logging           :refer [log log-str]]))
 
@@ -15,9 +16,12 @@
 
 (defn write-outputs!
   [outputs]
-  (outputs/write-landfire-layers! outputs)
-  (outputs/write-aggregate-layers! outputs)
-  (outputs/write-csv-outputs! outputs)
+  (->
+    (mfd/zip
+      (outputs/write-landfire-layers! outputs)
+      (outputs/write-aggregate-layers! outputs)
+      (outputs/write-csv-outputs! outputs))
+    (deref))
   :success)
 
 (defmacro with-multithread-profiling
@@ -59,7 +63,9 @@
       (inputs/add-fuel-moisture-params)
       (inputs/add-random-ignition-sites)
       (inputs/add-aggregate-matrices)
-      (inputs/add-burn-period-params)))
+      (inputs/add-burn-period-params)
+      (inputs/add-ignition-start-times)
+      (inputs/add-ignition-start-timestamps)))
 
 (defn load-config!
   [config-file-path]

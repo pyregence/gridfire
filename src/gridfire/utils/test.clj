@@ -44,6 +44,14 @@
   (test-fn)
   (delete-directory output-dirname))
 
+(defn with-temp-directories [directories]
+  (fn [test-fn]
+    (doseq [directory directories]
+      (make-directory directory))
+    (test-fn)
+    (doseq [directory directories]
+      (delete-directory directory))))
+
 (defn with-reset-db-pool [test-fn]
   (reset! db-pool-cache nil)
   (test-fn)

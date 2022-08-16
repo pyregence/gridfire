@@ -3451,7 +3451,13 @@ processing scripts will run to process binary outputs into a directory
 structure containing geoTIFF files and then packed into a tarball.
 This tarball is sent over scp into another server for processing.
 
-*** Post processing dependencies
+*** Preprocessing dependencies
+
+The processing of active fire and match drop runs require the following package to work:
+
+- babashka
+
+*** Postprocessing dependencies
 
 The Post processing scripts require the following packages to work:
 
@@ -3951,7 +3957,7 @@ To control the output of the burn probability layer, which is
 calcualted as the number of times a cell burned divided by the number
 of simulations, include the following mapping:
 
-- *output-*burn-probability*: timestep (in minutes) or keyword `:final`
+- *output-burn-probability*: timestep (in minutes) or keyword `:final`
 
 #+begin_src clojure
 {:output-burn-probability 10}
@@ -3961,27 +3967,27 @@ To specify the output of the flame length sum layer,
 which is the sum of flame lengths across simulations, include
 the following mapping:
 
-- *output-*flame-length-sum*: bolean
+- *output-flame-length-sum*: keyword `:max` or `:directional`
 
 #+begin_src clojure
-{:output-flame-length-sum true}
+{:output-flame-length-sum :max}
 #+end_src
 
 To specify the output of the flame length max layer,
 which is the max of flame lengths across simulations, include
 the following mapping:
 
-- *output-*flame-length-max*: bolean
+- *output-flame-length-max*: keyword `:max` or `:directional`
 
 #+begin_src clojure
-{:output-flame-length-max true}
+{:output-flame-length-max :directional}
 #+end_src
 
 To specify the output of the burn count layer, which is the number of
 times a cell has burned across simulations, include the following
 mapping:
 
-- *output-*burn-count*: bolean
+- *output-burn-count*: boolean
 
 #+begin_src clojure
 {:output-burn-count true}
@@ -3992,7 +3998,7 @@ To specify the output of the spot count layer, which is the number of
 times a spot ignition occured in a cell, include the following
 mapping:
 
-- *output-*spot-count*: bolean
+- *output-spot-count*: boolean
 
 #+begin_src clojure
 {:output-spot-count true}
@@ -4266,19 +4272,24 @@ value pair at the top level of the config file:
 
 Gridfire allows you to specify a burn period in the day that fires are
 allowed to burn. By default it is set to burn from "00:00" to "24:00".
-To specifiy a different period you must include a `:burn-period` key at
-the top level of the config file. The spec for the `:burn-period`
-config is as follows:
+To specify a different period, you must include a few keys at the top
+level of the config file.
+
+1. *:burn-period*: map with the following keys:
 
 - *:start* : a string with the format HH:MM
 - *:end* : a string with the format HH:MM
-- *:weather-data-start-timestamp* : an instant timestamp
+
+2. *:weather-start-timestamp* : inst (timezone aware)
+
+3. *:ignition-start-timestamp* : inst (timezone aware)
 
 #+begin_src clojure
-{:start                        "08:00"
- :end                          "20:00"
- :weather-data-start-timestamp #inst "1970-01-01T00:00:00"}
+{:burn-period               {:start "08:00", :end "9:00"}
+ :weather-start-timestamp   #inst "2022-07-12T09:00:00.000+00:00"
+ :ignition-start-timestamp  #inst "2022-07-12T09:05:00.000-00:00"}
 #+end_src
+
 * Example Configuration files
 
 Here is a complete sample configuration for using landfire layers from our postigs enabled
