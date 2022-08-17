@@ -19,14 +19,14 @@
     (testing "scalar"
       (let [inputs       {:perturbations       nil
                           :temperature-samples [10]}
-            get-layer-fn (#'simulations/get-value-fn inputs (Random. 1234) :temperature 0)]
+            get-layer-fn (#'simulations/grid-getter inputs (Random. 1234) :temperature 0)]
 
         (is (= 10 (grid-lookup/double-at get-layer-fn 0 0 0)))))
 
     (testing "matrix"
       (let [inputs       {:perturbations      nil
                           :temperature-matrix (identical-matrix 72 10 10 1.0)}
-            get-layer-fn (#'simulations/get-value-fn inputs (Random. 1234) :temperature 0)]
+            get-layer-fn (#'simulations/grid-getter inputs (Random. 1234) :temperature 0)]
 
         (is (= 1.0 (grid-lookup/double-at get-layer-fn 0 0 0))))))
 
@@ -36,7 +36,7 @@
         (let [inputs       {:perturbations       {:temperature {:spatial-type :pixel
                                                                 :range        [-1.0 1.0]}}
                             :temperature-samples [10]}
-              get-layer-fn (#'simulations/get-value-fn inputs (Random. 1234) :temperature 0)]
+              get-layer-fn (#'simulations/grid-getter inputs (Random. 1234) :temperature 0)]
 
           (is (<= 9.0 (grid-lookup/double-at get-layer-fn 0 0 0) 11.0))))
 
@@ -45,7 +45,7 @@
                                                           :range        [-1.0 1.0]}}
                       :temperature-samples [10]}
 
-              get-layer-fn (#'simulations/get-value-fn inputs (Random. 1234) :temperature 0)]
+              get-layer-fn (#'simulations/grid-getter inputs (Random. 1234) :temperature 0)]
 
           (is (<= 9.0 (grid-lookup/double-at get-layer-fn 0 0 0) 11.0)))))
 
@@ -54,7 +54,7 @@
         (let [inputs       {:perturbations      {:temperature {:spatial-type :pixel
                                                                :range        [-1.0 1.0]}}
                             :temperature-matrix (identical-matrix 72 100 100 1.0)}
-              get-layer-fn (#'simulations/get-value-fn inputs (Random. 1234) :temperature 0)]
+              get-layer-fn (#'simulations/grid-getter inputs (Random. 1234) :temperature 0)]
 
           (is (<= 0.0 (grid-lookup/double-at get-layer-fn 0 0 0) 2.0))))
 
@@ -62,6 +62,6 @@
         (let [inputs       {:perturbations      {:temperature {:spatial-type :global
                                                                :range        [-1.0 1.0]}}
                             :temperature-matrix (identical-matrix 72 100 100 1.0)}
-              get-layer-fn (#'simulations/get-value-fn inputs (Random. 1234) :temperature 0)]
+              get-layer-fn (#'simulations/grid-getter inputs (Random. 1234) :temperature 0)]
 
           (is (<= 0.0 (grid-lookup/double-at get-layer-fn 0 0 0) 2.0)))))))
