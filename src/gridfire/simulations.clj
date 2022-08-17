@@ -282,7 +282,8 @@
   do not rely on it.
 
   The perturbed value might be lazily computed, and its computation may involve pseudo-randomness,
-  but (grid-lookup/double-at ...) several times at the same coordinates will always return the same results."
+  but calling (grid-lookup/double-at ...) several times at the same coordinates
+  will always return the same result."
   [{:keys [perturbations] :as inputs} rand-gen layer-name i]
   {:post [(or (nil? %) (grid-lookup/suitable-for-primitive-lookup? %))]}
   (when-let [matrix-or-num (matrix-or-i inputs layer-name i)]
