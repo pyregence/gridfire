@@ -48,7 +48,7 @@
                                                    (compare x1 x2)))
          slice-data               (into [] (seq angular-slice->avg-dsr+num-cells))
          cur-contiguous-slices    []
-         cur-dsr                  0.
+         cur-dsr                  0.0
          cur-count                0
          left-idx                 -1
          right-idx                0]
@@ -70,7 +70,7 @@
                  sorted-contiguous-slices)
                slice-data
                []
-               0.
+               0.0
                0
                (if (< right-idx left-idx) 0 next-right-idx)
                next-right-idx))

@@ -837,12 +837,12 @@
         band                             (min->hour ignition-start-time)
         suppression                      (:suppression inputs)
         alpha                            (:suppression-coefficient suppression)
-        suppression-dt                   (some-> suppression :suppression-dt double)]
+        suppression-dt                   (double (or (:suppression-dt suppression) Double/NaN))]
     (initialize-fire-in-situ-values! inputs matrices band ignited-cells)
     (loop [global-clock                 ignition-start-time
            band                         band
            non-burn-period-clock        non-burn-period-clock
-           suppression-clock            (double (if suppression (+ ignition-start-time (double suppression-dt)) max-runtime))
+           suppression-clock            (double (if suppression (+ ignition-start-time suppression-dt) max-runtime))
            burn-vectors                 (ignited-cells->burn-vectors inputs matrices ignited-cells [])
            spot-ignitions               {}
            spot-count                   0
@@ -851,7 +851,7 @@
       (if (and (< global-clock ignition-stop-time)
                (or (seq burn-vectors) (seq spot-ignitions)))
         (let [dt-until-max-runtime               (- ignition-stop-time global-clock)
-              ^double dt-until-suppression-clock (when suppression-dt (- suppression-clock global-clock))]
+              ^double dt-until-suppression-clock (when suppression (- suppression-clock global-clock))]
           (cond
             (and suppression (= global-clock suppression-clock))
             (let [max-runtime-fraction           (/ (- global-clock ignition-start-time) max-runtime)
@@ -865,7 +865,7 @@
               (recur global-clock
                      band
                      non-burn-period-clock
-                     (+ global-clock (double suppression-dt))
+                     (+ global-clock suppression-dt)
                      bvs-to-process-next
                      spot-ignitions
                      spot-count
@@ -877,7 +877,7 @@
                   new-clock (+ global-clock timestep)
                   new-band  (min->hour new-clock)]
               (if (and suppression (<= suppression-clock new-clock))
-                (let [suppression-clocks             (iterate #(+ (double %) (double suppression-dt)) suppression-clock)
+                (let [suppression-clocks             (iterate #(+ (double %) suppression-dt) suppression-clock)
                       last-suppression-clock         (double (last (take-while #(<= (double %) new-clock) suppression-clocks)))
                       [bvs-to-process-next
                        total-cells-suppressed
@@ -889,7 +889,7 @@
                   (recur new-clock
                          new-band
                          (+ new-clock burn-period-dt)
-                         (+ last-suppression-clock (double suppression-dt))
+                         (+ last-suppression-clock suppression-dt)
                          bvs-to-process-next
                          (if (zero? non-burn-period-dt)
                            spot-ignitions
@@ -1102,7 +1102,6 @@
       :spread-rate-matrix              (t/new-tensor shape)
       :spread-rate-sum-matrix          (when compute-directional-values? (t/new-tensor shape))
       :travel-lines-matrix             (t/new-tensor shape :datatype :short)
-      ;; FIXME what are those?
       :x-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape))
       :y-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape))})))
 

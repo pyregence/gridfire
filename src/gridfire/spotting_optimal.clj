@@ -341,7 +341,7 @@
         burn-time                  (double (t/mget burn-time-matrix i j))
         cell                       [i j]
         fire-line-intensity        (t/mget fire-line-intensity-matrix i j)
-        crown-fire?                (-> fire-type-matrix (t/mget i j) (double) (> 1.))]
+        crown-fire?                (-> fire-type-matrix (t/mget i j) (double) (> 1.0))]
     (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
       (let [band                    (long (/ burn-time 60.0))
             ws                      (double (get-wind-speed-20ft band i j))

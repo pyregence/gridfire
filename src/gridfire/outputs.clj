@@ -145,28 +145,30 @@
 (defn write-burn-probability-layer!
   [{:keys [output-burn-probability simulations envelope output-pngs? burn-count-matrix] :as outputs}]
   (when-let [timestep output-burn-probability]
-    (let [output-name "burn_probability"]
+    (let [output-name "burn_probability"
+          simulations (long simulations)]
       (if (int? timestep)
-        (->> (map-indexed vector burn-count-matrix)
-             (mapv
-               (fn [[band matrix]]
-                 (->
-                   (exec-in-outputs-writing-pool
-                     (fn []
-                       (let [output-time        (* (long band) (long timestep))
-                             probability-matrix (dfn// matrix (long simulations))]
-                         [output-time probability-matrix])))
-                   (mfd/chain
-                     (fn [[output-time probability-matrix]]
-                       (mfd/zip
-                         (output-geotiff outputs probability-matrix output-name envelope nil output-time)
-                         (when output-pngs?
-                           (output-png outputs probability-matrix output-name envelope nil output-time))))))))
-             (gf-async/nil-when-all-completed))
+        (let [timestep (long timestep)]
+          (->> (map-indexed vector burn-count-matrix)
+               (mapv
+                 (fn [[band matrix]]
+                   (->
+                     (exec-in-outputs-writing-pool
+                       (fn []
+                         (let [output-time        (* (long band) timestep)
+                               probability-matrix (dfn// matrix simulations)]
+                           [output-time probability-matrix])))
+                     (mfd/chain
+                       (fn [[output-time probability-matrix]]
+                         (mfd/zip
+                           (output-geotiff outputs probability-matrix output-name envelope nil output-time)
+                           (when output-pngs?
+                             (output-png outputs probability-matrix output-name envelope nil output-time))))))))
+               (gf-async/nil-when-all-completed)))
         (->
           (exec-in-outputs-writing-pool
             (fn []
-              (dfn// burn-count-matrix (long simulations))))
+              (dfn// burn-count-matrix simulations)))
           (mfd/chain
             (fn [probability-matrix]
               (mfd/zip
