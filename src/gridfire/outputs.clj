@@ -1,12 +1,12 @@
 (ns gridfire.outputs
-  (:require [clojure.data.csv            :as csv]
-            [clojure.java.io             :as io]
-            [clojure.string              :as str]
-            [gridfire.utils.async        :as gf-async]
-            [magellan.core               :refer [matrix-to-raster write-raster]]
-            [manifold.deferred           :as mfd]
-            [matrix-viz.core             :refer [save-matrix-as-png]]
-            [tech.v3.datatype.functional :as dfn]))
+  (:require [clojure.data.csv     :as csv]
+            [clojure.java.io      :as io]
+            [clojure.string       :as str]
+            [gridfire.utils.async :as gf-async]
+            [magellan.core        :refer [matrix-to-raster write-raster]]
+            [manifold.deferred    :as mfd]
+            [matrix-viz.core      :refer [save-matrix-as-png]]
+            [tech.v3.datatype     :as d]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -156,7 +156,7 @@
                      (exec-in-outputs-writing-pool
                        (fn []
                          (let [output-time        (* (long band) timestep)
-                               probability-matrix (dfn// matrix simulations)]
+                               probability-matrix (d/clone (d/emap #(/ % simulations) nil matrix))]
                            [output-time probability-matrix])))
                      (mfd/chain
                        (fn [[output-time probability-matrix]]
@@ -168,7 +168,7 @@
         (->
           (exec-in-outputs-writing-pool
             (fn []
-              (dfn// burn-count-matrix simulations)))
+              (d/clone (d/emap #(/ % simulations) nil burn-count-matrix))))
           (mfd/chain
             (fn [probability-matrix]
               (mfd/zip
