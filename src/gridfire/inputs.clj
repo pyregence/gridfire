@@ -296,7 +296,7 @@
 
 (defn add-ignition-start-timestamps
   [{:keys [ignition-start-times simulations ignition-start-timestamp weather-start-timestamp] :as inputs}]
-  (let [weather-start-ms                 (long (inst-ms weather-start-timestamp))
+  (let [weather-start-ms                 (long (inst-ms (or weather-start-timestamp #inst "1970-01-01T00-00:00")))
         compute-ignition-start-timestamp (fn [ignition-start-time]
                                            (Date. (+ weather-start-ms (min->ms ignition-start-time))))
         ignition-start-timestamps        (cond
