@@ -200,6 +200,12 @@
   [^double minutes]
   (long (/ minutes 60.0)))
 
+(defn min->day
+  "Convert minutes to days."
+  ^double
+  [^double minutes]
+  (* minutes 0.000694444))
+
 (defn convert-date-string
   "Convert a date string between two formats."
   [date-str from-format to-format]
@@ -210,6 +216,11 @@
     (->> date-str
          (.parse in-format)
          (.format out-format))))
+
+(defn cells->acres ^double
+  [^double cell-size ^long num-cells]
+  (let [acres-per-cell (/ (* cell-size cell-size) 43560.0)]
+    (* acres-per-cell num-cells)))
 
 ;; TODO remove when code is in triangulum
 (defn camel->kebab
