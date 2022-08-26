@@ -2,9 +2,12 @@
   "An algorithm emulating human interventions reacting to fire spread
   by suppressing ('putting out') chosen contiguous segments of the
   fire front, typically backing and flanking fires."
-  (:require [gridfire.conversion :refer [rad->deg percent->dec]]))
+  (:require [gridfire.conversion :refer [cells->acres
+                                         min->day
+                                         percent->dec
+                                         rad->deg]]))
 
-;; (set! *unchecked-math* :warn-on-boxed)
+(set! *unchecked-math* :warn-on-boxed)
 
 (defn- combine-average ^double
   [^double avg-old ^long count-old ^double avg-new ^long count-new]
@@ -253,65 +256,55 @@
         col (average (mapv #(nth % 1) cells))]
     [(long row) (long col)]))
 
-(defn- compute-sdi
-  [suppression-difficulty-index-calibration-coefficient change-in-fraction-contained-sign-multiplier mean-sdi]
-  (if (>= change-in-fraction-contained-sign-multiplier 0)
-    (Math/exp (* -1 suppression-difficulty-index-calibration-coefficient mean-sdi))
-    (Math/exp (* suppression-difficulty-index-calibration-coefficient mean-sdi))))
+(defn- compute-sdi ^double
+  [^double suppression-difficulty-index-calibration-coefficient ^double change-in-fraction-contained-sign-multiplier ^double mean-sdi]
+  (double
+   (if (>= change-in-fraction-contained-sign-multiplier 0.0)
+     (Math/exp (* -1 suppression-difficulty-index-calibration-coefficient mean-sdi))
+     (Math/exp (* suppression-difficulty-index-calibration-coefficient mean-sdi)))))
 
-(defn- compute-mean-sdi
+(defn- compute-mean-sdi ^double
   [get-suppression-difficutly-index ignited-cells]
-  (/ (reduce (fn [acc [i j]]
-               (+ acc (get-suppression-difficutly-index i j)))
-             0.0
-             ignited-cells)
+  (/ (double
+      (reduce (fn [^double acc [i j]]
+                (+ acc (double (get-suppression-difficutly-index i j))))
+              0.0
+              ignited-cells))
      (count ignited-cells)))
-
-;; TODO move to gridfire.conversion
-(defn min->day
-  "Convert minutes to days."
-  ^double
-  [^double minutes]
-  (* minutes 0.000694444))
-
-;; TODO move to gridfire.conversion
-(defn cells->acres
-  [cell-size num-cells]
-  (let [acres-per-cell (/ (* cell-size cell-size) 43560.0)]
-    (* acres-per-cell num-cells)))
 
 (defn- compute-area-growth-rate ^double
   [^double cell-size ^double suppression-dt ignited-cells]
   (/ (cells->acres cell-size (count ignited-cells))
      (min->day suppression-dt)))
 
-(defn- compute-change-in-fraction-contained-sign-multiplier
-  [area-growth-rate area-growh-rate-during-no-containment]
+(defn- compute-change-in-fraction-contained-sign-multiplier ^double
+  [^double area-growth-rate ^double area-growh-rate-during-no-containment]
   (- 1
      (/ (Math/log area-growth-rate)
         (Math/log area-growh-rate-during-no-containment))))
 
 (defn- compute-fraction-contained-sdi
   "Compute fraction contained using suppression difficulty index algorithm"
-  [inputs ignited-cells previous-fraction-contained]
-  (let [cell-size                                                (:cell-size inputs)
-        suppression                                              (:suppression inputs)
-        get-suppression-difficulty-index                         (:get-suppression-difficulty-index inputs)
-        {:keys
-         [suppression-dt
-          suppression-difficulty-index-area-growth-rate-during-no-containment
-          suppression-difficulty-index-calibration-coefficient
-          suppression-difficulty-index-max-containment-per-day]} suppression
-        area-growth-rate                                         (compute-area-growth-rate cell-size suppression-dt ignited-cells)
-        change-in-fraction-contained-sign-multiplier             (compute-change-in-fraction-contained-sign-multiplier area-growth-rate
-                                                                                                                       suppression-difficulty-index-area-growth-rate-during-no-containment)
-        mean-sdi                                                 (compute-mean-sdi get-suppression-difficulty-index ignited-cells)
-        sdi                                                      (compute-sdi suppression-difficulty-index-calibration-coefficient
-                                                                              change-in-fraction-contained-sign-multiplier
-                                                                              mean-sdi)
-        change-in-fraction-contained                             (* (percent->dec
-                                                                     (* suppression-difficulty-index-max-containment-per-day change-in-fraction-contained-sign-multiplier sdi))
-                                                                    (min->day suppression-dt))]
+  [inputs ignited-cells ^double previous-fraction-contained]
+  (let [cell-size                                                           (:cell-size inputs)
+        suppression                                                         (:suppression inputs)
+        get-suppression-difficulty-index                                    (:get-suppression-difficulty-index inputs)
+        suppression-dt                                                      (:suppression-dt suppression)
+        suppression-difficulty-index-area-growth-rate-during-no-containment (double (:suppression-difficulty-index-area-growth-rate-during-no-containment suppression))
+        suppression-difficulty-index-calibration-coefficient                (double (:suppression-difficulty-index-calibration-coefficient suppression))
+        suppression-difficulty-index-max-containment-per-day                (double (:suppression-difficulty-index-max-containment-per-day suppression))
+        area-growth-rate                                                    (compute-area-growth-rate cell-size suppression-dt ignited-cells)
+        change-in-fraction-contained-sign-multiplier                        (compute-change-in-fraction-contained-sign-multiplier area-growth-rate
+                                                                                                                                  suppression-difficulty-index-area-growth-rate-during-no-containment)
+        mean-sdi                                                            (compute-mean-sdi get-suppression-difficulty-index ignited-cells)
+        sdi                                                                 (compute-sdi suppression-difficulty-index-calibration-coefficient
+                                                                                         change-in-fraction-contained-sign-multiplier
+                                                                                         mean-sdi)
+        change-in-fraction-contained                                        (-> (* suppression-difficulty-index-max-containment-per-day
+                                                                                   change-in-fraction-contained-sign-multiplier
+                                                                                   sdi)
+                                                                                (percent->dec)
+                                                                                (* (min->day suppression-dt)))]
     (+ previous-fraction-contained change-in-fraction-contained)))
 
 (defn- compute-fraction-contained-sc
@@ -347,7 +340,7 @@
         num-fizzled-perimeter-cells               (max 0 (- previous-num-perimeter-cells num-tracked-perimeter-cells))
         num-perimeter-cells                       (max previous-num-perimeter-cells num-tracked-perimeter-cells)
         current-suppressed-count                  (+ previous-suppressed-count num-fizzled-perimeter-cells)
-        next-suppressed-count                     (long (* fraction-contained num-perimeter-cells))
+        next-suppressed-count                     (long (* ^double fraction-contained num-perimeter-cells))
         num-cells-to-suppress                     (- next-suppressed-count current-suppressed-count)]
     (if (> num-cells-to-suppress 0)
       (let [centroid-cell          (compute-centroid-cell active-perimeter-cells)
