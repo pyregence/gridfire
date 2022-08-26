@@ -4153,6 +4153,50 @@ level of the config file.
  :ignition-start-timestamp  #inst "2022-07-12T09:05:00.000-00:00"}
 #+end_src
 
+** Section 12: Suppression
+
+GridFire supports suppresssion of fires. Suppression emulates human
+interventions reacting to fire spread by suppressing ('putting out')
+chosen contiguous segments of the fire front, typically backing and
+flanking fires. There are two suppression algorithms supported. Each
+algoirthm is aimed at computing the percentage of the perimiter of the
+fire that should be contained. To enable suppression you must include
+the key *:suppression* at the top level of the config file.
+
+GridFire supports two suppresssion algorithms. The to the *:suppression*
+key value is a map containg a different set of required entries
+depending on which suppression you want to use.
+
+One approach uses approach uses a suppression curve algorithm. To
+enable this include the following:
+
+- *suppression-dt*: the time (in minutes) betweeen suppresssion events.
+- *suppression-curve-calibration-coefficient*: a constant calibration unit
+
+#+begin_src clojure
+{:suppression {:suppression-dt                            60.0
+               :suppression-curve-calibration-coefficient 2.0}}
+#+end_src
+
+Another approach uses the suppression difficulty index raster layer.
+To enble this include the following:
+
+- *suppression-dt*: the time (in minutes) betweeen suppresssion events.
+- *suppression-difficulty-index-layer*: a map of fetch specifications.
+- *suppression-difficulty-index-calibration-coefficient*: a calibration constant
+- *suppression-difficulty-index-max-containment-per-day*: a calibration constant
+- *suppression-difficulty-index-area-growth-rate-during-no-containment*: a calibration constant
+
+#+begin_src clojure
+:suppression {:suppression-dt                                                      60.0
+              :suppression-difficulty-index-layer                                  {:type       :geotiff
+                                                                                    :source     "path/to/geotiff"
+                                                                                    :multiplier 0.01}
+              :suppression-difficulty-index-calibration-coefficient                2.0
+              :suppression-difficulty-index-area-growth-rate-during-no-containment 5000.0
+              :suppression-difficulty-index-max-containment-per-day                100}
+#+end_src
+
 * Example Configuration files
 
 Here is a complete sample configuration for using landfire layers from our postigs enabled

@@ -1,0 +1,25 @@
+(ns gridfire.spec.suppression
+  (:require [clojure.spec.alpha   :as s]
+            [gridfire.spec.common :as common]))
+
+(s/def ::suppression-dt                                                      number?)
+(s/def ::suppression-curve-calibration-coefficient                           number?)
+(s/def ::suppression-difficulty-index-layer                                  ::common/layer-coords)
+(s/def ::suppression-difficulty-index-calibration-coefficient                number?)
+(s/def ::suppression-difficulty-index-area-growth-rate-during-no-containment number?)
+(s/def ::suppression-difficulty-index-max-containment-per-day                number?)
+
+(s/def ::mutually-exclusive-keys
+  (fn [{:keys [suppression-curve-calibration-coefficient
+               suppression-difficulty-index-layer
+               suppression-difficulty-index-calibration-coefficient
+               suppression-difficulty-index-area-growth-rate-during-no-containment
+               suppression-difficulty-index-max-containment-per-day]}]
+    (or (and suppression-curve-calibration-coefficient (every? nil? [suppression-difficulty-index-layer
+                                                                     suppression-difficulty-index-calibration-coefficient
+                                                                     suppression-difficulty-index-area-growth-rate-during-no-containment
+                                                                     suppression-difficulty-index-max-containment-per-day]))
+        (and (nil? suppression-curve-calibration-coefficient) (every? some? [suppression-difficulty-index-layer
+                                                                             suppression-difficulty-index-calibration-coefficient
+                                                                             suppression-difficulty-index-area-growth-rate-during-no-containment
+                                                                             suppression-difficulty-index-max-containment-per-day])))))
