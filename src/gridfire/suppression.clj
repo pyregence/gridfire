@@ -2,9 +2,9 @@
   "An algorithm emulating human interventions reacting to fire spread
   by suppressing ('putting out') chosen contiguous segments of the
   fire front, typically backing and flanking fires."
-  (:require [gridfire.conversion :refer [rad->deg]]))
+  (:require [gridfire.conversion :refer [rad->deg percent->dec]]))
 
-(set! *unchecked-math* :warn-on-boxed)
+;; (set! *unchecked-math* :warn-on-boxed)
 
 (defn- combine-average ^double
   [^double avg-old ^long count-old ^double avg-new ^long count-new]
@@ -146,37 +146,37 @@
   ;; TODO enhance performance or rethink the overall suppression algorithm.
   (letfn [(n-cells-in-slices ^long [slices]
             (transduce
-              (map (fn n-cells-in-slice [slice]
-                     (let [[_ num-cells] (get angular-slice->avg-dsr+num-cells slice)]
-                       num-cells)))
-              (completing +)
-              0
-              slices))]
+             (map (fn n-cells-in-slice [slice]
+                    (let [[_ num-cells] (get angular-slice->avg-dsr+num-cells slice)]
+                      num-cells)))
+             (completing +)
+             0
+             slices))]
     (let [angular-slices+avg-dsr->num-cells (compute-contiguous-slices num-cells-to-suppress angular-slice->avg-dsr+num-cells)]
       (loop [remaining-segments angular-slices+avg-dsr->num-cells
              n-cells-needed     num-cells-to-suppress
              slices-to-suppress #{}]
         (if-some [segment (when (pos? n-cells-needed)
                             (first remaining-segments))]
-          (let [[[slices _]] segment
+          (let [[[slices _]]            segment
                 yet-unsuppressed-slices (remove slices-to-suppress slices)
                 n-would-be-suppressed   (long (n-cells-in-slices yet-unsuppressed-slices))]
             (if (<= n-would-be-suppressed n-cells-needed)
               (let [new-n-cells-needed     (- n-cells-needed n-would-be-suppressed)
                     new-slices-to-suppress (into slices-to-suppress yet-unsuppressed-slices)]
                 (recur
-                  (rest remaining-segments)
-                  new-n-cells-needed
-                  new-slices-to-suppress))
+                 (rest remaining-segments)
+                 new-n-cells-needed
+                 new-slices-to-suppress))
               ;; this segment has more than we need, compute subsegment:
               (let [[sub-segment-slices _] (compute-sub-segment angular-slice->avg-dsr+num-cells slices n-cells-needed)
                     n-more-suppressed      (long (n-cells-in-slices (remove slices-to-suppress sub-segment-slices)))
                     new-n-cells-needed     (- n-cells-needed n-more-suppressed)
                     new-slices-to-suppress (into slices-to-suppress sub-segment-slices)]
                 (recur
-                  (rest remaining-segments)
-                  new-n-cells-needed
-                  new-slices-to-suppress))))
+                 (rest remaining-segments)
+                 new-n-cells-needed
+                 new-slices-to-suppress))))
           ;; no more segments needed or available, so we return:
           (let [n-suppressed (- num-cells-to-suppress n-cells-needed)]
             [slices-to-suppress n-suppressed]))))))
@@ -253,28 +253,102 @@
         col (average (mapv #(nth % 1) cells))]
     [(long row) (long col)]))
 
-(defn- compute-fraction-contained ^double
-  [^double max-runtime-fraction ^double suppression-coefficient]
+(defn- compute-sdi
+  [suppression-difficulty-index-calibration-coefficient change-in-fraction-contained-sign-multiplier mean-sdi]
+  (if (>= change-in-fraction-contained-sign-multiplier 0)
+    (Math/exp (* -1 suppression-difficulty-index-calibration-coefficient mean-sdi))
+    (Math/exp (* suppression-difficulty-index-calibration-coefficient mean-sdi))))
+
+(defn- compute-mean-sdi
+  [get-suppression-difficutly-index ignited-cells]
+  (/ (reduce (fn [acc [i j]]
+               (+ acc (get-suppression-difficutly-index i j)))
+             0.0
+             ignited-cells)
+     (count ignited-cells)))
+
+;; TODO move to gridfire.conversion
+(defn min->day
+  "Convert minutes to days."
+  ^double
+  [^double minutes]
+  (* minutes 0.000694444))
+
+;; TODO move to gridfire.conversion
+(defn cells->acres
+  [cell-size num-cells]
+  (let [acres-per-cell (/ (* cell-size cell-size) 43560.0)]
+    (* acres-per-cell num-cells)))
+
+(defn- compute-area-growth-rate ^double
+  [^double cell-size ^double suppression-dt ignited-cells]
+  (/ (cells->acres cell-size (count ignited-cells))
+     (min->day suppression-dt)))
+
+(defn- compute-change-in-fraction-contained-sign-multiplier
+  [area-growth-rate area-growh-rate-during-no-containment]
+  (- 1
+     (/ (Math/log area-growth-rate)
+        (Math/log area-growh-rate-during-no-containment))))
+
+(defn- compute-fraction-contained-sdi
+  "Compute fraction contained using suppression difficulty index algorithm"
+  [inputs ignited-cells previous-fraction-contained]
+  (let [cell-size                                                (:cell-size inputs)
+        suppression                                              (:suppression inputs)
+        get-suppression-difficulty-index                         (:get-suppression-difficulty-index inputs)
+        {:keys
+         [suppression-dt
+          suppression-difficulty-index-area-growth-rate-during-no-containment
+          suppression-difficulty-index-calibration-coefficient
+          suppression-difficulty-index-max-containment-per-day]} suppression
+        area-growth-rate                                         (compute-area-growth-rate cell-size suppression-dt ignited-cells)
+        change-in-fraction-contained-sign-multiplier             (compute-change-in-fraction-contained-sign-multiplier area-growth-rate
+                                                                                                                       suppression-difficulty-index-area-growth-rate-during-no-containment)
+        mean-sdi                                                 (compute-mean-sdi get-suppression-difficulty-index ignited-cells)
+        sdi                                                      (compute-sdi suppression-difficulty-index-calibration-coefficient
+                                                                              change-in-fraction-contained-sign-multiplier
+                                                                              mean-sdi)
+        change-in-fraction-contained                             (* (percent->dec
+                                                                     (* suppression-difficulty-index-max-containment-per-day change-in-fraction-contained-sign-multiplier sdi))
+                                                                    (min->day suppression-dt))]
+    (+ previous-fraction-contained change-in-fraction-contained)))
+
+(defn- compute-fraction-contained-sc
+  "Compute fraction contained using suppression curve algorithm"
+  ^double
+  [^double max-runtime-fraction ^double suppression-curve-calibration-coefficient]
   (Math/pow (/ (* 2.0 max-runtime-fraction)
                (+ 1.0 (Math/pow max-runtime-fraction 2.0)))
-            suppression-coefficient))
+            suppression-curve-calibration-coefficient))
 
 (defn suppress-burn-vectors
-  [max-runtime-fraction suppression-coefficient previous-num-perimeter-cells previous-suppressed-count burn-vectors]
-  (let [max-runtime-fraction         (double max-runtime-fraction)
-        suppression-coefficient      (double suppression-coefficient)
-        previous-num-perimeter-cells (long previous-num-perimeter-cells)
-        previous-suppressed-count    (long previous-suppressed-count)
-        active-perimeter-cells       (into #{}
-                                           (map (juxt :i :j))
-                                           burn-vectors)
-        fraction-contained           (compute-fraction-contained max-runtime-fraction suppression-coefficient)
-        num-tracked-perimeter-cells  (+ (long (count active-perimeter-cells)) previous-suppressed-count)
-        num-fizzled-perimeter-cells  (max 0 (- previous-num-perimeter-cells num-tracked-perimeter-cells))
-        num-perimeter-cells          (max previous-num-perimeter-cells num-tracked-perimeter-cells)
-        current-suppressed-count     (+ previous-suppressed-count num-fizzled-perimeter-cells)
-        next-suppressed-count        (long (* fraction-contained num-perimeter-cells))
-        num-cells-to-suppress        (- next-suppressed-count current-suppressed-count)]
+  [inputs
+   max-runtime-fraction
+   previous-num-perimeter-cells
+   previous-suppressed-count
+   burn-vectors
+   ignited-cells-since-last-suppression
+   previous-fraction-contained]
+  (let [max-runtime-fraction                      (double max-runtime-fraction)
+        suppression-curve-calibration-coefficient (get-in inputs [:suppression
+                                                                  :suppression-curve-calibration-coefficient])
+        previous-num-perimeter-cells              (long previous-num-perimeter-cells)
+        previous-suppressed-count                 (long previous-suppressed-count)
+        active-perimeter-cells                    (into #{}
+                                                        (map (juxt :i :j))
+                                                        burn-vectors)
+        fraction-contained                        (if suppression-curve-calibration-coefficient
+                                                    (compute-fraction-contained-sc max-runtime-fraction (double suppression-curve-calibration-coefficient))
+                                                    (compute-fraction-contained-sdi inputs
+                                                                                    ignited-cells-since-last-suppression
+                                                                                    previous-fraction-contained))
+        num-tracked-perimeter-cells               (+ (long (count active-perimeter-cells)) previous-suppressed-count)
+        num-fizzled-perimeter-cells               (max 0 (- previous-num-perimeter-cells num-tracked-perimeter-cells))
+        num-perimeter-cells                       (max previous-num-perimeter-cells num-tracked-perimeter-cells)
+        current-suppressed-count                  (+ previous-suppressed-count num-fizzled-perimeter-cells)
+        next-suppressed-count                     (long (* fraction-contained num-perimeter-cells))
+        num-cells-to-suppress                     (- next-suppressed-count current-suppressed-count)]
     (if (> num-cells-to-suppress 0)
       (let [centroid-cell          (compute-centroid-cell active-perimeter-cells)
             angular-slice-size     5.0
@@ -287,5 +361,5 @@
             burn-vectors-to-keep   (into []
                                          (mapcat #(get slice->BurnVectors %))
                                          slices-to-keep)]
-        [burn-vectors-to-keep (+ current-suppressed-count ^long suppressed-count) num-perimeter-cells])
-      [burn-vectors current-suppressed-count num-perimeter-cells])))
+        [burn-vectors-to-keep (+ current-suppressed-count ^long suppressed-count) num-perimeter-cells fraction-contained])
+      [burn-vectors current-suppressed-count num-perimeter-cells fraction-contained])))
