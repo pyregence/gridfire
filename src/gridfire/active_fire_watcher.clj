@@ -58,7 +58,7 @@
             (>! job-queue job)
             (when (suppress? config path-str)
               (>! job-queue (assoc job :suppression {:suppression-dt                            60.0 ;TODO remove hard code
-                                                     :suppression-curve-calibration-coefficient 2.0})))))))) ;TODO remove hard code
+                                                     :suppression-curve-sharpness 2.0})))))))) ;TODO remove hard code
 
 (defn- handler [config job-queue]
   (fn [{:keys [type path]}]
