@@ -5,9 +5,9 @@
 (s/def ::suppression-dt                                                      number?)
 (s/def ::suppression-curve-calibration-coefficient                           number?)
 (s/def ::suppression-difficulty-index-layer                                  ::common/layer-coords)
-(s/def ::suppression-difficulty-index-calibration-coefficient                number?)
-(s/def ::suppression-difficulty-index-area-growth-rate-during-no-containment number?)
-(s/def ::suppression-difficulty-index-max-containment-per-day                number?)
+(s/def ::suppression-difficulty-index-calibration-coefficient                (and number? pos?))
+(s/def ::suppression-difficulty-index-area-growth-rate-during-no-containment (and number? pos?))
+(s/def ::suppression-difficulty-index-max-containment-per-day                (and number? pos?))
 
 (s/def ::mutually-exclusive-keys
   (fn [{:keys [suppression-curve-calibration-coefficient
