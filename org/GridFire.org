@@ -2970,10 +2970,9 @@ Where symbols are defined as follow:
 - X: Chi (a.k.a *:suppression-difficulty-index-max-containment-per-day*
   in the config file) a positive number. This calibration parameter is
   similar to the suppression curve calibration coefficient in that it
-  varies regionally based on available resources. Value of 1.0 means
-  the fire can be 100% contained in 24 hours. a value of 8.0 means the
+  varies regionally based on available resources. Value of 100 means
+  the fire can be 100% contained in 24 hours. a value of 800 means the
   fire can be 100% contained in 3 hours.
-
 
 - A_d: Areal growth on a daily basis (acres/day).
 
