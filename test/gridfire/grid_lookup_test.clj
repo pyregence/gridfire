@@ -3,14 +3,14 @@
             [clojure.test :refer :all])
   (:import (clojure.lang IFn$OD IFn$OOD IFn$OOOD IFn$OOOOD)))
 
-(deftest double-at-primitiveness-test
+(deftest ^:unit double-at-primitiveness-test
   (testing "(double-at getter & coords)"
     (testing "accepts primitive long-typed coordinates, and returns a primitive double."
       (is (instance? IFn$OOD grid-lookup/double-at))
       (is (instance? IFn$OOOD grid-lookup/double-at))
       (is (instance? IFn$OOOOD grid-lookup/double-at)))))
 
-(deftest clojure-primitive-functions-test
+(deftest ^:unit clojure-primitive-functions-test
   (testing "this example primitive-signature function"
     (let [my-getter (fn
                       (^double [b]
