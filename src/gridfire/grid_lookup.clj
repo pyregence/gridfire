@@ -14,9 +14,9 @@
   ;; that's convenient, but strictly speaking these are implementation details
   ;; of Clojure execution.
   (or
-    (instance? IFn$OD v)
-    (instance? IFn$OOD v)
-    (instance? IFn$OOOD v)))
+   (instance? IFn$OD v)
+   (instance? IFn$OOD v)
+   (instance? IFn$OOOD v)))
 
 (definline double-at-B*
   "See double-at-BIJ*."
@@ -63,44 +63,44 @@
 ;; NOTE (definline ...) does not support multiple arities, hence the 3 definitions above.
 
 (comment
-  ;; (double-at-* ...) does allow lookup without primitive boxing:
-  (require '[clj-java-decompiler.core])
-  (clj-java-decompiler.core/decompile
-    (let [f
-          ;; Let's make sure the Clojure compiler won't guess the signature of f:
-          (get {2
-                (fn my-getter ^double [^long i ^long j]
-                  (* 2. (+ i j)))}
-            (+ 1 1))]
-      (fn my-computation ^double []
-        (+ 3.
-          (double-at-IJ* f 2 3)))))
-  ;public final class grid_lookup$fn__44795$my_computation__44798 extends AFunction implements D
-  ;{
-  ;    Object f;
-  ;
-  ;    public grid_lookup$fn__44795$my_computation__44798(final Object f) {
-  ;        this.f = f;
-  ;    }
-  ;
-  ;    @Override
-  ;    public final double invokePrim() {
-  ;        final double n = 3.0;
-  ;        final Object f44799 = this.f;
-  ;        return n + ((LLD)f44799).invokePrim(2L, 3L);
-  ;    }
-  ;
-  ;    @Override
-  ;    public Object invoke() {
-  ;        return ((IFn.D)this).invokePrim();
-  ;    }
-  ;}
+ ;; (double-at-* ...) does allow lookup without primitive boxing:
+ (require '[clj-java-decompiler.core])
+ (clj-java-decompiler.core/decompile
+  (let [f
+        ;; Let's make sure the Clojure compiler won't guess the signature of f:
+        (get {2
+              (fn my-getter ^double [^long i ^long j]
+                (* 2. (+ i j)))}
+             (+ 1 1))]
+    (fn my-computation ^double []
+      (+ 3.
+         (double-at-IJ* f 2 3)))))
+ ;;public final class grid_lookup$fn__44795$my_computation__44798 extends AFunction implements D
+ ;;{
+ ;;    Object f;
+ ;;
+ ;;    public grid_lookup$fn__44795$my_computation__44798(final Object f) {
+ ;;        this.f = f;
+ ;;    }
+ ;;
+ ;;    @Override
+ ;;    public final double invokePrim() {
+ ;;        final double n = 3.0;
+ ;;        final Object f44799 = this.f;
+ ;;        return n + ((LLD)f44799).invokePrim(2L, 3L);
+ ;;    }
+ ;;
+ ;;    @Override
+ ;;    public Object invoke() {
+ ;;        return ((IFn.D)this).invokePrim();
+ ;;    }
+ ;;}
 
-  ;; In the above code, we see not only a primitive method invocation (no boxing),
-  ;; but we also avoid the Var-lookup overhead, as our (double-at-ij* ...) call
-  ;; is directly inlined.
+ ;; In the above code, we see not only a primitive method invocation (no boxing),
+ ;; but we also avoid the Var-lookup overhead, as our (double-at-ij* ...) call
+ ;; is directly inlined.
 
-  *e)
+ *e)
 
 (defn double-at
   "Looks up a double-typed value at the given grid coordinates,
@@ -118,54 +118,54 @@
    (double-at-BIJ* getter b i j)))
 
 (comment
-  ;; (double-at ...) does allow lookup without primitive boxing:
-  (require '[clj-java-decompiler.core])
-  (clj-java-decompiler.core/decompile
-    (let [f
-          ;; Let's make sure the Clojure compiler won't guess the signature of f:
-          (get {2
-                (fn my-getter ^double [^long i ^long j]
-                  (* 2. (+ i j)))}
-            (+ 1 1))]
-      (fn my-computation ^double []
-        (+ 3.
-          (double-at f 2 3)))))
-  ;public final class grid_lookup$fn__44754$my_computation__44757 extends AFunction implements D
-  ;{
-  ;    // ...
-  ;
-  ;    @Override
-  ;    public final double invokePrim() {
-  ;        return 3.0 + ((OLLD)grid_lookup$fn__44754$my_computation__44757.const__2.getRawRoot()).invokePrim(this.f, 2L, 3L);
-  ;    }
-  ;
-  ;    // ...
-  ;}
+ ;; (double-at ...) does allow lookup without primitive boxing:
+ (require '[clj-java-decompiler.core])
+ (clj-java-decompiler.core/decompile
+  (let [f
+        ;; Let's make sure the Clojure compiler won't guess the signature of f:
+        (get {2
+              (fn my-getter ^double [^long i ^long j]
+                (* 2. (+ i j)))}
+             (+ 1 1))]
+    (fn my-computation ^double []
+      (+ 3.
+         (double-at f 2 3)))))
+ ;;public final class grid_lookup$fn__44754$my_computation__44757 extends AFunction implements D
+ ;;{
+ ;;    // ...
+ ;;
+ ;;    @Override
+ ;;    public final double invokePrim() {
+ ;;        return 3.0 + ((OLLD)grid_lookup$fn__44754$my_computation__44757.const__2.getRawRoot()).invokePrim(this.f, 2L, 3L);
+ ;;    }
+ ;;
+ ;;    // ...
+ ;;}
 
-  ;; In the above Java code, we do see that double-at is called without boxing.
-  ;; We still see the overhead of Var-lookup (.getRawRoot()),
-  ;; but that's not necessarily very significant (thanks to CPU caching),
-  ;; and could eliminated by Clojure direct linking (https://clojure.org/reference/compilation#directlinking).
+ ;; In the above Java code, we do see that double-at is called without boxing.
+ ;; We still see the overhead of Var-lookup (.getRawRoot()),
+ ;; but that's not necessarily very significant (thanks to CPU caching),
+ ;; and could eliminated by Clojure direct linking (https://clojure.org/reference/compilation#directlinking).
 
-  *e)
+ *e)
 
 (comment
-  ;; NOTE Why not do this more cleanly with a Clojure protocol? As of Clojure 1.10,
-  ;; (defprotocol ...) does not compile to a Java interface
-  ;; with primitive signatures, and therefore cannot be used to avoid boxing:
-  (in-ns 'user)
-  (defprotocol IMyProtocol
-    (get-me-a-double ^double [this ^long i ^long j]))
-  (require 'clojure.reflect)
-  (clojure.reflect/reflect user.IMyProtocol)
-  ;=>
-  {:bases   nil,
-   :flags   #{:interface :public :abstract},
-   :members #{#clojure.reflect.Method{:name            get_me_a_double,
-                                      :return-type     java.lang.Object,
-                                      :declaring-class user.IMyProtocol,
-                                      :parameter-types [java.lang.Object java.lang.Object],
-                                      :exception-types [],
-                                      :flags           #{:public :abstract}}}}
-  ;; Therefore, unfortunately, we have to use some other mechanism.
-  *e)
+ ;; NOTE Why not do this more cleanly with a Clojure protocol? As of Clojure 1.10,
+ ;; (defprotocol ...) does not compile to a Java interface
+ ;; with primitive signatures, and therefore cannot be used to avoid boxing:
+ (in-ns 'user)
+ (defprotocol IMyProtocol
+   (get-me-a-double ^double [this ^long i ^long j]))
+ (require 'clojure.reflect)
+ (clojure.reflect/reflect user.IMyProtocol)
+ ;=>
+ {:bases   nil,
+  :flags   #{:interface :public :abstract},
+  :members #{#clojure.reflect.Method{:name            get_me_a_double,
+                                     :return-type     java.lang.Object,
+                                     :declaring-class user.IMyProtocol,
+                                     :parameter-types [java.lang.Object java.lang.Object],
+                                     :exception-types [],
+                                     :flags           #{:public :abstract}}}}
+ ;; Therefore, unfortunately, we have to use some other mechanism.
+ *e)
