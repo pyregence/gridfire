@@ -18,14 +18,14 @@
   (testing "no perturbations"
     (testing "scalar"
       (let [inputs       {:perturbations       nil
-                          :temperature-samples [10]}
+                          :temperature-samples [10.]}
             get-layer-fn (#'simulations/grid-getter inputs (Random. 1234) :temperature 0)]
 
-        (is (= 10 (grid-lookup/double-at get-layer-fn 0 0 0)))))
+        (is (= 10. (grid-lookup/double-at get-layer-fn 0 0 0)))))
 
     (testing "matrix"
       (let [inputs       {:perturbations      nil
-                          :temperature-matrix (identical-matrix 72 10 10 1.0)}
+                          :temperature-matrix (identical-matrix 72 10. 10. 1.0)}
             get-layer-fn (#'simulations/grid-getter inputs (Random. 1234) :temperature 0)]
 
         (is (= 1.0 (grid-lookup/double-at get-layer-fn 0 0 0))))))

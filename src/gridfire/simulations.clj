@@ -321,15 +321,13 @@
         (^double [i j]
          (cond-> (grid-lookup/double-at get-unperturbed i j)
            (some? get-perturbation)
-           (->
-             (+ (grid-lookup/double-at get-perturbation i j))
-             (max 0.))))
+           (-> (+ (grid-lookup/double-at get-perturbation i j))
+               (max 0.))))
         (^double [b i j]
          (cond-> (grid-lookup/double-at get-unperturbed b i j)
            (some? get-perturbation)
-           (->
-             (+ (grid-lookup/double-at get-perturbation b i j))
-             (max 0.))))))))
+           (-> (+ (grid-lookup/double-at get-perturbation b i j))
+               (max 0.))))))))
 
 (defrecord SimulationInputs
     [^long num-rows
