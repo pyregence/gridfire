@@ -399,6 +399,7 @@
      get-fuel-moisture-live-woody
      get-relative-humidity
      get-slope
+     get-suppression-difficulty-index
      get-temperature
      get-wind-from-direction
      get-wind-speed-20ft
@@ -447,6 +448,7 @@
                              :get-fuel-moisture-live-woody      (get-value-fn inputs rand-gen :fuel-moisture-live-woody i)
                              :get-relative-humidity             (get-value-fn inputs rand-gen :relative-humidity i)
                              :get-slope                         (get-value-fn inputs rand-gen :slope i)
+                             :get-suppression-difficulty-index  (get-value-fn inputs rand-gen :suppression-difficulty-index i)
                              :get-temperature                   (get-value-fn inputs rand-gen :temperature i)
                              :get-wind-from-direction           (get-value-fn inputs rand-gen :wind-from-direction i)
                              :get-wind-speed-20ft               (get-value-fn inputs rand-gen :wind-speed-20ft i)

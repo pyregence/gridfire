@@ -97,7 +97,7 @@
   (let [weather-spec (get config weather-name)]
     (when (map? weather-spec)
       (let [{:keys [type source units multiplier]} weather-spec
-            convert-fn (convert/get-units-converter weather-name units (or multiplier 1.0))]
+            convert-fn                             (convert/get-units-converter weather-name units (or multiplier 1.0))]
         (if (= type :postgis)
           (cond-> (postgis-raster-to-matrix db-spec source)
             convert-fn (update :matrix #(d/copy! (d/emap convert-fn :float32 %) %)))
@@ -120,4 +120,19 @@
           (cond-> (postgis-raster-to-matrix db-spec source)
             convert-fn (update :matrix #(d/copy! (d/emap convert-fn :float32 %) %)))
           (geotiff-raster-to-tensor source :float32 convert-fn))))))
+
+;;-----------------------------------------------------------------------------
+;; Suppression Difficulty Index Layer
+;;-----------------------------------------------------------------------------
+
+(defn suppression-difficulty-layer
+  [{:keys [db-spec suppression]}]
+  (when-let [{:keys [type source units multiplier] :as _spec} (:suppression-difficulty-index-layer suppression)]
+    (let [convert-fn (convert/get-units-converter :suppression
+                                                  units
+                                                  (or multiplier 1.0))]
+      (if (= type :postgis)
+        (cond-> (postgis-raster-to-matrix db-spec source)
+          convert-fn (update :matrix #(d/copy! (d/emap convert-fn :float32 %) %)))
+        (geotiff-raster-to-tensor source :float32 convert-fn)))))
 ;; fetch.clj ends here
