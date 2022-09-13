@@ -171,9 +171,9 @@
    (s/keys :req-un [::suppression/suppression-dt]
            :opt-un [::suppression/suppression-curve-sharpness
                     ::suppression/suppression-difficulty-index-layer
-                    ::suppression/suppression-difficulty-index-calibration-coefficient
-                    ::suppression/suppression-difficulty-index-area-growth-rate-during-no-containment
-                    ::suppression/suppression-difficulty-index-max-containment-per-day])
+                    ::suppression/sdi-sensitivity-to-difficulty
+                    ::suppression/sdi-containment-overwhelming-area-growth-rate
+                    ::suppression/sdi-reference-suppression-speed])
    ::suppression/mutually-exclusive-keys))
 
 ;; Perturbations

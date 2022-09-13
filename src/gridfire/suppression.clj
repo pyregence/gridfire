@@ -257,12 +257,12 @@
         col (average (mapv #(nth % 1) cells))]
     [(long row) (long col)]))
 
-(defn- compute-suppression-difficulty ^double
-  [^double suppression-difficulty-index-calibration-coefficient ^double change-in-fraction-contained-sign-multiplier ^double mean-sdi]
+(defn- compute-suppression-difficulty-factor ^double
+  [^double sdi-sensitivity-to-difficulty ^double change-in-fraction-contained-sign-multiplier ^double mean-sdi]
   (double
    (if (>= change-in-fraction-contained-sign-multiplier 0.0)
-     (Math/exp (* -1 suppression-difficulty-index-calibration-coefficient mean-sdi))
-     (Math/exp (* suppression-difficulty-index-calibration-coefficient mean-sdi)))))
+     (Math/exp (* -1 sdi-sensitivity-to-difficulty mean-sdi))
+     (Math/exp (* sdi-sensitivity-to-difficulty mean-sdi)))))
 
 (defn- compute-mean-sdi ^double
   [get-suppression-difficutly-index ignited-cells]
@@ -278,34 +278,42 @@
   (/ (cells->acres cell-size (count ignited-cells-since-last-suppression))
      (min->day suppression-dt)))
 
+(def ^:constant sdi-reference-areal-growth-rate
+  "[ac/day] a shape parameter for the suppression curve, the area-growth-rate A_d at which ΔC/Δt=χ in 0-SDI settings,
+  in which χ is the :sdi-reference-suppression-speed parameter."
+  1.0)
+
 (defn- compute-change-in-fraction-contained-sign-multiplier ^double
-  [^double area-growth-rate ^double area-growth-rate-during-no-containment]
-  (- 1
-     (/ (Math/log area-growth-rate)
-        (Math/log area-growth-rate-during-no-containment))))
+  [^double sdi-containment-overwhelming-area-growth-rate ^double area-growth-rate]
+  (- 1.0
+     ;; Note that the following ratio is insensitive to the choice of logarithm base.
+     (/ (Math/log (/ area-growth-rate
+                     sdi-reference-areal-growth-rate))
+        (Math/log (/ sdi-containment-overwhelming-area-growth-rate
+                     sdi-reference-areal-growth-rate)))))
 
 (defn- compute-fraction-contained-sdi
-  "Compute fraction contained using suppression difficulty index algorithm"
+  "Compute the updated fraction-contained using suppression difficulty index algorithm"
   [inputs ignited-cells-since-last-suppression ^double previous-fraction-contained]
-  (let [cell-size                                                           (:cell-size inputs)
-        suppression                                                         (:suppression inputs)
-        get-suppression-difficulty-index                                    (:get-suppression-difficulty-index inputs)
-        suppression-dt                                                      (:suppression-dt suppression)
-        suppression-difficulty-index-area-growth-rate-during-no-containment (double (:suppression-difficulty-index-area-growth-rate-during-no-containment suppression))
-        suppression-difficulty-index-calibration-coefficient                (double (:suppression-difficulty-index-calibration-coefficient suppression))
-        suppression-difficulty-index-max-containment-per-day                (double (:suppression-difficulty-index-max-containment-per-day suppression))
-        area-growth-rate                                                    (compute-area-growth-rate cell-size suppression-dt ignited-cells-since-last-suppression)
-        change-in-fraction-contained-sign-multiplier                        (compute-change-in-fraction-contained-sign-multiplier area-growth-rate
-                                                                                                                                  suppression-difficulty-index-area-growth-rate-during-no-containment)
-        mean-sdi                                                            (compute-mean-sdi get-suppression-difficulty-index ignited-cells-since-last-suppression)
-        suppression-difficulty                                              (compute-suppression-difficulty suppression-difficulty-index-calibration-coefficient
-                                                                                                            change-in-fraction-contained-sign-multiplier
-                                                                                                            mean-sdi)
-        change-in-fraction-contained                                        (-> (* suppression-difficulty-index-max-containment-per-day
-                                                                                   change-in-fraction-contained-sign-multiplier
-                                                                                   suppression-difficulty)
-                                                                                (percent->dec)
-                                                                                (* (min->day suppression-dt)))]
+  (let [cell-size                                     (:cell-size inputs)
+        suppression                                   (:suppression inputs)
+        get-suppression-difficulty-index              (:get-suppression-difficulty-index inputs)
+        suppression-dt                                (:suppression-dt suppression)
+        sdi-containment-overwhelming-area-growth-rate (double (:sdi-containment-overwhelming-area-growth-rate suppression))
+        sdi-sensitivity-to-difficulty                 (double (:sdi-sensitivity-to-difficulty suppression))
+        sdi-reference-suppression-speed               (double (:sdi-reference-suppression-speed suppression))
+        area-growth-rate                              (compute-area-growth-rate cell-size suppression-dt ignited-cells-since-last-suppression)
+        change-in-fraction-contained-sign-multiplier  (compute-change-in-fraction-contained-sign-multiplier sdi-containment-overwhelming-area-growth-rate
+                                                                                                            area-growth-rate)
+        mean-sdi                                      (compute-mean-sdi get-suppression-difficulty-index ignited-cells-since-last-suppression)
+        suppression-difficulty-factor                 (compute-suppression-difficulty-factor sdi-sensitivity-to-difficulty
+                                                                                             change-in-fraction-contained-sign-multiplier
+                                                                                             mean-sdi)
+        change-in-fraction-contained                  (-> (* sdi-reference-suppression-speed
+                                                             change-in-fraction-contained-sign-multiplier
+                                                             suppression-difficulty-factor)
+                                                          (percent->dec)
+                                                          (* (min->day suppression-dt)))]
     (+ previous-fraction-contained change-in-fraction-contained)))
 
 (defn- compute-fraction-contained-sc
