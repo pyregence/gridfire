@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::suppression][suppression]]
 (ns gridfire.suppression
   "An algorithm emulating human interventions reacting to fire spread
   by suppressing ('putting out') chosen contiguous segments of the
