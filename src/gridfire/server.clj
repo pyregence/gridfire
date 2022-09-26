@@ -34,22 +34,21 @@
 (def date-from-format "yyyy-MM-dd HH:mm zzz")
 (def date-to-format   "yyyyMMdd_HHmmss")
 
-(defn- build-geosync-request [{:keys [fire-name ignition-time] :as _request} {:keys [host port] :as _config}]
-  (let [timestamp (convert-date-string ignition-time date-from-format date-to-format)]
+(defn- build-geosync-request [{:keys [fire-name ignition-time suppression] :as _request}
+                              {:keys [geosync-data-dir host] :as _config}]
+  (let [updated-fire-name (if suppression (str fire-name "-suppressed") fire-name)
+        timestamp         (convert-date-string ignition-time date-from-format date-to-format)]
     (json/write-str
      {"action"             "add"
-      "dataDir"            (format "/var/www/html/fire_spread_forecast/%s/%s" fire-name timestamp)
-      "geoserverWorkspace" (format "fire-spread-forecast_%s_%s" fire-name timestamp)
+      "dataDir"            (format "%s/%s/%s" geosync-data-dir updated-fire-name timestamp)
+      "geoserverWorkspace" (format "fire-spread-forecast_%s_%s" updated-fire-name timestamp)
       "responseHost"       host
-      "responsePort"       port})))
+      "responsePort"       5555})))
 
-;; FIXME: Pass the geosync-server-config values in through gridfire.cli rather than hardcoding them.
-(defn- send-geosync-request! [request config]
-  (let [geosync-server-config {:response-host "data.pyregence.org" :response-port 31337}]
-    (when (spec/valid? ::server-spec/gridfire-server-response-minimal geosync-server-config)
-      (sockets/send-to-server! (:response-host geosync-server-config)
-                               (:response-port geosync-server-config)
-                               (build-geosync-request request config)))))
+(defn- send-geosync-request! [request {:keys [geosync-host geosync-port] :as config}]
+  (sockets/send-to-server! geosync-host
+                           geosync-port
+                           (build-geosync-request request config)))
 
 (defn- build-gridfire-response [request {:keys [host port] :as _config} status status-msg]
   (json/write-str (merge request
@@ -80,19 +79,24 @@
 (defn- add-weather-start-timestamp [config ignition-date-time]
   (assoc config :weather-start-timestamp (calc-weather-start-timestamp ignition-date-time)))
 
+(defn- add-suppression [config {:keys [suppression-dt suppression-coefficient] :as _suppression-params}]
+  (assoc config :suppression {:suppression-dt          suppression-dt
+                              :suppression-coefficient suppression-coefficient}))
+
 (defn- write-config! [output-file config]
   (log-str "Writing to config file: " output-file)
   (with-open [writer (io/writer output-file)]
     (pprint config writer)))
 
-(defn- process-override-config! [{:keys [ignition-time] :as _request} file]
+(defn- process-override-config! [{:keys [ignition-time suppression] :as _request} file]
   (let [formatter          (SimpleDateFormat. "yyyy-MM-dd HH:mm zzz")
         ignition-date-time (.parse formatter ignition-time)
         config             (edn/read-string (slurp file))]
     (write-config! file
-                   (-> config
-                       (add-ignition-start-timestamp ignition-date-time)
-                       (add-weather-start-timestamp ignition-date-time)))))
+                   (cond-> config
+                     :always     (add-ignition-start-timestamp ignition-date-time)
+                     :always     (add-weather-start-timestamp ignition-date-time)
+                     suppression (add-suppression suppression)))))
 
 ;;=============================================================================
 ;; Shell Commands
@@ -142,14 +146,24 @@
 
 (defn- unzip-tar!
   "Unzips a tar file and returns the file path to the extracted folder."
-  [{:keys [fire-name ignition-time type] :as _request} {:keys [data-dir incoming-dir active-fire-dir] :as _config}]
-  (let [file-name (build-file-name fire-name ignition-time)]
-    (log-str "Unzipping input deck: " file-name)
-    (sh-wrapper (if (= type :active-fire) active-fire-dir incoming-dir)
-                {}
-                false
-                (format "tar -xf %s -C %s --one-top-level" (str file-name ".tar") data-dir))
-    (.getPath (io/file data-dir file-name))))
+  [{:keys [fire-name ignition-time type suppression] :as _request}
+   {:keys [data-dir incoming-dir active-fire-dir] :as _config}]
+  (let [working-dir   (if (= type :active-fire) active-fire-dir incoming-dir)
+        tar-file-name (str (build-file-name fire-name ignition-time) ".tar")
+        out-file-name (build-file-name (if suppression (str fire-name "-suppressed") fire-name)
+                                       ignition-time)
+        out-file-path (.getAbsolutePath (io/file data-dir out-file-name))]
+    (if (.exists (io/file working-dir tar-file-name))
+      (do
+        (sh/sh "mkdir" "-p" out-file-path)
+        (sh-wrapper working-dir
+                    {}
+                    true
+                    (format "tar -xf %s -C %s --strip-components 1"
+                            tar-file-name
+                            out-file-path))
+        (.getPath (io/file data-dir out-file-name)))
+      (throw (Exception. (str "tar file does not exist: " (.getAbsolutePath (io/file working-dir tar-file-name))))))))
 
 ;;TODO Try babashka's pod protocol to see if it's faster than shelling out.
 (defn- process-request!
@@ -264,3 +278,14 @@
   (reset! *server-running? false)
   (sockets/stop-server!)
   (active-fire-watcher/stop!))
+
+;; TODO write spec for server
+;; Sample config
+#_{:software-dir               "/home/kcheung/work/code/gridfire"
+ :incoming-dir               "/home/kcheung/work/servers/chickadee/incoming"
+ :active-fire-dir            "/home/kcheung/work/servers/chickadee/incoming/active_fires"
+ :data-dir                   "/home/kcheung/work/servers/chickadee/data"
+ :override-config            "/home/kcheung/work/servers/chickadee/gridfire-base.edn"
+ :log-dir                    "/home/kcheung/work/servers/chickadee/log"
+ :suppression-white-list     "/home/kcheung/work/servers/chickadee/suppression-white-list.edn"
+ :also-simulate-suppression? true}
