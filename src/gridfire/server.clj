@@ -79,9 +79,9 @@
 (defn- add-weather-start-timestamp [config ignition-date-time]
   (assoc config :weather-start-timestamp (calc-weather-start-timestamp ignition-date-time)))
 
-(defn- add-suppression [config {:keys [suppression-dt suppression-curve-calibration-coefficient] :as _suppression-params}]
-  (assoc config :suppression {:suppression-dt                            suppression-dt
-                              :suppression-curve-calibration-coefficient suppression-curve-calibration-coefficient}))
+(defn- add-suppression [config {:keys [suppression-dt suppression-curve-sharpness] :as _suppression-params}]
+  (assoc config :suppression {:suppression-dt              suppression-dt
+                              :suppression-curve-sharpness suppression-curve-sharpness}))
 
 (defn- write-config! [output-file config]
   (log-str "Writing to config file: " output-file)

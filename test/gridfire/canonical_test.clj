@@ -272,9 +272,9 @@
 (deftest ^:suppression test-suppression-scenario
   (run-sim! (-> (first (gen-scenarios :suppression suppression-scenarios))
                 (assoc :output-layers {:directional-flame-length 72
-                                       :flame-length :final})
-                (assoc :suppression {:suppression-dt 300
-                                     :suppression-coefficient 2.0})
+                                       :flame-length             :final})
+                (assoc :suppression {:suppression-dt              300
+                                     :suppression-curve-sharpness 2.0})
                 (assoc :weather-start-timestamp #inst "1970-01-01T00-00:00")))
   (is (= 1 1)))
 

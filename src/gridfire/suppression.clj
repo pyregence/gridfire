@@ -319,10 +319,10 @@
 (defn- compute-fraction-contained-sc
   "Compute fraction contained using suppression curve algorithm"
   ^double
-  [^double max-runtime-fraction ^double suppression-curve-calibration-coefficient]
+  [^double max-runtime-fraction ^double suppression-curve-sharpness]
   (Math/pow (/ (* 2.0 max-runtime-fraction)
                (+ 1.0 (Math/pow max-runtime-fraction 2.0)))
-            suppression-curve-calibration-coefficient))
+            suppression-curve-sharpness))
 
 (defn suppress-burn-vectors
   [inputs
@@ -332,25 +332,25 @@
    burn-vectors
    ignited-cells-since-last-suppression
    previous-fraction-contained]
-  (let [max-runtime-fraction                      (double max-runtime-fraction)
-        suppression-curve-calibration-coefficient (get-in inputs [:suppression
-                                                                  :suppression-curve-calibration-coefficient])
-        previous-num-perimeter-cells              (long previous-num-perimeter-cells)
-        previous-suppressed-count                 (long previous-suppressed-count)
-        active-perimeter-cells                    (into #{}
-                                                        (map (juxt :i :j))
-                                                        burn-vectors)
-        fraction-contained                        (if suppression-curve-calibration-coefficient
-                                                    (compute-fraction-contained-sc max-runtime-fraction (double suppression-curve-calibration-coefficient))
-                                                    (compute-fraction-contained-sdi inputs
-                                                                                    ignited-cells-since-last-suppression
-                                                                                    previous-fraction-contained))
-        num-tracked-perimeter-cells               (+ (long (count active-perimeter-cells)) previous-suppressed-count)
-        num-fizzled-perimeter-cells               (max 0 (- previous-num-perimeter-cells num-tracked-perimeter-cells))
-        num-perimeter-cells                       (max previous-num-perimeter-cells num-tracked-perimeter-cells)
-        current-suppressed-count                  (+ previous-suppressed-count num-fizzled-perimeter-cells)
-        next-suppressed-count                     (long (* ^double fraction-contained num-perimeter-cells))
-        num-cells-to-suppress                     (- next-suppressed-count current-suppressed-count)]
+  (let [max-runtime-fraction         (double max-runtime-fraction)
+        suppression-curve-sharpness  (get-in inputs [:suppression
+                                                     :suppression-curve-sharpness])
+        previous-num-perimeter-cells (long previous-num-perimeter-cells)
+        previous-suppressed-count    (long previous-suppressed-count)
+        active-perimeter-cells       (into #{}
+                                           (map (juxt :i :j))
+                                           burn-vectors)
+        fraction-contained           (if suppression-curve-sharpness
+                                       (compute-fraction-contained-sc max-runtime-fraction (double suppression-curve-sharpness))
+                                       (compute-fraction-contained-sdi inputs
+                                                                       ignited-cells-since-last-suppression
+                                                                       previous-fraction-contained))
+        num-tracked-perimeter-cells  (+ (long (count active-perimeter-cells)) previous-suppressed-count)
+        num-fizzled-perimeter-cells  (max 0 (- previous-num-perimeter-cells num-tracked-perimeter-cells))
+        num-perimeter-cells          (max previous-num-perimeter-cells num-tracked-perimeter-cells)
+        current-suppressed-count     (+ previous-suppressed-count num-fizzled-perimeter-cells)
+        next-suppressed-count        (long (* ^double fraction-contained num-perimeter-cells))
+        num-cells-to-suppress        (- next-suppressed-count current-suppressed-count)]
     (if (> num-cells-to-suppress 0)
       (let [centroid-cell          (compute-centroid-cell active-perimeter-cells)
             angular-slice-size     5.0

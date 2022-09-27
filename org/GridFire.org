@@ -3352,10 +3352,10 @@ $\Delta{C} / \Delta{t}$ is penalized or amplified due to suppression-difficulty.
 (defn- compute-fraction-contained-sc
   "Compute fraction contained using suppression curve algorithm"
   ^double
-  [^double max-runtime-fraction ^double suppression-curve-calibration-coefficient]
+  [^double max-runtime-fraction ^double suppression-curve-sharpness]
   (Math/pow (/ (* 2.0 max-runtime-fraction)
                (+ 1.0 (Math/pow max-runtime-fraction 2.0)))
-            suppression-curve-calibration-coefficient))
+            suppression-curve-sharpness))
 
 (defn suppress-burn-vectors
   [inputs
@@ -3366,15 +3366,15 @@ $\Delta{C} / \Delta{t}$ is penalized or amplified due to suppression-difficulty.
    ignited-cells-since-last-suppression
    previous-fraction-contained]
   (let [max-runtime-fraction                      (double max-runtime-fraction)
-        suppression-curve-calibration-coefficient (get-in inputs [:suppression
-                                                                  :suppression-curve-calibration-coefficient])
+        suppression-curve-sharpness (get-in inputs [:suppression
+                                                                  :suppression-curve-sharpness])
         previous-num-perimeter-cells              (long previous-num-perimeter-cells)
         previous-suppressed-count                 (long previous-suppressed-count)
         active-perimeter-cells                    (into #{}
                                                         (map (juxt :i :j))
                                                         burn-vectors)
-        fraction-contained                        (if suppression-curve-calibration-coefficient
-                                                    (compute-fraction-contained-sc max-runtime-fraction (double suppression-curve-calibration-coefficient))
+        fraction-contained                        (if suppression-curve-sharpness
+                                                    (compute-fraction-contained-sc max-runtime-fraction (double suppression-curve-sharpness))
                                                     (compute-fraction-contained-sdi inputs
                                                                                     ignited-cells-since-last-suppression
                                                                                     previous-fraction-contained))
