@@ -1,6 +1,6 @@
 (ns gridfire.utils.files
   "File-system utilities for GridFire."
-  (:require [clojure.edn :as edn]
+  (:require [clojure.edn     :as edn]
             [clojure.java.io :as io]))
 
 (defn- build-absolute-path
