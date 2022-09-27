@@ -2958,11 +2958,14 @@ California and Oregon respectively.
 
 *** Suppression Difficulty Index (SDI)
 
-The SDI approach computes change in fraction contained \Delta C during
-time interval \Delta t (in days) between suppression events.
+The SDI approach computes change in fraction contained $\Delta{C}$ during
+time interval $\Delta{t}$ (in days) between suppression events.
 
 \begin{align*}
-\frac{\Delta{C}}{\Delta{t}} = \chi \times f \left( 1 - \frac{\ln(A_d / A_\chi)}{\ln(A_{d0} / A_\chi)}, B \times \text{SDI}_{\Delta{t}}} \right)
+\frac{\Delta{C}}{\Delta{t}} = \chi \times f \left( 1 - \frac{\ln(A_d / A_\chi)}{\ln(A_{d0} / A_\chi)}, B \times \text{SDI}_{\Delta{t}} \right)
+\end{align*}
+
+\begin{align*}
 f(U, V) :=
 \begin{cases}
 U \exp(-V),& U \geq 0\\
@@ -2973,63 +2976,60 @@ U \exp(V),& U < 0
 Where symbols are defined as follow:
 
 
-- A_d (ac/day): Areal growth on a daily basis.
+- $A_d$: (ac/day) Areal growth on a daily basis.
 
-- A_\chi: (ac/day) *reference areal-growth-rate* parameter,
+- $A_\chi$: (ac/day) *reference areal-growth-rate* parameter,
   (a.k.a *sdi-reference-areal-growth-rate* in source code)
   currently hardcoded to 1 ac/day.
-  The areal-growth-rate A_d at which \frac{\Delta{C}}{\Delta{t}} = C \times \chi
+  The areal-growth-rate $A_d$ at which $\frac{\Delta{C}}{\Delta{t}} = C \times \chi$
   in 0-SDI settings.
 
-- \chi: (%/day) "Chi" (a.k.a *:sdi-reference-suppression-speed*
+- $\chi$: (%/day) "Chi" (a.k.a *:sdi-reference-suppression-speed*
   in the config file) a positive number.
   Higher means faster evolution of the fraction contained.
-  \chi^{-1} is a characteristic time of containment-variation.
+  $\chi^{-1}$ is a characteristic time of containment-variation.
   This calibration parameter is
   similar to the suppression curve calibration coefficient in that it
   varies regionally based on available resources.
-  In a reference situation where A_d = A_\chi and SDI = 0,
+  In a reference situation where $A_d = A_\chi$ and SDI = 0,
   a value of 100 means the fire can be 100% contained in 24 hours,
   and a value of 800 means the fire can be 100% contained in 3 hours.
 
-- A_{d0}: (ac/day, a.k.a *:sdi-containment-overwhelming-area-growth-rate*)
-  *containment-overwhelming areal-growth-rate* parameter.
-  For A_d > A_{d0}, the variation in containment \Delta C / \Delta t
+- $A_{d0}$: (ac/day, a.k.a *:sdi-containment-overwhelming-area-growth-rate*)
+  *containment-overwhelming areal growth rate* parameter.
+  For $A_d > A_{d0}$, the variation in containment $\Delta{C}$ / $\Delta{t}$
   becomes negative.
 
-- B: (\text{SDI}^{-1}, a.k.a *:sdi-sensitivity-to-difficulty*)
+- $B$: ($\text{SDI}^{-1}$, a.k.a *:sdi-sensitivity-to-difficulty*)
   *sensitivity to difficulty* parameter.
   Higher means that suppression behavior is more sensitive to changes in SDI.
-  Changing the terrain's SDI by B ^{-1} causes an e-folding of the
-  containment-variation \Delta C / \Delta t, all else being equal.
+  Changing the terrain's SDI by $B^{-1}$ causes an e-folding of the
+  containment-variation $\Delta{C}$ / $\Delta{t}$, all else being equal.
 
-\text{SDI}_{\Delta t} is calculated as the mean suppression
-difficulty index during interval (\Delta t).
+$\text{SDI}_{\Delta{t}}$  is calculated as the mean suppression
+difficulty index during interval $\Delta{t}$.
 
 \begin{align*}
-\overline{SDI_{\Delta t}} = \frac{1}{n}*\sum_{i=1}^{n}SDI_i
+\overline{SDI_{\Delta{t}}} = \frac{1}{n}*\sum_{i=1}^{n}SDI_i
 \end{align*}
 
 Where symbols are defined as follow:
 
-- n: Number of burned pixels during time interval \Delta t.
+- $n$: Number of burned pixels during time interval $\Delta{t}$.
 
-- i: Pixel index.
+- $i$: Pixel index.
 
-- SDI_i: Suppression difficulty index of pixel i.
+- $SDI_i$: Suppression difficulty index of pixel i.
   - The value of this will come from a SDI raster layer.
 
-The \left( 1 - \frac{\ln(A_d / A_\chi)}{\ln(A_{d0} / A_\chi)} \right) factor accounts for
+The $\left( 1 - \frac{\ln(A_d / A_\chi)}{\ln(A_{d0} / A_\chi)} \right)$ factor accounts for
 the effect of fire-growth-rate on containment: fast-growing fires are harder to contain,
-and very fast-growing fires (A_d > A_{d0}) make containment a losing battle.
+and very fast-growing fires ($A_d > A_{d0}$) make containment a losing battle.
 
-The \exp(\pm B \times \text{SDI}_{\Delta{t}}}) factor 
+The $\exp(\pm B \times \text{SDI}_{\Delta{t}})$ factor 
 captures the effect of the terrain's suppression-difficulty
 on containment: it is a factor by which the containement-variation-speed
-\Delta C / \Delta is penalized or amplified due to suppression-difficulty.
-
-
-
+$\Delta{C}$ / $\Delta{t}$ is penalized or amplified due to suppression-difficulty.
 
 #+name: suppression
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/suppression.clj :padline no :no-expand :comments link
