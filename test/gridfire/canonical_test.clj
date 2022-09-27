@@ -68,7 +68,7 @@
                                           :foliar-moisture              [0.0]
                                           :canopy-base-height           [:zero-raster]
                                           :crown-bulk-density           [:zero-raster]
-                                          :suppression-difficulty-index [:zero-raster]})
+                                          :suppression-difficulty-index [:ones-raster]})
 
 ;;; Helpers
 
@@ -300,7 +300,7 @@
                            #(merge % {:suppression-dt                                300
                                       :sdi-sensitivity-to-difficulty                 2.0
                                       :sdi-containment-overwhelming-area-growth-rate 50000
-                                      :sdi-reference-suppression-speed               300}))
+                                      :sdi-reference-suppression-speed               800}))
                 (assoc :weather-start-timestamp #inst "1970-01-01T00-00:00"))))
 
 (comment

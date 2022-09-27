@@ -36,5 +36,4 @@
   (let [config (-> gridfire-edn-path
                    slurp
                    edn/read-string)]
-    (println (s/explain ::spec/config config))
     (is (s/valid? ::spec/config config))))
