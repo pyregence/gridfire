@@ -2978,13 +2978,12 @@ Where symbols are defined as follow:
 
 - $A_d$: (ac/day) Areal growth on a daily basis.
 
-- $A_\chi$: (ac/day) *reference areal-growth-rate* parameter,
-  (a.k.a *sdi-reference-areal-growth-rate* in source code)
-  currently hardcoded to 1 ac/day.
-  The areal-growth-rate $A_d$ at which $\frac{\Delta{C}}{\Delta{t}} = C \times \chi$
+- $A_\chi$: (ac/day, a.k.a *sdi-reference-areal-growth-rate* in source code)
+  *reference areal-growth-rate* parameter, currently hardcoded to 1 ac/day. The
+  areal-growth-rate $A_d$ at which $\frac{\Delta{C}}{\Delta{t}} = C \times \chi$
   in 0-SDI settings.
 
-- $\chi$: (%/day) "Chi" (a.k.a *:sdi-reference-suppression-speed*
+- $\chi$: (%/day) "Chi" (a.k.a, *:sdi-reference-suppression-speed*
   in the config file) a positive number.
   Higher means faster evolution of the fraction contained.
   $\chi^{-1}$ is a characteristic time of containment-variation.
@@ -2995,22 +2994,22 @@ Where symbols are defined as follow:
   a value of 100 means the fire can be 100% contained in 24 hours,
   and a value of 800 means the fire can be 100% contained in 3 hours.
 
-- $A_{d0}$: (ac/day, a.k.a *:sdi-containment-overwhelming-area-growth-rate*)
-  *containment-overwhelming areal growth rate* parameter.
-  For $A_d > A_{d0}$, the variation in containment $\Delta{C}$ / $\Delta{t}$
-  becomes negative.
+- $A_{d0}$: (ac/day, a.k.a *:sdi-containment-overwhelming-area-growth-rate* in
+  config file) *containment-overwhelming areal growth rate* parameter. For $A_d >
+  A_{d0}$, the variation in containment $\Delta{C} / \Delta{t}$ becomes
+  negative.
 
-- $B$: ($\text{SDI}^{-1}$, a.k.a *:sdi-sensitivity-to-difficulty*)
-  *sensitivity to difficulty* parameter.
-  Higher means that suppression behavior is more sensitive to changes in SDI.
-  Changing the terrain's SDI by $B^{-1}$ causes an e-folding of the
-  containment-variation $\Delta{C}$ / $\Delta{t}$, all else being equal.
+- $B$: ($\text{SDI}^{-1}$, a.k.a *:sdi-sensitivity-to-difficulty* in config file)
+  *sensitivity to difficulty* parameter. Higher means that suppression behavior is
+  more sensitive to changes in SDI. Changing the terrain's SDI by $B^{-1}$
+  causes an e-folding of the containment-variation $\Delta{C} / \Delta{t}$,
+  all else being equal.
 
 $\text{SDI}_{\Delta{t}}$  is calculated as the mean suppression
 difficulty index during interval $\Delta{t}$.
 
 \begin{align*}
-\overline{SDI_{\Delta{t}}} = \frac{1}{n}*\sum_{i=1}^{n}SDI_i
+\overline{SDI_{\Delta{t}}} = \frac{1}{n}\times\sum_{i=1}^{n}SDI_i
 \end{align*}
 
 Where symbols are defined as follow:
@@ -3026,10 +3025,10 @@ The $\left( 1 - \frac{\ln(A_d / A_\chi)}{\ln(A_{d0} / A_\chi)} \right)$ factor a
 the effect of fire-growth-rate on containment: fast-growing fires are harder to contain,
 and very fast-growing fires ($A_d > A_{d0}$) make containment a losing battle.
 
-The $\exp(\pm B \times \text{SDI}_{\Delta{t}})$ factor 
+The $\exp(\pm B \times \text{SDI}_{\Delta{t}})$ factor
 captures the effect of the terrain's suppression-difficulty
 on containment: it is a factor by which the containement-variation-speed
-$\Delta{C}$ / $\Delta{t}$ is penalized or amplified due to suppression-difficulty.
+$\Delta{C} / \Delta{t}$ is penalized or amplified due to suppression-difficulty.
 
 #+name: suppression
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/suppression.clj :padline no :no-expand :comments link
