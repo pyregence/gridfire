@@ -4,6 +4,7 @@
             [clojure.java.shell   :as sh]
             [clojure.spec.alpha   :as s]
             [clojure.test         :refer [deftest is use-fixtures]]
+            [gridfire.utils.test  :refer [with-temp-directories]]
             [gridfire.spec.config :as spec]))
 
 (def gridfire-edn-path "test/gridfire/resources/config_test/gridfire.edn")
@@ -22,7 +23,9 @@
   (test-fn)
   (delete-gridfire-edn))
 
-(use-fixtures :once with-clean-gridfire-edn)
+(use-fixtures :once
+  with-clean-gridfire-edn
+  (with-temp-directories ["test/gridfire/resources/config_test/outputs"]))
 
 ;;-----------------------------------------------------------------------------
 ;; Tests
@@ -33,4 +36,5 @@
   (let [config (-> gridfire-edn-path
                    slurp
                    edn/read-string)]
+    (println (s/explain ::spec/config config))
     (is (s/valid? ::spec/config config))))
