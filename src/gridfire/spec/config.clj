@@ -264,6 +264,15 @@
         (and (nil? ignition-start-timestamp) ignition-csv)
         (every? nil? [ignition-start-timestamp ignition-csv]))))
 
+
+;;=============================================================================
+;; Pyrome Specific Calibration
+;;=============================================================================
+
+(s/def ::pyrome-specific-calibration-csv ::common/readable-file)
+
+(s/def ::pyrome-specific-spread-rate-adjustment-csv ::common/readable-file)
+
 ;;=============================================================================
 ;; Config Map
 ;;=============================================================================

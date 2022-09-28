@@ -308,3 +308,46 @@
     (-> inputs
         (assoc :ignition-start-timestamps ignition-start-timestamps)
         (dissoc :ignition-start-timestamp))))
+
+(defn convert-csv-data-to-maps [csv-data]
+  (map zipmap
+       (->> (first csv-data)
+            (map #(try
+                    (Integer/parseInt %)
+                    (catch Exception _
+                      (keyword %))))
+            repeat)
+       (map (fn [line]
+              (map #(Double/parseDouble %) line))
+            (rest csv-data))))
+
+(defn create-pyrome-lookup [data]
+  (reduce (fn [acc data]
+            (assoc acc
+                   (int (:pyrome data))
+                   data))
+          {}
+          data))
+
+(defn add-pyrome-specific-calibration-constants
+  "adds a map of pyrome number -> map of calibration constants"
+  [{:keys [pyrome-specific-calibration-csv] :as inputs}]
+  (if pyrome-specific-calibration-csv
+    (assoc inputs :pyrome->constants (-> pyrome-specific-calibration-csv
+                                         io/reader
+                                         csv/read-csv
+                                         convert-csv-data-to-maps
+                                         create-pyrome-lookup))
+    inputs))
+
+(defn add-pyrome-specific-spread-rate-adjustment
+  "adds a map of pyrome number -> map of fuel-model specific spread rate adjustment multiplier"
+  [{:keys [pyrome-specific-spread-rate-adjustment-csv] :as inputs}]
+  (if pyrome-specific-spread-rate-adjustment-csv
+    (assoc inputs :pyrome->spread-rate-adjustment
+           (-> pyrome-specific-spread-rate-adjustment-csv
+               io/reader
+               csv/read-csv
+               convert-csv-data-to-maps
+               create-pyrome-lookup))
+    inputs))
