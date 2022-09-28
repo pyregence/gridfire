@@ -309,7 +309,7 @@
         (assoc :ignition-start-timestamps ignition-start-timestamps)
         (dissoc :ignition-start-timestamp))))
 
-(defn convert-csv-data-to-maps [csv-data]
+(defn- convert-csv-data-to-maps [csv-data]
   (map zipmap
        (->> (first csv-data)
             (map #(try
@@ -321,7 +321,7 @@
               (map #(Double/parseDouble %) line))
             (rest csv-data))))
 
-(defn create-pyrome-lookup [data]
+(defn- create-pyrome-lookup [data]
   (reduce (fn [acc data]
             (assoc acc
                    (int (:pyrome data))
