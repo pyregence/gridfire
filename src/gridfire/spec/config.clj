@@ -170,7 +170,7 @@
   (s/and
    (s/keys :req-un [::suppression/suppression-dt]
            :opt-un [::suppression/suppression-curve-sharpness
-                    ::suppression/suppression-difficulty-index-layer
+                    ::suppression/sdi-layer
                     ::suppression/sdi-sensitivity-to-difficulty
                     ::suppression/sdi-containment-overwhelming-area-growth-rate
                     ::suppression/sdi-reference-suppression-speed])

@@ -228,7 +228,7 @@
                                    :canopy-height      (->ch canopy-base-height)
                                    :crown-bulk-density (->tif crown-bulk-density)}})
               (when suppression-difficulty-index
-                {:suppression {:suppression-difficulty-index-layer (->tif suppression-difficulty-index)}})))
+                {:suppression {:sdi-layer (->tif suppression-difficulty-index)}})))
 
 (defn- gen-scenarios [scenario-type scenarios]
   (deep-flatten

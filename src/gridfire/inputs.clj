@@ -36,7 +36,7 @@
           fuel-moisture-dead-100hr-layer      (future (fetch/fuel-moisture-layer config :dead :100hr))
           fuel-moisture-live-herbaceous-layer (future (fetch/fuel-moisture-layer config :live :herbaceous))
           fuel-moisture-live-woody-layer      (future (fetch/fuel-moisture-layer config :live :woody))
-          suppression-difficulty-layer        (future (fetch/suppression-difficulty-layer config))]
+          sdi-layer                           (future (fetch/sdi-layer config))]
       (assoc config
              :envelope                             (fetch/layer->envelope @fuel-model-layer (:srid config))
              :aspect-matrix                        (:matrix @aspect-layer)
@@ -58,7 +58,7 @@
              :fuel-moisture-dead-100hr-matrix      (:matrix @fuel-moisture-dead-100hr-layer)
              :fuel-moisture-live-herbaceous-matrix (:matrix @fuel-moisture-live-herbaceous-layer)
              :fuel-moisture-live-woody-matrix      (:matrix @fuel-moisture-live-woody-layer)
-             :suppression-difficulty-index-matrix  (:matrix @suppression-difficulty-layer)))))
+             :suppression-difficulty-index-matrix  (:matrix @sdi-layer)))))
 
 (defn- multi-band? [matrix]
   (> ^long (:n-dims (t/tensor->dimensions matrix)) 2))

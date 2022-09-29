@@ -125,9 +125,9 @@
 ;; Suppression Difficulty Index Layer
 ;;-----------------------------------------------------------------------------
 
-(defn suppression-difficulty-layer
+(defn sdi-layer
   [{:keys [db-spec suppression]}]
-  (when-let [{:keys [type source units multiplier] :as _spec} (:suppression-difficulty-index-layer suppression)]
+  (when-let [{:keys [type source units multiplier] :as _spec} (:sdi-layer suppression)]
     (let [convert-fn (convert/get-units-converter :suppression
                                                   units
                                                   (or multiplier 1.0))]

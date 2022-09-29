@@ -149,13 +149,12 @@
   ;; before making it fast.
   ;; TODO enhance performance or rethink the overall suppression algorithm.
   (letfn [(n-cells-in-slices ^long [slices]
-            (transduce
-             (map (fn n-cells-in-slice [slice]
-                    (let [[_ num-cells] (get angular-slice->avg-dsr+num-cells slice)]
-                      num-cells)))
-             (completing +)
-             0
-             slices))]
+            (transduce (map (fn n-cells-in-slice [slice]
+                              (let [[_ num-cells] (get angular-slice->avg-dsr+num-cells slice)]
+                                num-cells)))
+                       (completing +)
+                       0
+                       slices))]
     (let [angular-slices+avg-dsr->num-cells (compute-contiguous-slices num-cells-to-suppress angular-slice->avg-dsr+num-cells)]
       (loop [remaining-segments angular-slices+avg-dsr->num-cells
              n-cells-needed     num-cells-to-suppress
@@ -168,19 +167,17 @@
             (if (<= n-would-be-suppressed n-cells-needed)
               (let [new-n-cells-needed     (- n-cells-needed n-would-be-suppressed)
                     new-slices-to-suppress (into slices-to-suppress yet-unsuppressed-slices)]
-                (recur
-                 (rest remaining-segments)
-                 new-n-cells-needed
-                 new-slices-to-suppress))
+                (recur (rest remaining-segments)
+                       new-n-cells-needed
+                       new-slices-to-suppress))
               ;; this segment has more than we need, compute subsegment:
               (let [[sub-segment-slices _] (compute-sub-segment angular-slice->avg-dsr+num-cells slices n-cells-needed)
                     n-more-suppressed      (long (n-cells-in-slices (remove slices-to-suppress sub-segment-slices)))
                     new-n-cells-needed     (- n-cells-needed n-more-suppressed)
                     new-slices-to-suppress (into slices-to-suppress sub-segment-slices)]
-                (recur
-                 (rest remaining-segments)
-                 new-n-cells-needed
-                 new-slices-to-suppress))))
+                (recur (rest remaining-segments)
+                       new-n-cells-needed
+                       new-slices-to-suppress))))
           ;; no more segments needed or available, so we return:
           (let [n-suppressed (- num-cells-to-suppress n-cells-needed)]
             [slices-to-suppress n-suppressed]))))))
@@ -261,14 +258,14 @@
   [^double sdi-sensitivity-to-difficulty ^double change-in-fraction-contained-sign-multiplier ^double mean-sdi]
   (double
    (if (>= change-in-fraction-contained-sign-multiplier 0.0)
-     (Math/exp (* -1 sdi-sensitivity-to-difficulty mean-sdi))
+     (Math/exp (* -1.0 sdi-sensitivity-to-difficulty mean-sdi))
      (Math/exp (* sdi-sensitivity-to-difficulty mean-sdi)))))
 
 (defn- compute-mean-sdi ^double
-  [get-suppression-difficutly-index ignited-cells]
+  [get-suppression-difficulty-index ignited-cells]
   (/ (double
-      (reduce (fn [^double acc [i j]]
-                (+ acc (double (get-suppression-difficutly-index i j))))
+      (reduce (fn ^double [^double acc [i j]]
+                (+ acc (double (get-suppression-difficulty-index i j))))
               0.0
               ignited-cells))
      (count ignited-cells)))
@@ -278,7 +275,7 @@
   (/ (cells->acres cell-size (count ignited-cells-since-last-suppression))
      (min->day suppression-dt)))
 
-(def ^:constant sdi-reference-areal-growth-rate
+(def ^:const sdi-reference-areal-growth-rate
   "[ac/day] a shape parameter for the suppression curve, the area-growth-rate A_d at which ΔC/Δt=χ in 0-SDI settings,
   in which χ is the :sdi-reference-suppression-speed parameter."
   1.0)
@@ -293,12 +290,12 @@
                      sdi-reference-areal-growth-rate)))))
 
 (defn- compute-fraction-contained-sdi
-  "Compute the updated fraction-contained using suppression difficulty index algorithm"
+  "Compute the updated fraction contained using suppression difficulty index algorithm"
   [inputs ignited-cells-since-last-suppression ^double previous-fraction-contained]
-  (let [cell-size                                     (:cell-size inputs)
+  (let [cell-size                                     (double (:cell-size inputs))
         suppression                                   (:suppression inputs)
         get-suppression-difficulty-index              (:get-suppression-difficulty-index inputs)
-        suppression-dt                                (:suppression-dt suppression)
+        suppression-dt                                (double (:suppression-dt suppression))
         sdi-containment-overwhelming-area-growth-rate (double (:sdi-containment-overwhelming-area-growth-rate suppression))
         sdi-sensitivity-to-difficulty                 (double (:sdi-sensitivity-to-difficulty suppression))
         sdi-reference-suppression-speed               (double (:sdi-reference-suppression-speed suppression))
@@ -341,7 +338,8 @@
                                            (map (juxt :i :j))
                                            burn-vectors)
         fraction-contained           (if suppression-curve-sharpness
-                                       (compute-fraction-contained-sc max-runtime-fraction (double suppression-curve-sharpness))
+                                       (compute-fraction-contained-sc max-runtime-fraction
+                                                                      (double suppression-curve-sharpness))
                                        (compute-fraction-contained-sdi inputs
                                                                        ignited-cells-since-last-suppression
                                                                        previous-fraction-contained))

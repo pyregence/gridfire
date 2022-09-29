@@ -6,9 +6,9 @@
 
 (set! *unchecked-math* :warn-on-boxed)
 
-(def ^:constant square-feet-per-acre 43560.0)
+(def ^:const square-feet-per-acre 43560.0)
 
-(def ^:constant days-per-minute 0.000694444)
+(def ^:const days-per-minute 0.000694444)
 
 (defn F->K
   "Convert fahrenheit to kelvin."
@@ -221,7 +221,9 @@
          (.parse in-format)
          (.format out-format))))
 
-(defn cells->acres ^double
+(defn cells->acres
+  "Converts number of cells to acres."
+  ^double
   [^double cell-size ^long num-cells]
   (let [acres-per-cell (/ (* cell-size cell-size) square-feet-per-acre)]
     (* acres-per-cell num-cells)))
