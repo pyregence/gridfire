@@ -11,7 +11,31 @@
             [tech.v3.datatype :as d]
             [tech.v3.datatype.functional :as dfn])
   (:import (java.nio.file Files)
-           (java.nio.file.attribute FileAttribute)))
+           (java.nio.file.attribute FileAttribute)
+           (java.io File)
+           (java.time ZonedDateTime)
+           (java.time.format DateTimeFormatter)
+           (java.util Date)))
+
+;;  wget ftps://vwaeselynck:MyElidedPassword@ftp.sig-gis.com/kcheung/*.gz
+
+;;sudo apt install openjdk-17-jdk
+;;sudo apt install rlwrap
+;;curl -O https://download.clojure.org/install/linux-install-1.11.1.1165.sh
+;;chmod +x linux-install-1.11.1.1165.sh
+;;sudo ./linux-install-1.11.1.1165.sh
+
+;;vwaeselynck@iiwi:~/gridfire-scripts/lab$ nohup clj -M:nREPL -m nrepl.cmdline --port 8888 >> ../../repl-out.txt 2>&1 &
+
+;;vwaeselynck@iiwi:~$ mkdir gridfire.git
+;;vwaeselynck@iiwi:~$ cd gridfire.git/
+;;vwaeselynck@iiwi:~/gridfire.git$ git init --bare
+;;$ git push sigvm --all
+;;vwaeselynck@iiwi:~$ git clone gridfire.git/
+;;Cloning into 'gridfire'...
+;;vwaeselynck@iiwi:~/gridfire$ nohup clj -M:nREPL:mydev:gridfire-my-dev -m nrepl.cmdline --port 8888 >> ../repl-out.txt 2>&1 &
+;;vwaeselynck@iiwi:~$ cd gridfire
+;;vwaeselynck@iiwi:~/gridfire$ git checkout vwaeselynck-330-gridfire-historical-fires
 
 ;; FIXME choose from-snapshot to-snapshot pairs from dir
 ;; FIXME compute difference metrics from results.
@@ -19,7 +43,7 @@
 ;; - Expected: active_fire_polygon_posnegbuff
 
 ;; ------------------------------------------------------------------------------
-;; File utilities
+;; File and CLI utilities
 
 ;; FIXME move those to generic ns?
 (defn sh-safe
@@ -33,6 +57,10 @@
                  {:sh-args (vec args)}
                  ret))))
       ret)))
+
+(defn file-name
+  [^File file]
+  (.getName file))
 
 (defn file-abs-path
   ^String [f]
@@ -81,30 +109,32 @@
    archive-entries))
 
 ;; ------------------------------------------------------------------------------
-;; Comparing observed and simulated burn areas
+;; Extracting PyreCast snapshots
 
-(defn config-max-runtime-until-stop-inst
-  [inputs stop-inst]
-  (assoc inputs :max-runtime (/
-                              (-
-                               (inst-ms stop-inst)
-                               (->> [:ignition-start-timestamp
-                                     :weather-start-timestamp]
-                                    (keep #(get inputs %))
-                                    (map inst-ms)
-                                    (apply min)))
-                              (* 1e3 60))))
+(defn list-fire-snapshots-from-dir
+  [pyrecast-snapshots-dir]
+  (let [decks-dir (ensure-file pyrecast-snapshots-dir)]
+    (->> (file-seq decks-dir)
+         (filter #(-> (file-name %) (str/ends-with? ".tar.gz")))
+         (map
+          (fn [^File input-deck-targz]
+            (let [file-name  (.getName input-deck-targz)
+                  name-cpnts (re-matches #"(.+)_(\d{8})_(\d{6})_(\d{3})\.tar\.gz" file-name)]
+              (if (nil? name-cpnts)
+                (throw (ex-info (format "Failed to parse PyreCast snapshot filename: %s" (pr-str file-name))
+                                {:pyrcst_snapshot_archive_name file-name}))
+                (let [[_ fire-name fire-date-str fire-time-str subnum] name-cpnts]
+                  {:pyrcst_snapshot_archive_name file-name
+                   :pyrcst_fire_name             fire-name
+                   :pyrcst_fire_subnumber        (Long/parseLong subnum 10)
+                   :pyrcst_snapshot_inst         (-> (str fire-date-str " " fire-time-str " Z")
+                                                     (ZonedDateTime/parse (DateTimeFormatter/ofPattern "yyyyMMdd HHmmss z"))
+                                                     (.toInstant)
+                                                     (Date/from))
+                   :pyrcst_snapshot_archive      input-deck-targz})))))
+         (sort-by (juxt :pyrcst_fire_name :pyrcst_fire_subnumber :pyrcst_snapshot_inst))
+         (vec))))
 
-(defn run-fire-spread-until
-  [config stop-inst]
-  (some-> config
-          (config-max-runtime-until-stop-inst stop-inst)
-          (gridfire.core/load-inputs!)
-          (as-> inputs
-                {::simulations/inputs inputs
-                 ::simulations/result
-                 (-> (simulations/prepare-simulation-inputs 0 inputs)
-                     (run-fire-spread))})))
 
 (defn sanitize-pyrecast-snapshot-entries
   "Filters, renames and rewrites the TAR entries for a PyreCast snapshot
@@ -133,6 +163,65 @@
                      (str/replace (str "\"" config-path-prefix snapshot-name "/") "#gridfire.utils.files/from-this-file \"")
                      (.getBytes "UTF-8"))]
                 entry-pair)))))))
+
+(defn interesting-file-key
+  [entry-name]
+  (cond
+    (str/ends-with? entry-name "/gridfire.edn")
+    ::gridfire-config-file
+
+    (str/ends-with? entry-name "/active_fire_polygon_utm_posnegbuff.shp")
+    ::active_fire_polygon_utm_posnegbuff-shp
+
+    (str/ends-with? entry-name "/fuels_and_topography/already_burned.tif")
+    ::already_burned-tif))
+
+
+(defn extract-pyrecast-snapshots!
+  [pyrecast-snapshots-dir]
+  (let [tmp-dir (.toFile (Files/createTempDirectory (-> (io/file "../tmp-gridfire-replay") (doto (.mkdirs)) (.toPath) (.toAbsolutePath))
+                                                    "extracted-snapshots"
+                                                    (into-array FileAttribute [])))]
+    (->> (list-fire-snapshots-from-dir pyrecast-snapshots-dir)
+         (pmap
+          (fn extract-snapshot! [snap]
+            (merge
+             snap
+             {::useful-files
+              (with-open [tais (utar/targz-input-stream (:pyrcst_snapshot_archive snap))]
+                (->> (utar/tar-archive-entries tais)
+                     (sanitize-pyrecast-snapshot-entries)
+                     (archive-entries->files! tmp-dir interesting-file-key)))})))
+         (vec))))
+
+
+;; ------------------------------------------------------------------------------
+;; Comparing observed and simulated burn areas
+
+(defn config-max-runtime-until-stop-inst
+  [inputs stop-inst]
+  (assoc inputs :max-runtime (/
+                              (-
+                               (inst-ms stop-inst)
+                               (->> [:ignition-start-timestamp
+                                     :weather-start-timestamp]
+                                    (keep #(get inputs %))
+                                    (map inst-ms)
+                                    (apply min)))
+                              (* 1e3 60))))
+
+(defn run-fire-spread-until
+  [config stop-inst]
+  (some-> config
+          (config-max-runtime-until-stop-inst stop-inst)
+          (gridfire.core/load-inputs!)
+          (as-> inputs
+                {::simulations/inputs inputs
+                 ::simulations/result
+                 (-> (simulations/prepare-simulation-inputs 0 inputs)
+                     (run-fire-spread))})))
+
+
 
 (defn observed-burned-area-matrix
   "Computes the observed burned area between 2 PyreCast snapshots (from t0 to t1),
@@ -190,6 +279,99 @@
        (:burn-time-matrix sim-result)
        minutes-until-stop-inst)
       :double))))
+
+
+(defn replay-snapshot
+  [t0-snap t1-snap]
+  (let [stop-inst            (:pyrcst_snapshot_inst t1-snap)
+        observed-burn-area   (observed-burned-area-matrix
+                              ;; FIXME cleanup
+                              (.toFile (Files/createTempDirectory (-> (io/file "../tmp-gridfire-replay") (doto (.mkdirs)) (.toPath) (.toAbsolutePath))
+                                                                  "scratch_observed-burned-area-matrix"
+                                                                  (into-array FileAttribute [])))
+                              (-> t0-snap ::useful-files ::already_burned-tif)
+                              (-> t1-snap ::useful-files ::active_fire_polygon_utm_posnegbuff-shp))
+        observed-burn-matrix (:matrix observed-burn-area)
+        config               (-> (gridfire.core/load-config! (-> t0-snap
+                                                                 ::useful-files
+                                                                 ::gridfire-config-file
+                                                                 (ensure-file)
+                                                                 (.getCanonicalPath)))
+                                 (into (sorted-map))
+                                 (dissoc :perturbations)
+                                 ; FIXME shall we run them all? Probably want more control over that.
+                                 (merge {:simulations 1}))
+        sim-output           (run-fire-spread-until config stop-inst)
+        sim-result  (::simulations/result sim-output)]
+    (if (nil? sim-result)
+      {:observed-burn-n-cells (dfn/sum observed-burn-matrix)
+       :sim-inter-obs-n-cells 0
+       :sim-minus-obs-n-cells 0
+       :obs-minus-sim-n-cells (dfn/sum observed-burn-matrix)
+       ::comments             ["run-fire-spread returned nil, which happens when it fails to get perimeter cells with burnable neighbours."]}
+      (let [sim-burn-matrix (simulated-burned-area-matrix
+                             stop-inst
+                             (::simulations/inputs sim-output)
+                             sim-result)]
+        {:observed-burn-n-cells (dfn/sum observed-burn-matrix)
+         :sim-inter-obs-n-cells (dfn/sum (dfn/* sim-burn-matrix observed-burn-matrix))
+         :sim-minus-obs-n-cells (dfn/sum (dfn/* sim-burn-matrix (dfn/- 1.0 observed-burn-matrix)))
+         :obs-minus-sim-n-cells (dfn/sum (dfn/* observed-burn-matrix (dfn/- 1.0 sim-burn-matrix)))}))))
+
+(comment
+
+  (def snaps (extract-pyrecast-snapshots! "../pyrecast-snapshots"))
+
+  (->> snaps (map ::useful-files) (mapcat keys) frequencies)
+  => #:gridfire.lab.replay{:already_burned-tif 170,         ;; FIXME darn, sometimes it's missing
+                           :active_fire_polygon_utm_posnegbuff-shp 172,
+                           :gridfire-config-file 172}
+
+  (def replay-results
+    (-> snaps
+        (->>
+          (sort-by (juxt :pyrcst_fire_name :pyrcst_fire_subnumber :pyrcst_snapshot_inst))
+          (partition-all 2 1)
+          (filter
+           (fn [[t0-snap t1-snap]]
+             (and
+              (= (:pyrcst_fire_name t0-snap) (:pyrcst_fire_name t1-snap))
+              (= (:pyrcst_fire_subnumber t0-snap) (:pyrcst_fire_subnumber t1-snap))
+              (-> t0-snap ::useful-files ::already_burned-tif (some?))
+              (-> t0-snap ::useful-files ::gridfire-config-file (some?))
+              (-> t1-snap ::useful-files ::active_fire_polygon_utm_posnegbuff-shp (some?))
+              (let [time-lapse-ms (- (-> t1-snap :pyrcst_snapshot_inst (inst-ms))
+                                     (-> t0-snap :pyrcst_snapshot_inst (inst-ms)))
+                    ms-3hr        (* 1000 60 60)
+                    ms-3days      (* 1000 60 60 24 3)]
+                (<= ms-3hr time-lapse-ms ms-3days))))))
+        (doto (-> (count) (println "comparable t0->t1 pairs")))
+        (->>
+          ;(sort-by hash) (take 3)
+          (pmap
+           (fn compare-snapshots [[t0-snap t1-snap]]
+             (println "Replaying" (:pyrcst_fire_name t0-snap) "from" (-> t0-snap :pyrcst_snapshot_inst) "to" (-> t1-snap :pyrcst_snapshot_inst))
+             (merge
+              (select-keys t0-snap [:pyrcst_fire_name :pyrcst_fire_subnumber])
+              {::t0-fire (select-keys t0-snap [:pyrcst_snapshot_inst])
+               ::t1-fire (select-keys t1-snap [:pyrcst_snapshot_inst])}
+              (replay-snapshot t0-snap t1-snap))))
+          (vec))))
+
+  (require 'clojure.pprint)
+  (clojure.pprint/print-table
+   (->> replay-results
+        (mapv (fn [res]
+                {"Fire name"             (:pyrcst_fire_name res)
+                 "t0"                    (-> res ::t0-fire :pyrcst_snapshot_inst)
+                 "t1"                    (-> res ::t1-fire :pyrcst_snapshot_inst)
+                 "n cells really burned" (:observed-burn-n-cells res)
+                 "sim ∩ real"            (:sim-inter-obs-n-cells res)
+                 "sim - real"            (:sim-minus-obs-n-cells res)
+                 "real - sim"            (:obs-minus-sim-n-cells res)}))))
+
+  *e)
+
 
 (comment
 
@@ -277,17 +459,7 @@
      stop-inst
      (::simulations/inputs sim-output)
      (::simulations/result sim-output)))
-  (dfn/sum sim-burn-matrix)
-  => 6413.0
 
-  (dfn/sum (dfn/* sim-burn-matrix (:matrix observed-burn-matrix)))
-  => 623.0
-
-  (dfn/sum (dfn/* sim-burn-matrix (dfn/- 1.0) (:matrix observed-burn-matrix)))
-  => 5790.0
-
-  (dfn/sum (dfn/* (:matrix observed-burn-matrix) (dfn/- 1.0 sim-burn-matrix)))
-  => 29.0
 
   (.exists (io/file config-file "../fuels_and_topography/already_burned.tif"))
   ;;=> false
