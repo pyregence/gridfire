@@ -309,35 +309,29 @@
         (assoc :ignition-start-timestamps ignition-start-timestamps)
         (dissoc :ignition-start-timestamp))))
 
-(defn- convert-csv-data-to-maps [csv-data]
-  (map zipmap
-       (->> (first csv-data)
-            (map #(try
-                    (Integer/parseInt %)
-                    (catch Exception _
-                      (keyword %))))
-            repeat)
-       (map (fn [line]
-              (map #(Double/parseDouble %) line))
-            (rest csv-data))))
+(defn- pyrome-csv-rows->lookup-map
+  ([csv-rows]
+   (pyrome-csv-rows->lookup-map csv-rows nil))
 
-(defn- create-pyrome-lookup [data]
-  (reduce (fn [acc data]
-            (assoc acc
-                   (int (:pyrome data))
-                   data))
-          {}
-          data))
+  ([[header-row & data-rows :as _csv-rows] col-name-parse-fn]
+   (let [[_pyrome-colname & rest-colname] header-row]
+     (->> data-rows
+          (map (fn to-map [[pyrome-id & double-params]]
+                 [(Long/parseLong pyrome-id 10)
+                  (zipmap (if col-name-parse-fn
+                            (mapv col-name-parse-fn rest-colname)
+                            rest-colname)
+                          (mapv (fn [s] (Double/parseDouble s)) double-params))]))
+          (into {})))))
 
 (defn add-pyrome-calibration-constants
   "adds a map of pyrome number -> map of calibration constants"
   [{:keys [pyrome-calibration-csv] :as inputs}]
   (if pyrome-calibration-csv
-    (assoc inputs :pyrome->constants (-> pyrome-calibration-csv
-                                         io/reader
-                                         csv/read-csv
-                                         convert-csv-data-to-maps
-                                         create-pyrome-lookup))
+    (assoc inputs :pyrome->constants (with-open [reader (io/reader pyrome-calibration-csv)]
+                                      (-> reader
+                                          csv/read-csv
+                                          (pyrome-csv-rows->lookup-map keyword))))
     inputs))
 
 (defn add-pyrome-spread-rate-adjustment
@@ -345,9 +339,8 @@
   [{:keys [pyrome-spread-rate-adjustment-csv] :as inputs}]
   (if pyrome-spread-rate-adjustment-csv
     (assoc inputs :pyrome->spread-rate-adjustment
-           (-> pyrome-spread-rate-adjustment-csv
-               io/reader
-               csv/read-csv
-               convert-csv-data-to-maps
-               create-pyrome-lookup))
+           (with-open [reader (io/reader pyrome-spread-rate-adjustment-csv)]
+             (-> reader
+                 csv/read-csv
+                 (pyrome-csv-rows->lookup-map (fn [s] (Long/parseLong s 10))))))
     inputs))
