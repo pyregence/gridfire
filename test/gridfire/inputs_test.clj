@@ -67,8 +67,7 @@
 (deftest add-pyrome-calibration-constants
   (let [inputs       {:pyrome-calibration-csv "test/gridfire/resources/sample_pyrome_calibration_constants.csv"}
         inputs-after (inputs/add-pyrome-calibration-constants inputs)]
-    (is (= {:pyrome                                        1.0
-            :sdi-sensitivity-to-difficulty                 1.0
+    (is (= {:sdi-sensitivity-to-difficulty                 1.0
             :sdi-reference-suppression-speed               600.0
             :sdi-containment-overwhelming-area-growth-rate 40000.0}
            (get-in inputs-after [:pyrome->constants 1])))))
