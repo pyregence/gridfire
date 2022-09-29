@@ -266,9 +266,9 @@
 ;; Pyrome Specific Calibration
 ;;=============================================================================
 
-(s/def ::pyrome-specific-calibration-csv ::common/readable-file)
+(s/def ::pyrome-calibration-csv ::common/readable-file)
 
-(s/def ::pyrome-specific-spread-rate-adjustment-csv ::common/readable-file)
+(s/def ::pyrome-spread-rate-adjustment-csv ::common/readable-file)
 
 ;;=============================================================================
 ;; Config Map

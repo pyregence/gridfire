@@ -327,23 +327,23 @@
           {}
           data))
 
-(defn add-pyrome-specific-calibration-constants
+(defn add-pyrome-calibration-constants
   "adds a map of pyrome number -> map of calibration constants"
-  [{:keys [pyrome-specific-calibration-csv] :as inputs}]
-  (if pyrome-specific-calibration-csv
-    (assoc inputs :pyrome->constants (-> pyrome-specific-calibration-csv
+  [{:keys [pyrome-calibration-csv] :as inputs}]
+  (if pyrome-calibration-csv
+    (assoc inputs :pyrome->constants (-> pyrome-calibration-csv
                                          io/reader
                                          csv/read-csv
                                          convert-csv-data-to-maps
                                          create-pyrome-lookup))
     inputs))
 
-(defn add-pyrome-specific-spread-rate-adjustment
+(defn add-pyrome-spread-rate-adjustment
   "adds a map of pyrome number -> map of fuel-model specific spread rate adjustment multiplier"
-  [{:keys [pyrome-specific-spread-rate-adjustment-csv] :as inputs}]
-  (if pyrome-specific-spread-rate-adjustment-csv
+  [{:keys [pyrome-spread-rate-adjustment-csv] :as inputs}]
+  (if pyrome-spread-rate-adjustment-csv
     (assoc inputs :pyrome->spread-rate-adjustment
-           (-> pyrome-specific-spread-rate-adjustment-csv
+           (-> pyrome-spread-rate-adjustment-csv
                io/reader
                csv/read-csv
                convert-csv-data-to-maps
