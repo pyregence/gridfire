@@ -67,7 +67,7 @@
       (inputs/add-ignition-start-times)
       (inputs/add-ignition-start-timestamps)
       (inputs/add-pyrome-specific-calibration-constants)
-      (inputs/add-pyrome-specific-sperad-rate-adjustment)))
+      (inputs/add-pyrome-specific-spread-rate-adjustment)))
 
 (defn load-config!
   [config-file-path]
