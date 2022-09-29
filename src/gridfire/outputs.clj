@@ -8,7 +8,7 @@
             [matrix-viz.core      :refer [save-matrix-as-png]]
             [tech.v3.datatype     :as d]))
 
-#_(set! *unchecked-math* :warn-on-boxed)
+(set! *unchecked-math* :warn-on-boxed)
 
 (defn output-filename [name outfile-suffix simulation-id output-time ext]
   (as-> [name outfile-suffix simulation-id (when output-time (str "t" output-time))] $
@@ -145,24 +145,26 @@
 (defn write-burn-probability-layer!
   [{:keys [output-burn-probability simulations envelope output-pngs? burn-count-matrix] :as outputs}]
   (when-let [timestep output-burn-probability]
-    (let [output-name "burn_probability"]
+    (let [output-name "burn_probability"
+          simulations (long simulations)]
       (if (int? timestep)
-        (->> (map-indexed vector burn-count-matrix)
-             (mapv
-               (fn [[band matrix]]
-                 (->
-                   (exec-in-outputs-writing-pool
-                     (fn []
-                       (let [output-time        (* band timestep)
-                             probability-matrix (d/clone (d/emap #(/ % simulations) nil matrix))]
-                         [output-time probability-matrix])))
-                   (mfd/chain
-                     (fn [[output-time probability-matrix]]
-                       (mfd/zip
-                         (output-geotiff outputs probability-matrix output-name envelope nil output-time)
-                         (when output-pngs?
-                           (output-png outputs probability-matrix output-name envelope nil output-time))))))))
-             (gf-async/nil-when-all-completed))
+        (let [timestep (long timestep)]
+          (->> (map-indexed vector burn-count-matrix)
+               (mapv
+                 (fn [[band matrix]]
+                   (->
+                     (exec-in-outputs-writing-pool
+                       (fn []
+                         (let [output-time        (* (long band) timestep)
+                               probability-matrix (d/clone (d/emap #(/ % simulations) nil matrix))]
+                           [output-time probability-matrix])))
+                     (mfd/chain
+                       (fn [[output-time probability-matrix]]
+                         (mfd/zip
+                           (output-geotiff outputs probability-matrix output-name envelope nil output-time)
+                           (when output-pngs?
+                             (output-png outputs probability-matrix output-name envelope nil output-time))))))))
+               (gf-async/nil-when-all-completed)))
         (->
           (exec-in-outputs-writing-pool
             (fn []

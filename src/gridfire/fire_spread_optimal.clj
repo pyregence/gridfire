@@ -837,7 +837,7 @@
         band                             (min->hour ignition-start-time)
         suppression                      (:suppression inputs)
         alpha                            (:suppression-coefficient suppression)
-        suppression-dt                   (some-> suppression :suppression-dt double)]
+        suppression-dt                   (double (or (:suppression-dt suppression) Double/NaN))]
     (initialize-fire-in-situ-values! inputs matrices band ignited-cells)
     (loop [global-clock                 ignition-start-time
            band                         band
@@ -851,7 +851,7 @@
       (if (and (< global-clock ignition-stop-time)
                (or (seq burn-vectors) (seq spot-ignitions)))
         (let [dt-until-max-runtime               (- ignition-stop-time global-clock)
-              ^double dt-until-suppression-clock (when suppression-dt (- suppression-clock global-clock))]
+              ^double dt-until-suppression-clock (when suppression (- suppression-clock global-clock))]
           (cond
             (and suppression (= global-clock suppression-clock))
             (let [max-runtime-fraction           (/ (- global-clock ignition-start-time) max-runtime)
@@ -869,8 +869,8 @@
                      bvs-to-process-next
                      spot-ignitions
                      spot-count
-                     total-cells-suppressed
-                     previous-num-perimeter-cells))
+                     (long total-cells-suppressed)
+                     (long previous-num-perimeter-cells)))
 
             (= global-clock non-burn-period-clock)
             (let [timestep  (double (min non-burn-period-dt dt-until-max-runtime))
@@ -895,8 +895,8 @@
                            spot-ignitions
                            {})
                          spot-count
-                         total-cells-suppressed
-                         previous-num-perimeter-cells))
+                         (long total-cells-suppressed)
+                         (long previous-num-perimeter-cells)))
                 (recur new-clock
                        new-band
                        (+ new-clock burn-period-dt)

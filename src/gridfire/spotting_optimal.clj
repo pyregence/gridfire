@@ -9,6 +9,8 @@
             [tech.v3.tensor               :as t])
   (:import java.util.Random))
 
+(set! *unchecked-math* :warn-on-boxed)
+
 ;;-----------------------------------------------------------------------------
 ;; Formulas
 ;;-----------------------------------------------------------------------------
@@ -336,21 +338,21 @@
         flame-length-matrix        (:flame-length-matrix matrices)
         fire-type-matrix           (:fire-type-matrix matrices)
         burn-time-matrix           (:burn-time-matrix matrices)
-        burn-time                  (t/mget burn-time-matrix i j)
+        burn-time                  (double (t/mget burn-time-matrix i j))
         cell                       [i j]
         fire-line-intensity        (t/mget fire-line-intensity-matrix i j)
-        crown-fire?                (> (t/mget fire-type-matrix i j) 1.0)]
+        crown-fire?                (-> fire-type-matrix (t/mget i j) (double) (> 1.0))]
     (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
       (let [band                    (long (/ burn-time 60.0))
-            ws                      (get-wind-speed-20ft band i j)
-            wd                      (get-wind-from-direction band i j)
+            ws                      (double (get-wind-speed-20ft band i j))
+            wd                      (double (get-wind-from-direction band i j))
             deltas                  (sample-wind-dir-deltas inputs
                                                             fire-line-intensity-matrix
                                                             (convert/mph->mps ws)
                                                             cell)
             wind-to-direction       (mod (+ 180 wd) 360)
             firebrands              (firebrands deltas wind-to-direction cell cell-size)
-            source-burn-probability (t/mget fire-spread-matrix i j)]
+            source-burn-probability (double (t/mget fire-spread-matrix i j))]
         (update-firebrand-counts! inputs firebrand-count-matrix fire-spread-matrix cell firebrands)
         (->> (for [[x y] firebrands]
                (when (and
