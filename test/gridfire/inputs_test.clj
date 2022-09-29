@@ -64,17 +64,24 @@
                               (:ignition-rows inputs-after) (:ignition-cols inputs-after)))
             "All ignition sites should have positive values in the ignition mask")))))
 
-(deftest add-pyrome-specific-calibration-constants
-  (let [inputs       {:pyrome-specific-calibration-csv "test/gridfire/resources/sample_pyrome_calibration_constants.csv"}
-        inputs-after (inputs/add-pyrome-specific-calibration-constants inputs)]
+(deftest add-pyrome-calibration-constants
+  (let [inputs       {:pyrome-calibration-csv "test/gridfire/resources/sample_pyrome_calibration_constants.csv"}
+        inputs-after (inputs/add-pyrome-calibration-constants inputs)]
     (is (= {:pyrome                                        1.0
             :sdi-sensitivity-to-difficulty                 1.0
             :sdi-reference-suppression-speed               600.0
             :sdi-containment-overwhelming-area-growth-rate 40000.0}
            (get-in inputs-after [:pyrome->constants 1])))))
 
-(deftest add-pyrome-specific-spread-rate-adjustment
-  (let [inputs       {:pyrome-specific-spread-rate-adjustment-csv "test/gridfire/resources/sample_pyrome_adjustment_factors.csv"}
-        inputs-after (inputs/add-pyrome-specific-spread-rate-adjustment inputs)]
+(deftest add-pyrome-spread-rate-adjustment
+  (let [inputs       {:pyrome-spread-rate-adjustment-csv "test/gridfire/resources/sample_pyrome_adjustment_factors.csv"}
+        inputs-after (inputs/add-pyrome-spread-rate-adjustment inputs)]
+
     (is (= 0.9
-           (get-in inputs-after [:pyrome->spread-rate-adjustment 1 102])))))
+           (get-in inputs-after [:pyrome->spread-rate-adjustment 1 102])))
+
+    (is (= 0.8
+           (get-in inputs-after [:pyrome->spread-rate-adjustment 1 103])))
+
+    (is (= 0.6
+           (get-in inputs-after [:pyrome->spread-rate-adjustment 10 101])))))
