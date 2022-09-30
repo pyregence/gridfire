@@ -1,19 +1,19 @@
 (ns gridfire.lab.replay
-  (:require [clojure.java.io :as io]
-            [clojure.java.shell :as sh]
-            [clojure.pprint :as pprint]
-            [clojure.string :as str]
+  (:require [clojure.java.io              :as io]
+            [clojure.java.shell           :as sh]
+            [clojure.pprint               :as pprint]
+            [clojure.string               :as str]
             [gridfire.core]
             [gridfire.fire-spread-optimal :refer [rothermel-fast-wrapper-optimal run-fire-spread]]
-            [gridfire.magellan-bridge :refer [geotiff-raster-to-tensor]]
-            [gridfire.simulations :as simulations]
-            [gridfire.utils.files.tar :as utar]
-            [magellan.core :refer [matrix-to-raster write-raster]]
-            [tech.v3.datatype :as d]
-            [tech.v3.datatype.functional :as dfn])
-  (:import (java.nio.file Files)
+            [gridfire.magellan-bridge     :refer [geotiff-raster-to-tensor]]
+            [gridfire.simulations         :as simulations]
+            [gridfire.utils.files.tar     :as utar]
+            [tech.v3.datatype             :as d]
+            [tech.v3.datatype.functional  :as dfn]
+            [tech.v3.datatype.statistics  :as dstats])
+  (:import (java.io File)
+           (java.nio.file Files)
            (java.nio.file.attribute FileAttribute)
-           (java.io File)
            (java.time ZonedDateTime)
            (java.time.format DateTimeFormatter)
            (java.util Date)))
@@ -314,27 +314,33 @@
 
 (defn replay-snapshot
   [t0-snap t1-snap]
-  (let [stop-inst            (:pyrcst_snapshot_inst t1-snap)
-        observed-burn-area   (resolve-observed-burned-area
-                              (-> t0-snap ::useful-files ::already_burned-tif)
-                              (-> t1-snap ::useful-files ::active_fire_polygon_utm_posnegbuff-shp))
+  (let [stop-inst          (:pyrcst_snapshot_inst t1-snap)
+        observed-burn-area (resolve-observed-burned-area
+                            (-> t0-snap ::useful-files ::already_burned-tif)
+                            (-> t1-snap ::useful-files ::active_fire_polygon_utm_posnegbuff-shp))
+
+        config             (-> (fetch-snapshot-config t0-snap)
+                               (dissoc :perturbations)      ; to remove variance.
+                               ; FIXME shall we run them all? Probably want more control over that.
+                               (merge {:simulations 1}))
+        sim-output         (run-fire-spread-until config stop-inst)]
+    {::observed-burn-area observed-burn-area
+     ::sim-output         sim-output}))
+
+(defn burn-trace-stats
+  [replay-res]
+  (let [stop-inst            (-> replay-res ::t1-fire :pyrcst_snapshot_inst)
+        observed-burn-area   (::observed-burn-area replay-res)
+        sim-output           (::sim-output replay-res)
         observed-burn-matrix (:matrix observed-burn-area)
-        config               (-> (fetch-snapshot-config t0-snap)
-                                 (dissoc :perturbations)    ; to remove variance.
-                                 ; FIXME shall we run them all? Probably want more control over that.
-                                 (merge {:simulations 1}))
-        sim-output           (run-fire-spread-until config stop-inst)
-        sim-result  (::simulations/result sim-output)]
+        sim-result           (::simulations/result sim-output)]
     (if (nil? sim-result)
       {:observed-burn-n-cells (dfn/sum observed-burn-matrix)
        :sim-inter-obs-n-cells 0
        :sim-minus-obs-n-cells 0
        :obs-minus-sim-n-cells (dfn/sum observed-burn-matrix)
        ::comments             ["run-fire-spread returned nil, which happens when it fails to get perimeter cells with burnable neighbours."]}
-      (let [sim-burn-matrix (simulated-burned-area-matrix
-                             stop-inst
-                             (::simulations/inputs sim-output)
-                             sim-result)]
+      (let [sim-burn-matrix (simulated-burned-area-matrix stop-inst (::simulations/inputs sim-output) sim-result)]
         {:observed-burn-n-cells (dfn/sum observed-burn-matrix)
          :sim-inter-obs-n-cells (dfn/sum (dfn/* sim-burn-matrix observed-burn-matrix))
          :sim-minus-obs-n-cells (dfn/sum (dfn/* sim-burn-matrix (dfn/- 1.0 observed-burn-matrix)))
@@ -381,7 +387,7 @@
   [snaps]
   (with-redefs [rothermel-fast-wrapper-optimal (memoize rothermel-fast-wrapper-optimal)]
     (->> (replayable-successive-t0t1-pairs snaps)
-         ;(sort-by hash) (take 3)
+         ;(sort-by hash) (take 16) ; uncomment to work on a small sub-sample. (Val, 30 Sep 2022)
          (pmap
           (fn compare-snapshots [[t0-snap t1-snap]]
             (println "Replaying" (:pyrcst_fire_name t0-snap) "from" (-> t0-snap :pyrcst_snapshot_inst) "to" (-> t1-snap :pyrcst_snapshot_inst))
@@ -392,32 +398,80 @@
              (replay-snapshot t0-snap t1-snap))))
          (vec))))
 
+(defn toa-stats
+  [replay-res]
+  (let [stop-inst            (-> replay-res ::t1-fire :pyrcst_snapshot_inst)
+        observed-burn-area   (::observed-burn-area replay-res)
+        sim-output           (::sim-output replay-res)
+        observed-burn-matrix (:matrix observed-burn-area)
+        sim-result           (::simulations/result sim-output)]
+    (when-not (nil? sim-result)
+      (let [sim-burn-matrix        (simulated-burned-area-matrix stop-inst (::simulations/inputs sim-output) sim-result)
+            sim-inter-real-matrix  (dfn/* sim-burn-matrix observed-burn-matrix)
+            time-lapse-min         (-> (- (-> replay-res ::t1-fire :pyrcst_snapshot_inst (inst-ms))
+                                          (-> replay-res ::t0-fire :pyrcst_snapshot_inst (inst-ms)))
+                                       (double)
+                                       (/ (* 1000 60)))
+            toa-ratio-matrix       (d/emap
+                                    (fn [burn-time sim-inter-real]
+                                      (if (and (= 1.0 sim-inter-real) (> burn-time 0.))
+                                        (/ burn-time
+                                           time-lapse-min)
+                                        Double/NaN))
+                                    :double
+                                    (:burn-time-matrix sim-result)
+                                    sim-inter-real-matrix)
+            stats-opts             {:nan-strategy :remove}]
+        (let [[p50 p75 p90 p95] (dstats/percentiles [50 75 90 95] stats-opts toa-ratio-matrix)]
+          {::toa-ratio-mean (dstats/mean toa-ratio-matrix stats-opts)
+           ::toa-ratio-p50  p50
+           ::toa-ratio-p75  p75
+           ::toa-ratio-p90  p90
+           ::toa-ratio-p95  p95})))))
+
+(defn pprint-table-from-kv-lists
+  [pairs-vecs]
+  (let [pairs0 (first pairs-vecs)
+        cols (mapv first pairs0)]
+    (pprint/print-table
+     cols
+     (map #(into {} %) pairs-vecs))))
+
+
 (defn print-replayed-results-table
   [replay-results]
-  (pprint/print-table
+  (pprint-table-from-kv-lists
    (->> replay-results
-        (mapv (fn [res]
-                (let [n-cells-really-burned (long (:observed-burn-n-cells res))]
+        (pmap (fn [replay-res]
+                (let [stats                 (merge (burn-trace-stats replay-res)
+                                                   (toa-stats replay-res))
+                      n-cells-really-burned (long (:observed-burn-n-cells stats))]
                   (letfn [(format-w-pct [^long n-cells]
                             (if (zero? n-cells-really-burned)
                               (format "%d (-)" n-cells)
                               (format "%d (%2.1f%%)"
                                       n-cells
                                       (* 100.0 (/ n-cells n-cells-really-burned)))))]
-                    {"Fire name"             (:pyrcst_fire_name res)
-                     "t0"                    (-> res ::t0-fire :pyrcst_snapshot_inst)
-                     "t1"                    (format "%s (+%2dhr)"
-                                                     (-> res ::t1-fire :pyrcst_snapshot_inst (str))
-                                                     (-> (-
-                                                          (-> res ::t1-fire :pyrcst_snapshot_inst (inst-ms))
-                                                          (-> res ::t0-fire :pyrcst_snapshot_inst (inst-ms)))
-                                                         (/ (* 1e3 60 60))
-                                                         (double)
-                                                         (Math/round) (long)))
-                     "n cells really burned" (:observed-burn-n-cells res)
-                     "sim ∩ real"            (format-w-pct (:sim-inter-obs-n-cells res))
-                     "sim - real"            (format-w-pct (:sim-minus-obs-n-cells res))
-                     "real - sim"            (format-w-pct (:obs-minus-sim-n-cells res))})))))))
+                    [["Fire name" (:pyrcst_fire_name replay-res)]
+                     ["t0" (-> replay-res ::t0-fire :pyrcst_snapshot_inst)]
+                     ["t1" (format "%s (+%2dhr)"
+                                   (-> replay-res ::t1-fire :pyrcst_snapshot_inst (str))
+                                   (-> (-
+                                        (-> replay-res ::t1-fire :pyrcst_snapshot_inst (inst-ms))
+                                        (-> replay-res ::t0-fire :pyrcst_snapshot_inst (inst-ms)))
+                                       (/ (* 1e3 60 60))
+                                       (double)
+                                       (Math/round) (long)))]
+                     ["n cells really burned" (:observed-burn-n-cells stats)]
+                     ["sim ∩ real" (format-w-pct (:sim-inter-obs-n-cells stats))]
+                     ["ToA-ratio: mean" (some->> (::toa-ratio-mean stats) (format "%1.2f"))]
+                     ["p50" (some->> (::toa-ratio-p50 stats) (format "%1.2f"))]
+                     ["p75" (some->> (::toa-ratio-p75 stats) (format "%1.2f"))]
+                     ["p90" (some->> (::toa-ratio-p90 stats) (format "%1.2f"))]
+                     ["p95" (some->> (::toa-ratio-p95 stats) (format "%1.2f"))]
+                     ["sim - real" (format-w-pct (:sim-minus-obs-n-cells stats))]
+                     ["real - sim" (format-w-pct (:obs-minus-sim-n-cells stats))]])))))))
+
 
 (comment
 
@@ -443,6 +497,7 @@
 
   (def replay-results (time (replay-snapshots snaps)))
   ;;"Elapsed time: 1002229.596932 msecs"
+
 
   (print-replayed-results-table replay-results)
   ;;|               Fire name |                           t0 |                                   t1 | n cells really burned |    sim ∩ real |      sim - real |    real - sim |
@@ -634,6 +689,14 @@
   ;;|             wa-siouoxon | Sun Sep 25 11:28:00 UTC 2022 | Mon Sep 26 11:08:00 UTC 2022 (+24hr) |                 430.0 |   340 (79.1%) |     271 (63.0%) |    90 (20.9%) |
   ;;|             wa-siouoxon | Mon Sep 26 11:08:00 UTC 2022 | Tue Sep 27 10:02:00 UTC 2022 (+23hr) |                 949.0 |   485 (51.1%) |     529 (55.7%) |   464 (48.9%) |
   ;;|             wa-siouoxon | Tue Sep 27 10:02:00 UTC 2022 | Wed Sep 28 10:32:00 UTC 2022 (+25hr) |                1489.0 |  1152 (77.4%) |     438 (29.4%) |   337 (22.6%) |
+
+
+  ;; 1. Are we spreading too fast?
+  ;; Experiment: compute the average (and maybe some quantiles) simulation-ToA in (sim ∩ real). If it's very small compared to (t1-t0)/2,
+  ;; it's a sign that we're spreading too fast.
+  (->> replay-results
+       (pmap toa-stats)
+       (vec))
 
 
   *e)
