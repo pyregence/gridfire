@@ -21,8 +21,10 @@
  :mvn/repos {"osgeo" {:url "https://repo.osgeo.org/repository/release/"}}
 
  :aliases {:build             {:deps       {io.github.clojure/tools.build
-                                            {:git/tag "v0.8.2" :git/sha "ba1a2bf"}}
+                                            {:git/tag "v0.8.3" :git/sha "0d20256"}}
                                :ns-default build}
+           :with-tools-build  {:extra-deps {io.github.clojure/tools.build
+                                            {:git/tag "v0.8.3" :git/sha "0d20256"}}}
            :build-test-db     {:extra-paths ["test"]
                                :main-opts   ["-m" "gridfire.build-test-db"]}
            :run               {:main-opts ["-m" "gridfire.cli"]

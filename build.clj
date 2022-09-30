@@ -1,12 +1,26 @@
 (ns build
-  (:require [clojure.tools.build.api :as b]))
+  (:require [clojure.tools.build.api :as b])
+  (:import java.util.Date))
+
+(defn get-calendar-branch-version []
+  (let [today  (Date.)
+        branch (b/git-process {:git-args "branch --show-current"})
+        label  (case branch
+                 "main"        "stable"
+                 "development" "dev"
+                 branch)]
+    (format "%d.%d.%d-%s"
+            (+ 1900 (.getYear today))
+            (+ 1 (.getMonth today))
+            (.getDate today)
+            label)))
 
 (def build-folder "target")
 (def jar-content (str build-folder "/classes"))
 (def basis (b/create-basis {:project "deps.edn"}))
 
 (def app-name "gridfire")
-(def version "2022.09.29")
+(def version (get-calendar-branch-version))
 (def uberjar-file-name (format "%s/%s-%s.jar" build-folder app-name version))
 
 (defn clean [_]
@@ -18,7 +32,7 @@
   (clean nil)
 
   ;; copy resources to jar-content folder
-  (b/copy-dir {:src-dirs ["resources"]
+  (b/copy-dir {:src-dirs ["src" "resources"]
                :target-dir jar-content})
 
   (b/compile-clj {:src-dirs ["src"]
@@ -29,17 +43,12 @@
   (b/uber {:class-dir jar-content
            :uber-file uberjar-file-name
            :basis     basis
-           :main      'gridfire.cli})
+           :main      'gridfire.cli
+           :manifest  {"Specification-Title"    "Java Advanced Imaging Image I/O Tools"
+                       "Specification-Version"  "1.1"
+                       "Specification-Vendor"   "Sun Microsystems, Inc."
+                       "Implementation-Title"   "com.sun.media.imageio"
+                       "Implementation-Version" "1.1"
+                       "Implementation-Vendor"  "Sun Microsystems, Inc."}})
 
   (println (format "Uberjar file created: \"%s\"" uberjar-file-name)))
-
-;; FIXME: Include these attributes:
-;;
-;; :aot         true
-;; :manifest
-;; {:specification-title    "Java Advanced Imaging Image I/O Tools"
-;;  :specification-version  "1.1"
-;;  :specification-vendor   "Sun Microsystems, Inc."
-;;  :implementation-title   "com.sun.media.imageio"
-;;  :implementation-version "1.1"
-;;  :implementation-vendor  "Sun Microsystems, Inc."}}}
