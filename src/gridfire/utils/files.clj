@@ -1,14 +1,15 @@
 (ns gridfire.utils.files
   "File-system utilities for GridFire."
   (:require [clojure.edn     :as edn]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io])
+  (:import java.io.File))
 
 (defn- build-absolute-path
   [^String current-dir-path, ^String rel-path]
-  (.getCanonicalPath
-   (apply io/file current-dir-path (if (string? rel-path)
-                                     [rel-path]
-                                     rel-path))))
+  (let [^File file (apply io/file current-dir-path (if (string? rel-path)
+                                                     [rel-path]
+                                                     rel-path))]
+    (.getCanonicalPath file)))
 
 (defn location-aware-edn-readers
   "Returns a map of EDN :readers such that
