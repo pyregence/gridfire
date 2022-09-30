@@ -2,7 +2,8 @@
   (:require [clojure.spec.alpha          :as s]
             [gridfire.spec.burn-period   :as burn-period]
             [gridfire.spec.common        :as common]
-            [gridfire.spec.perturbations :as perturbations]))
+            [gridfire.spec.perturbations :as perturbations]
+            [gridfire.spec.suppression   :as suppression]))
 
 ;;=============================================================================
 ;; Required Keys
@@ -165,13 +166,15 @@
 
 ;; Suppression
 
-(s/def ::suppression-dt number?)
-
-(s/def ::suppression-coefficient number?)
-
 (s/def ::suppression
-  (s/keys :req-un [::suppression-dt
-                   ::suppression-coefficient]))
+  (s/and
+   (s/keys :req-un [::suppression/suppression-dt]
+           :opt-un [::suppression/suppression-curve-sharpness
+                    ::suppression/sdi-layer
+                    ::suppression/sdi-sensitivity-to-difficulty
+                    ::suppression/sdi-containment-overwhelming-area-growth-rate
+                    ::suppression/sdi-reference-suppression-speed])
+   ::suppression/mutually-exclusive-keys))
 
 ;; Perturbations
 
