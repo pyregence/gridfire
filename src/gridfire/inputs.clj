@@ -329,9 +329,9 @@
   [{:keys [pyrome-calibration-csv] :as inputs}]
   (if pyrome-calibration-csv
     (assoc inputs :pyrome->constants (with-open [reader (io/reader pyrome-calibration-csv)]
-                                      (-> reader
-                                          csv/read-csv
-                                          (pyrome-csv-rows->lookup-map keyword))))
+                                       (-> reader
+                                           csv/read-csv
+                                           (pyrome-csv-rows->lookup-map keyword))))
     inputs))
 
 (defn add-pyrome-spread-rate-adjustment
@@ -342,5 +342,51 @@
            (with-open [reader (io/reader pyrome-spread-rate-adjustment-csv)]
              (-> reader
                  csv/read-csv
-                 (pyrome-csv-rows->lookup-map (fn [s] (Long/parseLong s 10))))))
+                 (pyrome-csv-rows->lookup-map (fn [s] (Double/parseDouble s))))))
+    inputs))
+
+(def ^:const pyrome-id
+  "Hard coded pyrome until we work out how to compute it"
+  1)
+
+(defn add-pyromes [{:keys [pyrome->spread-rate-adjustment pyrome->constants pyromes simulations] :as inputs}]
+  (if (and (or pyrome->spread-rate-adjustment pyrome->constants) (empty? pyromes))
+    (assoc inputs :pyromes (into [] (repeat simulations pyrome-id))) ;TODO Remove hardcode pyrome-id
+    inputs))
+
+(defn add-sdi-suppression
+  "Resolves existing `:suppression` entry."
+  [{:keys [suppression pyrome->constants pyromes] :as inputs}]
+  (if suppression
+    (let [{:keys
+           [sdi-sensitivity-to-difficulty
+            sdi-containment-overwhelming-area-growth-rate
+            sdi-reference-suppression-speed]} suppression]
+      (cond-> inputs
+        (nil? sdi-sensitivity-to-difficulty)
+        (assoc-in [:suppression :sdi-sensitivity-to-difficulty]
+                  (mapv (fn [pyrome-index]
+                          (get-in pyrome->constants [pyrome-index :sdi-sensitivity-to-difficulty]))
+                        pyromes))
+
+        (nil? sdi-reference-suppression-speed)
+        (assoc-in [:suppression :sdi-reference-suppression-speed]
+                  (mapv (fn [pyrome-index]
+                          (get-in pyrome->constants [pyrome-index :sdi-reference-suppression-speed]))
+                        pyromes))
+
+        (nil? sdi-containment-overwhelming-area-growth-rate)
+        (assoc-in [:suppression :sdi-containment-overwhelming-area-growth-rate]
+                  (or sdi-containment-overwhelming-area-growth-rate
+                      (mapv (fn [pyrome-index]
+                              (get-in pyrome->constants [pyrome-index :sdi-containment-overwhelming-area-growth-rate]))
+                            pyromes)))))
+    inputs))
+
+(defn add-fuel-model->spread-rate-adjustments
+  [{:keys [pyrome->spread-rate-adjustment pyromes] :as inputs}]
+  (if pyrome->spread-rate-adjustment
+    (assoc inputs
+           :fuel-model->spread-rate-adjustments
+           (mapv (fn [pyrome-index] (get pyrome->spread-rate-adjustment pyrome-index)) pyromes))
     inputs))

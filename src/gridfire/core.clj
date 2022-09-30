@@ -67,7 +67,10 @@
       (inputs/add-ignition-start-times)
       (inputs/add-ignition-start-timestamps)
       (inputs/add-pyrome-calibration-constants)
-      (inputs/add-pyrome-spread-rate-adjustment)))
+      (inputs/add-pyrome-spread-rate-adjustment)
+      (inputs/add-pyromes)
+      (inputs/add-sdi-suppression)
+      (inputs/add-fuel-model->spread-rate-adjustments)))
 
 (defn load-config!
   [config-file-path]

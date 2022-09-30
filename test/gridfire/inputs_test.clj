@@ -84,3 +84,10 @@
 
     (is (= 0.6
            (get-in inputs-after [:pyrome->spread-rate-adjustment 10 101])))))
+
+(deftest add-sdi-suppression
+  (let [inputs       {:pyrome-calibration-csv "test/gridfire/resources/sample_pyrome_calibration_constants.csv"
+                      :suppression            {:suppression-difficulty-index-layer {}}}
+        inputs-after (inputs/add-sdi-suppression inputs)]
+
+    (is (= inputs inputs-after))))

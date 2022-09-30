@@ -475,3 +475,25 @@
 
     (is (= 20.0 (:global-clock (second results)))
         "Global clock should end at start_time + max_runtime in sample_ignitions.csv")))
+
+
+;;-----------------------------------------------------------------------------
+;; Pyrome spread rate adjustment
+;;-----------------------------------------------------------------------------
+
+(deftest ^{:database true :simulation true} pyrome-spread-rate-adjustment-test
+  (testing "successful run using :pyrome-spread-rate-adjustment-csv"
+    (let [config (merge test-config-base
+                        {:pyrome-spread-rate-adjustment-csv "test/gridfire/resources/sample_pyrome_adjustment_factors.csv"})]
+
+      (is (valid-exits? (run-test-simulation! config))))))
+
+(deftest ^{:database true :simulation true} pyrome-sdi-supopression-test
+  (testing "successful run using :pyrome-calibration-csv"
+    (let [config (merge test-config-base
+                        {:pyrome-calibration-csv "test/gridfire/resources/sample_pyrome_calibration_constants.csv"
+                         :suppression            {:sdi-layer      {:type   :geotiff
+                                                                   :source "test/gridfire/resources/asp.tif"}
+                                                  :suppression-dt 300}})]
+
+      (is (valid-exits? (run-test-simulation! config))))))

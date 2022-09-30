@@ -303,5 +303,14 @@
                                       :sdi-reference-suppression-speed               800}))
                 (assoc :weather-start-timestamp #inst "1970-01-01T00-00:00"))))
 
+(deftest ^:suppression-sdi-pyrome test-suppression-sdi-using-pyrome-calibration-csv-scenario
+  (run-sim! (-> (first (gen-scenarios :suppression-sdi suppression-sdi-scenarios))
+                (assoc :output-layers {:directional-flame-length 72
+                                       :flame-length             :final})
+                (update-in [:suppression]
+                           #(assoc % :suppression-dt 300))
+                (assoc :pyrome-calibration-csv "test/gridfire/resources/sample_pyrome_calibration_constants.csv")
+                (assoc :weather-start-timestamp #inst "1970-01-01T00-00:00"))))
+
 (comment
   (run-tests 'gridfire.canonical-test))

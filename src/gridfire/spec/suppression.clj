@@ -13,16 +13,6 @@
 (s/def ::sdi-reference-suppression-speed               positive-number?)
 
 (s/def ::mutually-exclusive-keys
-  (fn [{:keys [suppression-curve-sharpness
-               sdi-layer
-               sdi-sensitivity-to-difficulty
-               sdi-containment-overwhelming-area-growth-rate
-               sdi-reference-suppression-speed]}]
-    (or (and suppression-curve-sharpness (every? nil? [sdi-layer
-                                                       sdi-sensitivity-to-difficulty
-                                                       sdi-containment-overwhelming-area-growth-rate
-                                                       sdi-reference-suppression-speed]))
-        (and (nil? suppression-curve-sharpness) (every? some? [sdi-layer
-                                                               sdi-sensitivity-to-difficulty
-                                                               sdi-containment-overwhelming-area-growth-rate
-                                                               sdi-reference-suppression-speed])))))
+  (fn [{:keys [suppression-curve-sharpness sdi-layer]}]
+    (or (and suppression-curve-sharpness sdi-layer)
+        (and (nil? suppression-curve-sharpness) sdi-layer))))

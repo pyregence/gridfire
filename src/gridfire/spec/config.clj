@@ -266,6 +266,21 @@
 
 
 ;;=============================================================================
+;; synonymous exclusive-keys
+;;=============================================================================
+
+(s/def ::synomyous-keys
+  (fn [{:keys [suppression pyrome-calibration-csv]}]
+    (let [{:keys [sdi-layer
+                  sdi-sensitivity-to-difficulty
+                  sdi-containment-overwhelming-area-growth-rate
+                  sdi-reference-suppression-speed]} suppression]
+      (or (nil? sdi-layer)
+          (or pyrome-calibration-csv (and sdi-sensitivity-to-difficulty
+                                          sdi-containment-overwhelming-area-growth-rate
+                                          sdi-reference-suppression-speed))))))
+
+;;=============================================================================
 ;; Pyrome Specific Calibration
 ;;=============================================================================
 
@@ -326,4 +341,5 @@
    ::rh-or-fuel-moisture
    ::burn-period-required-keys
    ::valid-timestamps
-   ::mutually-exclusive-keys))
+   ::mutually-exclusive-keys
+   ::synomyous-keys))

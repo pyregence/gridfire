@@ -252,23 +252,15 @@
         (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i+ j)
         (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i+ j+))))
 
-(defn- calc-new-spread-rate!
-  [inputs matrices modified-time-matrix max-spread-rate-matrix
-   max-spread-direction-matrix eccentricity-matrix band direction i j]
-  (when (> ^long band (dec ^long (t/mget modified-time-matrix i j)))
-    (compute-max-in-situ-values! inputs matrices band i j))
-  (let [max-spread-rate      (t/mget max-spread-rate-matrix i j)
-        max-spread-direction (t/mget max-spread-direction-matrix i j)
-        eccentricity         (t/mget eccentricity-matrix i j)]
-    (compute-spread-rate max-spread-rate
-                         max-spread-direction
-                         eccentricity
-                         direction)))
+(defn- pyrome-adjust-spread-rate ^double
+  [fuel-model->spread-rate-adjustment fuel-model spread-rate]
+  (let [spread-rate-multiplier (double (get fuel-model->spread-rate-adjustment fuel-model))]
+    (* spread-rate spread-rate-multiplier)))
 
 (defn make-burn-vector-constructor
   [num-rows num-cols burn-probability max-spread-rate-matrix
    max-spread-direction-matrix eccentricity-matrix fire-spread-matrix
-   cell-size get-elevation i j]
+   cell-size get-elevation i j fuel-model->spread-rate-adjustment fuel-model]
   (let [i                    (long i)
         j                    (long j)
         burn-probability     (double burn-probability)
@@ -296,10 +288,18 @@
                     315.0 (- j 1))]
         (when (and (in-bounds-optimal? num-rows num-cols new-i new-j)
                    (> burn-probability ^double (t/mget fire-spread-matrix new-i new-j)))
-          (let [spread-rate      (compute-spread-rate max-spread-rate
-                                                      max-spread-direction
-                                                      eccentricity
-                                                      direction)
+          (let [spread-rate (if fuel-model->spread-rate-adjustment
+                              (pyrome-adjust-spread-rate fuel-model->spread-rate-adjustment
+                                                         fuel-model
+                                                         (compute-spread-rate max-spread-rate
+                                                                              max-spread-direction
+                                                                              eccentricity
+                                                                              direction))
+                              (compute-spread-rate max-spread-rate
+                                                   max-spread-direction
+                                                   eccentricity
+                                                   direction))
+
                 terrain-distance (compute-terrain-distance cell-size get-elevation
                                                            num-rows num-cols i j new-i new-j)]
             (->BurnVector i j direction 0.5 spread-rate terrain-distance burn-probability)))))))
@@ -309,11 +309,12 @@
 (defn- create-new-burn-vectors!
   [acc num-rows num-cols cell-size get-elevation travel-lines-matrix
    max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix
-   fire-spread-matrix i j burn-probability]
+   fire-spread-matrix i j burn-probability fuel-model->spread-rate-adjustment fuel-model]
   (let [travel-lines       (t/mget travel-lines-matrix i j)
         create-burn-vector (make-burn-vector-constructor num-rows num-cols burn-probability
                                                          max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix
-                                                         fire-spread-matrix cell-size get-elevation i j)]
+                                                         fire-spread-matrix cell-size get-elevation i j
+                                                         fuel-model->spread-rate-adjustment fuel-model)]
     (reduce (fn [acc ^long bit]
               (if (bit-test travel-lines bit)
                 acc
@@ -469,21 +470,24 @@
 
 (defn- ignited-cells->burn-vectors
   [inputs matrices ignited-cells burn-vectors]
-  (let [num-rows                    (:num-rows inputs)
-        num-cols                    (:num-cols inputs)
-        cell-size                   (:cell-size inputs)
-        get-elevation               (:get-elevation inputs)
-        fire-spread-matrix          (:fire-spread-matrix matrices)
-        travel-lines-matrix         (:travel-lines-matrix matrices)
-        max-spread-rate-matrix      (:max-spread-rate-matrix matrices)
-        max-spread-direction-matrix (:max-spread-direction-matrix matrices)
-        eccentricity-matrix         (:eccentricity-matrix matrices)]
+  (let [num-rows                           (:num-rows inputs)
+        num-cols                           (:num-cols inputs)
+        cell-size                          (:cell-size inputs)
+        get-fuel-model                     (:get-fuel-model inputs)
+        get-elevation                      (:get-elevation inputs)
+        fuel-model->spread-rate-adjustment (:fuel-model->spread-rate-adjustment inputs)
+        fire-spread-matrix                 (:fire-spread-matrix matrices)
+        travel-lines-matrix                (:travel-lines-matrix matrices)
+        max-spread-rate-matrix             (:max-spread-rate-matrix matrices)
+        max-spread-direction-matrix        (:max-spread-direction-matrix matrices)
+        eccentricity-matrix                (:eccentricity-matrix matrices)]
     (persistent!
      (reduce
       (fn [acc [i j]]
         (create-new-burn-vectors! acc num-rows num-cols cell-size get-elevation travel-lines-matrix
                                   max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix
-                                  fire-spread-matrix i j (t/mget fire-spread-matrix i j)))
+                                  fire-spread-matrix i j (t/mget fire-spread-matrix i j)
+                                  fuel-model->spread-rate-adjustment (get-fuel-model i j)))
       (transient burn-vectors)
       ignited-cells))))
 
@@ -592,22 +596,23 @@
 
 (defn- transition-burn-vectors
   [inputs matrices band global-clock new-clock max-fractional-distance burn-vectors]
-  (let [cell-size                   (:cell-size inputs)
-        get-elevation               (:get-elevation inputs)
-        num-rows                    (:num-rows inputs)
-        num-cols                    (:num-cols inputs)
-        get-fuel-model              (:get-fuel-model inputs)
-        travel-lines-matrix         (:travel-lines-matrix matrices)
-        fire-spread-matrix          (:fire-spread-matrix matrices)
-        modified-time-matrix        (:modified-time-matrix matrices)
-        max-spread-rate-matrix      (:max-spread-rate-matrix matrices)
-        max-spread-direction-matrix (:max-spread-direction-matrix matrices)
-        eccentricity-matrix         (:eccentricity-matrix matrices)
-        burn-time-matrix            (:burn-time-matrix matrices)
-        band                        (long band)
-        global-clock                (double global-clock)
-        new-clock                   (double new-clock)
-        max-fractional-distance     (double max-fractional-distance)]
+  (let [cell-size                          (:cell-size inputs)
+        get-elevation                      (:get-elevation inputs)
+        num-rows                           (:num-rows inputs)
+        num-cols                           (:num-cols inputs)
+        get-fuel-model                     (:get-fuel-model inputs)
+        fuel-model->spread-rate-adjustment (:fuel-model->spread-rate-adjustment inputs)
+        travel-lines-matrix                (:travel-lines-matrix matrices)
+        fire-spread-matrix                 (:fire-spread-matrix matrices)
+        modified-time-matrix               (:modified-time-matrix matrices)
+        max-spread-rate-matrix             (:max-spread-rate-matrix matrices)
+        max-spread-direction-matrix        (:max-spread-direction-matrix matrices)
+        eccentricity-matrix                (:eccentricity-matrix matrices)
+        burn-time-matrix                   (:burn-time-matrix matrices)
+        band                               (long band)
+        global-clock                       (double global-clock)
+        new-clock                          (double new-clock)
+        max-fractional-distance            (double max-fractional-distance)]
     (mapv
      persistent!
      (reduce
@@ -668,7 +673,17 @@
                           max-spread-rate         (double (t/mget max-spread-rate-matrix new-i new-j))
                           max-spread-direction    (double (t/mget max-spread-direction-matrix new-i new-j))
                           eccentricity            (double (t/mget eccentricity-matrix new-i new-j))
-                          new-spread-rate         (compute-spread-rate max-spread-rate max-spread-direction eccentricity direction)
+                          new-spread-rate         (if fuel-model->spread-rate-adjustment
+                                                    (pyrome-adjust-spread-rate fuel-model->spread-rate-adjustment
+                                                                               (get-fuel-model new-i new-j)
+                                                                               (compute-spread-rate max-spread-rate
+                                                                                                    max-spread-direction
+                                                                                                    eccentricity
+                                                                                                    direction))
+                                                    (compute-spread-rate max-spread-rate
+                                                                         max-spread-direction
+                                                                         eccentricity
+                                                                         direction))
                           ;; TODO move case form to functions
                           new-terrain-distance    (double (compute-terrain-distance cell-size get-elevation num-rows num-cols new-i new-j
                                                                                     (case direction
@@ -735,10 +750,12 @@
 
 (defn- recompute-burn-vectors
   [inputs matrices ^long band burn-vectors]
-  (let [modified-time-matrix        (:modified-time-matrix matrices)
-        max-spread-rate-matrix      (:max-spread-rate-matrix matrices)
-        max-spread-direction-matrix (:max-spread-direction-matrix matrices)
-        eccentricity-matrix         (:eccentricity-matrix matrices)]
+  (let [modified-time-matrix               (:modified-time-matrix matrices)
+        max-spread-rate-matrix             (:max-spread-rate-matrix matrices)
+        max-spread-direction-matrix        (:max-spread-direction-matrix matrices)
+        eccentricity-matrix                (:eccentricity-matrix matrices)
+        fuel-model->spread-rate-adjustment (:fuel-model->spread-rate-adjustment inputs)
+        get-fuel-model                     (:get-fuel-model inputs)]
     (mapv (fn [burn-vector]
             (let [i (:i burn-vector)
                   j (:j burn-vector)]
@@ -748,7 +765,17 @@
                     max-spread-rate      (double (t/mget max-spread-rate-matrix i j))
                     max-spread-direction (double (t/mget max-spread-direction-matrix i j))
                     eccentricity         (double (t/mget eccentricity-matrix i j))
-                    new-spread-rate      (compute-spread-rate max-spread-rate max-spread-direction eccentricity direction)]
+                    new-spread-rate      (if fuel-model->spread-rate-adjustment
+                                           (pyrome-adjust-spread-rate fuel-model->spread-rate-adjustment
+                                                                      (get-fuel-model i j)
+                                                                      (compute-spread-rate max-spread-rate
+                                                                                           max-spread-direction
+                                                                                           eccentricity
+                                                                                           direction))
+                                           (compute-spread-rate max-spread-rate
+                                                                max-spread-direction
+                                                                eccentricity
+                                                                direction))]
                 (assoc burn-vector :spread-rate new-spread-rate))))
           burn-vectors)))
 
@@ -769,20 +796,32 @@
         (mod 360))))
 
 (defn- compute-directional-in-situ-values!
-  [matrices ignited-cells]
+  [inputs matrices ignited-cells]
   (when (seq ignited-cells)
-    (let [max-spread-rate-matrix          (:max-spread-rate-matrix matrices)
-          max-spread-direction-matrix     (:max-spread-direction-matrix matrices)
-          eccentricity-matrix             (:eccentricity-matrix matrices)
-          residence-time-matrix           (:residence-time-matrix matrices)
-          reaction-intensity-matrix       (:reaction-intensity-matrix matrices)
-          directional-flame-length-matrix (:directional-flame-length-matrix matrices)]
+    (let [get-fuel-model                     (:get-fuel-model inputs)
+          fuel-model->spread-rate-adjustment (:fuel-model->spread-rate-adjustment inputs)
+          max-spread-rate-matrix             (:max-spread-rate-matrix matrices)
+          max-spread-direction-matrix        (:max-spread-direction-matrix matrices)
+          eccentricity-matrix                (:eccentricity-matrix matrices)
+          residence-time-matrix              (:residence-time-matrix matrices)
+          reaction-intensity-matrix          (:reaction-intensity-matrix matrices)
+          directional-flame-length-matrix    (:directional-flame-length-matrix matrices)]
       (doseq [[i j] ignited-cells]
         (let [direction            (compute-fire-front-direction! matrices i j)
               max-spread-rate      (t/mget max-spread-rate-matrix i j)
               max-spread-direction (t/mget max-spread-direction-matrix i j)
               eccentricity         (t/mget eccentricity-matrix i j)
-              spread-rate          (compute-spread-rate max-spread-rate max-spread-direction eccentricity direction)
+              spread-rate          (if fuel-model->spread-rate-adjustment
+                                     (pyrome-adjust-spread-rate fuel-model->spread-rate-adjustment
+                                                                (get-fuel-model i j)
+                                                                (compute-spread-rate max-spread-rate
+                                                                                     max-spread-direction
+                                                                                     eccentricity
+                                                                                     direction))
+                                     (compute-spread-rate max-spread-rate
+                                                          max-spread-direction
+                                                          eccentricity
+                                                          direction))
               residence-time       (t/mget residence-time-matrix i j)
               reaction-intensity   (t/mget reaction-intensity-matrix i j)
               fire-line-intensity  (->> (anderson-flame-depth spread-rate residence-time)
@@ -966,7 +1005,7 @@
               ;; TODO if spot ignitions is updated to have varying burn probability make sure there are no duplicates
               ;; of ignited cells in this list of ignited cells passed to compute-directional-in-stiu-values!
               (when compute-directional-values?
-                (compute-directional-in-situ-values! matrices all-ignited-cells))
+                (compute-directional-in-situ-values! inputs matrices all-ignited-cells))
               (recur new-clock
                      (min->hour new-clock)
                      non-burn-period-clock
