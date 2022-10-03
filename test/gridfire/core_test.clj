@@ -493,7 +493,7 @@
     (let [config (merge test-config-base
                         {:pyrome-calibration-csv "test/gridfire/resources/sample_pyrome_calibration_constants.csv"
                          :suppression            {:sdi-layer      {:type   :geotiff
-                                                                   :source "test/gridfire/resources/asp.tif"}
+                                                                   :source "test/gridfire/resources/sdi.tif"}
                                                   :suppression-dt 300}})]
 
       (is (valid-exits? (run-test-simulation! config))))))
