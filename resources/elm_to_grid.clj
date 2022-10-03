@@ -370,6 +370,20 @@
                                 :source (file-path output-dir WEATHER_DIRECTORY "mlh")})}}))
 
 ;;=============================================================================
+;; Pyrome specific calibration
+;;=============================================================================
+
+(defn process-pyrome-specific-calibration
+  [{:strs [ADJUSTMENT_FACTORS_BY_PYROME CALIBRATION_CONSTANTS_BY_PYROME ADJUSTMENT_FACTORS_FILENAME
+           CALIBRATION_CONSTANTS_FILENAME]}
+   config]
+  (cond-> config
+    (true? ADJUSTMENT_FACTORS_BY_PYROME)    (assoc :pyrome-spread-rate-adjustment-csv
+                                                   ADJUSTMENT_FACTORS_FILENAME)
+    (true? CALIBRATION_CONSTANTS_BY_PYROME) (assoc :pyrome-calibration-csv
+                                                   CALIBRATION_CONSTANTS_FILENAME)))
+
+;;=============================================================================
 ;; Build gridfire.edn
 ;;=============================================================================
 
@@ -391,7 +405,8 @@
        (process-output options data)
        (process-perturbations data)
        (process-spotting data)
-       (process-fuel-moisture options data)))
+       (process-fuel-moisture options data)
+       (process-pyrome-specific-calibration data)))
 
 ;;=============================================================================
 ;; Parse elmfire.data

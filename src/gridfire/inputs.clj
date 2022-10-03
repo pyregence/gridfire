@@ -98,17 +98,60 @@
            :fuel-moisture-live-herbaceous-index-multiplier (calc-multiplier inputs num-rows :fuel-moisture-live-herbaceous-matrix)
            :fuel-moisture-live-woody-index-multiplier      (calc-multiplier inputs num-rows :fuel-moisture-live-woody-matrix))))
 
+(def ignition-csv-column-header->parse-fn
+  "A map of column headers to the associated parsing function that column's data."
+  {:ignition-row        (fn [x] (Long/parseLong x 10))
+   :ignition-col        (fn [x] (Long/parseLong x 10))
+   :ignition-start-time (fn [x] (Double/parseDouble x))
+   :max-runtime         (fn [x] (Double/parseDouble x))
+   :pyrome              (fn [x] (Long/parseLong x 10))})
+
+(defn- my-zipmap
+  "Returns a map with the keys mapped to the corresponding vals. Same as zip map
+  except also looks up a map of parsing functions"
+  [keys vals]
+  (loop [map (transient {})
+         ks  (seq keys)
+         vs  (seq vals)]
+    (if (and ks vs)
+      (let [k (first ks)
+            v (first vs)]
+        (recur (assoc! map (first ks) (if-let [parse-fn (get ignition-csv-column-header->parse-fn k)]
+                                        (parse-fn v)
+                                        v))
+               (next ks)
+               (next vs)))
+      (persistent! map))))
+
+(defn- ignition-csv-rows->map
+  [[header-row & data-rows :as _csv-rows]]
+  (letfn [(trim-colname [header]
+            (-> header
+                (clojure.string/split #" ") ;header names can be follwoed by units description
+                first
+                keyword))]
+    (let [colname=keywords (mapv trim-colname header-row)]
+      (map (fn to-map [row-data]
+             (my-zipmap colname=keywords row-data))
+           data-rows))))
+
+(defn read-ignition-csv [file-path]
+  (with-open [reader (io/reader file-path)]
+    (doall (csv/read-csv reader))))
+
 (defn add-ignition-csv
   [{:keys [ignition-csv] :as inputs}]
-  (if ignition-csv
-    (let [ignitions (with-open [reader (io/reader ignition-csv)]
-                      (doall (rest (csv/read-csv reader))))]
-      (assoc inputs
-             :ignition-rows        (mapv #(Long/parseLong (get % 0)) ignitions)
-             :ignition-cols        (mapv #(Long/parseLong (get % 1)) ignitions)
-             :ignition-start-times (mapv #(Double/parseDouble (get % 2)) ignitions)
-             :max-runtime-samples  (mapv #(Double/parseDouble (get % 3)) ignitions)
-             :simulations          (count ignitions)))
+  (if-let [csv-data-maps (some-> ignition-csv
+                                 read-ignition-csv
+                                 ignition-csv-rows->map)]
+    (let [first-row (first csv-data-maps)]
+      (cond-> inputs
+        (:ignition-row first-row)        (assoc :ignition-rows        (mapv :ignition-row csv-data-maps))
+        (:ignition-col first-row)        (assoc :ignition-cols        (mapv :ignition-col csv-data-maps))
+        (:ignition-start-time first-row) (assoc :ignition-start-times (mapv :ignition-start-time csv-data-maps))
+        (:max-runtime first-row)         (assoc :max-runtime-samples  (mapv :max-runtime csv-data-maps))
+        (:pyrome first-row)              (assoc :pyromes              (mapv :pyrome csv-data-maps))
+        :always                          (assoc :simulations          (count csv-data-maps))))
     inputs))
 
 (defn add-sampled-params

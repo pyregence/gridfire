@@ -41,10 +41,10 @@
 ;;-----------------------------------------------------------------------------
 
 (defn parse-fire-stats-line
-  [[_ metband x y tstop & _] {:strs [COMPUTATIONAL_DOMAIN_CELLSIZE
-                                     COMPUTATIONAL_DOMAIN_XLLCORNER
-                                     COMPUTATIONAL_DOMAIN_YLLCORNER
-                                     COMPUTATIONAL_DOMAIN_YDIM]}]
+  [[_ metband x y tstop & remaining-columns] {:strs [COMPUTATIONAL_DOMAIN_CELLSIZE
+                                                     COMPUTATIONAL_DOMAIN_XLLCORNER
+                                                     COMPUTATIONAL_DOMAIN_YLLCORNER
+                                                     COMPUTATIONAL_DOMAIN_YDIM]}]
   [(-> y
        s/trim
        Float/parseFloat
@@ -60,11 +60,10 @@
        (/ COMPUTATIONAL_DOMAIN_CELLSIZE)
        int)
    (* (Integer/parseInt (s/trim metband)) 60.0)
-   (* (Float/parseFloat (s/trim tstop)) 60.0)]) ;TODO Check if maxruntime is added to inital start time.
+   (* (Float/parseFloat (s/trim tstop)) 60.0)
+   (* (Long/parseLong (s/trim (nth remaining-columns 8)) 10))])
 
 ;; NOTE GridFire's origin is upper left corner.
-
-
 ;;-----------------------------------------------------------------------------
 ;; main
 ;;-----------------------------------------------------------------------------
@@ -80,7 +79,7 @@
     :default 1
     :validate [pos? int?]]])
 
-(def program-banner "parse_fire_stats:")
+(def program-banner "parse_fire_stats:\nThis script uses a configuration file and the summary csv of a completed elmfire run to produce an ignitions.csv file to be used for a GridFire run.")
 
 (let [{:keys [options summary errors]} (parse-opts *command-line-args* cli-options)]
   (println program-banner)
@@ -89,14 +88,13 @@
         (println (str "\nUsage:\n" summary)))
     (let [elmfire-data (parse-elmfire (slurp (:elmfire-data options)))]
       (with-open [fire-stats-reader (io/reader (:fire-stats-csv options))
-                  ignitions-writer (io/writer "ignitions.csv")]
+                  ignitions-writer  (io/writer "ignitions.csv")]
         (->> (csv/read-csv fire-stats-reader)
              rest
              (take-nth (:retention-policy-num options))
              (map #(parse-fire-stats-line % elmfire-data))
-             (cons ["ignition-row" "ignition-col" "ignition-start-time (min)" "max-runtime (min)"])
+             (cons ["ignition-row" "ignition-col" "ignition-start-time (min)" "max-runtime (min)" "pyrome"])
              (csv/write-csv ignitions-writer))))))
 
 ;; Usage
 ;; ./parse_fire_stats.clj -c outputs/fire_size_stats.csv -e elmfire.data
-

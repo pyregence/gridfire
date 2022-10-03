@@ -97,3 +97,15 @@
     (is (not-empty (get-in inputs-after [:suppression :sdi-sensitivity-to-difficulty])))
     (is (not-empty (get-in inputs-after [:suppression :sdi-containment-overwhelming-area-growth-rate])))
     (is (not-empty (get-in inputs-after [:suppression :sdi-reference-suppression-speed])))))
+
+(deftest add-ignition-csv-test
+  (let [inputs       {:ignition-csv "test/gridfire/resources/sample_ignitions.csv"}
+        inputs-after (inputs/add-ignition-csv inputs)]
+    (is (= {:ignition-csv         "test/gridfire/resources/sample_ignitions.csv"
+            :ignition-rows        [4 5 6]
+            :ignition-cols        [1 2 3]
+            :ignition-start-times [0.0 0.0 0.0]
+            :max-runtime-samples  [10.0 20.0 30.0]
+            :pyromes              [7 7 7]
+            :simulations          3}
+           inputs-after))))
