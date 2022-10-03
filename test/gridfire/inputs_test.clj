@@ -77,13 +77,13 @@
         inputs-after (inputs/add-pyrome-spread-rate-adjustment inputs)]
 
     (is (= 0.9
-           (get-in inputs-after [:pyrome->spread-rate-adjustment 1 102])))
+           (get-in inputs-after [:pyrome->spread-rate-adjustment 1 102.0])))
 
     (is (= 0.8
-           (get-in inputs-after [:pyrome->spread-rate-adjustment 1 103])))
+           (get-in inputs-after [:pyrome->spread-rate-adjustment 1 103.0])))
 
     (is (= 0.6
-           (get-in inputs-after [:pyrome->spread-rate-adjustment 10 101])))))
+           (get-in inputs-after [:pyrome->spread-rate-adjustment 10 101.0])))))
 
 (deftest add-sdi-suppression
   (let [inputs       {:pyrome-calibration-csv "test/gridfire/resources/sample_pyrome_calibration_constants.csv"
