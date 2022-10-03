@@ -85,9 +85,15 @@
     (is (= 0.6
            (get-in inputs-after [:pyrome->spread-rate-adjustment 10 101.0])))))
 
-(deftest add-sdi-suppression
+(deftest add-sdi-suppression-test
   (let [inputs       {:pyrome-calibration-csv "test/gridfire/resources/sample_pyrome_calibration_constants.csv"
-                      :suppression            {:suppression-difficulty-index-layer {}}}
-        inputs-after (inputs/add-sdi-suppression inputs)]
+                      :pyromes                [7 7]
+                      :suppression            {:sdi-layer {:type   :geotiff
+                                                           :source "path/to/suppression/layer"}}}
+        inputs-after (-> inputs
+                         inputs/add-pyrome-calibration-constants
+                         inputs/add-sdi-suppression)]
 
-    (is (= inputs inputs-after))))
+    (is (not-empty (get-in inputs-after [:suppression :sdi-sensitivity-to-difficulty])))
+    (is (not-empty (get-in inputs-after [:suppression :sdi-containment-overwhelming-area-growth-rate])))
+    (is (not-empty (get-in inputs-after [:suppression :sdi-reference-suppression-speed])))))
