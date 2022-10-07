@@ -3330,12 +3330,11 @@ The suppression algorithm was built using the method described in
   "Compute the updated fraction contained using suppression difficulty index algorithm"
   [inputs ignited-cells-since-last-suppression ^double previous-fraction-contained]
   (let [cell-size                                     (double (:cell-size inputs))
-        suppression                                   (:suppression inputs)
         get-suppression-difficulty-index              (:get-suppression-difficulty-index inputs)
-        suppression-dt                                (double (:suppression-dt suppression))
-        sdi-containment-overwhelming-area-growth-rate (double (:sdi-containment-overwhelming-area-growth-rate suppression))
-        sdi-sensitivity-to-difficulty                 (double (:sdi-sensitivity-to-difficulty suppression))
-        sdi-reference-suppression-speed               (double (:sdi-reference-suppression-speed suppression))
+        suppression-dt                                (double (:suppression-dt inputs))
+        sdi-containment-overwhelming-area-growth-rate (double (:sdi-containment-overwhelming-area-growth-rate inputs))
+        sdi-sensitivity-to-difficulty                 (double (:sdi-sensitivity-to-difficulty inputs))
+        sdi-reference-suppression-speed               (double (:sdi-reference-suppression-speed inputs))
         area-growth-rate                              (compute-area-growth-rate cell-size suppression-dt ignited-cells-since-last-suppression)
         change-in-fraction-contained-sign-multiplier  (compute-change-in-fraction-contained-sign-multiplier sdi-containment-overwhelming-area-growth-rate
                                                                                                             area-growth-rate)
@@ -3367,8 +3366,7 @@ The suppression algorithm was built using the method described in
    ignited-cells-since-last-suppression
    previous-fraction-contained]
   (let [max-runtime-fraction         (double max-runtime-fraction)
-        suppression-curve-sharpness  (get-in inputs [:suppression
-                                                     :suppression-curve-sharpness])
+        suppression-curve-sharpness  (:suppression-curve-sharpness inputs)
         previous-num-perimeter-cells (long previous-num-perimeter-cells)
         previous-suppressed-count    (long previous-suppressed-count)
         active-perimeter-cells       (into #{}
@@ -3722,6 +3720,7 @@ or false:
             [gridfire.outputs             :as outputs]
             [gridfire.simulations         :as simulations]
             [gridfire.spec.config         :as config-spec]
+            [manifold.deferred            :as mfd]
             [taoensso.tufte               :as tufte]
             [triangulum.logging           :refer [log log-str]]))
 
@@ -3729,9 +3728,12 @@ or false:
 
 (defn write-outputs!
   [outputs]
-  (outputs/write-landfire-layers! outputs)
-  (outputs/write-aggregate-layers! outputs)
-  (outputs/write-csv-outputs! outputs)
+  (->
+    (mfd/zip
+      (outputs/write-landfire-layers! outputs)
+      (outputs/write-aggregate-layers! outputs)
+      (outputs/write-csv-outputs! outputs))
+    (deref))
   :success)
 
 (defmacro with-multithread-profiling
@@ -3773,7 +3775,11 @@ or false:
       (inputs/add-fuel-moisture-params)
       (inputs/add-random-ignition-sites)
       (inputs/add-aggregate-matrices)
-      (inputs/add-burn-period-params)))
+      (inputs/add-burn-period-params)
+      (inputs/add-ignition-start-times)
+      (inputs/add-ignition-start-timestamps)
+      (inputs/add-suppression)
+      (inputs/add-spread-rate-adjustment-factors)))
 
 (defn load-config!
   [config-file-path]
@@ -4236,9 +4242,9 @@ this functionality.
         convert-fn                             (convert/get-units-converter layer-name
                                                                             units
                                                                             (or multiplier 1.0))
-        datatype                               (if (= layer-name :fuel-model)
-                                                 :int32
-                                                 :float32)]
+        datatype                               (if (= layer-name :fuel-model) ;TODO investigate why postgis
+                                                 :int32                       ;     fuel-model is not converted
+                                                 :float32)]                   ;     to int32
     (if (= type :postgis)
       (cond-> (postgis-raster-to-matrix db-spec source)
         convert-fn (update :matrix #(d/copy! (d/emap convert-fn datatype %) %)))
