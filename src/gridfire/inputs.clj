@@ -308,3 +308,69 @@
     (-> inputs
         (assoc :ignition-start-timestamps ignition-start-timestamps)
         (dissoc :ignition-start-timestamp))))
+
+(defn add-suppression
+  [{:keys
+    [rand-gen simulations suppression suppression-dt-samples suppression-curve-sharpness-samples
+     sdi-sensitivity-to-difficulty-samples sdi-containment-overwhelming-area-growth-rate-samples
+     sdi-reference-suppression-speed-samples] :as inputs}]
+  (if suppression
+    (let [{:keys
+           [suppression-dt
+            suppression-curve-sharpness
+            sdi-sensitivity-to-difficulty
+            sdi-containment-overwhelming-area-growth-rate
+            sdi-reference-suppression-speed]} suppression]
+      (cond-> inputs
+
+        (and suppression-dt
+             (nil? suppression-dt-samples))
+        (assoc :suppression-dt-samples
+               (draw-samples rand-gen simulations suppression-dt))
+
+        (and suppression-curve-sharpness
+             (nil? suppression-curve-sharpness-samples))
+        (assoc :suppression-curve-sharpness-samples
+               (draw-samples rand-gen simulations suppression-curve-sharpness))
+
+        (and sdi-sensitivity-to-difficulty
+             (nil? sdi-sensitivity-to-difficulty-samples))
+        (assoc :sdi-sensitivity-to-difficulty-samples
+               (draw-samples rand-gen simulations sdi-sensitivity-to-difficulty))
+
+        (and sdi-containment-overwhelming-area-growth-rate
+             (nil? sdi-containment-overwhelming-area-growth-rate-samples))
+        (assoc :sdi-containment-overwhelming-area-growth-rate-samples
+               (draw-samples rand-gen simulations sdi-containment-overwhelming-area-growth-rate))
+
+        (and sdi-reference-suppression-speed
+             (nil? sdi-reference-suppression-speed-samples))
+        (assoc :sdi-reference-suppression-speed-samples
+               (draw-samples rand-gen simulations sdi-reference-suppression-speed))))
+    inputs))
+
+(defn- lookup-spread-rate-adjustment
+  [{:keys
+    [fuel->spread-rate-adjustment-samples ignition-rows ignition-cols
+     fuel-model-matrix]}]
+  (loop [fuel->spread-rate-adjustment-samples (seq fuel->spread-rate-adjustment-samples)
+         ignition-rows                        (seq ignition-rows)
+         ignition-cols                        (seq ignition-cols)
+         spread-rate-adjustment-samples []]
+    (if (and fuel->spread-rate-adjustment-samples ignition-rows ignition-cols)
+      (let [row                          (first ignition-rows)
+            col                          (first ignition-cols)
+            fuel->spread-rate-adjustment (first fuel->spread-rate-adjustment-samples)
+            fuel-model                   (t/mget fuel-model-matrix row col)
+            spread-rate-adjustment       (get fuel->spread-rate-adjustment fuel-model)]
+        (recur (next fuel->spread-rate-adjustment-samples)
+               (next ignition-rows)
+               (next ignition-cols)
+               (conj spread-rate-adjustment-samples spread-rate-adjustment)))
+      spread-rate-adjustment-samples)))
+
+(defn add-spread-rate-adjustment-factors
+  [{:keys [fuel->spread-rate-adjustment-samples] :as inputs}]
+  (if fuel->spread-rate-adjustment-samples
+    (assoc inputs :spread-rate-adjustment-samples (lookup-spread-rate-adjustment inputs))
+    inputs))

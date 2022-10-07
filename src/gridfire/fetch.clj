@@ -42,9 +42,9 @@
         convert-fn                             (convert/get-units-converter layer-name
                                                                             units
                                                                             (or multiplier 1.0))
-        datatype                               (if (= layer-name :fuel-model)
-                                                 :int32
-                                                 :float32)]
+        datatype                               (if (= layer-name :fuel-model) ;TODO investigate why postgis
+                                                 :int32                       ;     fuel-model is not converted
+                                                 :float32)]                   ;     to int32
     (if (= type :postgis)
       (cond-> (postgis-raster-to-matrix db-spec source)
         convert-fn (update :matrix #(d/copy! (d/emap convert-fn datatype %) %)))

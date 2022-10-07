@@ -231,6 +231,13 @@
 (s/def ::output-flame-length-max  #{:max :directional})
 (s/def ::output-flame-length-sum  #{:max :directional})
 
+
+;;=============================================================================
+;;spread-rate adjusstment factor
+;;=============================================================================
+
+(s/def ::fuel-model->spread-rate-adjustment (s/coll-of map? :kind vector?))
+
 ;;=============================================================================
 ;; Burn Period
 ;;=============================================================================
@@ -310,7 +317,12 @@
              ::output-burn-count?
              ::output-spot-count?
              ::output-flame-length-max
-             ::output-flame-length-sum])
+             ::output-flame-length-sum
+             ::suppression/suppression-dt-samples
+             ::suppression/suppression-curve-sharpnes-samples
+             ::suppression/sdi-sensitivity-to-difficult-samples
+             ::suppression/sdi-containment-overwhelming-area-growth-rate-samples
+             ::suppression/sdi-reference-suppression-speed-samples])
    ::ignition-layer-or-ignition-csv
    ::max-runtime-or-ignition-csv
    ::simulations-or-ignition-csv

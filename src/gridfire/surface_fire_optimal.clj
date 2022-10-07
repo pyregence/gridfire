@@ -402,13 +402,21 @@
      (add-eccentricity ellipse-adjustment-factor))))
 
 (defn compute-spread-rate ^double
-  [^double max-spread-rate ^double max-spread-direction ^double eccentricity ^double spread-direction]
-  (let [theta (smallest-angle-between max-spread-direction spread-direction)]
-    (if (or (almost-zero? eccentricity) (almost-zero? theta))
-      max-spread-rate
-      (* max-spread-rate (/ (- 1.0 eccentricity)
-                            (- 1.0 (* eccentricity
-                                      (Math/cos (deg->rad theta)))))))))
+  ([max-spread-rate max-spread-direction eccentricity spread-direction]
+   (compute-spread-rate max-spread-rate max-spread-direction eccentricity spread-direction 1.0))
+
+  ([max-spread-rate max-spread-direction eccentricity spread-direction rate-adjustment-factor]
+   (let [max-spread-rate        (double max-spread-rate)
+         max-spread-direction   (double max-spread-direction)
+         eccentricity           (double eccentricity)
+         spread-direction       (double spread-direction)
+         theta                  (smallest-angle-between max-spread-direction spread-direction)]
+     (-> (if (or (almost-zero? eccentricity) (almost-zero? theta))
+           max-spread-rate
+           (* max-spread-rate (/ (- 1.0 eccentricity)
+                                 (- 1.0 (* eccentricity
+                                           (Math/cos (deg->rad theta)))))))
+         (* (or (some-> rate-adjustment-factor double) 1.0))))))
 
 (defn anderson-flame-depth
   "Returns the depth, or front-to-back distance, of the actively flaming zone

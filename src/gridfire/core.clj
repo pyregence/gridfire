@@ -65,7 +65,9 @@
       (inputs/add-aggregate-matrices)
       (inputs/add-burn-period-params)
       (inputs/add-ignition-start-times)
-      (inputs/add-ignition-start-timestamps)))
+      (inputs/add-ignition-start-timestamps)
+      (inputs/add-suppression)
+      (inputs/add-spread-rate-adjustment-factors)))
 
 (defn load-config!
   [config-file-path]

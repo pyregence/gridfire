@@ -63,3 +63,30 @@
         (is (every? pos? (map #(t/mget (:ignition-mask-matrix inputs-after) %1 %2)
                               (:ignition-rows inputs-after) (:ignition-cols inputs-after)))
             "All ignition sites should have positive values in the ignition mask")))))
+
+(deftest add-suppression-test
+  (let [inputs       {:suppression {:sdi-layer                                     {:type   :geotiff
+                                                                                    :source "path/to/suppression/layer"}
+                                    :suppression-dt                                42.0
+                                    :sdi-sensitivity-to-difficulty                 42.0
+                                    :sdi-containment-overwhelming-area-growth-rate 42.0
+                                    :sdi-reference-suppression-speed               42.0}
+                      :simulations 1
+                      :rand-gen    (Random. 1234)}
+        inputs-after (inputs/add-suppression inputs)]
+
+    (is (= [42.0] (inputs-after :suppression-dt-samples)))
+    (is (= [42.0] (inputs-after :sdi-sensitivity-to-difficulty-samples)))
+    (is (= [42.0] (inputs-after :sdi-containment-overwhelming-area-growth-rate-samples)))
+    (is (= [42.0] (inputs-after :sdi-reference-suppression-speed-samples)))))
+
+(deftest add-spread-rate-adjustment-factors-test
+  (let [inputs       (-> *base-config*
+                         (merge {:fuel->spread-rate-adjustment-samples [{101 0.1}]
+                                 :ignition-rows                        [0]
+                                 :ignition-cols                        [0]}))
+        inputs-after (inputs/add-spread-rate-adjustment-factors inputs)]
+
+    (is (contains? inputs-after :spread-rate-adjustment-samples))
+
+    (is (= [0.1] (:spread-rate-adjustment-samples inputs-after)))))
