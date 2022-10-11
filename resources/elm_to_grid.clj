@@ -417,29 +417,28 @@
                                             csv/read-csv
                                             doall))
         pyrome->calibration-constants (pyrome-csv-rows->lookup-map csv-rows keyword)
-        header-set                    (set header)
-        pyrome-samples                pyrome-samples]
+        header-set                    (set header)]
     (cond-> output-edn
 
       (contains? header-set "sdi-sensitivity-to-difficulty")
       (assoc :sdi-sensitivity-to-difficulty-samples
-             (mapv (fn [pyrome-index]
+             (mapv (fn [pyrome-sample]
                      (get-in pyrome->calibration-constants
-                             [pyrome-index :sdi-sensitivity-to-difficulty]))
+                             [pyrome-sample :sdi-sensitivity-to-difficulty]))
                    pyrome-samples))
 
       (contains? header-set "sdi-reference-suppression-speed")
       (assoc :sdi-reference-suppression-speed-samples
-             (mapv (fn [pyrome-index]
+             (mapv (fn [pyrome-sample]
                      (get-in pyrome->calibration-constants
-                             [pyrome-index :sdi-reference-suppression-speed]))
+                             [pyrome-sample :sdi-reference-suppression-speed]))
                    pyrome-samples))
 
       (contains? header-set "sdi-containment-overwhelming-area-growth-rate")
       (assoc :sdi-containment-overwhelming-area-growth-rate-samples
-             (mapv (fn [pyrome-index]
+             (mapv (fn [pyrome-sample]
                      (get-in pyrome->calibration-constants
-                             [pyrome-index :sdi-containment-overwhelming-area-growth-rate]))
+                             [pyrome-sample :sdi-containment-overwhelming-area-growth-rate]))
                    pyrome-samples)))))
 
 (defn- process-pyrome-spread-rate-adjustment-csv
@@ -451,7 +450,7 @@
                                              (pyrome-csv-rows->lookup-map (fn [s] (Long/parseLong s 10)))))]
     (assoc output-edn
            :fuel->spread-rate-adjustment-samples
-           (mapv (fn [pyrome-index] (get pyrome->spread-rate-adjustment pyrome-index))
+           (mapv (fn [pyrome-sample] (get pyrome->spread-rate-adjustment pyrome-sample))
                  pyrome-samples))))
 
 (defn process-pyrome-specific-calibration
@@ -532,7 +531,7 @@
                             (- COMPUTATIONAL_DOMAIN_XLLCORNER)
                             (/ COMPUTATIONAL_DOMAIN_CELLSIZE)
                             int)
-   :ignition-start-time (* (Integer/parseInt (str/trim metband)) 60.0)
+   :ignition-start-time (* (Long/parseLong (str/trim metband) 10) 60.0)
    :max-runtime         (* (Float/parseFloat (str/trim tstop)) 60.0)
    :pyrome              (* (Long/parseLong (str/trim (nth remaining-columns 8)) 10))})
 

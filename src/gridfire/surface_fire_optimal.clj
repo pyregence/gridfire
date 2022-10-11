@@ -162,7 +162,7 @@
           (Math/pow B-inverse)))))
 
 (defrecord SurfaceFireMin
-    [^double spread-rate
+    [^double unadj-spread-rate
      ^double reaction-intensity
      ^double residence-time
      ^double fuel-bed-depth
@@ -370,10 +370,17 @@
             effective-wind-speed (get-wind-speed phi-combined)]
         (->SurfaceFireMax max-spread-rate max-spread-direction effective-wind-speed 0.0)))))
 
+(defn resolve-spread-rate ^double
+  [^SurfaceFireMin surface-fire-min ^double adjustment-factor]
+  (-> surface-fire-min
+      (:unadj-spread-rate)
+      (double)
+      (* adjustment-factor)))
+
 (defn rothermel-surface-fire-spread-max
   "Note: fire ellipse adjustment factor, < 1.0 = more circular, > 1.0 = more elliptical"
-  [surface-fire-min midflame-wind-speed wind-from-direction slope aspect ellipse-adjustment-factor]
-  (let [spread-rate               (double (:spread-rate surface-fire-min))
+  [surface-fire-min midflame-wind-speed wind-from-direction slope aspect ellipse-adjustment-factor spread-rate-adjustment]
+  (let [spread-rate               (resolve-spread-rate surface-fire-min (or spread-rate-adjustment 1.0))
         reaction-intensity        (double (:reaction-intensity surface-fire-min))
         get-phi_S                 (:get-phi_S surface-fire-min)
         get-phi_W                 (:get-phi_W surface-fire-min)
@@ -402,21 +409,17 @@
      (add-eccentricity ellipse-adjustment-factor))))
 
 (defn compute-spread-rate ^double
-  ([max-spread-rate max-spread-direction eccentricity spread-direction]
-   (compute-spread-rate max-spread-rate max-spread-direction eccentricity spread-direction 1.0))
-
-  ([max-spread-rate max-spread-direction eccentricity spread-direction rate-adjustment-factor]
-   (let [max-spread-rate        (double max-spread-rate)
-         max-spread-direction   (double max-spread-direction)
-         eccentricity           (double eccentricity)
-         spread-direction       (double spread-direction)
-         theta                  (smallest-angle-between max-spread-direction spread-direction)]
-     (-> (if (or (almost-zero? eccentricity) (almost-zero? theta))
-           max-spread-rate
-           (* max-spread-rate (/ (- 1.0 eccentricity)
-                                 (- 1.0 (* eccentricity
-                                           (Math/cos (deg->rad theta)))))))
-         (* (or (some-> rate-adjustment-factor double) 1.0))))))
+  [max-spread-rate max-spread-direction eccentricity spread-direction]
+  (let [max-spread-rate      (double max-spread-rate)
+        max-spread-direction (double max-spread-direction)
+        eccentricity         (double eccentricity)
+        spread-direction     (double spread-direction)
+        theta                (smallest-angle-between max-spread-direction spread-direction)]
+    (if (or (almost-zero? eccentricity) (almost-zero? theta))
+      max-spread-rate
+      (* max-spread-rate (/ (- 1.0 eccentricity)
+                            (- 1.0 (* eccentricity
+                                      (Math/cos (deg->rad theta)))))))))
 
 (defn anderson-flame-depth
   "Returns the depth, or front-to-back distance, of the actively flaming zone

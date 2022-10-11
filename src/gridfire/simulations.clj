@@ -462,19 +462,13 @@
                              :get-wind-speed-20ft                           (get-value-fn inputs rand-gen :wind-speed-20ft i)
                              :ellipse-adjustment-factor                     (ellipse-adjustment-factor-samples i)
                              :grass-suppression?                            (true? grass-suppression?)
-                             :sdi-containment-overwhelming-area-growth-rate (when sdi-containment-overwhelming-area-growth-rate-samples
-                                                                              (get sdi-containment-overwhelming-area-growth-rate-samples i))
-                             :sdi-reference-suppression-speed               (when sdi-reference-suppression-speed-samples
-                                                                              (get sdi-reference-suppression-speed-samples i))
-                             :sdi-sensitivity-to-difficulty                 (when sdi-sensitivity-to-difficulty-samples
-                                                                              (get sdi-sensitivity-to-difficulty-samples i))
+                             :sdi-containment-overwhelming-area-growth-rate (some-> sdi-containment-overwhelming-area-growth-rate-samples (get i))
+                             :sdi-reference-suppression-speed               (some-> sdi-reference-suppression-speed-samples (get i))
+                             :sdi-sensitivity-to-difficulty                 (some-> sdi-sensitivity-to-difficulty-samples (get i))
                              :spotting                                      spotting
-                             :spread-rate-adjustments                       (when spread-rate-adjusment-samples
-                                                                              (get spread-rate-adjusment-samples i))
-                             :suppression-curve-sharpness                   (when suppression-curve-sharpness-samples
-                                                                              (get suppression-curve-sharpness-samples i))
-                             :suppression-dt                                (when suppression-dt-samples
-                                                                              (get suppression-dt-samples i))}
+                             :spread-rate-adjustments                       (some-> spread-rate-adjusment-samples (get i))
+                             :suppression-curve-sharpness                   (some-> suppression-curve-sharpness-samples (get i))
+                             :suppression-dt                                (some-> suppression-dt-samples (get i))}
          simulation-results (tufte/p :run-fire-spread
                                      (run-fire-spread (map->SimulationInputs simulation-inputs)))]
      (when simulation-results
