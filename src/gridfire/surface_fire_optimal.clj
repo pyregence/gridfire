@@ -409,7 +409,7 @@
      (add-eccentricity ellipse-adjustment-factor))))
 
 (defn compute-spread-rate ^double
-  [^double max-spread-rate ^double max-spread-direction ^double eccentricity  ^double spread-direction]
+  [^double max-spread-rate ^double max-spread-direction ^double eccentricity ^double spread-direction]
   (let [max-spread-rate      (double max-spread-rate)
         max-spread-direction (double max-spread-direction)
         eccentricity         (double eccentricity)
