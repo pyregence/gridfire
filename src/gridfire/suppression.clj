@@ -316,10 +316,10 @@
 (defn- compute-fraction-contained-sc
   "Compute fraction contained using suppression curve algorithm"
   ^double
-  [^double max-runtime-fraction ^double suppression-curve-sharpness]
+  [^double max-runtime-fraction ^double suppression-coefficient]
   (Math/pow (/ (* 2.0 max-runtime-fraction)
                (+ 1.0 (Math/pow max-runtime-fraction 2.0)))
-            suppression-curve-sharpness))
+            suppression-coefficient))
 
 (defn suppress-burn-vectors
   [inputs
@@ -330,16 +330,16 @@
    ignited-cells-since-last-suppression
    previous-fraction-contained]
   (let [max-runtime-fraction         (double max-runtime-fraction)
-        suppression-curve-sharpness  (get-in inputs [:suppression
-                                                     :suppression-curve-sharpness])
+        suppression-coefficient      (get-in inputs [:suppression
+                                                     :suppression-coefficient])
         previous-num-perimeter-cells (long previous-num-perimeter-cells)
         previous-suppressed-count    (long previous-suppressed-count)
         active-perimeter-cells       (into #{}
                                            (map (juxt :i :j))
                                            burn-vectors)
-        fraction-contained           (if suppression-curve-sharpness
+        fraction-contained           (if suppression-coefficient
                                        (compute-fraction-contained-sc max-runtime-fraction
-                                                                      (double suppression-curve-sharpness))
+                                                                      (double suppression-coefficient))
                                        (compute-fraction-contained-sdi inputs
                                                                        ignited-cells-since-last-suppression
                                                                        previous-fraction-contained))

@@ -169,7 +169,7 @@
 (s/def ::suppression
   (s/and
    (s/keys :req-un [::suppression/suppression-dt]
-           :opt-un [::suppression/suppression-curve-sharpness
+           :opt-un [::suppression/suppression-coefficient
                     ::suppression/sdi-layer
                     ::suppression/sdi-sensitivity-to-difficulty
                     ::suppression/sdi-containment-overwhelming-area-growth-rate

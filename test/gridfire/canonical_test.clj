@@ -288,8 +288,8 @@
   (run-sim! (-> (first (gen-scenarios :suppression-curve suppression-curve-scenarios))
                 (assoc :output-layers {:directional-flame-length 72
                                        :flame-length             :final})
-                (assoc :suppression {:suppression-dt              300
-                                     :suppression-curve-sharpness 2.0})
+                (assoc :suppression {:suppression-dt          300
+                                     :suppression-coefficient 2.0})
                 (assoc :weather-start-timestamp #inst "1970-01-01T00-00:00"))))
 
 (deftest ^:suppression-sdi test-suppression-sdi-scenario

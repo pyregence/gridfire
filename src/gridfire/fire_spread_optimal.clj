@@ -1075,7 +1075,7 @@
   |                                    |                    | :crown-fire-spotting-percent -> double or [double double] |
   |------------------------------------+--------------------+-----------------------------------------------------------|
   | :suppression                       | map                | :suppression-dt -> double                                 |
-  |                                    |                    | :suppression-curve-sharpness -> double                    | ; TODO add sdi suppression params
+  |                                    |                    | :suppression-coefficient -> double                        | ; TODO add sdi suppression params
   |------------------------------------+--------------------+-----------------------------------------------------------|"
   (fn [inputs]
     (if (vector? (:initial-ignition-site inputs))
