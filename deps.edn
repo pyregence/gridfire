@@ -1,57 +1,58 @@
 ;; [[file:org/GridFire.org::deps.edn][deps.edn]]
-{:paths ["src" "resources"]
+{:paths     ["src" "resources"]
 
- :deps {cnuernber/dtype-next                {:mvn/version "9.000"}
-        com.nextjournal/beholder            {:mvn/version "1.0.0"}
-        com.taoensso/tufte                  {:mvn/version "2.2.0"}
-        hikari-cp/hikari-cp                 {:mvn/version "2.13.0"}
-        manifold/manifold                   {:mvn/version "0.2.4"}
-        org.apache.commons/commons-compress {:mvn/version "1.21"}
-        org.clojars.lambdatronic/matrix-viz {:mvn/version "2022.02.03"}
-        org.clojure/clojure                 {:mvn/version "1.10.3"}
-        org.clojure/core.async              {:mvn/version "1.3.622"}
-        org.clojure/data.csv                {:mvn/version "1.0.0"}
-        org.clojure/data.json               {:mvn/version "2.4.0"}
-        org.clojure/java.jdbc               {:mvn/version "0.7.12"}
-        org.clojure/tools.cli               {:mvn/version "1.0.206"}
-        org.postgresql/postgresql           {:mvn/version "42.2.23"}
-        sig-gis/magellan                    {:mvn/version "2022.03.18"}
-        sig-gis/triangulum                  {:git/url "https://github.com/sig-gis/triangulum"
-                                             :sha     "5b179a97ebd8fbcbff51776db06d9770cb649b9d"}}
+ :deps      {cnuernber/dtype-next                {:mvn/version "9.000"}
+             com.nextjournal/beholder            {:mvn/version "1.0.0"}
+             com.taoensso/tufte                  {:mvn/version "2.2.0"}
+             hikari-cp/hikari-cp                 {:mvn/version "2.13.0"}
+             manifold/manifold                   {:mvn/version "0.2.4"}
+             org.apache.commons/commons-compress {:mvn/version "1.21"}
+             org.clojars.lambdatronic/matrix-viz {:mvn/version "2022.02.03"}
+             org.clojure/clojure                 {:mvn/version "1.10.3"}
+             org.clojure/core.async              {:mvn/version "1.3.622"}
+             org.clojure/data.csv                {:mvn/version "1.0.0"}
+             org.clojure/data.json               {:mvn/version "2.4.0"}
+             org.clojure/java.jdbc               {:mvn/version "0.7.12"}
+             org.clojure/tools.cli               {:mvn/version "1.0.206"}
+             org.postgresql/postgresql           {:mvn/version "42.2.23"}
+             sig-gis/magellan                    {:mvn/version "2022.03.18"}
+             sig-gis/triangulum                  {:git/url "https://github.com/sig-gis/triangulum"
+                                                  :sha     "5b179a97ebd8fbcbff51776db06d9770cb649b9d"}}
 
  :mvn/repos {"osgeo" {:url "https://repo.osgeo.org/repository/release/"}}
 
- :aliases {:build             {:deps       {io.github.clojure/tools.build
-                                            {:git/tag "v0.8.3" :git/sha "0d20256"}}
-                               :ns-default build}
-           :with-tools-build  {:extra-deps {io.github.clojure/tools.build
-                                            {:git/tag "v0.8.3" :git/sha "0d20256"}}}
-           :build-test-db     {:extra-paths ["test"]
-                               :main-opts   ["-m" "gridfire.build-test-db"]}
-           :run               {:main-opts ["-m" "gridfire.cli"]
-                               :jvm-opts  ["-XX:MaxRAMPercentage=90"]}
-           :repl              {:main-opts ["-e" "(require,'gridfire.core)"
-                                           "-e" "(in-ns,'gridfire.core)"
-                                           "-r"]}
-           :vsampling         {:jvm-opts ["-Dgridfire.utils.vsampling.enabled=true"]}
-           :gen-raster        {:main-opts ["-m" "gridfire.gen-raster"]}
-           :test              {:extra-paths ["test"]
-                               :extra-deps  {com.cognitect/test-runner
-                                             {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                                              :sha     "dd6da11611eeb87f08780a30ac8ea6012d4c05ce"}}
-                               :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
-                                             "-m" "cognitect.test-runner"]}
-           :test-unit         {:extra-paths ["test"]
-                               :extra-deps  {com.cognitect/test-runner
-                                             {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                                              :sha     "dd6da11611eeb87f08780a30ac8ea6012d4c05ce"}}
-                               :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
-                                             "-m" "cognitect.test-runner"
-                                             "--include" ":unit"]}
-           :check-reflections {:extra-paths ["test"]
-                               :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
-                                             "-e" "(require,'gridfire.cli)"
-                                             "-e" "(require,'gridfire.build-test-db)"]}
-           :check-deps        {:extra-deps {olical/depot {:mvn/version "2.3.0"}}
-                               :main-opts  ["-m" "depot.outdated.main"]}}}
+ :aliases   {:build             {:deps       {io.github.clojure/tools.build
+                                              {:git/tag "v0.8.3" :git/sha "0d20256"}}
+                                 :ns-default build}
+             :with-tools-build  {:extra-deps {io.github.clojure/tools.build
+                                              {:git/tag "v0.8.3" :git/sha "0d20256"}}}
+             :build-test-db     {:extra-paths ["test"]
+                                 :main-opts   ["-m" "gridfire.build-test-db"]}
+             :run               {:main-opts ["-m" "gridfire.cli"]
+                                 :jvm-opts  ["-XX:MaxRAMPercentage=90"]}
+             :repl              {:main-opts ["-e" "(require,'gridfire.core)"
+                                             "-e" "(in-ns,'gridfire.core)"
+                                             "-r"]}
+             :vsampling         {:jvm-opts ["-Dgridfire.utils.vsampling.enabled=true"]}
+             :dataviz           {:extra-deps {hiccup/hiccup {:mvn/version "1.0.5"}}}
+             :gen-raster        {:main-opts ["-m" "gridfire.gen-raster"]}
+             :test              {:extra-paths ["test"]
+                                 :extra-deps  {com.cognitect/test-runner
+                                               {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                                :sha     "dd6da11611eeb87f08780a30ac8ea6012d4c05ce"}}
+                                 :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
+                                               "-m" "cognitect.test-runner"]}
+             :test-unit         {:extra-paths ["test"]
+                                 :extra-deps  {com.cognitect/test-runner
+                                               {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                                :sha     "dd6da11611eeb87f08780a30ac8ea6012d4c05ce"}}
+                                 :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
+                                               "-m" "cognitect.test-runner"
+                                               "--include" ":unit"]}
+             :check-reflections {:extra-paths ["test"]
+                                 :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
+                                               "-e" "(require,'gridfire.cli)"
+                                               "-e" "(require,'gridfire.build-test-db)"]}
+             :check-deps        {:extra-deps {olical/depot {:mvn/version "2.3.0"}}
+                                 :main-opts  ["-m" "depot.outdated.main"]}}}
 ;; deps.edn ends here
