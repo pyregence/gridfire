@@ -459,53 +459,52 @@
    {:keys [output-csvs? envelope cell-size ignition-rows ignition-cols] :as inputs}
    simulation-inputs
    simulation-results]
-  (let []
-    (when simulation-results
-      (->
-        (mfd/zip
-         (process-output-layers! inputs simulation-results envelope i)
-         (process-aggregate-output-layers! inputs simulation-results)
-         (process-binary-output! inputs simulation-results i))
-        (gf-async/nil-when-completed)
-        (deref)))
-    (when output-csvs?
-      (-> simulation-inputs
-          (dissoc :get-aspect
-                  :get-canopy-height
-                  :get-canopy-base-height
-                  :get-canopy-cover
-                  :get-crown-bulk-density
-                  :get-fuel-model
-                  :get-slope
-                  :get-elevation
-                  :get-temperature
-                  :get-relative-humidity
-                  :get-wind-speed-20ft
-                  :get-wind-from-direction
-                  :get-fuel-moisture-dead-1hr
-                  :get-fuel-moisture-dead-10hr
-                  :get-fuel-moisture-dead-100hr
-                  :get-fuel-moisture-live-herbaceous
-                  :get-fuel-moisture-live-woody
-                  :get-foliar-moisture)
-          (merge {:simulation         (inc i)
-                  :ignition-row       (get ignition-rows i)
-                  :ignition-col       (get ignition-cols i)
-                  :global-clock       (:global-clock simulation-results)
-                  :exit-condition     (:exit-condition simulation-results :no-fire-spread)
-                  :surface-fire-count (:surface-fire-count simulation-results)
-                  :crown-fire-count   (:crown-fire-count simulation-results)
-                  :spot-count         (:spot-count simulation-results)})
-          (merge
-           (if simulation-results
-             (tufte/p
-              :summarize-fire-spread-results
-              (summarize-fire-spread-results simulation-results cell-size))
-             {:fire-size                  0.0
-              :flame-length-mean          0.0
-              :flame-length-stddev        0.0
-              :fire-line-intensity-mean   0.0
-              :fire-line-intensity-stddev 0.0}))))))
+  (when simulation-results
+    (->
+      (mfd/zip
+       (process-output-layers! inputs simulation-results envelope i)
+       (process-aggregate-output-layers! inputs simulation-results)
+       (process-binary-output! inputs simulation-results i))
+      (gf-async/nil-when-completed)
+      (deref)))
+  (when output-csvs?
+    (-> simulation-inputs
+        (dissoc :get-aspect
+                :get-canopy-height
+                :get-canopy-base-height
+                :get-canopy-cover
+                :get-crown-bulk-density
+                :get-fuel-model
+                :get-slope
+                :get-elevation
+                :get-temperature
+                :get-relative-humidity
+                :get-wind-speed-20ft
+                :get-wind-from-direction
+                :get-fuel-moisture-dead-1hr
+                :get-fuel-moisture-dead-10hr
+                :get-fuel-moisture-dead-100hr
+                :get-fuel-moisture-live-herbaceous
+                :get-fuel-moisture-live-woody
+                :get-foliar-moisture)
+        (merge {:simulation         (inc i)
+                :ignition-row       (get ignition-rows i)
+                :ignition-col       (get ignition-cols i)
+                :global-clock       (:global-clock simulation-results)
+                :exit-condition     (:exit-condition simulation-results :no-fire-spread)
+                :surface-fire-count (:surface-fire-count simulation-results)
+                :crown-fire-count   (:crown-fire-count simulation-results)
+                :spot-count         (:spot-count simulation-results)})
+        (merge
+         (if simulation-results
+           (tufte/p
+            :summarize-fire-spread-results
+            (summarize-fire-spread-results simulation-results cell-size))
+           {:fire-size                  0.0
+            :flame-length-mean          0.0
+            :flame-length-stddev        0.0
+            :fire-line-intensity-mean   0.0
+            :fire-line-intensity-stddev 0.0})))))
 
 (defn run-simulation!
   [^long i inputs]
