@@ -449,7 +449,7 @@
                                              doall
                                              (pyrome-csv-rows->lookup-map (fn [s] (Long/parseLong s 10)))))]
     (assoc output-edn
-           :fuel->spread-rate-adjustment-samples
+           :fuel-number->spread-rate-adjustment-samples
            (mapv (fn [pyrome-sample] (get pyrome->spread-rate-adjustment pyrome-sample))
                  pyrome-samples))))
 
@@ -659,6 +659,6 @@
         (println (str "\nUsage:\n" summary))))
 
     ;; Exit cleanly
-    #_(System/exit 0)))
+    (System/exit 0)))
 
-;; (main *command-line-args*)
+(main *command-line-args*)

@@ -236,7 +236,14 @@
 ;; Spread Rate Adjustment
 ;;=============================================================================
 
-(s/def ::fuel-model->spread-rate-adjustment-samples (s/coll-of map? :kind vector?))
+(defn long? [x]
+  (instance? Long x))
+
+(s/def ::fuel-number->spread-rate-adjustment
+  (s/map-of long? double?))
+
+(s/def ::fuel-number->spread-rate-adjustment-samples
+  (s/coll-of ::fuel-number->spread-rate-adjustment :kind vector?))
 
 ;;=============================================================================
 ;; Burn Period
@@ -291,7 +298,7 @@
              ::random-seed
              ::ellipse-adjustment-factor
              ::fractional-distance-combination
-             ::fuel-model->spread-rate-adjustment-samples
+             ::fuel-number->spread-rate-adjustment-samples
              ::parallel-strategy
              ::db-spec
              ::ignition-row

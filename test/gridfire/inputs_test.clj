@@ -80,13 +80,17 @@
     (is (= [42.0] (inputs-after :sdi-containment-overwhelming-area-growth-rate-samples)))
     (is (= [42.0] (inputs-after :sdi-reference-suppression-speed-samples)))))
 
+(defn- one-dimensional-double-array? [x]
+  (= (Class/forName "[D")
+     (.getClass x)))
+
 (deftest add-spread-rate-adjustment-factors-test
   (let [inputs       (-> *base-config*
-                         (merge {:fuel->spread-rate-adjustment-samples [{101 0.1}]
-                                 :ignition-rows                        [0]
-                                 :ignition-cols                        [0]}))
+                         (merge {:fuel-number->spread-rate-adjustment-samples [{101 0.1}]}))
         inputs-after (inputs/add-spread-rate-adjustment-factors inputs)]
 
-    (is (contains? inputs-after :spread-rate-adjustment-samples))
+    (is (contains? inputs-after :fuel-number->spread-rate-adjustment-samples))
 
-    (is (= [0.1] (:spread-rate-adjustment-samples inputs-after)))))
+    (is (one-dimensional-double-array? (first (:fuel-number->spread-rate-adjustment-samples inputs-after))))
+
+    (is (= 0.1 (aget (first (:fuel-number->spread-rate-adjustment-samples inputs-after)) 101)))))

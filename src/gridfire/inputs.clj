@@ -349,28 +349,19 @@
                (draw-samples rand-gen simulations sdi-reference-suppression-speed))))
     inputs))
 
-(defn- lookup-spread-rate-adjustment
-  [{:keys
-    [fuel->spread-rate-adjustment-samples ignition-rows ignition-cols
-     fuel-model-matrix]}]
-  (loop [fuel->spread-rate-adjustment-samples (seq fuel->spread-rate-adjustment-samples)
-         ignition-rows                        (seq ignition-rows)
-         ignition-cols                        (seq ignition-cols)
-         spread-rate-adjustment-samples []]
-    (if (and fuel->spread-rate-adjustment-samples ignition-rows ignition-cols)
-      (let [row                          (first ignition-rows)
-            col                          (first ignition-cols)
-            fuel->spread-rate-adjustment (first fuel->spread-rate-adjustment-samples)
-            fuel-model                   (t/mget fuel-model-matrix row col)
-            spread-rate-adjustment       (get fuel->spread-rate-adjustment fuel-model)]
-        (recur (next fuel->spread-rate-adjustment-samples)
-               (next ignition-rows)
-               (next ignition-cols)
-               (conj spread-rate-adjustment-samples spread-rate-adjustment)))
-      spread-rate-adjustment-samples)))
+(defn- convert-map->array-lookup
+  [lookup-map]
+  (let [indices      (keys lookup-map)
+        size         (inc (long (apply max indices)))
+        array-lookup (double-array size)]
+    (doseq [index indices]
+      (aset array-lookup index (get lookup-map index)))
+    array-lookup))
 
-(defn add-spread-rate-adjustment-factors
-  [{:keys [fuel->spread-rate-adjustment-samples] :as inputs}]
-  (if fuel->spread-rate-adjustment-samples
-    (assoc inputs :spread-rate-adjustment-samples (lookup-spread-rate-adjustment inputs))
+(defn add-fuel-number->spread-rate-adjustment-samples
+  [{:keys [fuel-number->spread-rate-adjustment-samples] :as inputs}]
+  (if fuel-number->spread-rate-adjustment-samples
+    (assoc inputs
+           :fuel-number->spread-rate-adjustment-samples
+           (mapv convert-map->array-lookup fuel-number->spread-rate-adjustment-samples))
     inputs))

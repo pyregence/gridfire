@@ -128,8 +128,8 @@
         get-fuel-moisture-live-woody          (:get-fuel-moisture-live-woody inputs)
         get-foliar-moisture                   (:get-foliar-moisture inputs)
         ellipse-adjustment-factor             (:ellipse-adjustment-factor inputs)
+        fuel-number->spread-rate-adjustment   (:fuel-number->spread-rate-adjustment inputs)
         grass-suppression?                    (:grass-suppression? inputs)
-        spread-rate-adjustment                (:spread-rate-adjustment inputs)
         max-spread-rate-matrix                (:max-spread-rate-matrix matrices)
         max-spread-direction-matrix           (:max-spread-direction-matrix matrices)
         spread-rate-matrix                    (:spread-rate-matrix matrices)
@@ -181,6 +181,7 @@
                                                   (wind-adjustment-factor ^double (:fuel-bed-depth surface-fire-min)
                                                                           canopy-height
                                                                           canopy-cover)))
+        spread-rate-adjustment                (some-> fuel-number->spread-rate-adjustment (aget fuel-model))
         surface-fire-max                      (rothermel-surface-fire-spread-max surface-fire-min
                                                                                  midflame-wind-speed
                                                                                  wind-from-direction
@@ -727,8 +728,7 @@
 
 (defn- recompute-burn-vectors
   [inputs matrices ^long band burn-vectors]
-  (let [spread-rate-adjustment      (:spread-rate-adjustment inputs)
-        modified-time-matrix        (:modified-time-matrix matrices)
+  (let [modified-time-matrix        (:modified-time-matrix matrices)
         max-spread-rate-matrix      (:max-spread-rate-matrix matrices)
         max-spread-direction-matrix (:max-spread-direction-matrix matrices)
         eccentricity-matrix         (:eccentricity-matrix matrices)]
@@ -1072,7 +1072,7 @@
   |                                                |                    | :surface-fire-spotting -> map                             |
   |                                                |                    | :crown-fire-spotting-percent -> double or [double double] |
   |------------------------------------------------+--------------------+-----------------------------------------------------------|
-  | :spread-rate-adjustment                        | double             | rateio [0-1]                                              |
+  | :fuel-number->spread-rate-adjustment           | array of doubles   | unitless                                                  |
   |------------------------------------------------+--------------------+-----------------------------------------------------------|
   | :suppression-dt                                | double             | minutes                                                   |
   | :suppression-curve-sharpness                   | double             | none                                                      |
