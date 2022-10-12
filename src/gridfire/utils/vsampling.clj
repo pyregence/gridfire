@@ -8,7 +8,7 @@
   []
   (= "true" (System/getProperty "gridfire.utils.vsampling.enabled")))
 
-(def ^:private ^:dynamic *current-point-id* nil)
+(def ^:dynamic *current-point-id* nil)
 
 (def ^:dynamic db* (atom {}))
 
