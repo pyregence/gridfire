@@ -8,11 +8,14 @@
             [gridfire.magellan-bridge :refer [geotiff-raster-to-tensor]]
             [gridfire.simulations :as simulations]
             [gridfire.utils.files.tar :as utar]
+            [hiccup.page :as html]
+            [matrix-viz.core :refer [save-matrix-as-png]]
             [tech.v3.datatype :as d]
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.statistics :as dstats]
             [gridfire.utils.vsampling :as vsmpl]
-            [clojure.pprint :as pp])
+            [clojure.pprint :as pp]
+            [tech.v3.tensor :as t])
   (:import (java.io File)
            (java.nio.file Files)
            (java.nio.file.attribute FileAttribute)
@@ -36,7 +39,7 @@
 ;;$ git push sigvm --all
 ;;vwaeselynck@iiwi:~$ git clone gridfire.git/
 ;;Cloning into 'gridfire'...
-;;vwaeselynck@iiwi:~/gridfire$ nohup clj -M:nREPL:mydev:gridfire-my-dev -m nrepl.cmdline --port 8888 >> ../repl-out.txt 2>&1 &
+;;vwaeselynck@iiwi:~/gridfire$ nohup clj -J-XX:MaxRAMPercentage=90 -M:nREPL:mydev:gridfire-my-dev:vsampling:dataviz -m nrepl.cmdline --port 8888 >> ../repl-out.txt 2>&1 &
 ;;vwaeselynck@iiwi:~$ cd gridfire
 ;;vwaeselynck@iiwi:~/gridfire$ git checkout vwaeselynck-330-gridfire-historical-fires
 
@@ -264,6 +267,7 @@
                              (vec))))
                      (into {})))))
 
+;; FIXME re-implement as t1-active_fire_polygon_utm_posnegbuff-shp - t0-active_fire_polygon_utm_posnegbuff-shp
 (defn resolve-observed-burned-area
   "Computes the observed burned area between 2 PyreCast snapshots (from t0 to t1),
   as the set difference between active-fire-at-t1 and already-burned-at-t0.
@@ -337,7 +341,6 @@
 
         config             (-> (fetch-snapshot-config t0-snap)
                                (dissoc :perturbations)      ; to remove variance.
-                               ; FIXME shall we run them all? Probably want more control over that.
                                (merge {:simulations 1}))
         sim-outputs        (run-fire-spread-until config stop-inst variation-name->info)]
     {::observed-burn-area observed-burn-area
@@ -397,6 +400,9 @@
          ;; in t0-snap will be either missing or inaccurate.
          ms-3days))))
 
+;; FIXME rather than successive pairs
+;; let's use pairs that achieve a delta-t closest to 24hr,
+;; or some other optimal time lapse.
 (defn replayable-successive-t0t1-pairs
   [snaps]
   (->> snaps
@@ -415,17 +421,23 @@
             (println (print-str "Replaying" (:pyrcst_fire_name t0-snap) "from" (-> t0-snap :pyrcst_snapshot_inst) "to" (-> t1-snap :pyrcst_snapshot_inst)))
             (merge
              (select-keys t0-snap [:pyrcst_fire_name :pyrcst_fire_subnumber])
-             {::t0-fire (select-keys t0-snap [:pyrcst_snapshot_inst])
-              ::t1-fire (select-keys t1-snap [:pyrcst_snapshot_inst])}
+             {::t0-fire (select-keys t0-snap [:pyrcst_snapshot_inst ::useful-files])
+              ::t1-fire (select-keys t1-snap [:pyrcst_snapshot_inst ::useful-files])}
              (replay-snapshot t0-snap t1-snap variation-name->info))))
          (vec))))
+
+(defn snapshot-pair-hash
+  [[t0-snap t1-snap]]
+  (hash
+   [(select-keys t0-snap [:pyrcst_fire_name :pyrcst_fire_subnumber :pyrcst_snapshot_inst])
+    (select-keys t1-snap [:pyrcst_fire_name :pyrcst_fire_subnumber :pyrcst_snapshot_inst])]))
 
 (defn replay-snapshots
   ([variation-name->info snaps] (replay-snapshots variation-name->info nil snaps))
   ([variation-name->info subsample-size snaps]
    (replay-snapshot-pairs variation-name->info
                           (-> (replayable-successive-t0t1-pairs snaps)
-                              (cond-> (some? subsample-size) (->> (sort-by hash) (take subsample-size)))))))
+                              (cond-> (some? subsample-size) (->> (sort-by snapshot-pair-hash) (take subsample-size)))))))
 
 (defn toa-stats
   [replay-res sim-output]
@@ -467,6 +479,16 @@
     cols
     (map #(into {} %) pairs-vecs))))
 
+(defn format-hours-between
+  [t0-inst t1-inst]
+  (format "+%2dhr"
+          (-> (-
+               (-> t1-inst (inst-ms))
+               (-> t0-inst (inst-ms)))
+              (/ (* 1e3 60 60))
+              (double)
+              (Math/round) (long))))
+
 (defn replayed-results-table-entries
   [replay-results]
   (->> replay-results
@@ -489,14 +511,10 @@
                            [["Fire name" (:pyrcst_fire_name replay-res)]
                             ["Variation" variation-name]
                             ["t0" (-> replay-res ::t0-fire :pyrcst_snapshot_inst)]
-                            ["t1" (format "%s (+%2dhr)"
+                            ["t1" (format "%s (%s)"
                                           (-> replay-res ::t1-fire :pyrcst_snapshot_inst (str))
-                                          (-> (-
-                                               (-> replay-res ::t1-fire :pyrcst_snapshot_inst (inst-ms))
-                                               (-> replay-res ::t0-fire :pyrcst_snapshot_inst (inst-ms)))
-                                              (/ (* 1e3 60 60))
-                                              (double)
-                                              (Math/round) (long)))]
+                                          (format-hours-between (-> replay-res ::t0-fire :pyrcst_snapshot_inst)
+                                                                (-> replay-res ::t1-fire :pyrcst_snapshot_inst)))]
                             ["n cells really burned" (:observed-burn-n-cells stats)]
                             ["sim ∩ real" (format-w-pct (:sim-inter-obs-n-cells stats))]
                             ["ToA-ratio: mean" (some->> (::toa-ratio-mean stats) (format "%1.2f"))]
@@ -580,10 +598,10 @@
      "01) crowning disabled" {::transform-inputs-fn (fn [inputs] (assoc inputs :canopy-base-height-matrix (:canopy-height-matrix inputs)))}})
 
   (def replay-results (time (replay-snapshots variation-name->info 64 snaps)))
-  ;;"Elapsed time: 1002229.596932 msecs"
+  ;;"Elapsed time: 59593.890425 msecs"
 
 
-  (def replay-results2 (time (replay-snapshots variation-name->info 16 snaps)))
+  (def replay-results2 (time (replay-snapshots variation-name->info 8 snaps)))
 
 
   (print-replayed-results-table replay-results)
@@ -862,7 +880,7 @@
   ;;|            ca-mosquito |          00) original |   47466 (43.6%) | 31656 (29.1%) |              108947.0 | 77291 (70.9%) | Wed Sep 14 22:01:00 UTC 2022 | Thu Sep 15 09:34:00 UTC 2022 (+12hr) |
   ;;|            ca-mosquito | 01) crowning disabled |   15640 (14.4%) | 36248 (33.3%) |              108947.0 | 72699 (66.7%) | Wed Sep 14 22:01:00 UTC 2022 | Thu Sep 15 09:34:00 UTC 2022 (+12hr) |
 
-  ;; - FIXME basic statistics across all rows - mean, stdev
+  ;; - IMPROVEMENT basic statistics across all rows - mean, stdev
   ;; filtered on ignition success
   ;; - pictures - Venn diagram ; 4 colors
   ;; - wind dir
@@ -1216,7 +1234,7 @@
 (defn explore-variations
   [snaps variation-name->info]
   (->> (replayable-successive-t0t1-pairs snaps)
-       (sort-by hash)
+       (sort-by snapshot-pair-hash)
        (partition-all 10) ;; grouping into batches, processed in parallel
        (mapcat
         (fn replay-batch [t0+t1-snaps]
@@ -1339,3 +1357,250 @@
   ;; - Elmfire eccentricity formulas
 
   *e)
+
+;; ------------------------------------------------------------------------------
+;; Images
+
+(defn matrix-bounding-box                                   ;; FIXME when support is empty?
+  [elem-pred m]
+  (let [dtype :double
+        row-indices (t/compute-tensor (d/shape m)
+                                      (fn [i _j] i)
+                                      dtype)
+        col-indices (t/compute-tensor (d/shape m)
+                                      (fn [_i j] j)
+                                      dtype)
+        support-row-indices (d/emap
+                             (fn [v i]
+                               (if (elem-pred v) i Double/NaN))
+                             dtype
+                             m
+                             row-indices)
+        support-col-indices (d/emap
+                             (fn [v j]
+                               (if (elem-pred v) j Double/NaN))
+                             dtype
+                             m
+                             col-indices)]
+    [[(long (dfn/reduce-min support-row-indices))
+      (long (dfn/reduce-min support-col-indices))]
+     [(long (dfn/reduce-max support-row-indices))
+      (long (dfn/reduce-max support-col-indices))]]))
+
+(defn clip-matrix-to-bounding-box
+  [m [[i0 j0] [i1 j1]]]
+  (t/select m (range i0 (inc i1)) (range j0 (inc j1))))
+
+
+(defn save-matrix-as-png-at-file
+  [color-ramp nodata-value matrix file]
+  (let [ret (io/file file)
+        pixels-per-cell (max 1
+                             (let [min-desired-width-px 800
+                                   n-cols (-> (d/shape matrix) (nth 1) (long))]
+                               (Math/round (double (/ (double min-desired-width-px) n-cols)))))]
+    (io/make-parents ret)
+    (matrix-viz.core/save-matrix-as-png color-ramp pixels-per-cell nodata-value matrix (-> ret (.toPath) (.toString)))
+    ret))
+
+
+(defn venn-diagram-color-numbers
+  [obs? sim? ign?]
+  (if ign?
+    4.0
+    (if obs?
+      (if sim? 2.5 1.0)
+      (if sim? 5.0 0.0))))
+
+(def <venn-diagram-colors-explanation>
+  [:p "The colored map shows the areas that were ignited (yellow), over-predicted (red), under-predicted (blue) and correctly predicted (green)"])
+
+
+(defn variation-hash
+  "Creates a pseudo-id for a replayed variation."
+  ^long [replay-res variation-name]
+  (hash [(select-keys replay-res [:pyrcst_fire_name
+                                  :pyrcst_fire_subnumber])
+         (:pyrcst_snapshot_inst (::t0-fire replay-res))
+         (:pyrcst_snapshot_inst (::t1-fire replay-res))
+         variation-name]))
+
+(defn generate-images-for-replay!
+  [img-dir replay-res]
+  (let [observed-burn-area   (::observed-burn-area replay-res)
+        observed-burn-matrix (:matrix observed-burn-area)
+        stop-inst            (-> replay-res ::t1-fire :pyrcst_snapshot_inst)]
+    (reduce
+     (fn [replay-res [path v]] (assoc-in replay-res path v))
+     replay-res
+     (for [[variation-name sim-output] (::sim-outputs replay-res)
+           :let [sim-result               (::simulations/result sim-output)
+                 sim-inputs               (::simulations/inputs sim-output)
+                 sim-burn-area            (if (nil? sim-result)
+                                            (:ignition-matrix sim-inputs)
+                                            (simulated-burned-area-matrix stop-inst sim-inputs sim-result))
+                 burn-venn-diagram-matrix (d/emap
+                                           (fn [obs sim ign]
+                                             (venn-diagram-color-numbers (pos? obs) (pos? sim) (= 1.0 ign)))
+                                           :double
+                                           observed-burn-matrix
+                                           sim-burn-area
+                                           (:ignition-matrix sim-inputs))
+                 bbox                     (matrix-bounding-box pos? burn-venn-diagram-matrix)
+                 variation-hash (variation-hash replay-res variation-name)
+                 subdir (io/file img-dir (str variation-hash))
+                 img-name->file           {::fuel-models       (save-matrix-as-png-at-file :gray
+                                                                                           -1.0
+                                                                                           (-> (:fuel-model-matrix sim-inputs)
+                                                                                               (clip-matrix-to-bounding-box bbox)
+                                                                                               (d/elemwise-cast :double))
+                                                                                           (io/file subdir "fuel-models.png"))
+                                           ::burn-venn-diagram (save-matrix-as-png-at-file :color 0.0
+                                                                                           (-> burn-venn-diagram-matrix
+                                                                                               (clip-matrix-to-bounding-box bbox))
+                                                                                           (io/file subdir "burn-venn-diagram.png"))
+                                           ::toa-hr            (when-some [burn-time-matrix (:burn-time-matrix sim-result)]
+                                                                 (let [nodata-value -1.0]
+                                                                   (save-matrix-as-png-at-file :gray nodata-value
+                                                                                               (-> burn-time-matrix
+                                                                                                   (clip-matrix-to-bounding-box bbox)
+                                                                                                   (->> (d/emap (fn compute-toa-hr [toa-min]
+                                                                                                                  (cond-> toa-min (not= toa-min nodata-value) (/ 60.0)))
+                                                                                                                nil)))
+                                                                                               (io/file subdir "toa-hr.png"))))}]
+           [img-k img-file] img-name->file]
+       (let [path (conj [::sim-outputs variation-name ::generated-images] img-k)]
+         [path img-file])))))
+
+(defn <html-viz-page>
+  [webviz-dir replay-results++]
+  [:html
+   [:body
+    [:div
+     [:p
+      "This page is intended as a benchmark of GridFire misprediction: "
+      "it shows the results of replaying PyreCast snapshots against more "
+      "recent versions of themselves."]
+     [:p "This analysis currently has " [:strong "some weaknesses:"]]
+     [:ol
+      [:li
+       ;; FIXME some under-predicted areas are far from the ignition-region:
+       ;; in this case, under-predicting them is not GridFire's fault,
+       ;; so we don't want those in the misprediction metrics.
+       ;; Idea: buffering + graph components. Keep only connected components
+       ;; of the really-burned area that intersect with the buffered ignition region.
+       ;; Library: loom.
+       "Some of the ignition regions computed upstream of GridFire are wrong, "
+       "causing an underprediction which is no fault of GridFire. "
+       "TODO: eliminate the influence of those underpredicted regions on misprediction metrics."]
+      [:li "In particular, sometimes the ignition region is empty."]
+      [:li "The (t0, t1) snapshot pairs are not always optimal. Too close increases the noise caused by poorly-estimated perimeters."]]]
+    [:div <venn-diagram-colors-explanation>]
+    (->> replay-results++
+         (map
+          (fn [replay-res]
+            [:div
+             (let [t0-inst (-> replay-res ::t0-fire :pyrcst_snapshot_inst)
+                   t1-inst (-> replay-res ::t1-fire :pyrcst_snapshot_inst)]
+               [:h2
+                (:pyrcst_fire_name replay-res)
+                " from "
+                (-> t0-inst (pr-str))
+                " to "
+                (format-hours-between t0-inst t1-inst)])
+             (->> replay-res ::sim-outputs
+                  (map
+                   (fn [[variation-name sim-output]]
+                     (letfn [(<img> [img-k]
+                               (when-some [img-file (-> sim-output ::generated-images (get img-k))]
+                                 [:img {:src   (subs (-> img-file (str))
+                                                     (-> webviz-dir (str) (count) (inc)))
+                                        :style "width: 400px;"}]))]
+                       [:div {:style "padding-left: 100px;"}
+                        [:h3 {:id (str (variation-hash replay-res variation-name))}
+                         variation-name
+                         [:a {:href  (str "#" (variation-hash replay-res variation-name))
+                              :style "font-size: 8px; margin-left: 5px;"}
+                          "link"]]
+                        [:div
+                         (<img> ::fuel-models)
+                         (<img> ::burn-venn-diagram)
+                         (<img> ::toa-hr)]])))
+                  (doall))]))
+         (doall))]])
+
+(comment
+
+  (def webviz-dir (io/file "../gridfire-replay-web"))
+  (def img-dir (io/file webviz-dir "img"))
+
+  *e)
+
+(comment
+
+  (def replay-res (nth replay-results2 2))
+  (def sim-output (-> replay-res ::sim-outputs (get "00) original")))
+
+  (-> sim-output keys sort)
+
+  (-> sim-output ::simulations/inputs keys sort)
+
+  (def webviz-dir (io/file "../gridfire-replay-web"))
+
+
+  (-> replay-results2
+      (->> (pmap (fn [replay-res] (generate-images-for-replay! img-dir replay-res))))
+      (vec)
+      (as-> replay-results++
+            (spit (io/file img-dir webviz-dir "replay-results2-viz.html")
+                  (html/html5
+                   (<html-viz-page> replay-results++)))))
+
+
+  ;; FIXME :burn-time-matrix not starting at zero? (min= 21)
+  (=
+   #inst"2022-09-14T21:21:00.000-00:00"
+   (-> replay-res ::t0-fire :pyrcst_snapshot_inst)
+   (-> sim-output ::simulations/inputs :ignition-start-timestamps first))
+  ;;=> true
+  ;; 21 minutes is also the min of :burn-time-matrix...
+
+
+  *e)
+
+(comment
+
+
+  ;; FIXME sometimes it looks like the t1 active-fire fills holes inside the t0 active-fire region
+  ;; (see e.g "wa-mcallister-creek from #inst "2022-09-27T10:49:00.000-00:00" to +22hr").
+  ;; This should probably not be counted as under-prediction.
+
+  (def fut_created-html
+    (future
+     (spit (io/file webviz-dir "replay-results-viz.html")
+           (html/html5
+            (<html-viz-page>
+             webviz-dir
+             (->> (replayable-successive-t0t1-pairs snaps)
+                  (sort-by snapshot-pair-hash)
+                  (partition-all 16)                        ;; grouping into batches, processed in parallel
+                  (mapcat
+                   (fn process-batch [t0+t1-snaps]
+                     (->> (replay-snapshot-pairs variation-name->info t0+t1-snaps)
+                          (pmap (fn [replay-res]
+                                  (try
+                                    (generate-images-for-replay! img-dir replay-res)
+                                    (catch Exception err
+                                      (pp/pprint
+                                       (ex-info
+                                        (str "error for replay: " (pr-str (:pyrcst_fire_name replay-res)))
+                                        {}
+                                        err))
+                                      nil))))
+                          (remove nil?)
+                          (doall))))))))))
+
+
+  *e)
+
+
