@@ -127,6 +127,7 @@
         get-fuel-moisture-live-herbaceous     (:get-fuel-moisture-live-herbaceous inputs)
         get-fuel-moisture-live-woody          (:get-fuel-moisture-live-woody inputs)
         get-foliar-moisture                   (:get-foliar-moisture inputs)
+        crowning-disabled?                    (:crowning-disabled? inputs)
         ellipse-adjustment-factor             (:ellipse-adjustment-factor inputs)
         grass-suppression?                    (:grass-suppression? inputs)
         max-spread-rate-matrix                (:max-spread-rate-matrix matrices)
@@ -193,10 +194,11 @@
         reaction-intensity                    (:reaction-intensity surface-fire-min)
         max-surface-intensity                 (->> (anderson-flame-depth max-spread-rate ^double residence-time)
                                                    (byram-fire-line-intensity ^double reaction-intensity))]
-    (if (van-wagner-crown-fire-initiation? canopy-cover
-                                           canopy-base-height
-                                           foliar-moisture
-                                           max-surface-intensity)
+    (if (and (not crowning-disabled?)
+             (van-wagner-crown-fire-initiation? canopy-cover
+                                                canopy-base-height
+                                                foliar-moisture
+                                                max-surface-intensity))
       (let [crown-spread-max        (cruz-crown-fire-spread wind-speed-20ft
                                                             crown-bulk-density
                                                             fuel-moisture-dead-1hr)
@@ -1025,6 +1027,7 @@
   |------------------------------------+--------------------+-----------------------------------------------------------|
   | :initial-ignition-site             | [i,j] or 2D tensor | [y,x] coordinate or categories 0-2 in tensor              |
   |------------------------------------+--------------------+-----------------------------------------------------------|
+  | :crowning-disabled?                | boolean            | true or false                                             |
   | :ellipse-adjustment-factor         | double             | < 1.0 = more circular, > 1.0 = more elliptical            |
   | :grass-suppression?                | boolean            | true or false                                             |
   |------------------------------------+--------------------+-----------------------------------------------------------|
