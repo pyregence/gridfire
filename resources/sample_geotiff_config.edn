@@ -47,11 +47,14 @@
 
  ;; Section 4: Number of simulations and (optional) random seed parameter
  :max-runtime               60             ; (minutes)
- :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
  :simulations               10
  :random-seed               1234567890     ; long value (optional)
 
- ;; Section 5: Types and names of outputs
+ ;; Section 5: fire-spread model behavior
+ :crowning-disabled?        false          ; when true, disables crown fire initiation. Can be useful to avoid over-prediction.
+ :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
+
+ ;; Section 6: Types and names of outputs
  :outfile-suffix            "_from_raster_ignition"
  :output-landfire-inputs?   true
  :output-geotiffs?          true

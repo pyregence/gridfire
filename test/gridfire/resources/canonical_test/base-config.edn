@@ -46,11 +46,12 @@
 
  ;; Section 4: Number of simulations and (optional) random seed parameter
  :max-runtime               1440 ; 24 hrs   ; (minutes)
- :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
+
  :simulations               1
  :random-seed               1234567890     ; long value (optional)
 
- ;; Section 5: Spotting
+ ;; Section 5: fire-spread model behavior
+ :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
  :spotting                  {:num-firebrands               10
                              :decay-constant               0.005
                              :crown-fire-spotting-percent  1.0

@@ -51,7 +51,11 @@
  :simulations               10
  :random-seed               1234567890     ; long value (optional)
 
- ;; Section 5: Types and names of outputs
+ ;; Section 5: fire-spread model behavior
+ :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
+ :crowning-disabled?        false
+
+ ;; Section 6: Types and names of outputs
  :outfile-suffix            "_tile_100"
  :output-landfire-inputs?   true
  :output-geotiffs?          true
