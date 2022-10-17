@@ -4,7 +4,8 @@
             [clojure.java.shell   :as sh]
             [clojure.spec.alpha   :as s]
             [clojure.test         :refer [deftest is use-fixtures]]
-            [gridfire.spec.config :as spec]))
+            [gridfire.spec.config :as spec]
+            [gridfire.utils.test  :refer [with-temp-directories]]))
 
 (def gridfire-edn-path "test/gridfire/resources/config_test/gridfire.edn")
 (def elmfire-data-path "test/gridfire/resources/config_test/sample-elmfire.data")
@@ -22,7 +23,9 @@
   (test-fn)
   (delete-gridfire-edn))
 
-(use-fixtures :once with-clean-gridfire-edn)
+(use-fixtures :once
+  with-clean-gridfire-edn
+  (with-temp-directories ["test/gridfire/resources/config_test/outputs"]))
 
 ;;-----------------------------------------------------------------------------
 ;; Tests
