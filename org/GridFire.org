@@ -28,6 +28,8 @@
 #+LATEX_HEADER:     linkcolor=black}
 #+LATEX_HEADER: \usepackage{graphicx}
 #+LATEX_HEADER: \graphicspath{{../resources/}}
+#+LATEX_HEADER: \DeclareUnicodeCharacter{394}{$\Delta$}
+#+LATEX_HEADER: \DeclareUnicodeCharacter{3C7}{$\chi$}
 
 * Preface
 
@@ -3013,7 +3015,7 @@ difficulty index during interval $\Delta{t}$.
 \overline{SDI_{\Delta{t}}} = \frac{1}{n}\times\sum_{i=1}^{n}SDI_i
 \end{align*}
 
-Where symbols are defined as follow:
+Where symbols are defined as follows:
 
 - $n$ :: Number of burned pixels during time interval $\Delta{t}$.
 
@@ -3368,15 +3370,6 @@ The suppression algorithm was built using the method described in
    previous-fraction-contained]
   (let [max-runtime-fraction         (double max-runtime-fraction)
         suppression-coefficient      (get-in inputs [:suppression
-# test/.../elm_to_grid_test.clj
-> 28: At what point are you using "test/gridfire/resources/config_test/outputs"?
-> It doesn't look like this directory is ever used.
-
-- This is needed when running `s/valid?`. The output directory must be a readable directory.
-
-# Regarding suppression-coefficient vs suppression-curve-sharpness
-for the sake of time, I'll revert back to the `:supression-coefficient` key and
-add a backlog task to deprecate that key for the `:suppress-curve-sharpness`.
                                                      :suppression-coefficient])
         previous-num-perimeter-cells (long previous-num-perimeter-cells)
         previous-suppressed-count    (long previous-suppressed-count)
