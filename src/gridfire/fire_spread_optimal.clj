@@ -834,7 +834,7 @@
         non-burn-period-clock            (+ burn-period-clock burn-period-dt)
         ignition-start-time              (max ignition-start-time burn-period-clock)
         band                             (min->hour ignition-start-time)
-        suppression-dt                   (some-> inputs :suppression-dt double)]
+        suppression-dt                   (double (or (:suppression-dt inputs) Double/NaN))]
     (initialize-fire-in-situ-values! inputs matrices band ignited-cells)
     (loop [global-clock                         ignition-start-time
            band                                 band
@@ -871,10 +871,10 @@
                      bvs-to-process-next
                      spot-ignitions
                      spot-count
-                     total-cells-suppressed
-                     previous-num-perimeter-cells
+                     (long total-cells-suppressed)
+                     (long previous-num-perimeter-cells)
                      []
-                     fraction-contained))
+                     (double fraction-contained)))
 
             (= global-clock non-burn-period-clock)
             (let [timestep  (double (min non-burn-period-dt dt-until-max-runtime))
@@ -902,10 +902,10 @@
                            spot-ignitions
                            {})
                          spot-count
-                         total-cells-suppressed
-                         previous-num-perimeter-cells
+                         (long total-cells-suppressed)
+                         (long previous-num-perimeter-cells)
                          []
-                         fraction-contained))
+                         (double fraction-contained)))
                 (recur new-clock
                        new-band
                        (+ new-clock burn-period-dt)
@@ -1075,7 +1075,7 @@
   | :fuel-number->spread-rate-adjustment           | array of doubles   | unitless                                                  |
   |------------------------------------------------+--------------------+-----------------------------------------------------------|
   | :suppression-dt                                | double             | minutes                                                   |
-  | :suppression-curve-sharpness                   | double             | none                                                      |
+  | :suppression-coefficient                       | double             | none                                                      |
   | :sdi-containment-overwhelming-area-growth-rate | double             | Acres/day                                                 |
   | :sdi-reference-suppression-speed               | double             | percent/day                                               |
   | :sdi-sensitivity-to-difficulty                 | double             | none                                                      |

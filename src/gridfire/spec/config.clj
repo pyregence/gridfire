@@ -169,7 +169,7 @@
 (s/def ::suppression
   (s/and
    (s/keys :req-un [::suppression/suppression-dt]
-           :opt-un [::suppression/suppression-curve-sharpness
+           :opt-un [::suppression/suppression-coefficient
                     ::suppression/sdi-layer
                     ::suppression/sdi-sensitivity-to-difficulty
                     ::suppression/sdi-containment-overwhelming-area-growth-rate
@@ -327,7 +327,7 @@
              ::output-flame-length-max
              ::output-flame-length-sum
              ::suppression/suppression-dt-samples
-             ::suppression/suppression-curve-sharpnes-samples
+             ::suppression/suppression-coefficient-samples
              ::suppression/sdi-sensitivity-to-difficult-samples
              ::suppression/sdi-containment-overwhelming-area-growth-rate-samples
              ::suppression/sdi-reference-suppression-speed-samples])

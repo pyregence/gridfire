@@ -1,13 +1,13 @@
 ;; [[file:../../org/GridFire.org::gridfire-core][gridfire-core]]
 (ns gridfire.core
   (:require [clojure.core.reducers        :as r]
-            [clojure.edn                  :as edn]
             [clojure.spec.alpha           :as spec]
             [gridfire.fire-spread-optimal :refer [rothermel-fast-wrapper-optimal]]
             [gridfire.inputs              :as inputs]
             [gridfire.outputs             :as outputs]
             [gridfire.simulations         :as simulations]
             [gridfire.spec.config         :as config-spec]
+            [gridfire.utils.files         :as files]
             [manifold.deferred            :as mfd]
             [taoensso.tufte               :as tufte]
             [triangulum.logging           :refer [log log-str]]))
@@ -71,7 +71,7 @@
 
 (defn load-config!
   [config-file-path]
-  (let [config (edn/read-string (slurp config-file-path))]
+  (let [config (files/read-situated-edn-file config-file-path)]
     (if (spec/valid? ::config-spec/config config)
       (assoc config :config-file-path config-file-path)
       (log-str (format "Invalid config file [%s]:\n%s"

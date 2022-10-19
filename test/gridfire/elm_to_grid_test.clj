@@ -1,12 +1,11 @@
 (ns gridfire.elm-to-grid-test
-  (:require
+  (:require [clojure.edn          :as edn]
             [clojure.java.io      :as io]
             [clojure.java.shell   :as sh]
             [clojure.spec.alpha   :as s]
             [clojure.test         :refer [deftest is use-fixtures]]
             [gridfire.spec.config :as spec]
-            [gridfire.utils.test  :refer [with-temp-directories]]
-            [clojure.edn          :as edn]))
+            [gridfire.utils.test  :refer [with-temp-directories]]))
 
 (def gridfire-edn-path "test/gridfire/resources/config_test/gridfire.edn")
 (def elmfire-data-path "test/gridfire/resources/config_test/sample-elmfire.data")

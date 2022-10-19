@@ -410,7 +410,7 @@
      sdi-sensitivity-to-difficulty
      spotting
      fuel-number->spread-rate-adjustment
-     suppression-curve-sharpness
+     suppression-coefficient
      suppression-dt])
 
 
@@ -420,7 +420,7 @@
     [num-rows num-cols grass-suppression? output-csvs? envelope ignition-matrix cell-size max-runtime-samples
      ignition-rows ignition-cols ellipse-adjustment-factor-samples random-seed ignition-start-times spotting
      burn-period-start burn-period-end ignition-start-timestamps output-flame-length-sum output-flame-length-max
-     output-layers fuel-number->spread-rate-adjustment-samples suppression-dt-samples suppression-curve-sharpness-samples
+     output-layers fuel-number->spread-rate-adjustment-samples suppression-dt-samples suppression-coefficient-samples
      sdi-sensitivity-to-difficulty-samples sdi-containment-overwhelming-area-growth-rate-samples
      sdi-reference-suppression-speed-samples]
     :as inputs}]
@@ -467,7 +467,7 @@
                              :sdi-sensitivity-to-difficulty                 (some-> sdi-sensitivity-to-difficulty-samples (get i))
                              :spotting                                      spotting
                              :fuel-number->spread-rate-adjustment           (some-> fuel-number->spread-rate-adjustment-samples (get i))
-                             :suppression-curve-sharpness                   (some-> suppression-curve-sharpness-samples (get i))
+                             :suppression-coefficient                       (some-> suppression-coefficient-samples (get i))
                              :suppression-dt                                (some-> suppression-dt-samples (get i))}
          simulation-results (tufte/p :run-fire-spread
                                      (run-fire-spread (map->SimulationInputs simulation-inputs)))]

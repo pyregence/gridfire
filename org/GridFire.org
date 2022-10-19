@@ -28,6 +28,8 @@
 #+LATEX_HEADER:     linkcolor=black}
 #+LATEX_HEADER: \usepackage{graphicx}
 #+LATEX_HEADER: \graphicspath{{../resources/}}
+#+LATEX_HEADER: \DeclareUnicodeCharacter{394}{$\Delta$}
+#+LATEX_HEADER: \DeclareUnicodeCharacter{3C7}{$\chi$}
 
 * Preface
 
@@ -2940,7 +2942,7 @@ FC = (\frac{2x}{1 + x^2})^a
 
 Where symbols are defined as follows:
 
-- $a$ :: alpha (a.k.a *:suppression-curve-sharpness* in the config file) a
+- $a$ :: alpha (a.k.a *:suppression-coefficient* in the config file) a
   positive number, As alpha approaches infinity, most of the
   suppression happens sharply near the end; as it approaches 0, most
   of the suppression happens sharply near the beginning. Values above
@@ -2975,7 +2977,7 @@ U \exp(V),& U < 0
 \end{cases}
 \end{align*}
 
-Where symbols are defined as follow:
+Where symbols are defined as follows:
 
 - $A_d$ :: (ac/day) Areal growth on a daily basis.
 
@@ -3013,7 +3015,7 @@ difficulty index during interval $\Delta{t}$.
 \overline{SDI_{\Delta{t}}} = \frac{1}{n}\times\sum_{i=1}^{n}SDI_i
 \end{align*}
 
-Where symbols are defined as follow:
+Where symbols are defined as follows:
 
 - $n$ :: Number of burned pixels during time interval $\Delta{t}$.
 
@@ -3032,7 +3034,7 @@ on containment: it is a factor by which the containement-variation-speed
 $\Delta{C} / \Delta{t}$ is penalized or amplified due to suppression-difficulty.
 
 The suppression algorithm was built using the method described in
-"resources/suppression_curve_algorithm.pdf"
+"resources/suppression_curve_algorithm.pdf".
 
 #+name: suppression
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/suppression.clj :padline no :no-expand :comments link
@@ -3089,7 +3091,7 @@ The suppression algorithm was built using the method described in
                                                    (compare x1 x2)))
          slice-data               (into [] (seq angular-slice->avg-dsr+num-cells))
          cur-contiguous-slices    []
-         cur-dsr                  0
+         cur-dsr                  0.0
          cur-count                0
          left-idx                 -1
          right-idx                0]
@@ -3111,7 +3113,7 @@ The suppression algorithm was built using the method described in
                  sorted-contiguous-slices)
                slice-data
                []
-               0
+               0.0
                0
                (if (< right-idx left-idx) 0 next-right-idx)
                next-right-idx))
@@ -3352,10 +3354,10 @@ The suppression algorithm was built using the method described in
 (defn- compute-fraction-contained-sc
   "Compute fraction contained using suppression curve algorithm"
   ^double
-  [^double max-runtime-fraction ^double suppression-curve-sharpness]
+  [^double max-runtime-fraction ^double suppression-coefficient]
   (Math/pow (/ (* 2.0 max-runtime-fraction)
                (+ 1.0 (Math/pow max-runtime-fraction 2.0)))
-            suppression-curve-sharpness))
+            suppression-coefficient))
 
 (defn suppress-burn-vectors
   [inputs
@@ -3366,15 +3368,15 @@ The suppression algorithm was built using the method described in
    ignited-cells-since-last-suppression
    previous-fraction-contained]
   (let [max-runtime-fraction         (double max-runtime-fraction)
-        suppression-curve-sharpness  (:suppression-curve-sharpness inputs)
+        suppression-coefficient      (:suppression-coefficient inputs)
         previous-num-perimeter-cells (long previous-num-perimeter-cells)
         previous-suppressed-count    (long previous-suppressed-count)
         active-perimeter-cells       (into #{}
                                            (map (juxt :i :j))
                                            burn-vectors)
-        fraction-contained           (if suppression-curve-sharpness
+        fraction-contained           (if suppression-coefficient
                                        (compute-fraction-contained-sc max-runtime-fraction
-                                                                      (double suppression-curve-sharpness))
+                                                                      (double suppression-coefficient))
                                        (compute-fraction-contained-sdi inputs
                                                                        ignited-cells-since-last-suppression
                                                                        previous-fraction-contained))
@@ -4664,26 +4666,26 @@ algorithm is aimed at computing the percentage of the perimeter of the
 fire that should be contained. To enable suppression you must include
 the key *:suppression* at the top level of the config file.
 
-The *:suppression* key value is a map containg a different set of required
-entries depending on which suppression you want to use.
+The *:suppression* key value is a map containing a different set of required
+entries depending on which suppression algorithm you want to use.
 
 One approach uses a suppression curve algorithm. To enable this include the
 following:
 
-- *suppression-dt* :: the time (in minutes) betweeen suppression events.
-- *suppression-curve-sharpness* :: a constant calibration
+- *suppression-dt* :: the time (in minutes) betweeen suppression events
+- *suppression-coefficient* :: a constant calibration
   unit (see section 5.6.1)
 
 #+begin_src clojure
-{:suppression {:suppression-dt              60.0
-               :suppression-curve-sharpness 2.0}}
+{:suppression {:suppression-dt          60.0
+               :suppression-coefficient 2.0}}
 #+end_src
 
 Another approach uses the suppression difficulty index raster layer.
 To enable this include the following:
 
-- *suppression-dt* :: the time (in minutes) betweeen suppression events.
-- *sdi-layer* :: a map of fetch specifications.
+- *suppression-dt* :: the time (in minutes) betweeen suppression events
+- *sdi-layer* :: a map of fetch specifications
 - *sdi-sensitivity-to-difficulty* :: a calibration constant
 - *sdi-reference-suppression-speed* :: a calibration constant
 - *sdi-containment-overwhelming-area-growth-rate* :: a calibration constant
