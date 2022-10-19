@@ -1,24 +1,17 @@
 #!/usr/bin/env bb
-
-(def program-banner
-  (str
-    ";; "
-    "burn_period_from_sunrise_sunset.clj: enrich an EDN-encoded GridFire configuration by resolving :burn-period from sunrise and sunset. "
-    "Copyright © 2020-2022 Spatial Informatics Group, LLC."))
-
-;;;; WARNING running this script in polar circles is at your own risk!
-
 (require '[clojure.java.io   :as io]
          '[clojure.tools.cli :as cli]
          '[clojure.test      :as test])
 (import '(java.time Instant ZonedDateTime ZoneOffset))
+
+;; WARNING running this script in polar circles is at your own risk!
 
 ;;=============================================================================
 ;; Sunrise/sunset computations.
 ;;=============================================================================
 
 ;; Original Fortran code from ElmFire:
-;!This gives the sunrise and sunset time in local time: (Chris Lauten)
+;!This gives the sunrise and sunset time in local time: (Chris Lautenberger)
 ;
 ;!**
 ;SUBROUTINE SUNRISE_SUNSET_CALCS(LON_DEG,LAT_DEG,UTC_OFFSET_HOURS,YEAR,HOUR_OF_YEAR)
@@ -100,19 +93,19 @@
   in the same physical unit as the coefficients."
   ^double
   [cos+sin-coeffs ^double gamma]
-  (apply + 0.
-    (map-indexed
-      (fn [^long k [cos-coeff sin-coeff]]
-        (let [sin-coeff (or sin-coeff 0.)]
-          (+
-            (* (double cos-coeff) (Math/cos (* k gamma)))
-            (* (double sin-coeff) (Math/sin (* k gamma))))))
-      cos+sin-coeffs)))
+  (->> cos+sin-coeffs
+       (map-indexed
+        (fn [^long k [cos-coeff sin-coeff]]
+          (let [sin-coeff (or sin-coeff 0.0)]
+            (+
+             (* (double cos-coeff) (Math/cos (* k gamma)))
+             (* (double sin-coeff) (Math/sin (* k gamma)))))))
+       (reduce + 0.0)))
 
 (defn eqtime-at
   "[min] the correcting offset from the sunrise-sunset midpoint to UTC-clock noon,
   based on the time-of-year angle gamma."
-  [gamma]
+  ^double [^double gamma]
   (*
     229.18
     (fourier-series-approximation
@@ -124,7 +117,7 @@
 (defn declivity-at
   "[rad] the angle between the Earth's equatorial plane and its orbital plane,
   based on the time-of-year angle gamma."
-  [gamma]
+  ^double [^double gamma]
   (fourier-series-approximation
     [[0.006918]
      [-0.399912 0.070257]
@@ -138,60 +131,60 @@
   Arguments:
   - lat: latitude [rad],
   - decl: declivity [rad]"
-  [lat decl]
+  ^double [^double lat ^double decl]
   (Math/acos
     (+
       ;; Approximate cosine of daylight-half-angle, see e.g:
       ;; https://vvvvalvalval.github.io/posts/2019-12-03-inferring-earth-tilt-from-day-lengths.html#Physical-Model
-      (* -1. (Math/tan lat) (Math/tan decl))
+      (* -1.0 (Math/tan lat) (Math/tan decl))
       ;; Small correction
       (/
-        (Math/cos (* Math/PI (/ 90.833 180.)))
+        (Math/cos (* Math/PI (/ 90.833 180.0)))
         (* (Math/cos lat) (Math/cos decl))))))
 
 (defn longitudinal-angle->duration
   "[min] converts an angular offset (in rad) to a time offset."
-  [lng-angle]
+  ^double [^double lng-angle]
   (*
     ;; APPROXIMATE - the Earth actually rotates
     ;; a little more than 360° between 2 solar noons,
     ;; due to orbital movement
     ;; (about (360/365) ≈ 0.98° more, it depends on the time of the year,
     ;; but the error is something like 4 minutes per rotation).
-    4. ;; [min/deg] (/ (* 24 60) 360)
-    (/ 180. Math/PI) ;; [deg/rad]
+    4.0 ;; [min/deg] (/ (* 24 60) 360)
+    (/ 180.0 Math/PI) ;; [deg/rad]
     lng-angle))
 
-(def ^:constant min-per-hour 60.)
+(def ^:const min-per-hour 60.0)
 
 (defn min->hr
-  [t-min]
+  ^double [^double t-min]
   (/ t-min min-per-hour))
 
 (defn deg->rad
   ^double [^double theta-deg]
-  (-> theta-deg (* Math/PI) (/ 180.)))
+  (-> theta-deg (* Math/PI) (/ 180.0)))
 
 (defn sunrise-hour
   "[hr] UTC hour of the day at which the sun rises."
-  [lat lng gamma]
+  [^double lat ^double lng ^double gamma]
   (let [EQTIME (eqtime-at gamma)
         DECL   (declivity-at gamma)
         HA     (daylight-half-angle lat DECL)]
     (+
-      (- 12. (min->hr EQTIME))
+      (- 12.0 (min->hr EQTIME))
       (-> (- lng) (- HA)
           (longitudinal-angle->duration)
           (min->hr)))))
 
 (defn sunset-hour
   "[hr] UTC hour of the day at which the sun sets."
-  [lat lng gamma]
+  ^double [^double lat ^double lng ^double gamma]
   (let [EQTIME (eqtime-at gamma)
         DECL   (declivity-at gamma)
         HA     (daylight-half-angle lat DECL)]
     (+
-      (- 12. (min->hr EQTIME))
+      (- 12.0 (min->hr EQTIME))
       (-> (- lng) (+ HA)
           (longitudinal-angle->duration)
           (min->hr)))))
@@ -199,50 +192,50 @@
 (test/deftest sunrise-sunset-reality-checks
   (test/is
     (<
-      (sunrise-hour 0.3 0. Math/PI)
-      (sunrise-hour 0.1 0. Math/PI))
-    "In Northern summer, the sun rises earlier at higher latitudes")
+      (sunrise-hour 0.3 0.0 Math/PI)
+      (sunrise-hour 0.1 0.0 Math/PI))
+    "In Northern summer, the sun rises earlier at higher latitudes.")
   (test/is
     (>
-      (sunset-hour 0.3 0. Math/PI)
-      (sunset-hour 0.1 0. Math/PI))
+      (sunset-hour 0.3 0.0 Math/PI)
+      (sunset-hour 0.1 0.0 Math/PI))
     "... and sets later.")
   (test/is
     (>
-      (sunrise-hour -0.3 0. Math/PI)
-      (sunrise-hour -0.1 0. Math/PI))
+      (sunrise-hour -0.3 0.0 Math/PI)
+      (sunrise-hour -0.1 0.0 Math/PI))
     "The situation is reversed in Southern Winter.")
   (test/is
     (>
-      (sunrise-hour 0.3 0. 0.)
-      (sunrise-hour 0.1 0. 0.))
+      (sunrise-hour 0.3 0.0 0.0)
+      (sunrise-hour 0.1 0.0 0.0))
     "... and Northern Winter.")
   (test/is
     (every? true?
-      (for [lat   [-0.4 -0.2 0. 0.1 0.3]
-            gamma [0. 1. 2. 3. 5. 6.]]
+      (for [lat   [-0.4 -0.2 0.0 0.1 0.3]
+            gamma [0.0 1.0 2.0 3.0 5.0 6.0]]
         (<
           (sunrise-hour lat 0.5 gamma)
           (sunrise-hour lat -0.5 gamma))))
-    "The sun rises in the East before in the West")
+    "The sun rises in the East before in the West.")
   (test/is
     (every? true?
-      (for [lat   [-0.4 -0.2 0. 0.1 0.3]
-            lng   [-3. -2. -1. 0. 1. 2. 3.]
-            gamma [0. 1. 2. 3. 5. 6.]]
+      (for [lat   [-0.4 -0.2 0.0 0.1 0.3]
+            lng   [-3.0 -2.0 -1.0 0.0 1.0 2.0 3.0]
+            gamma [0.0 1.0 2.0 3.0 5.0 6.0]]
         (<
           (sunrise-hour lat lng gamma)
           (sunset-hour lat lng gamma))))
-    "Sunrise is always before sunset")
+    "Sunrise is always before sunset.")
   (test/is
     (=
       (->> (range 12)
            (map (fn [mnth]
-                  (-> mnth (/ 12.) (* 2. Math/PI))))
+                  (-> mnth (/ 12.0) (* 2.0 Math/PI))))
            (mapv (fn [gamma]
                    (-
-                     (sunset-hour 0. 0. gamma)
-                     (sunrise-hour 0. 0. gamma)))))
+                     (sunset-hour 0.0 0.0 gamma)
+                     (sunrise-hour 0.0 0.0 gamma)))))
       [12.120711690930627
        12.116455880448317
        12.111944801470845
@@ -260,7 +253,7 @@
     (=
       (->> (range 12)
            (map (fn [mnth]
-                  (-> mnth (/ 12.) (* 2. Math/PI))))
+                  (-> mnth (/ 12.0) (* 2.0 Math/PI))))
            (mapv (fn [gamma]
                    (-
                      (sunset-hour 0.8 0.5 gamma)
@@ -287,7 +280,7 @@
   ^long [t]
   (comment "At the time of writing," clojure.core/inst-ms "is not implemented in Babashka :/")
   (cond
-    (instance? Instant t) (* 1000 (.getEpochSecond ^Instant t))
+    (instance? Instant t)        (* 1000 (.getEpochSecond ^Instant t))
     (instance? java.util.Date t) (.getTime ^java.util.Date t)))
 
 ;; NOTE this function is approximate,
@@ -300,7 +293,7 @@
 ;; given how this script is used.
 (defn gamma-at-instant
   "[rad] Converts an instant to a time-of-year angle."
-  [t]
+  ^double [t]
   {:pre [(inst? t)]}
   (let [dt            (-> (instant-ms t)
                           (Instant/ofEpochMilli)
@@ -325,35 +318,36 @@
                         (instant-ms y-ceil)
                         (instant-ms y-floor))]
     (->
-      (instant-ms t) (double)
+      (instant-ms t)
+      (double)
       (- (instant-ms y-floor))
       (/ year-duration)
-      (* 2. Math/PI))))
+      (* 2.0 Math/PI))))
 
 (test/deftest gamma-at-instant-examples
   (test/is
     (= 0.0
-      (/ (gamma-at-instant #inst "2022-01-01") (* 2. Math/PI))))
+      (/ (gamma-at-instant #inst "2022-01-01") (* 2.0 Math/PI))))
   (test/is
     (= 0.21643835616438353
-      (/ (gamma-at-instant #inst "2022-03-21") (* 2. Math/PI))))
+      (/ (gamma-at-instant #inst "2022-03-21") (* 2.0 Math/PI))))
   (test/is
     (= 0.49589041095890407
-      (/ (gamma-at-instant #inst "2022-07-01") (* 2. Math/PI))))
+      (/ (gamma-at-instant #inst "2022-07-01") (* 2.0 Math/PI))))
   (test/is
     (= 0.7753424657534247
-      (/ (gamma-at-instant #inst "2022-10-11") (* 2. Math/PI)))))
+      (/ (gamma-at-instant #inst "2022-10-11") (* 2.0 Math/PI)))))
 
 (defn format-fractional-hour
   [^double h]
   (format "%02d:%02d"
     (-> h (Math/floor) (long))
-    (-> h (rem 1.) (* 60.) (double) (Math/round) (long))))
+    (-> h (rem 1.0) (* 60.0) (double) (Math/round) (long))))
 
 (test/deftest format-fractional-hour-examples
   (test/is (= "09:12" (format-fractional-hour 9.2)))
   (test/is (= "19:45" (format-fractional-hour 19.75)))
-  (test/is (= "00:00" (format-fractional-hour 0.)))
+  (test/is (= "00:00" (format-fractional-hour 0.0)))
   (test/is (= "23:59" (format-fractional-hour 23.99))))
 
 (defn infer-burn-period
@@ -364,64 +358,66 @@
   [{wds-t     :weather-start-timestamp
     bp-length :burn-period-length
     bp-frac   :burn-period-frac
-    ::keys    [lat-deg lng-deg]
+    lat-deg   ::lat-deg
+    lng-deg   ::lng-deg
     :or       {bp-frac 0.5}
     :as       _bp-info}]
-  (let [gamma            (gamma-at-instant wds-t)
-        lat              (deg->rad lat-deg)
-        lng              (deg->rad lng-deg)
-        h-sunrise        (sunrise-hour lat lng gamma)
-        h-sunset         (sunset-hour lat lng gamma)
-        [h-start h-end]
-        (if (nil? bp-length)
-          [h-sunrise h-sunset]
-          (let [bp-half-length (* bp-length 0.5)
-                h-center       (+
-                                 (* (- 1. bp-frac) h-sunrise)
-                                 (* bp-frac h-sunset))]
-            [(-> h-center (- bp-half-length))
-             (-> h-center (+ bp-half-length))]))]
-    {:start                   (format-fractional-hour h-start)
-     :end                     (format-fractional-hour h-end)}))
+  (let [gamma           (gamma-at-instant wds-t)
+        lat             (deg->rad lat-deg)
+        lng             (deg->rad lng-deg)
+        h-sunrise       (sunrise-hour lat lng gamma)
+        h-sunset        (sunset-hour lat lng gamma)
+        [h-start h-end] (if (nil? bp-length)
+                          [h-sunrise h-sunset]
+                          (let [bp-half-length (* bp-length 0.5)
+                                h-center       (+
+                                                (* (- 1.0 bp-frac) h-sunrise)
+                                                (* bp-frac h-sunset))]
+                            [(-> h-center (- bp-half-length))
+                             (-> h-center (+ bp-half-length))]))]
+    {:start (format-fractional-hour h-start)
+     :end   (format-fractional-hour h-end)}))
 
 (test/deftest infer-burn-period-example
   (test/is
-    (=
-      ;; Almost correct, Météo France says 6:15 / 21:14.
-      {:start                   "04:15",
-       :end                     "19:13"}
-      (infer-burn-period
-        {:weather-start-timestamp #inst"2022-07-19T16:54:09.073-00:00"
-         ::lat-deg                43.17
-         ::lng-deg                5.60}))
-    "correct sunrise/sunset hours for La Ciotat, France on 2022-07-19.")
+   (=
+    ;; Almost correct, Météo France says 6:15 / 21:14.
+    {:start "04:15",
+     :end   "19:13"}
+    (infer-burn-period
+     {:weather-start-timestamp #inst"2022-07-19T16:54:09.073-00:00"
+      ::lat-deg                43.17
+      ::lng-deg                5.60}))
+   "correct sunrise/sunset hours for La Ciotat, France on 2022-07-19.")
 
   (test/is
-    (=
-      {:start                   "08:14",
-       :end                     "18:14"}
-      (infer-burn-period
-        {:weather-start-timestamp #inst"2022-07-19T16:54:09.073-00:00"
-         ::lat-deg                43.17
-         ::lng-deg                5.60
-         :burn-period-length      10
-         ;; Centering on 15:14 :
-         :burn-period-frac        (/ (- 15. 6.) (- 21. 6.))}))
-    (str "if provided, correctly uses " (pr-str :burn-period-length) " and " (pr-str :burn-period-frac) ".")))
+   (=
+    {:start "08:14",
+     :end   "18:14"}
+    (infer-burn-period
+     {:weather-start-timestamp #inst"2022-07-19T16:54:09.073-00:00"
+      ::lat-deg                43.17
+      ::lng-deg                5.60
+      :burn-period-length      10.0
+      ;; Centering on 15:14 :
+      :burn-period-frac        (/ (- 15.0 6.0) (- 21.0 6.0))}))
+   (str "if provided, correctly uses " (pr-str :burn-period-length) " and " (pr-str :burn-period-frac) ".")))
 
 (defn transform-gridfire-config
   [gridfire-config script-opts]
   (-> gridfire-config
-      (merge (select-keys script-opts [:weather-start-timestamp]))
-      (update :burn-period
-        (fn [burn-period]
-          (merge
-            burn-period
-            (let [bp-info (merge
-                            (select-keys gridfire-config [:weather-start-timestamp])
-                            burn-period
-                            script-opts)]
-              (infer-burn-period bp-info)))))))
+      (as-> new-config
+            (merge new-config (select-keys script-opts [:weather-start-timestamp]))
+            (update new-config :burn-period
+                    (fn [burn-period]
+                      (merge burn-period
+                             (let [bp-info (merge
+                                            ;; NOTE gathering relevant information from the various maps at our disposal,
+                                            ;; enabling callers to supply it in a flexible and Clojure-idiomatic way.
+                                            (select-keys new-config [:weather-start-timestamp])
+                                            burn-period
+                                            script-opts)]
+                               (infer-burn-period bp-info))))))))
 
 ;;=============================================================================
 ;; Command-Line Interface (CLI)
@@ -431,10 +427,6 @@
   [s]
   (Double/parseDouble s))
 
-(defn parse-integer
-  [s]
-  (Long/parseLong s 10))
-
 ;; Distinct fns, to get explicit stacktraces
 (defn parse-lat-deg
   [s]
@@ -443,10 +435,6 @@
 (defn parse-lng-deg
   [s]
   (parse-double-num s))
-
-(defn parse-utc-offset-hours
-  [s]
-  (parse-integer s))
 
 (defn parse-weather-start-timestamp
   [s]
@@ -466,14 +454,14 @@
    [nil "--burn-period-length DOUBLE"
     :id :burn-period-length
     :desc (str "Length of the burn period, in hours. "
-            "When supplied, the burn period will be centered around a time given by " (pr-str :burn-period-frac) ". "
-            "Optional. Maybe also be specified in the input GridFire config.")
+               "When supplied, the burn period will be centered around a time given by " (pr-str :burn-period-frac) ". "
+               "Optional. Maybe also be specified in the input GridFire config.")
     :parse-fn parse-double-num]
    [nil "--burn-period-frac DOUBLE"
     :id :burn-period-frac
-    :desc (str "A number from 0. to 1., positioning the center of the burn period in the interval between sunrise and sunset. "
-            "Only used when " (pr-str :burn-period-length) "is specified. "
-            "Optional. Maybe also be specified in the input GridFire config.")
+    :desc (str "A number from 0.0 to 1.0, positioning the center of the burn period in the interval between sunrise and sunset. "
+               "Only used when " (pr-str :burn-period-length) "is specified. "
+               "Optional. Maybe also be specified in the input GridFire config.")
     :parse-fn parse-double-num]
    [nil "--input-gf-config"
     :id ::input-gf-config
@@ -484,31 +472,32 @@
 
 (defn transform-config-by!
   [cli-opts transform-fn]
-  (let [gf-config0    (or
-                        (some-> (::input-gf-config cli-opts)
-                          (slurp)
-                          (read-string))
-                        {})
-        gf-config1    (transform-fn gf-config0 cli-opts)]
-    (spit
-      (::output-gf-config cli-opts)
-      (pr-str gf-config1))))
+  (let [gf-config0 (or (some-> (::input-gf-config cli-opts)
+                               (slurp)
+                               (read-string))
+                       {})
+        gf-config1 (transform-fn gf-config0 cli-opts)]
+    (spit (::output-gf-config cli-opts) (pr-str gf-config1))))
+
+(def program-banner
+  (->> ["burn_period_from_sunrise_sunset.clj: enrich an EDN-encoded GridFire configuration by resolving :burn-period from sunrise and sunset."
+        "Copyright © 2022 Spatial Informatics Group, LLC."]
+       (interpose " ")
+       ;; NOTE for string-building (apply ...) offers nicer performance characteristics than (reduce ...),
+       ;; since (reduce str ...) would cause O(n^2) String-building.
+       (apply str)))
 
 (defn main
   [cli-args]
+  (println program-banner)
   (let [{:keys [options summary errors]} (cli/parse-opts cli-args cli-options)]
-    (cond
+    (if (seq errors)
       ;; Errors encountered during input parsing
-      (seq errors)
       (binding [*out* *err*]
         (run! println errors)
         (println (str "\nUsage:\n" summary))
         (System/exit 1))
-
-      :else
-      (do
-        (println program-banner)
-        (transform-config-by! options transform-gridfire-config)))
+      (transform-config-by! options transform-gridfire-config))
 
     ;; Exit cleanly
     (System/exit 0)))
