@@ -88,12 +88,12 @@
 
 (s/def ::ignition-layer
   (s/and
-   ::common/postgis-or-geotiff
+   ::common/postgis-or-file
    (s/keys :opt-un [::burn-values])))
 
 (s/def ::ignition-csv ::common/readable-file)
 
-(s/def ::ignition-mask ::common/postgis-or-geotiff)
+(s/def ::ignition-mask ::common/postgis-or-file)
 
 (s/def ::edge-buffer number?)
 

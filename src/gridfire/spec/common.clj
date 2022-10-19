@@ -102,16 +102,16 @@
 
 (def postgis-sql-regex #"[a-z0-9]+(\.[a-z0-9]+)? WHERE rid=[0-9]+")
 
-(def geotiff-regex #".*\.tif$")
+(def raster-file-regex #".*\.(tif|bsq)$")
 
 (s/def ::sql (s/and string? #(re-matches postgis-sql-regex %)))
 
-(s/def ::geotiff (s/and ::readable-file #(re-matches geotiff-regex %)))
+(s/def ::raster-file-path (s/and ::readable-file #(re-matches raster-file-regex %)))
 
-(s/def ::source (s/or :sql     ::sql
-                      :geotiff ::geotiff))
+(s/def ::source (s/or :sql              ::sql
+                      :raster-file-path ::raster-file-path))
 
-(s/def ::type #{:geotiff :postgis})
+(s/def ::type #{:geotiff :postgis :gridfire-envi-bsq})
 
 (s/def ::cell-size number?)
 
@@ -119,12 +119,12 @@
 
 (s/def ::multiplier number?)
 
-(s/def ::postgis-or-geotiff
+(s/def ::postgis-or-file
   (s/keys :req-un [::source ::type]
           :opt-un [::cell-size ::unit ::multiplier]))
 
 (s/def ::layer-coords (s/or :sql ::sql
-                            :map ::postgis-or-geotiff))
+                            :map ::postgis-or-file))
 
 (s/def ::ratio-or-layer-coords
   (s/or :ratio  ::ratio

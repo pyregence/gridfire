@@ -3713,6 +3713,7 @@ this functionality.
 
 #+name: fetch.clj
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fetch.clj :padline no :no-expand :comments link
+;; FIXME update when PR approved
 (ns gridfire.fetch
   (:require [clojure.string           :as s]
             [gridfire.conversion      :as convert]
