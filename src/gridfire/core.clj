@@ -1,13 +1,14 @@
 ;; [[file:../../org/GridFire.org::gridfire-core][gridfire-core]]
 (ns gridfire.core
   (:require [clojure.core.reducers        :as r]
-            [clojure.edn                  :as edn]
             [clojure.spec.alpha           :as spec]
             [gridfire.fire-spread-optimal :refer [rothermel-fast-wrapper-optimal]]
             [gridfire.inputs              :as inputs]
             [gridfire.outputs             :as outputs]
             [gridfire.simulations         :as simulations]
             [gridfire.spec.config         :as config-spec]
+            [gridfire.utils.files         :as files]
+            [manifold.deferred            :as mfd]
             [taoensso.tufte               :as tufte]
             [triangulum.logging           :refer [log log-str]]))
 
@@ -15,9 +16,12 @@
 
 (defn write-outputs!
   [outputs]
-  (outputs/write-landfire-layers! outputs)
-  (outputs/write-aggregate-layers! outputs)
-  (outputs/write-csv-outputs! outputs)
+  (->
+    (mfd/zip
+      (outputs/write-landfire-layers! outputs)
+      (outputs/write-aggregate-layers! outputs)
+      (outputs/write-csv-outputs! outputs))
+    (deref))
   :success)
 
 (defmacro with-multithread-profiling
@@ -60,11 +64,12 @@
       (inputs/add-random-ignition-sites)
       (inputs/add-aggregate-matrices)
       (inputs/add-burn-period-params)
-      (inputs/add-ignition-start-times)))
+      (inputs/add-ignition-start-times)
+      (inputs/add-ignition-start-timestamps)))
 
 (defn load-config!
   [config-file-path]
-  (let [config (edn/read-string (slurp config-file-path))]
+  (let [config (files/read-situated-edn-file config-file-path)]
     (if (spec/valid? ::config-spec/config config)
       (assoc config :config-file-path config-file-path)
       (log-str (format "Invalid config file [%s]:\n%s"

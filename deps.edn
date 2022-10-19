@@ -5,6 +5,7 @@
         com.nextjournal/beholder            {:mvn/version "1.0.0"}
         com.taoensso/tufte                  {:mvn/version "2.2.0"}
         hikari-cp/hikari-cp                 {:mvn/version "2.13.0"}
+        manifold/manifold                   {:mvn/version "0.2.4"}
         org.clojars.lambdatronic/matrix-viz {:mvn/version "2022.02.03"}
         org.clojure/clojure                 {:mvn/version "1.10.3"}
         org.clojure/core.async              {:mvn/version "1.3.622"}
@@ -19,7 +20,12 @@
 
  :mvn/repos {"osgeo" {:url "https://repo.osgeo.org/repository/release/"}}
 
- :aliases {:build-test-db     {:extra-paths ["test"]
+ :aliases {:build             {:deps       {io.github.clojure/tools.build
+                                            {:git/tag "v0.8.3" :git/sha "0d20256"}}
+                               :ns-default build}
+           :with-tools-build  {:extra-deps {io.github.clojure/tools.build
+                                            {:git/tag "v0.8.3" :git/sha "0d20256"}}}
+           :build-test-db     {:extra-paths ["test"]
                                :main-opts   ["-m" "gridfire.build-test-db"]}
            :run               {:main-opts ["-m" "gridfire.cli"]
                                :jvm-opts  ["-XX:MaxRAMPercentage=90"]}
@@ -27,22 +33,6 @@
                                            "-e" "(in-ns,'gridfire.core)"
                                            "-r"]}
            :gen-raster        {:main-opts ["-m" "gridfire.gen-raster"]}
-           :make-uberjar      {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
-                               :exec-fn      hf.depstar/uberjar
-                               :exec-args    {:jar         target/gridfire-2022.02.07.jar
-                                              :main-class  gridfire.cli
-                                              :aot         true
-                                              :sync-pom    true
-                                              :group-id    sig-gis
-                                              :artifact-id gridfire
-                                              :version     "2022.02.07"
-                                              :manifest
-                                              {:specification-title    "Java Advanced Imaging Image I/O Tools"
-                                               :specification-version  "1.1"
-                                               :specification-vendor   "Sun Microsystems, Inc."
-                                               :implementation-title   "com.sun.media.imageio"
-                                               :implementation-version "1.1"
-                                               :implementation-vendor  "Sun Microsystems, Inc."}}}
            :test              {:extra-paths ["test"]
                                :extra-deps  {com.cognitect/test-runner
                                              {:git/url "https://github.com/cognitect-labs/test-runner.git"

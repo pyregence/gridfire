@@ -5,7 +5,9 @@
             [gridfire.conversion          :refer [min->hour kebab->snake snake->kebab]]
             [gridfire.fire-spread-optimal :refer [run-fire-spread]]
             [gridfire.outputs             :as outputs]
+            [gridfire.utils.async         :as gf-async]
             [gridfire.utils.random        :refer [my-rand-range]]
+            [manifold.deferred            :as mfd]
             [taoensso.tufte               :as tufte]
             [tech.v3.datatype             :as d]
             [tech.v3.datatype.functional  :as dfn]
@@ -53,22 +55,34 @@
   [{:keys [simulation-id] :as config}
    {:keys [global-clock burn-time-matrix] :as fire-spread-results}
    name layer timestep envelope]
-  (let [global-clock (double global-clock)]
-   (doseq [output-time (range 0 (inc global-clock) timestep)]
-     (let [matrix          (if (= layer "burn_history")
-                             (to-color-map-values layer output-time)
-                             (fire-spread-results layer))
-           filtered-matrix (layer-snapshot burn-time-matrix matrix output-time)]
-       (outputs/output-geotiff config filtered-matrix name envelope simulation-id output-time)
-       (outputs/output-png config filtered-matrix name envelope simulation-id output-time)))))
+  (let [global-clock (double global-clock)
+        output-times (range 0 (inc global-clock) timestep)]
+    (->> output-times
+         (mapv
+           (fn [output-time]
+             (->
+               (outputs/exec-in-outputs-writing-pool
+                 (fn []
+                   (let [matrix (if (= name "burn_history")
+                                  (to-color-map-values layer output-time)
+                                  (fire-spread-results layer))]
+                     (layer-snapshot burn-time-matrix matrix output-time))))
+               (mfd/chain
+                 (fn [filtered-matrix]
+                   (mfd/zip
+                     (outputs/output-geotiff config filtered-matrix name envelope simulation-id output-time)
+                     (outputs/output-png config filtered-matrix name envelope simulation-id output-time))))
+               (gf-async/nil-when-completed))))
+         (gf-async/nil-when-all-completed))))
 
 (def layer-name->matrix
-  [["fire_spread"         :fire-spread-matrix]
-   ["flame_length"        :flame-length-matrix]
-   ["fire_line_intensity" :fire-line-intensity-matrix]
-   ["burn_history"        :burn-time-matrix]
-   ["spread_rate"         :spread-rate-matrix]
-   ["fire_type"           :fire-type-matrix]])
+  [["fire_spread"              :fire-spread-matrix]
+   ["flame_length"             :flame-length-matrix]
+   ["directional_flame_length" :directional-flame-length-matrix]
+   ["fire_line_intensity"      :fire-line-intensity-matrix]
+   ["burn_history"             :burn-time-matrix]
+   ["spread_rate"              :spread-rate-matrix]
+   ["fire_type"                :fire-type-matrix]])
 
 (defn filter-output-layers [output-layers]
   (let [layers-to-filter (set (map (comp kebab->snake name) (keys output-layers)))]
@@ -82,23 +96,33 @@
   (let [layers (if output-layers
                  (filter-output-layers output-layers)
                  layer-name->matrix)]
-    (doseq [[name layer] layers]
-      (let [kw       (keyword (snake->kebab name))
-            timestep (get output-layers kw)]
-        (if (int? timestep)
-          (process-output-layers-timestepped config
-                                             fire-spread-results
-                                             name
-                                             layer
-                                             timestep
-                                             envelope)
-          (let [matrix (if (= layer "burn_history")
+    (->> layers
+         (mapv
+           (fn [[name layer]]
+             (let [kw       (keyword (snake->kebab name))
+                   timestep (get output-layers kw)]
+               (if (int? timestep)
+                 (process-output-layers-timestepped config
+                                                    fire-spread-results
+                                                    name
+                                                    layer
+                                                    timestep
+                                                    envelope)
+                 (->
+                   (outputs/exec-in-outputs-writing-pool
+                     (fn []
+                       (if (= layer "burn_history")
                          (to-color-map-values layer global-clock)
-                         (fire-spread-results layer))]
-            (when output-geotiffs?
-              (outputs/output-geotiff config matrix name envelope simulation-id))
-            (when output-pngs?
-              (outputs/output-png config matrix name envelope simulation-id))))))))
+                         (fire-spread-results layer))))
+                   (mfd/chain
+                     (fn [matrix]
+                       (mfd/zip
+                         (when output-geotiffs?
+                           (outputs/output-geotiff config matrix name envelope simulation-id))
+                         (when output-pngs?
+                           (outputs/output-png config matrix name envelope simulation-id)))))
+                   (gf-async/nil-when-completed))))))
+         (gf-async/nil-when-all-completed))))
 
 (defn process-burn-count!
   [{:keys [fire-spread-matrix burn-time-matrix global-clock]}
@@ -107,31 +131,37 @@
   (if (int? timestep)
     (let [global-clock (double global-clock)
           timestep     (long timestep)]
-     (doseq [^double clock (range 0 (inc global-clock) timestep)]
-       (let [filtered-fire-spread (d/clone
-                                   (d/emap (fn [^double layer-value ^double burn-time]
-                                             (if (<= burn-time clock)
-                                               layer-value
-                                               0.0))
-                                           :float64
-                                           fire-spread-matrix
-                                           burn-time-matrix))
-             band                 (int (quot clock timestep))
-             burn-count-matrix-i  (nth burn-count-matrix band)]
-         (d/copy! (dfn/+ burn-count-matrix-i filtered-fire-spread) burn-count-matrix-i))))
+      (doseq [^double clock (range 0 (inc global-clock) timestep)]
+        (let [filtered-fire-spread (d/clone
+                                    (d/emap (fn [^double layer-value ^double burn-time]
+                                              (if (<= burn-time clock)
+                                                layer-value
+                                                0.0))
+                                            :float64
+                                            fire-spread-matrix
+                                            burn-time-matrix))
+              band                 (int (quot clock timestep))
+              burn-count-matrix-i  (nth burn-count-matrix band)]
+          (d/copy! (dfn/+ burn-count-matrix-i filtered-fire-spread) burn-count-matrix-i))))
     (d/copy! (dfn/+ burn-count-matrix fire-spread-matrix) burn-count-matrix)))
 
 (defn process-aggregate-output-layers!
-  [{:keys [burn-count-matrix flame-length-max-matrix flame-length-sum-matrix
+  [{:keys [output-flame-length-sum output-flame-length-max burn-count-matrix flame-length-max-matrix flame-length-sum-matrix
            output-burn-probability spot-count-matrix]} fire-spread-results]
   (when-let [timestep output-burn-probability]
     (process-burn-count! fire-spread-results burn-count-matrix timestep))
   (when flame-length-sum-matrix
-    (d/copy! (dfn/+ flame-length-sum-matrix (:flame-length-matrix fire-spread-results))
-             flame-length-sum-matrix))
+    (if (= output-flame-length-sum :directional)
+      (d/copy! (dfn/+ flame-length-sum-matrix (:directional-flame-length-matrix fire-spread-results))
+               flame-length-sum-matrix)
+      (d/copy! (dfn/+ flame-length-sum-matrix (:flame-length-matrix fire-spread-results))
+               flame-length-sum-matrix)))
   (when flame-length-max-matrix
-    (d/copy! (dfn/max flame-length-max-matrix (:flame-length-matrix fire-spread-results))
-             flame-length-max-matrix))
+    (if (= output-flame-length-max :directional)
+      (d/copy! (dfn/max flame-length-max-matrix (:directional-flame-length-matrix fire-spread-results))
+               flame-length-max-matrix)
+      (d/copy! (dfn/max flame-length-max-matrix (:flame-length-matrix fire-spread-results))
+               flame-length-max-matrix)))
   (when spot-count-matrix
     (d/copy! (dfn/+ spot-count-matrix (:spot-matrix fire-spread-results))
              spot-count-matrix)))
@@ -141,19 +171,21 @@
    {:keys [burn-time-matrix flame-length-matrix spread-rate-matrix fire-type-matrix]}
    ^long simulation]
   (when output-binary?
-    (let [output-name (format "toa_0001_%05d.bin" (inc simulation))
-          output-path (if output-directory
-                        (.getPath (io/file output-directory output-name))
-                        output-name)]
-      (binary/write-matrices-as-binary output-path
-                                       [:float :float :float :int]
-                                       [(->> burn-time-matrix
-                                             (d/emap (fn ^double [^double x] (if (pos? x) (* 60.0 x) x)) :float64)
-                                             (d/clone))
-                                        flame-length-matrix
-                                        spread-rate-matrix
-                                        fire-type-matrix]))))
-
+    (outputs/exec-in-outputs-writing-pool
+      (fn []
+        (let [output-name (format "toa_0001_%05d.bin" (inc simulation))
+              output-path (if output-directory
+                            (.getPath (io/file output-directory output-name))
+                            output-name)]
+          ;; NOTE that's not parallelizable, as the matrices get written to the same file.
+          (binary/write-matrices-as-binary output-path
+                                           [:float :float :float :int]
+                                           [(->> burn-time-matrix
+                                                 (d/emap (fn ^double [^double x] (if (pos? x) (* 60.0 x) x)) :float64)
+                                                 (d/clone))
+                                            flame-length-matrix
+                                            spread-rate-matrix
+                                            fire-type-matrix]))))))
 (defn cells-to-acres ^double
   [^double cell-size ^long num-cells]
   (let [acres-per-cell (/ (* cell-size cell-size) 43560.0)]
@@ -344,83 +376,96 @@
     [^long num-rows
      ^long num-cols
      ^double cell-size
+     ^Random rand-gen
+     initial-ignition-site
      ^double ignition-start-time
      ignition-start-timestamp
      burn-period-start
      burn-period-end
      ^double max-runtime
-     initial-ignition-site
-     ^double ellipse-adjustment-factor
-     ^boolean grass-suppression?
-     ^Random rand-gen
-     get-elevation
-     get-slope
+     compute-directional-values?
      get-aspect
+     get-canopy-base-height
      get-canopy-cover
      get-canopy-height
-     get-canopy-base-height
      get-crown-bulk-density
+     get-elevation
+     get-foliar-moisture
      get-fuel-model
-     get-temperature
-     get-relative-humidity
-     get-wind-speed-20ft
-     get-wind-from-direction
-     get-fuel-moisture-dead-1hr
-     get-fuel-moisture-dead-10hr
      get-fuel-moisture-dead-100hr
+     get-fuel-moisture-dead-10hr
+     get-fuel-moisture-dead-1hr
      get-fuel-moisture-live-herbaceous
      get-fuel-moisture-live-woody
-     get-foliar-moisture
-     spotting])
+     get-relative-humidity
+     get-slope
+     get-suppression-difficulty-index
+     get-temperature
+     get-wind-from-direction
+     get-wind-speed-20ft
+     ^double ellipse-adjustment-factor
+     ^boolean grass-suppression?
+     spotting
+     suppression])
 
 (defn run-simulation!
   [^long i
    {:keys
     [num-rows num-cols grass-suppression? output-csvs? envelope ignition-matrix cell-size max-runtime-samples
      ignition-rows ignition-cols ellipse-adjustment-factor-samples random-seed ignition-start-times spotting
-     burn-period-start burn-period-end ignition-start-timestamp]
+     burn-period-start burn-period-end ignition-start-timestamps suppression output-flame-length-sum
+     output-flame-length-max output-layers]
     :as inputs}]
   (tufte/profile
    {:id :run-simulation}
-   (let [rand-gen            (if random-seed (Random. (+ ^long random-seed i)) (Random.))
-         simulation-inputs   {:num-rows                          num-rows
-                              :num-cols                          num-cols
-                              :cell-size                         cell-size
-                              :rand-gen                          rand-gen
-                              :initial-ignition-site             (or ignition-matrix
-                                                                     [(ignition-rows i) (ignition-cols i)])
-                              :ignition-start-time               (get ignition-start-times i 0.0)
-                              :ignition-start-timestamp          ignition-start-timestamp
-                              :burn-period-start                 burn-period-start
-                              :burn-period-end                   burn-period-end
-                              :max-runtime                       (max-runtime-samples i)
-                              :get-aspect                        (get-value-fn inputs rand-gen :aspect i)
-                              :get-canopy-height                 (get-value-fn inputs rand-gen :canopy-height i)
-                              :get-canopy-base-height            (get-value-fn inputs rand-gen :canopy-base-height i)
-                              :get-canopy-cover                  (get-value-fn inputs rand-gen :canopy-cover i)
-                              :get-crown-bulk-density            (get-value-fn inputs rand-gen :crown-bulk-density i)
-                              :get-fuel-model                    (get-value-fn inputs rand-gen :fuel-model i)
-                              :get-slope                         (get-value-fn inputs rand-gen :slope i)
-                              :get-elevation                     (get-value-fn inputs rand-gen :elevation i)
-                              :get-temperature                   (get-value-fn inputs rand-gen :temperature i)
-                              :get-relative-humidity             (get-value-fn inputs rand-gen :relative-humidity i)
-                              :get-wind-speed-20ft               (get-value-fn inputs rand-gen :wind-speed-20ft i)
-                              :get-wind-from-direction           (get-value-fn inputs rand-gen :wind-from-direction i)
-                              :get-fuel-moisture-dead-1hr        (get-value-fn inputs rand-gen :fuel-moisture-dead-1hr i)
-                              :get-fuel-moisture-dead-10hr       (get-value-fn inputs rand-gen :fuel-moisture-dead-10hr i)
-                              :get-fuel-moisture-dead-100hr      (get-value-fn inputs rand-gen :fuel-moisture-dead-100hr i)
-                              :get-fuel-moisture-live-herbaceous (get-value-fn inputs rand-gen :fuel-moisture-live-herbaceous i)
-                              :get-fuel-moisture-live-woody      (get-value-fn inputs rand-gen :fuel-moisture-live-woody i)
-                              :get-foliar-moisture               (get-value-fn inputs rand-gen :foliar-moisture i)
-                              :ellipse-adjustment-factor         (ellipse-adjustment-factor-samples i)
-                              :grass-suppression?                (true? grass-suppression?)
-                              :spotting                          spotting}
+   (let [rand-gen           (if random-seed (Random. (+ ^long random-seed i)) (Random.))
+         simulation-inputs  {:num-rows                          num-rows
+                             :num-cols                          num-cols
+                             :cell-size                         cell-size
+                             :rand-gen                          rand-gen
+                             :initial-ignition-site             (or ignition-matrix
+                                                                    [(ignition-rows i) (ignition-cols i)])
+                             :ignition-start-time               (get ignition-start-times i 0.0)
+                             :ignition-start-timestamp          (get ignition-start-timestamps i)
+                             :burn-period-start                 burn-period-start
+                             :burn-period-end                   burn-period-end
+                             :max-runtime                       (max-runtime-samples i)
+                             :compute-directional-values?       (or (= output-flame-length-max :directional)
+                                                                    (= output-flame-length-sum :directional)
+                                                                    (:directional-flame-length output-layers))
+                             :get-aspect                        (get-value-fn inputs rand-gen :aspect i)
+                             :get-canopy-base-height            (get-value-fn inputs rand-gen :canopy-base-height i)
+                             :get-canopy-cover                  (get-value-fn inputs rand-gen :canopy-cover i)
+                             :get-canopy-height                 (get-value-fn inputs rand-gen :canopy-height i)
+                             :get-crown-bulk-density            (get-value-fn inputs rand-gen :crown-bulk-density i)
+                             :get-elevation                     (get-value-fn inputs rand-gen :elevation i)
+                             :get-foliar-moisture               (get-value-fn inputs rand-gen :foliar-moisture i)
+                             :get-fuel-model                    (get-value-fn inputs rand-gen :fuel-model i)
+                             :get-fuel-moisture-dead-100hr      (get-value-fn inputs rand-gen :fuel-moisture-dead-100hr i)
+                             :get-fuel-moisture-dead-10hr       (get-value-fn inputs rand-gen :fuel-moisture-dead-10hr i)
+                             :get-fuel-moisture-dead-1hr        (get-value-fn inputs rand-gen :fuel-moisture-dead-1hr i)
+                             :get-fuel-moisture-live-herbaceous (get-value-fn inputs rand-gen :fuel-moisture-live-herbaceous i)
+                             :get-fuel-moisture-live-woody      (get-value-fn inputs rand-gen :fuel-moisture-live-woody i)
+                             :get-relative-humidity             (get-value-fn inputs rand-gen :relative-humidity i)
+                             :get-slope                         (get-value-fn inputs rand-gen :slope i)
+                             :get-suppression-difficulty-index  (get-value-fn inputs rand-gen :suppression-difficulty-index i)
+                             :get-temperature                   (get-value-fn inputs rand-gen :temperature i)
+                             :get-wind-from-direction           (get-value-fn inputs rand-gen :wind-from-direction i)
+                             :get-wind-speed-20ft               (get-value-fn inputs rand-gen :wind-speed-20ft i)
+                             :ellipse-adjustment-factor         (ellipse-adjustment-factor-samples i)
+                             :grass-suppression?                (true? grass-suppression?)
+                             :spotting                          spotting
+                             :suppression                       suppression}
          simulation-results (tufte/p :run-fire-spread
                                      (run-fire-spread (map->SimulationInputs simulation-inputs)))]
      (when simulation-results
-       (process-output-layers! inputs simulation-results envelope i)
-       (process-aggregate-output-layers! inputs simulation-results)
-       (process-binary-output! inputs simulation-results i))
+       (->
+         (mfd/zip
+           (process-output-layers! inputs simulation-results envelope i)
+           (process-aggregate-output-layers! inputs simulation-results)
+           (process-binary-output! inputs simulation-results i))
+         (gf-async/nil-when-completed)
+         (deref)))
      (when output-csvs?
        (-> simulation-inputs
            (dissoc :get-aspect
