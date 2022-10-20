@@ -107,6 +107,10 @@
     (when (> new-value old-value)
       (t/mset! matrix i j new-value))))
 
+(defn- lookup-spread-rate-adjustment
+  [fuel-number->spread-rate-adjustment fuel-model]
+  (aget fuel-number->spread-rate-adjustment fuel-model))
+
 (defn- compute-max-in-situ-values!
   [inputs matrices band i j]
   (let [compute-directional-values?           (:compute-directional-values? inputs)
@@ -181,7 +185,8 @@
                                                   (wind-adjustment-factor ^double (:fuel-bed-depth surface-fire-min)
                                                                           canopy-height
                                                                           canopy-cover)))
-        spread-rate-adjustment                (some-> fuel-number->spread-rate-adjustment (aget fuel-model))
+        spread-rate-adjustment                (some-> fuel-number->spread-rate-adjustment
+                                                      (lookup-spread-rate-adjustment fuel-model))
         surface-fire-max                      (rothermel-surface-fire-spread-max surface-fire-min
                                                                                  midflame-wind-speed
                                                                                  wind-from-direction

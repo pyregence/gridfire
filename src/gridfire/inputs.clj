@@ -386,10 +386,10 @@
       (aset array-lookup index (get lookup-map index)))
     array-lookup))
 
-(defn add-fuel-number->spread-rate-adjustment-samples
+(defn add-fuel-number->spread-rate-adjustment-array-lookup-samples
   [{:keys [fuel-number->spread-rate-adjustment-samples] :as inputs}]
   (if fuel-number->spread-rate-adjustment-samples
     (assoc inputs
-           :fuel-number->spread-rate-adjustment-samples
+           :fuel-number->spread-rate-adjustment-array-lookup-samples
            (mapv convert-map->array-lookup fuel-number->spread-rate-adjustment-samples))
     inputs))

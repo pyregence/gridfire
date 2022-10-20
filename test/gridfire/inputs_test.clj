@@ -87,10 +87,10 @@
 (deftest add-spread-rate-adjustment-factors-test
   (let [inputs       (-> *base-config*
                          (merge {:fuel-number->spread-rate-adjustment-samples [{101 0.1}]}))
-        inputs-after (inputs/add-spread-rate-adjustment-factors inputs)]
+        inputs-after (inputs/add-fuel-number->spread-rate-adjustment-array-lookup-samples inputs)]
 
-    (is (contains? inputs-after :fuel-number->spread-rate-adjustment-samples))
+    (is (contains? inputs-after :fuel-number->spread-rate-adjustment-array-lookup-samples))
 
-    (is (one-dimensional-double-array? (first (:fuel-number->spread-rate-adjustment-samples inputs-after))))
+    (is (one-dimensional-double-array? (first (:fuel-number->spread-rate-adjustment-array-lookup-samples inputs-after))))
 
-    (is (= 0.1 (aget (first (:fuel-number->spread-rate-adjustment-samples inputs-after)) 101)))))
+    (is (= 0.1 (aget (first (:fuel-number->spread-rate-adjustment-array-lookup-samples inputs-after)) 101)))))

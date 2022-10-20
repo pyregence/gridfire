@@ -67,7 +67,7 @@
       (inputs/add-ignition-start-times)
       (inputs/add-ignition-start-timestamps)
       (inputs/add-suppression)
-      (inputs/add-fuel-number->spread-rate-adjustment-samples)))
+      (inputs/add-fuel-number->spread-rate-adjustment-array-lookup-samples)))
 
 (defn load-config!
   [config-file-path]

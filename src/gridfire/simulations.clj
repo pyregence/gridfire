@@ -384,6 +384,7 @@
      burn-period-end
      ^double max-runtime
      compute-directional-values?
+     fuel-number->spread-rate-adjustment
      get-aspect
      get-canopy-base-height
      get-canopy-cover
@@ -409,10 +410,8 @@
      sdi-reference-suppression-speed
      sdi-sensitivity-to-difficulty
      spotting
-     fuel-number->spread-rate-adjustment
      suppression-coefficient
      suppression-dt])
-
 
 (defn run-simulation!
   [^long i
@@ -420,7 +419,7 @@
     [num-rows num-cols grass-suppression? output-csvs? envelope ignition-matrix cell-size max-runtime-samples
      ignition-rows ignition-cols ellipse-adjustment-factor-samples random-seed ignition-start-times spotting
      burn-period-start burn-period-end ignition-start-timestamps output-flame-length-sum output-flame-length-max
-     output-layers fuel-number->spread-rate-adjustment-samples suppression-dt-samples suppression-coefficient-samples
+     output-layers fuel-number->spread-rate-adjustment-array-lookup-samples suppression-dt-samples suppression-coefficient-samples
      sdi-sensitivity-to-difficulty-samples sdi-containment-overwhelming-area-growth-rate-samples
      sdi-reference-suppression-speed-samples]
     :as inputs}]
@@ -466,19 +465,18 @@
                              :sdi-reference-suppression-speed               (some-> sdi-reference-suppression-speed-samples (get i))
                              :sdi-sensitivity-to-difficulty                 (some-> sdi-sensitivity-to-difficulty-samples (get i))
                              :spotting                                      spotting
-                             :fuel-number->spread-rate-adjustment           (some-> fuel-number->spread-rate-adjustment-samples (get i))
+                             :fuel-number->spread-rate-adjustment           (some-> fuel-number->spread-rate-adjustment-array-lookup-samples (get i))
                              :suppression-coefficient                       (some-> suppression-coefficient-samples (get i))
                              :suppression-dt                                (some-> suppression-dt-samples (get i))}
          simulation-results (tufte/p :run-fire-spread
                                      (run-fire-spread (map->SimulationInputs simulation-inputs)))]
      (when simulation-results
-       (->
-         (mfd/zip
-           (process-output-layers! inputs simulation-results envelope i)
-           (process-aggregate-output-layers! inputs simulation-results)
-           (process-binary-output! inputs simulation-results i))
-         (gf-async/nil-when-completed)
-         (deref)))
+       (-> (mfd/zip
+            (process-output-layers! inputs simulation-results envelope i)
+            (process-aggregate-output-layers! inputs simulation-results)
+            (process-binary-output! inputs simulation-results i))
+           (gf-async/nil-when-completed)
+           (deref)))
      (when output-csvs?
        (-> simulation-inputs
            (dissoc :get-aspect
