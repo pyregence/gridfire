@@ -1,5 +1,7 @@
 #!/usr/bin/env bb
+
 (require '[clojure.java.io   :as io]
+         '[clojure.string    :as str]
          '[clojure.tools.cli :as cli]
          '[clojure.test      :as test])
 (import '(java.time Instant ZonedDateTime ZoneOffset))
@@ -167,25 +169,25 @@
 
 (defn sunrise-hour
   "[hr] UTC hour of the day at which the sun rises."
-  [^double lat ^double lng ^double gamma]
-  (let [EQTIME (eqtime-at gamma)
-        DECL   (declivity-at gamma)
-        HA     (daylight-half-angle lat DECL)]
+  ^double [^double lat ^double lng ^double gamma]
+  (let [eqtime (eqtime-at gamma)
+        decl   (declivity-at gamma)
+        ha     (daylight-half-angle lat decl)]
     (+
-      (- 12.0 (min->hr EQTIME))
-      (-> (- lng) (- HA)
+      (- 12.0 (min->hr eqtime))
+      (-> (- lng) (- ha)
           (longitudinal-angle->duration)
           (min->hr)))))
 
 (defn sunset-hour
   "[hr] UTC hour of the day at which the sun sets."
   ^double [^double lat ^double lng ^double gamma]
-  (let [EQTIME (eqtime-at gamma)
-        DECL   (declivity-at gamma)
-        HA     (daylight-half-angle lat DECL)]
+  (let [eqtime (eqtime-at gamma)
+        decl   (declivity-at gamma)
+        ha     (daylight-half-angle lat decl)]
     (+
-      (- 12.0 (min->hr EQTIME))
-      (-> (- lng) (+ HA)
+      (- 12.0 (min->hr eqtime))
+      (-> (- lng) (+ ha)
           (longitudinal-angle->duration)
           (min->hr)))))
 
@@ -414,7 +416,7 @@
                              (let [bp-info (merge
                                             ;; NOTE gathering relevant information from the various maps at our disposal,
                                             ;; enabling callers to supply it in a flexible and Clojure-idiomatic way.
-                                            (select-keys new-config [:weather-start-timestamp])
+                                            (select-keys gridfire-config [:weather-start-timestamp])
                                             burn-period
                                             script-opts)]
                                (infer-burn-period bp-info))))))))
@@ -482,10 +484,7 @@
 (def program-banner
   (->> ["burn_period_from_sunrise_sunset.clj: enrich an EDN-encoded GridFire configuration by resolving :burn-period from sunrise and sunset."
         "Copyright © 2022 Spatial Informatics Group, LLC."]
-       (interpose " ")
-       ;; NOTE for string-building (apply ...) offers nicer performance characteristics than (reduce ...),
-       ;; since (reduce str ...) would cause O(n^2) String-building.
-       (apply str)))
+       (str/join "\n")))
 
 (defn main
   [cli-args]
