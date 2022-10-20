@@ -504,7 +504,6 @@
 #_(test/run-tests)
 (main *command-line-args*)
 
-;; The EDN-encoded GridFire config must be supplied via STDIN; a transformed config will be emitted via STDOUT.
 ;; Example usage:
 ; $ bb ./resources/burn_period_from_sunrise_sunset.clj --lat-deg 43.17 --lng-deg 5.6 --weather-start-timestamp--rfc3339 2022-07-19 --output-gf-config "./my-override.edn"
 ;; Checkpoint: in my-override.edn, you'll see:
