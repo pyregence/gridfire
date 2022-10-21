@@ -4656,6 +4656,10 @@ level of the config file.
  :ignition-start-timestamp  #inst "2022-07-12T09:05:00.000-00:00"}
 #+end_src
 
+The pre-processing script at `resources/burn_period_from_sunrise_sunset.clj`
+may be used to transform GridFire configuration files so that the `:burn-period`
+is resolved from (approximate) sunrise and sunset hours.
+
 ** Section 12: Suppression
 
 GridFire supports suppression of fires. Suppression emulates human
