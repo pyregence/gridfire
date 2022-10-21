@@ -157,50 +157,50 @@
         ^double wind-speed-20ft                          (get-wind-speed-20ft band i j)
         ^double wind-from-direction                      (get-wind-from-direction band i j)
         ^double fuel-moisture-dead-1hr                   (if get-fuel-moisture-dead-1hr
-                                                (get-fuel-moisture-dead-1hr band i j)
-                                                (calc-fuel-moisture relative-humidity temperature :dead :1hr))
+                                                           (get-fuel-moisture-dead-1hr band i j)
+                                                           (calc-fuel-moisture relative-humidity temperature :dead :1hr))
         ^double fuel-moisture-dead-10hr                  (if get-fuel-moisture-dead-10hr
-                                                (get-fuel-moisture-dead-10hr band i j)
-                                                (calc-fuel-moisture relative-humidity temperature :dead :10hr))
+                                                           (get-fuel-moisture-dead-10hr band i j)
+                                                           (calc-fuel-moisture relative-humidity temperature :dead :10hr))
         ^double fuel-moisture-dead-100hr                 (if get-fuel-moisture-dead-100hr
-                                                (get-fuel-moisture-dead-100hr band i j)
-                                                (calc-fuel-moisture relative-humidity temperature :dead :100hr))
+                                                           (get-fuel-moisture-dead-100hr band i j)
+                                                           (calc-fuel-moisture relative-humidity temperature :dead :100hr))
         ^double fuel-moisture-live-herbaceous            (if get-fuel-moisture-live-herbaceous
-                                                (get-fuel-moisture-live-herbaceous i j)
-                                                (calc-fuel-moisture relative-humidity temperature :live :herbaceous))
+                                                           (get-fuel-moisture-live-herbaceous i j)
+                                                           (calc-fuel-moisture relative-humidity temperature :live :herbaceous))
         ^double fuel-moisture-live-woody                 (if get-fuel-moisture-live-woody
-                                                (get-fuel-moisture-live-woody i j)
-                                                (calc-fuel-moisture relative-humidity temperature :live :woody))
+                                                           (get-fuel-moisture-live-woody i j)
+                                                           (calc-fuel-moisture relative-humidity temperature :live :woody))
         ^double foliar-moisture                          (get-foliar-moisture band i j)
         surface-fire-min                                 (rothermel-fast-wrapper-optimal fuel-model
-                                                                              [fuel-moisture-dead-1hr
-                                                                               fuel-moisture-dead-10hr
-                                                                               fuel-moisture-dead-100hr
-                                                                               0.0 ; fuel-moisture-dead-herbaceous
-                                                                               fuel-moisture-live-herbaceous
-                                                                               fuel-moisture-live-woody]
-                                                                              grass-suppression?)
+                                                                                         [fuel-moisture-dead-1hr
+                                                                                          fuel-moisture-dead-10hr
+                                                                                          fuel-moisture-dead-100hr
+                                                                                          0.0 ; fuel-moisture-dead-herbaceous
+                                                                                          fuel-moisture-live-herbaceous
+                                                                                          fuel-moisture-live-woody]
+                                                                                         grass-suppression?)
         midflame-wind-speed                              (mph->fpm
-                                               (* wind-speed-20ft
-                                                  (wind-adjustment-factor ^double (:fuel-bed-depth surface-fire-min)
-                                                                          canopy-height
-                                                                          canopy-cover)))
+                                                          (* wind-speed-20ft
+                                                             (wind-adjustment-factor ^double (:fuel-bed-depth surface-fire-min)
+                                                                                     canopy-height
+                                                                                     canopy-cover)))
         spread-rate-adjustment                           (some-> fuel-number->spread-rate-adjustment-array-lookup
-                                                      (lookup-spread-rate-adjustment fuel-model))
+                                                                 (lookup-spread-rate-adjustment fuel-model))
         surface-fire-max                                 (rothermel-surface-fire-spread-max surface-fire-min
-                                                                                 midflame-wind-speed
-                                                                                 wind-from-direction
-                                                                                 slope
-                                                                                 aspect
-                                                                                 ellipse-adjustment-factor
-                                                                                 spread-rate-adjustment)
+                                                                                            midflame-wind-speed
+                                                                                            wind-from-direction
+                                                                                            slope
+                                                                                            aspect
+                                                                                            ellipse-adjustment-factor
+                                                                                            spread-rate-adjustment)
         max-spread-rate                                  (:max-spread-rate surface-fire-max)
         max-spread-direction                             (:max-spread-direction surface-fire-max)
         eccentricity                                     (:eccentricity surface-fire-max)
         residence-time                                   (:residence-time surface-fire-min)
         reaction-intensity                               (:reaction-intensity surface-fire-min)
         max-surface-intensity                            (->> (anderson-flame-depth max-spread-rate ^double residence-time)
-                                                   (byram-fire-line-intensity ^double reaction-intensity))]
+                                                              (byram-fire-line-intensity ^double reaction-intensity))]
     (if (van-wagner-crown-fire-initiation? canopy-cover
                                            canopy-base-height
                                            foliar-moisture
