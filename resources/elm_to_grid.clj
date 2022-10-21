@@ -471,14 +471,14 @@
 (defn process-elmfire-summary-maps
   [output-edn {:keys [elmfire-summary-maps]}]
   (if elmfire-summary-maps
-   (-> output-edn
-       (assoc :ignition-rows        (mapv :ignition-row elmfire-summary-maps))
-       (assoc :ignition-cols        (mapv :ignition-col elmfire-summary-maps))
-       (assoc :ignition-start-times (mapv :ignition-start-time elmfire-summary-maps))
-       (assoc :max-runtime-samples  (mapv :max-runtime elmfire-summary-maps))
-       (assoc :pyrome-samples       (mapv :pyrome elmfire-summary-maps))
-       (assoc :simulations          (count elmfire-summary-maps)))
-   output-edn))
+    (-> output-edn
+        (assoc :ignition-rows        (mapv :ignition-row elmfire-summary-maps))
+        (assoc :ignition-cols        (mapv :ignition-col elmfire-summary-maps))
+        (assoc :ignition-start-times (mapv :ignition-start-time elmfire-summary-maps))
+        (assoc :max-runtime-samples  (mapv :max-runtime elmfire-summary-maps))
+        (assoc :pyrome-samples       (mapv :pyrome elmfire-summary-maps))
+        (assoc :simulations          (count elmfire-summary-maps)))
+    output-edn))
 
 
 ;;=============================================================================
@@ -670,6 +670,6 @@
         (println (str "\nUsage:\n" summary))))
 
     ;; Exit cleanly
-    #_(System/exit 0)))
+    (System/exit 0)))
 
-#_(main *command-line-args*)
+(main *command-line-args*)
