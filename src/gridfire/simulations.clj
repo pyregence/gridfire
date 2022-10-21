@@ -404,6 +404,7 @@
      get-wind-from-direction
      get-wind-speed-20ft
      ^double ellipse-adjustment-factor
+     ^boolean crowning-disabled?
      ^boolean grass-suppression?
      spotting
      suppression])
@@ -411,7 +412,7 @@
 (defn run-simulation!
   [^long i
    {:keys
-    [num-rows num-cols grass-suppression? output-csvs? envelope ignition-matrix cell-size max-runtime-samples
+    [num-rows num-cols crowning-disabled? grass-suppression? output-csvs? envelope ignition-matrix cell-size max-runtime-samples
      ignition-rows ignition-cols ellipse-adjustment-factor-samples random-seed ignition-start-times spotting
      burn-period-start burn-period-end ignition-start-timestamps suppression output-flame-length-sum
      output-flame-length-max output-layers]
@@ -452,6 +453,7 @@
                              :get-temperature                   (get-value-fn inputs rand-gen :temperature i)
                              :get-wind-from-direction           (get-value-fn inputs rand-gen :wind-from-direction i)
                              :get-wind-speed-20ft               (get-value-fn inputs rand-gen :wind-speed-20ft i)
+                             :crowning-disabled?                (true? crowning-disabled?) ; NOTE not using samples yet. Might never be needed.
                              :ellipse-adjustment-factor         (ellipse-adjustment-factor-samples i)
                              :grass-suppression?                (true? grass-suppression?)
                              :spotting                          spotting
