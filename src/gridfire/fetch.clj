@@ -165,4 +165,17 @@
                                                     (s/join "-" ["fuel-moisture" (name category) (name size)]))]
                             (get-units-convert-fn fuel-moisture-name spec :percent 1.0))
                           :float32))))
+
+
+;;-----------------------------------------------------------------------------
+;; Suppression Difficulty Index Layer
+;;-----------------------------------------------------------------------------
+
+(defn sdi-layer
+  [{:keys [suppression] :as config}]
+  (when-let [layer-spec (:sdi-layer suppression)]
+    (get-wrapped-tensor config
+                        ignition-layer
+                        (get-units-convert-fn :suppression layer-spec nil)
+                        :float32)))
 ;; fetch.clj ends here
