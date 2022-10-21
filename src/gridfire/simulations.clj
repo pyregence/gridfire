@@ -403,6 +403,7 @@
      get-wind-from-direction
      get-wind-speed-20ft
      ^double ellipse-adjustment-factor
+     ^boolean crowning-disabled?
      ^boolean grass-suppression?
      spotting
      suppression])

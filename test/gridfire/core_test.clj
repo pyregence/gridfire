@@ -407,7 +407,8 @@
 ;;-----------------------------------------------------------------------------
 
 (deftest ^{:database true :simulation true} crowning-disabled-test
-  (let [config (merge {:crowning-disabled? true})]
+  (let [config (merge test-config-base
+                      {:crowning-disabled? true})]
     (is (valid-exits? (run-test-simulation! config)))))
 
 ;;-----------------------------------------------------------------------------

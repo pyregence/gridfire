@@ -50,7 +50,7 @@
  :simulations               10
  :random-seed               1234567890     ; long value (optional)
 
- ;; Section 5: fire-spread model behavior
+ ;; Section 5: Fire spread model behavior
  :crowning-disabled?        false          ; when true, disables crown fire initiation. Can be useful to avoid over-prediction.
  :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
 
