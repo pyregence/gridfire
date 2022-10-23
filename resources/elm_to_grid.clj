@@ -256,12 +256,12 @@
 ;; FIXME: Is this logic (and return format) right?
 (defn extract-fuel-varying-values
   [elmfire-config key]
-  (let [fuel-range->value (transduce (filter #(str/includes? % key))
+  (let [fuel-range->value-tuples (transduce (filter #(str/includes? % key))
                                      (completing (fn [acc k] (conj acc [(extract-fuel-range k) (get elmfire-config k)])))
                                      []
                                      (keys elmfire-config))]
-    (if (seq fuel-range->value)
-      fuel-range->value
+    (if (seq fuel-range->value-tuples)
+      fuel-range->value-tuples
       nil)))
 
 ;; FIXME: Is this logic (and return format) right?
