@@ -245,39 +245,43 @@
 ;;=============================================================================
 
 (defn extract-fuel-range [s]
-  (->> s
-       (re-find #"(\d+):(\d+)")
-       (rest)
-       (mapv #(Integer/parseInt %))))
+  (let [min-fuel (some-> (re-find #"(\d+)(?=:)" s)
+                         first
+                         Integer/parseInt)
+        max-fuel (some-> (re-find #"(?<=:)(\d+)" s)
+                         first
+                         Integer/parseInt)]
+    [(or min-fuel 1) (or max-fuel 303)]))
 
 ;; FIXME: Is this logic (and return format) right?
-(defn extract-surface-spotting-percents
-  [data]
-  (if-let [SURFACE_FIRE_SPOTTING_PERCENT (get data "SURFACE_FIRE_SPOTTING_PERCENT(:)")]
-    [[[1 204] SURFACE_FIRE_SPOTTING_PERCENT]]
-    (transduce (filter #(str/includes? % "SURFACE_FIRE_SPOTTING_PERCENT"))
-               (completing (fn [acc k] (conj acc (extract-fuel-range k) (get data k))))
-               []
-               (keys data))))
+(defn extract-fuel-varying-values
+  [elmfire-config key]
+  (transduce (filter #(str/includes? % key))
+             (completing (fn [acc k] (conj acc (extract-fuel-range k) (get elmfire-config k))))
+             []
+             (keys elmfire-config)))
 
 ;; FIXME: Is this logic (and return format) right?
 (defn extract-global-surface-spotting-percents
   [{:strs
     [^double GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN
      ^double GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MAX
-     ^double GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT
-     ENABLE_SPOTTING] :as data}]
-  (if (or GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN)
-    (if ENABLE_SPOTTING
-      [[[1 204] [(* 0.01 GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN) (* 0.01 GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MAX)]]]
-      [[[1 204] (* 0.01 GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT)]])
-    (extract-surface-spotting-percents data)))
+     ^double GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT] :as elmfire-config}]
+  (cond
+    (and GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MAX)
+    [[[1 204] [(* 0.01 GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN) (* 0.01 GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MAX)]]]
+
+    GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT
+    [[[1 204] (* 0.01 GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT)]]
+
+    :else (extract-fuel-varying-values elmfire-config "SURFACE_FIRE_SPOTTING_PERCENT")))
 
 ;; FIXME: Is this logic (and return format) right?
 (defn extract-num-firebrands
   [{:strs [NEMBERS NEMBERS_MIN NEMBERS_MIN_LO NEMBERS_MIN_HI NEMBERS_MAX
-           NEMBERS_MAX_LO NEMBERS_MAX_HI ENABLE_SPOTTING]}]
-  (if ENABLE_SPOTTING
+           NEMBERS_MAX_LO NEMBERS_MAX_HI]}]
+  (if (and (or NEMBERS_MIN NEMBERS_MIN_LO)
+           (or NEMBERS_MAX NEMBERS_MAX_LO))
     {:lo (cond
            (and NEMBERS_MIN_LO (= NEMBERS_MIN_LO NEMBERS_MIN_HI)) NEMBERS_MIN_LO
            NEMBERS_MIN_LO                                         [NEMBERS_MIN_LO NEMBERS_MIN_HI]
@@ -291,9 +295,8 @@
 (defn extract-crown-fire-spotting-percent
   [{:strs [^double CROWN_FIRE_SPOTTING_PERCENT_MIN
            ^double CROWN_FIRE_SPOTTING_PERCENT_MAX
-           ^double CROWN_FIRE_SPOTTING_PERCENT
-           ENABLE_SPOTTING]}]
-  (if ENABLE_SPOTTING
+           ^double CROWN_FIRE_SPOTTING_PERCENT]}]
+  (if (and CROWN_FIRE_SPOTTING_PERCENT_MIN CROWN_FIRE_SPOTTING_PERCENT_MAX)
     [(* 0.01 CROWN_FIRE_SPOTTING_PERCENT_MIN) (* 0.01 CROWN_FIRE_SPOTTING_PERCENT_MAX)]
     (* 0.01 CROWN_FIRE_SPOTTING_PERCENT)))
 
@@ -340,7 +343,10 @@
       (and ENABLE_SPOTTING ENABLE_SURFACE_FIRE_SPOTTING)
       (assoc-in [:spotting :surface-fire-spotting]
                 {:spotting-percent             (extract-global-surface-spotting-percents elmfire-config)
-                 :critical-fire-line-intensity (kW-m->Btu-ft-s CRITICAL_SPOTTING_FIRELINE_INTENSITY)}))))
+                 :critical-fire-line-intensity (or (->> (seq (extract-fuel-varying-values elmfire-config "CRITICAL_SPOTTING_FIRELINE_INTENSITY("))
+                                                        (into []))
+                                                   (some-> CRITICAL_SPOTTING_FIRELINE_INTENSITY kW-m->Btu-ft-s)
+                                                   0.0)}))))
 
 ;;=============================================================================
 ;; Fuel moisture layers

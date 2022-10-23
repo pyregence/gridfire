@@ -258,7 +258,7 @@
   [[min max] fuel-model-number]
   (<= min fuel-model-number max))
 
-(defn surface-spot-percent
+(defn compute-fuel-varying-values
   "Returns the surface spotting probability, given:
    - A vector of vectors where the first entry is a vector range of fuel models,
      and the second entry is either a single probability or vector range of probabilities
@@ -285,14 +285,17 @@
   [[141 149] 1.0]
   [[150 256] 1.0]]"
   [inputs [i j] ^double fire-line-intensity]
-  (let [rand-gen              (:rand-gen inputs)
-        get-fuel-model        (:get-fuel-model inputs)
-        surface-fire-spotting (:surface-fire-spotting (:spotting inputs))]
+  (let [rand-gen                     (:rand-gen inputs)
+        get-fuel-model               (:get-fuel-model inputs)
+        fuel-model-number            (long (get-fuel-model i j))
+        surface-fire-spotting        (:surface-fire-spotting (:spotting inputs))
+        critical-fire-line-intensity (let [cfli (:critical-fire-line-intensity surface-fire-spotting)]
+                                       (cond-> cfli
+                                         (vector? cfli) (compute-fuel-varying-values fuel-model-number rand-gen)))]
     (when (and surface-fire-spotting
-               (> fire-line-intensity ^double (:critical-fire-line-intensity surface-fire-spotting)))
+               (> fire-line-intensity ^double critical-fire-line-intensity))
       (let [fuel-range-percents (:spotting-percent surface-fire-spotting)
-            fuel-model-number   (long (get-fuel-model i j))
-            spot-percent        (surface-spot-percent fuel-range-percents fuel-model-number rand-gen)]
+            spot-percent        (compute-fuel-varying-values fuel-range-percents fuel-model-number rand-gen)]
         (>= spot-percent (my-rand-range rand-gen 0.0 1.0))))))
 
 (defn crown-spot-fire?
