@@ -345,7 +345,6 @@
                 {:spotting-percent             (extract-global-surface-spotting-percents elmfire-config)
                  :critical-fire-line-intensity (or (some-> CRITICAL_SPOTTING_FIRELINE_INTENSITY kW-m->Btu-ft-s)
                                                    (seq (extract-fuel-varying-values elmfire-config "CRITICAL_SPOTTING_FIRELINE_INTENSITY"))
-                                                   (some-> CRITICAL_SPOTTING_FIRELINE_INTENSITY kW-m->Btu-ft-s)
                                                    0.0)}))))
 
 ;;=============================================================================
