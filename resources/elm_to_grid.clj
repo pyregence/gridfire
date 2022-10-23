@@ -256,10 +256,13 @@
 ;; FIXME: Is this logic (and return format) right?
 (defn extract-fuel-varying-values
   [elmfire-config key]
-  (transduce (filter #(str/includes? % key))
-             (completing (fn [acc k] (conj acc (extract-fuel-range k) (get elmfire-config k))))
-             []
-             (keys elmfire-config)))
+  (let [fuel-range->value (transduce (filter #(str/includes? % key))
+                                     (completing (fn [acc k] (conj acc [(extract-fuel-range k) (get elmfire-config k)])))
+                                     []
+                                     (keys elmfire-config))]
+    (if (seq fuel-range->value)
+      fuel-range->value
+      nil)))
 
 ;; FIXME: Is this logic (and return format) right?
 (defn extract-global-surface-spotting-percents
@@ -344,7 +347,7 @@
       (assoc-in [:spotting :surface-fire-spotting]
                 {:spotting-percent             (extract-global-surface-spotting-percents elmfire-config)
                  :critical-fire-line-intensity (or (some-> CRITICAL_SPOTTING_FIRELINE_INTENSITY kW-m->Btu-ft-s)
-                                                   (seq (extract-fuel-varying-values elmfire-config "CRITICAL_SPOTTING_FIRELINE_INTENSITY"))
+                                                   (extract-fuel-varying-values elmfire-config "CRITICAL_SPOTTING_FIRELINE_INTENSITY")
                                                    0.0)}))))
 
 ;;=============================================================================
