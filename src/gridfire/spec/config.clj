@@ -138,6 +138,9 @@
 
 ;; Spotting
 
+(defn- vector-or-list? [x]
+  (or (vector? x) (list? x)))
+
 (s/def ::num-firebrands               ::common/number-or-range-map)
 (s/def ::mean-distance                ::common/number-or-range-map)
 (s/def ::flin-exp                     ::common/number-or-range-map)
@@ -150,7 +153,7 @@
 (s/def ::fuel-percent-pair            (s/tuple ::fuel-number-range ::common/float-or-range))
 (s/def ::spotting-percent             (s/coll-of ::fuel-percent-pair :kind vector?))
 (s/def ::critical-fire-line-intensity (s/or :number            number?
-                                            :fuel-percent-pair (s/coll-of ::fuel-percent-pair :kind vector?)))
+                                            :fuel-percent-pair (s/coll-of ::fuel-percent-pair :kind vector-or-list?)))
 
 (s/def ::surface-fire-spotting
   (s/keys :req-un [::spotting-percent
