@@ -4047,20 +4047,20 @@ at the expense of a potentially slightly degraded pseudo-randomness.
 *** Hash-Determined Pixel Perturbations
 
 Logically, ~{:spatial-type :pixel}~ perturbations consist of filling a discrete grid
-with "white noise", without one independent random variable for grid cell ('pixel').
+with "white noise", by sampling one independent random variable per grid cell ('pixel').
 Computationally, however, exhaustively realizing the whole grid of random perturbations
 would be prohibitively expensive, and also wasteful, since oftentimes only a small
 fraction of the perturbations are ever read by the simulation program - this is the case
-when the perturbations must happen on Hour-band × X × Y grid ( ~[b i j]~ in code),
-which can contain billions of cells, of only a few millions will actually use their perturbation
+when the perturbations must happen on Hour-band × X × Y grid (~[b i j]~ in code),
+which can contain billions of cells, of which only a few millions will actually use their perturbation
 during simulation.
 
 One strategy we previously used is laziness: sampling the per-pixel random variables
-as they are requested by the simulation, while maintaining a cache of the samples values,
+as they are requested by the simulation, while maintaining a cache of the sampled values,
 such that subsequent reads all see the same results.
 
 We have found a more efficient strategy, however, which we dubbed /Hash-Determined Pixel Perturbations/:
-HDPP apprixmates the \text{p}: \text{cell} \mapsto \text{perturbation} random function
+HDPP approximates the \text{p}: \text{cell} \mapsto \text{perturbation} random function
 by a composition of:
 
 1. a deterministic hashing function \text{h}: \text{cell} \mapsto \text{hash-bucket},
@@ -4156,7 +4156,7 @@ which differs only to leverage more efficient JVM-primitive operations:
      (aget h->perturb coords-hash))))
 #+end_src
 
-This approach is very efficient, because we only generate and store 1024 random values,
+This approach is very efficient because we only generate and store 1024 random values
 instead of one per requested pixel, and both Murmur3 hashing and small-constant-array lookup are very fast
 operations.
 
@@ -4165,14 +4165,13 @@ to efficiently emulate a form of randomness.
 
 With respect to simulation behaviour, such a perturbation process is effectively equivalent to
 "truly random" perturbations. The use of a hashing function might slightly degrade the quality of the randomness,
-creating more correlations than true IID randomness, but we have already have accepted a similar tradeoff
+creating more correlations than true IID randomness, but we have already accepted a similar tradeoff
 by adopting pseudo-random generators like ~java.util.Random~. If our sampling algorithm for individual values
 was truly random, we would indeed be reducing the entropy of our perturbations process
 from billions of bits to a few thousands; but we're basing all this on deterministic pseudo-random generators anyway,
 which means that the entropy is, strictly speaking, 0.
 Visual inspection shows that an HDPP-generated perturbation map exhibits no more perceptible patterns
 than an iid-generated one.
-
 
 ** Section 7: Spotting
 

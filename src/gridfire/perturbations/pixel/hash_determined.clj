@@ -39,9 +39,8 @@
   {:pre [(is-power-of-2? n-buckets)]}
   (into-array
    Double/TYPE
-   (map
-    gen-perturbation
-    (range n-buckets))))
+   (map gen-perturbation
+        (range n-buckets))))
 
 (defn resolve-perturbation-for-coords
   "Resolves the random perturbation for the grid cell ('pixel') of the supplied coordinates,

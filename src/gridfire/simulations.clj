@@ -242,13 +242,13 @@
         (let [matrix-or-num (double matrix-or-num)
               h->perturb    (pixel-hdp/gen-hash->perturbation n-buckets gen-perturbation)]
           (fn
-            (^double [i j]
+            (^double [^long i ^long j]
              (max 0.0 ;TODO document we are snapping negative values to 0
-                  (+ (double matrix-or-num)
+                  (+ matrix-or-num
                      (pixel-hdp/resolve-perturbation-for-coords h->perturb i j))))
             (^double [^long b ^long i ^long j]
              (max 0.0 ;TODO document we are snapping negative values to 0
-                  (+ (double matrix-or-num)
+                  (+ matrix-or-num
                      (pixel-hdp/resolve-perturbation-for-coords h->perturb b i j))))))
 
         (and (number? matrix-or-num) (= spatial-type :global))
