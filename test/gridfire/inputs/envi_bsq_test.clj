@@ -338,6 +338,8 @@
                                              (t/mget t 0)
                                              t)))
                       tif-tensor (:matrix tif-map)]
+                  (is (= (d/shape bsq-tensor) (d/shape tif-tensor))
+                      "Same matrix dimensions.")
                   (is (dfn/equals bsq-tensor tif-tensor)
                       "Same numeric values."))))))
          (doall))))

@@ -28,5 +28,5 @@
       (let [new-tensor (d/clone (d/emap (or convert-fn identity)
                                         target-dtype
                                         old-tensor))]
-        (assoc old-tensor :matrix new-tensor)
-        old-tensor))))
+        (assoc layer-map :matrix new-tensor))
+      layer-map)))

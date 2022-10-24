@@ -154,12 +154,12 @@
                                         (.order (case byte-order-num
                                                   0 ByteOrder/LITTLE_ENDIAN
                                                   1 ByteOrder/BIG_ENDIAN)))
-                 data-arr          (byte-buffer->array data-type bytbuf n-pixels)
+                 data-arr           (byte-buffer->array data-type bytbuf n-pixels)
                  tensor             (-> (d/->buffer data-arr)
                                         (t/->tensor)
                                         ;; NOTE if we didn't have {"dataAxisToSRSAxisMapping" [1 2]},
-                                        ;; I guess that this should be followed by a (d/transpose [0 2 1]).
-                                        (t/reshape [n-bands x-width-px y-height-px]))]
+                                        ;; I guess that this should be followed by a (t/transpose [0 2 1]).
+                                        (t/reshape [n-bands y-height-px x-width-px]))]
              {;; AFAICT the :srid resolved from layers is never used; (Val, 20 Oct 2022)
               ;; what we use the SRID of the GridFire config.
               ;; The only downstream use of said SRID is to create an Envelope2D for writing outputs,
