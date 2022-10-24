@@ -239,8 +239,8 @@
              (t/mget matrix-or-num b i j))))
 
         (and (number? matrix-or-num) (= spatial-type :pixel))
-        (let [matrix-or-num (double matrix-or-num)
-              h->perturb    (pixel-hdp/gen-hash->perturbation n-buckets gen-perturbation)]
+        (let [matrix-or-num       (double matrix-or-num)
+              ^doubles h->perturb (pixel-hdp/gen-hash->perturbation n-buckets gen-perturbation)]
           (fn
             (^double [^long i ^long j]
              (max 0.0 ;TODO document we are snapping negative values to 0
@@ -267,7 +267,7 @@
                    new-value)))))
 
         (and (not (number? matrix-or-num)) (= spatial-type :pixel))
-        (let [h->perturb (pixel-hdp/gen-hash->perturbation n-buckets gen-perturbation)]
+        (let [^doubles h->perturb (pixel-hdp/gen-hash->perturbation n-buckets gen-perturbation)]
           (if index-multiplier
             (let [index-multiplier (double index-multiplier)]
               (fn
