@@ -89,12 +89,12 @@
 
 (s/def ::ignition-layer
   (s/and
-   ::common/postgis-or-file
+   ::common/raw-layer-coords-map
    (s/keys :opt-un [::burn-values])))
 
 (s/def ::ignition-csv ::common/readable-file)
 
-(s/def ::ignition-mask ::common/postgis-or-file)
+(s/def ::ignition-mask ::common/raw-layer-coords-map)
 
 (s/def ::edge-buffer number?)
 
