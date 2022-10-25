@@ -150,7 +150,8 @@
 (s/def ::fuel-number-range            (s/and ::common/integer-range ::valid-fuel-range))
 (s/def ::fuel-percent-pair            (s/tuple ::fuel-number-range ::common/float-or-range))
 (s/def ::spotting-percent             (s/coll-of ::fuel-percent-pair :kind vector?))
-(s/def ::critical-fire-line-intensity number?)
+(s/def ::critical-fire-line-intensity (s/or :number            number?
+                                            :fuel-percent-pair (s/coll-of ::fuel-percent-pair :kind vector?)))
 
 (s/def ::surface-fire-spotting
   (s/keys :req-un [::spotting-percent
