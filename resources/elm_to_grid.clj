@@ -104,7 +104,7 @@
    :rasters_grid (into []
                        (for [row (range 3)]
                          (mapv (fn [col]
-                                 {:type   :geotiff
+                                 {:type   :gridfire-envi-bsq
                                   :source (file-path working-dir
                                                      folder-name
                                                      (format "%s_%d_%d.bsq" file-name (inc row) (inc col)))})
