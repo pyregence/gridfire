@@ -117,7 +117,7 @@
 (s/def ::multiplier number?)
 
 (s/def ::layer-coords-map
-  (s/and ::raw-layer-coords-map
+  (s/and (s/nonconforming ::raw-layer-coords-map)
          (s/keys :opt-un [::cell-size ::unit ::multiplier])))
 
 (s/def ::layer-coords (s/or :sql ::spec-sql/sql

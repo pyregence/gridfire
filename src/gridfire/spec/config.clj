@@ -89,7 +89,7 @@
 
 (s/def ::ignition-layer
   (s/and
-   ::common/raw-layer-coords-map
+   (s/nonconforming ::common/raw-layer-coords-map)
    (s/keys :opt-un [::burn-values])))
 
 (s/def ::ignition-csv ::common/readable-file)
