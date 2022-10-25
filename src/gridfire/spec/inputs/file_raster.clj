@@ -3,7 +3,7 @@
 
 (def raster-file-regex #".*\.(tif|bsq)$")
 
-(s/def ::raster-file-path (s/and ::readable-file #(re-matches raster-file-regex %)))
+(s/def ::raster-file-path (s/and :gridfire.spec.common/readable-file #(re-matches raster-file-regex %)))
 
 (s/def ::source ::raster-file-path)
 
