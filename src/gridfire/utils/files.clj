@@ -43,12 +43,12 @@
                  data))
 
 (def convenience-encoding-readers
-  {'grifire.config/abbreviating (fn [abbrv-tuple] (expand-abbreviations abbrv-tuple))})
+  {'gridfire.config/abbreviating (fn [abbrv-tuple] (expand-abbreviations abbrv-tuple))})
 
 (comment
-  ;; EDN tag #grifire.config/abbreviating is useful for concisely encoding redundant config: INTRO
+  ;; EDN tag #gridfire.config/abbreviating is useful for concisely encoding redundant config: INTRO
   (edn/read-string {:readers convenience-encoding-readers}
-                   "#grifire.config/abbreviating [{m0 {:this :map :is :arguably :quite :verbose} m1 {:so :is :this :one :I :daresay}} {:my-maps [m0 m1 m1 m1 m0 m0 m1]}]")
+                   "#gridfire.config/abbreviating [{m0 {:this :map :is :arguably :quite :verbose} m1 {:so :is :this :one :I :daresay}} {:my-maps [m0 m1 m1 m1 m0 m0 m1]}]")
   ;;=>
   {:my-maps [{:this :map :is :arguably :quite :verbose}
              {:so :is :this :one :I :daresay}
