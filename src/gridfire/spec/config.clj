@@ -55,6 +55,7 @@
 ;;=============================================================================
 
 (s/def ::random-seed                     integer?)
+(s/def ::crowning-disabled?              boolean?)
 (s/def ::ellipse-adjustment-factor       ::common/number-sample)
 (s/def ::fractional-distance-combination #{:sum}) ; FIXME This is currently unused.
 (s/def ::parallel-strategy               #{:within-fires :between-fires})
@@ -296,6 +297,7 @@
              ::burn-period/burn-period
              ::simulations
              ::random-seed
+             ::crowning-disabled?
              ::ellipse-adjustment-factor
              ::fractional-distance-combination
              ::fuel-number->spread-rate-adjustment-samples

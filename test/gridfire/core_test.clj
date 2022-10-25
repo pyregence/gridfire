@@ -40,6 +40,7 @@
    :wind-speed-20ft           '(10)      ;; (miles/hour)
    :wind-from-direction       '(0)       ;; (degrees clockwise from north)
    :foliar-moisture           90         ;; (%)
+   :crowning-disabled?        false
    :ellipse-adjustment-factor 1.0        ;; (< 1.0 = more circular, > 1.0 = more elliptical)
    :simulations               1
    :random-seed               1234567890 ;; long value (optional)
@@ -399,6 +400,15 @@
                        :random-ignition {:ignition-mask {:type   :geotiff
                                                          :source (in-file-path "weather-test/ignition_mask.tif")}
                                          :edge-buffer   9843.0}})]
+    (is (valid-exits? (run-test-simulation! config)))))
+
+;;-----------------------------------------------------------------------------
+;; Crowning disabled
+;;-----------------------------------------------------------------------------
+
+(deftest ^{:database true :simulation true} crowning-disabled-test
+  (let [config (merge test-config-base
+                      {:crowning-disabled? true})]
     (is (valid-exits? (run-test-simulation! config)))))
 
 ;;-----------------------------------------------------------------------------
