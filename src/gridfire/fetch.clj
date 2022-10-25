@@ -1,15 +1,16 @@
 ;; [[file:../../org/GridFire.org::fetch.clj][fetch.clj]]
 (ns gridfire.fetch
-  (:require [clojure.string           :as s]
-            [gridfire.conversion      :as convert]
-            [gridfire.fetch.base      :refer [convert-tensor-as-requested get-wrapped-tensor get-wrapped-tensor-multi]]
-            [gridfire.inputs.envi-bsq :as gf-bsq]
-            [gridfire.magellan-bridge :refer [geotiff-raster-to-tensor]]
-            [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]
-            [magellan.core            :refer [make-envelope]]
-            [manifold.deferred        :as mfd]
-            [tech.v3.datatype         :as d]
-            [tech.v3.tensor           :as t]))
+  (:require [clojure.string                 :as s]
+            [gridfire.conversion            :as convert]
+            [gridfire.fetch.base            :refer [convert-tensor-as-requested get-wrapped-tensor get-wrapped-tensor-multi]]
+            [gridfire.fetch.grid-of-rasters :refer [stitch-grid-of-layers]]
+            [gridfire.inputs.envi-bsq       :as gf-bsq]
+            [gridfire.magellan-bridge       :refer [geotiff-raster-to-tensor]]
+            [gridfire.postgis-bridge        :refer [postgis-raster-to-matrix]]
+            [magellan.core                  :refer [make-envelope]]
+            [manifold.deferred              :as mfd]
+            [tech.v3.datatype               :as d]
+            [tech.v3.tensor                 :as t]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -84,6 +85,14 @@
                                            (or target-dtype
                                                (let [tensor-dtype (d/elemwise-datatype t)]
                                                  (request-dtype-like-magellan tensor-dtype))))))))
+
+(defmethod get-wrapped-tensor-multi :grid_of_rasters
+  [env layer-spec convert-fn target-dtype]
+  (stitch-grid-of-layers (->> (:rasters_grid layer-spec)
+                              (mapv (fn [layer-specs-i]
+                                      (->> layer-specs-i
+                                           (mapv (fn [layer-spec-ij]
+                                                   (get-wrapped-tensor env layer-spec-ij convert-fn target-dtype)))))))))
 
 ;;-----------------------------------------------------------------------------
 ;; LANDFIRE

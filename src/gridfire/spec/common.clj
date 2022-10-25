@@ -1,8 +1,9 @@
 (ns gridfire.spec.common
-  (:require [clojure.java.io                  :as io]
-            [clojure.spec.alpha               :as s]
-            [gridfire.spec.inputs.file-raster :as spec-file]
-            [gridfire.spec.inputs.sql         :as spec-sql]))
+  (:require [clojure.java.io                      :as io]
+            [clojure.spec.alpha                   :as s]
+            [gridfire.spec.inputs.file-raster     :as spec-file]
+            [gridfire.spec.inputs.grid-of-rasters :as spec-grid]
+            [gridfire.spec.inputs.sql             :as spec-sql]))
 
 ;;=============================================================================
 ;; Numeric Samples
@@ -107,8 +108,9 @@
 
 (s/def ::raw-layer-coords-map
   (s/and (s/keys :req-un [::type])
-         (s/or :postgis     ::spec-sql/postgis-coords-map
-               :file-raster ::spec-file/raw-layer-coords-map)))
+         (s/or :postgis         ::spec-sql/postgis-coords-map
+               :grid_of_rasters ::spec-grid/raw-layer-coords-map
+               :file-raster     ::spec-file/raw-layer-coords-map)))
 
 (s/def ::cell-size number?)
 
