@@ -107,93 +107,102 @@
     (when (> new-value old-value)
       (t/mset! matrix i j new-value))))
 
+(defn- lookup-spread-rate-adjustment
+  [fuel-number->spread-rate-adjustment-array-lookup fuel-model]
+  (aget fuel-number->spread-rate-adjustment-array-lookup fuel-model))
+
 (defn- compute-max-in-situ-values!
   [inputs matrices band i j]
-  (let [compute-directional-values?           (:compute-directional-values? inputs)
-        get-slope                             (:get-slope inputs)
-        get-aspect                            (:get-aspect inputs)
-        get-canopy-cover                      (:get-canopy-cover inputs)
-        get-canopy-height                     (:get-canopy-height inputs)
-        get-canopy-base-height                (:get-canopy-base-height inputs)
-        get-crown-bulk-density                (:get-crown-bulk-density inputs)
-        get-fuel-model                        (:get-fuel-model inputs)
-        get-temperature                       (:get-temperature inputs)
-        get-relative-humidity                 (:get-relative-humidity inputs)
-        get-wind-speed-20ft                   (:get-wind-speed-20ft inputs)
-        get-wind-from-direction               (:get-wind-from-direction inputs)
-        get-fuel-moisture-dead-1hr            (:get-fuel-moisture-dead-1hr inputs)
-        get-fuel-moisture-dead-10hr           (:get-fuel-moisture-dead-10hr inputs)
-        get-fuel-moisture-dead-100hr          (:get-fuel-moisture-dead-100hr inputs)
-        get-fuel-moisture-live-herbaceous     (:get-fuel-moisture-live-herbaceous inputs)
-        get-fuel-moisture-live-woody          (:get-fuel-moisture-live-woody inputs)
-        get-foliar-moisture                   (:get-foliar-moisture inputs)
-        crowning-disabled?                    (:crowning-disabled? inputs)
-        ellipse-adjustment-factor             (:ellipse-adjustment-factor inputs)
-        grass-suppression?                    (:grass-suppression? inputs)
-        max-spread-rate-matrix                (:max-spread-rate-matrix matrices)
-        max-spread-direction-matrix           (:max-spread-direction-matrix matrices)
-        spread-rate-matrix                    (:spread-rate-matrix matrices)
-        flame-length-matrix                   (:flame-length-matrix matrices)
-        fire-line-intensity-matrix            (:fire-line-intensity-matrix matrices)
-        fire-type-matrix                      (:fire-type-matrix matrices)
-        modified-time-matrix                  (:modified-time-matrix matrices)
-        eccentricity-matrix                   (:eccentricity-matrix matrices)
-        residence-time-matrix                 (:residence-time-matrix matrices)
-        reaction-intensity-matrix             (:reaction-intensity-matrix matrices)
-        band                                  (long band)
-        ^double slope                         (get-slope i j)
-        ^double aspect                        (get-aspect i j)
-        ^double canopy-cover                  (get-canopy-cover i j)
-        ^double canopy-height                 (get-canopy-height i j)
-        ^double canopy-base-height            (get-canopy-base-height i j)
-        ^double crown-bulk-density            (get-crown-bulk-density i j)
-        ^double fuel-model                    (get-fuel-model i j)
-        ^double temperature                   (get-temperature band i j)
-        ^double relative-humidity             (get-relative-humidity band i j)
-        ^double wind-speed-20ft               (get-wind-speed-20ft band i j)
-        ^double wind-from-direction           (get-wind-from-direction band i j)
-        ^double fuel-moisture-dead-1hr        (if get-fuel-moisture-dead-1hr
-                                                (get-fuel-moisture-dead-1hr band i j)
-                                                (calc-fuel-moisture relative-humidity temperature :dead :1hr))
-        ^double fuel-moisture-dead-10hr       (if get-fuel-moisture-dead-10hr
-                                                (get-fuel-moisture-dead-10hr band i j)
-                                                (calc-fuel-moisture relative-humidity temperature :dead :10hr))
-        ^double fuel-moisture-dead-100hr      (if get-fuel-moisture-dead-100hr
-                                                (get-fuel-moisture-dead-100hr band i j)
-                                                (calc-fuel-moisture relative-humidity temperature :dead :100hr))
-        ^double fuel-moisture-live-herbaceous (if get-fuel-moisture-live-herbaceous
-                                                (get-fuel-moisture-live-herbaceous i j)
-                                                (calc-fuel-moisture relative-humidity temperature :live :herbaceous))
-        ^double fuel-moisture-live-woody      (if get-fuel-moisture-live-woody
-                                                (get-fuel-moisture-live-woody i j)
-                                                (calc-fuel-moisture relative-humidity temperature :live :woody))
-        ^double foliar-moisture               (get-foliar-moisture band i j)
-        surface-fire-min                      (rothermel-fast-wrapper-optimal fuel-model
-                                                                              [fuel-moisture-dead-1hr
-                                                                               fuel-moisture-dead-10hr
-                                                                               fuel-moisture-dead-100hr
-                                                                               0.0 ; fuel-moisture-dead-herbaceous
-                                                                               fuel-moisture-live-herbaceous
-                                                                               fuel-moisture-live-woody]
-                                                                              grass-suppression?)
-        midflame-wind-speed                   (mph->fpm
-                                               (* wind-speed-20ft
-                                                  (wind-adjustment-factor ^double (:fuel-bed-depth surface-fire-min)
-                                                                          canopy-height
-                                                                          canopy-cover)))
-        surface-fire-max                      (rothermel-surface-fire-spread-max surface-fire-min
-                                                                                 midflame-wind-speed
-                                                                                 wind-from-direction
-                                                                                 slope
-                                                                                 aspect
-                                                                                 ellipse-adjustment-factor)
-        max-spread-rate                       (:max-spread-rate surface-fire-max)
-        max-spread-direction                  (:max-spread-direction surface-fire-max)
-        eccentricity                          (:eccentricity surface-fire-max)
-        residence-time                        (:residence-time surface-fire-min)
-        reaction-intensity                    (:reaction-intensity surface-fire-min)
-        max-surface-intensity                 (->> (anderson-flame-depth max-spread-rate ^double residence-time)
-                                                   (byram-fire-line-intensity ^double reaction-intensity))]
+  (let [compute-directional-values?                      (:compute-directional-values? inputs)
+        get-slope                                        (:get-slope inputs)
+        get-aspect                                       (:get-aspect inputs)
+        get-canopy-cover                                 (:get-canopy-cover inputs)
+        get-canopy-height                                (:get-canopy-height inputs)
+        get-canopy-base-height                           (:get-canopy-base-height inputs)
+        get-crown-bulk-density                           (:get-crown-bulk-density inputs)
+        get-fuel-model                                   (:get-fuel-model inputs)
+        get-temperature                                  (:get-temperature inputs)
+        get-relative-humidity                            (:get-relative-humidity inputs)
+        get-wind-speed-20ft                              (:get-wind-speed-20ft inputs)
+        get-wind-from-direction                          (:get-wind-from-direction inputs)
+        get-fuel-moisture-dead-1hr                       (:get-fuel-moisture-dead-1hr inputs)
+        get-fuel-moisture-dead-10hr                      (:get-fuel-moisture-dead-10hr inputs)
+        get-fuel-moisture-dead-100hr                     (:get-fuel-moisture-dead-100hr inputs)
+        get-fuel-moisture-live-herbaceous                (:get-fuel-moisture-live-herbaceous inputs)
+        get-fuel-moisture-live-woody                     (:get-fuel-moisture-live-woody inputs)
+        get-foliar-moisture                              (:get-foliar-moisture inputs)
+        ellipse-adjustment-factor                        (:ellipse-adjustment-factor inputs)
+        fuel-number->spread-rate-adjustment-array-lookup (:fuel-number->spread-rate-adjustment-array-lookup inputs)
+        crowning-disabled?                               (:crowning-disabled? inputs)
+        ellipse-adjustment-factor                        (:ellipse-adjustment-factor inputs)
+        grass-suppression?                               (:grass-suppression? inputs)
+        max-spread-rate-matrix                           (:max-spread-rate-matrix matrices)
+        max-spread-direction-matrix                      (:max-spread-direction-matrix matrices)
+        spread-rate-matrix                               (:spread-rate-matrix matrices)
+        flame-length-matrix                              (:flame-length-matrix matrices)
+        fire-line-intensity-matrix                       (:fire-line-intensity-matrix matrices)
+        fire-type-matrix                                 (:fire-type-matrix matrices)
+        modified-time-matrix                             (:modified-time-matrix matrices)
+        eccentricity-matrix                              (:eccentricity-matrix matrices)
+        residence-time-matrix                            (:residence-time-matrix matrices)
+        reaction-intensity-matrix                        (:reaction-intensity-matrix matrices)
+        band                                             (long band)
+        ^double slope                                    (get-slope i j)
+        ^double aspect                                   (get-aspect i j)
+        ^double canopy-cover                             (get-canopy-cover i j)
+        ^double canopy-height                            (get-canopy-height i j)
+        ^double canopy-base-height                       (get-canopy-base-height i j)
+        ^double crown-bulk-density                       (get-crown-bulk-density i j)
+        ^double fuel-model                               (get-fuel-model i j)
+        ^double temperature                              (get-temperature band i j)
+        ^double relative-humidity                        (get-relative-humidity band i j)
+        ^double wind-speed-20ft                          (get-wind-speed-20ft band i j)
+        ^double wind-from-direction                      (get-wind-from-direction band i j)
+        ^double fuel-moisture-dead-1hr                   (if get-fuel-moisture-dead-1hr
+                                                           (get-fuel-moisture-dead-1hr band i j)
+                                                           (calc-fuel-moisture relative-humidity temperature :dead :1hr))
+        ^double fuel-moisture-dead-10hr                  (if get-fuel-moisture-dead-10hr
+                                                           (get-fuel-moisture-dead-10hr band i j)
+                                                           (calc-fuel-moisture relative-humidity temperature :dead :10hr))
+        ^double fuel-moisture-dead-100hr                 (if get-fuel-moisture-dead-100hr
+                                                           (get-fuel-moisture-dead-100hr band i j)
+                                                           (calc-fuel-moisture relative-humidity temperature :dead :100hr))
+        ^double fuel-moisture-live-herbaceous            (if get-fuel-moisture-live-herbaceous
+                                                           (get-fuel-moisture-live-herbaceous i j)
+                                                           (calc-fuel-moisture relative-humidity temperature :live :herbaceous))
+        ^double fuel-moisture-live-woody                 (if get-fuel-moisture-live-woody
+                                                           (get-fuel-moisture-live-woody i j)
+                                                           (calc-fuel-moisture relative-humidity temperature :live :woody))
+        ^double foliar-moisture                          (get-foliar-moisture band i j)
+        surface-fire-min                                 (rothermel-fast-wrapper-optimal fuel-model
+                                                                                         [fuel-moisture-dead-1hr
+                                                                                          fuel-moisture-dead-10hr
+                                                                                          fuel-moisture-dead-100hr
+                                                                                          0.0 ; fuel-moisture-dead-herbaceous
+                                                                                          fuel-moisture-live-herbaceous
+                                                                                          fuel-moisture-live-woody]
+                                                                                         grass-suppression?)
+        midflame-wind-speed                              (mph->fpm
+                                                          (* wind-speed-20ft
+                                                             (wind-adjustment-factor ^double (:fuel-bed-depth surface-fire-min)
+                                                                                     canopy-height
+                                                                                     canopy-cover)))
+        spread-rate-adjustment                           (some-> fuel-number->spread-rate-adjustment-array-lookup
+                                                                 (lookup-spread-rate-adjustment fuel-model))
+        surface-fire-max                                 (rothermel-surface-fire-spread-max surface-fire-min
+                                                                                            midflame-wind-speed
+                                                                                            wind-from-direction
+                                                                                            slope
+                                                                                            aspect
+                                                                                            ellipse-adjustment-factor
+                                                                                            spread-rate-adjustment)
+        max-spread-rate                                  (:max-spread-rate surface-fire-max)
+        max-spread-direction                             (:max-spread-direction surface-fire-max)
+        eccentricity                                     (:eccentricity surface-fire-max)
+        residence-time                                   (:residence-time surface-fire-min)
+        reaction-intensity                               (:reaction-intensity surface-fire-min)
+        max-surface-intensity                            (->> (anderson-flame-depth max-spread-rate ^double residence-time)
+                                                              (byram-fire-line-intensity ^double reaction-intensity))]
     (if (and (not crowning-disabled?)
              (van-wagner-crown-fire-initiation? canopy-cover
                                                 canopy-base-height
@@ -253,19 +262,6 @@
         (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i+ j-)
         (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i+ j)
         (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i+ j+))))
-
-(defn- calc-new-spread-rate!
-  [inputs matrices modified-time-matrix max-spread-rate-matrix
-   max-spread-direction-matrix eccentricity-matrix band direction i j]
-  (when (> ^long band (dec ^long (t/mget modified-time-matrix i j)))
-    (compute-max-in-situ-values! inputs matrices band i j))
-  (let [max-spread-rate      (t/mget max-spread-rate-matrix i j)
-        max-spread-direction (t/mget max-spread-direction-matrix i j)
-        eccentricity         (t/mget eccentricity-matrix i j)]
-    (compute-spread-rate max-spread-rate
-                         max-spread-direction
-                         eccentricity
-                         direction)))
 
 (defn make-burn-vector-constructor
   [num-rows num-cols burn-probability max-spread-rate-matrix
@@ -670,7 +666,10 @@
                           max-spread-rate         (double (t/mget max-spread-rate-matrix new-i new-j))
                           max-spread-direction    (double (t/mget max-spread-direction-matrix new-i new-j))
                           eccentricity            (double (t/mget eccentricity-matrix new-i new-j))
-                          new-spread-rate         (compute-spread-rate max-spread-rate max-spread-direction eccentricity direction)
+                          new-spread-rate         (compute-spread-rate max-spread-rate
+                                                                       max-spread-direction
+                                                                       eccentricity
+                                                                       direction)
                           ;; TODO move case form to functions
                           new-terrain-distance    (double (compute-terrain-distance cell-size get-elevation num-rows num-cols new-i new-j
                                                                                     (case direction
@@ -750,7 +749,10 @@
                     max-spread-rate      (double (t/mget max-spread-rate-matrix i j))
                     max-spread-direction (double (t/mget max-spread-direction-matrix i j))
                     eccentricity         (double (t/mget eccentricity-matrix i j))
-                    new-spread-rate      (compute-spread-rate max-spread-rate max-spread-direction eccentricity direction)]
+                    new-spread-rate      (compute-spread-rate max-spread-rate
+                                                              max-spread-direction
+                                                              eccentricity
+                                                              direction)]
                 (assoc burn-vector :spread-rate new-spread-rate))))
           burn-vectors)))
 
@@ -784,7 +786,10 @@
               max-spread-rate      (t/mget max-spread-rate-matrix i j)
               max-spread-direction (t/mget max-spread-direction-matrix i j)
               eccentricity         (t/mget eccentricity-matrix i j)
-              spread-rate          (compute-spread-rate max-spread-rate max-spread-direction eccentricity direction)
+              spread-rate          (compute-spread-rate max-spread-rate
+                                                        max-spread-direction
+                                                        eccentricity
+                                                        direction)
               residence-time       (t/mget residence-time-matrix i j)
               reaction-intensity   (t/mget reaction-intensity-matrix i j)
               fire-line-intensity  (->> (anderson-flame-depth spread-rate residence-time)
@@ -837,13 +842,12 @@
         non-burn-period-clock            (+ burn-period-clock burn-period-dt)
         ignition-start-time              (max ignition-start-time burn-period-clock)
         band                             (min->hour ignition-start-time)
-        suppression                      (:suppression inputs)
-        suppression-dt                   (double (or (:suppression-dt suppression) Double/NaN))]
+        suppression-dt                   (double (or (:suppression-dt inputs) Double/NaN))]
     (initialize-fire-in-situ-values! inputs matrices band ignited-cells)
     (loop [global-clock                         ignition-start-time
            band                                 band
            non-burn-period-clock                non-burn-period-clock
-           suppression-clock                    (double (if suppression (+ ignition-start-time suppression-dt) max-runtime))
+           suppression-clock                    (double (if suppression-dt (+ ignition-start-time suppression-dt) max-runtime))
            burn-vectors                         (ignited-cells->burn-vectors inputs matrices ignited-cells [])
            spot-ignitions                       {}
            spot-count                           0
@@ -854,9 +858,9 @@
       (if (and (< global-clock ignition-stop-time)
                (or (seq burn-vectors) (seq spot-ignitions)))
         (let [dt-until-max-runtime               (- ignition-stop-time global-clock)
-              ^double dt-until-suppression-clock (when suppression (- suppression-clock global-clock))]
+              ^double dt-until-suppression-clock (when suppression-dt (- suppression-clock global-clock))]
           (cond
-            (and suppression (= global-clock suppression-clock))
+            (and suppression-dt (= global-clock suppression-clock))
             (let [max-runtime-fraction (/ (- global-clock ignition-start-time) max-runtime)
                   [bvs-to-process-next
                    total-cells-suppressed
@@ -884,7 +888,7 @@
             (let [timestep  (double (min non-burn-period-dt dt-until-max-runtime))
                   new-clock (+ global-clock timestep)
                   new-band  (min->hour new-clock)]
-              (if (and suppression (<= suppression-clock new-clock))
+              (if (and suppression-dt (<= suppression-clock new-clock))
                 (let [suppression-clocks     (iterate #(+ (double %) suppression-dt) suppression-clock)
                       last-suppression-clock (double (last (take-while #(<= (double %) new-clock) suppression-clocks)))
                       [bvs-to-process-next
@@ -1031,55 +1035,60 @@
 ;; TODO: Move this multimethod check into run-simulations to avoid running it in every thread
 (defmulti run-fire-spread
   "Runs the raster-based fire spread model with a SimulationInputs record containing these fields:
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | Key                                | Value Type         | Value Units                                               |
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | :num-rows                          | long               | column count of fuel-model-matrix                         |
-  | :num-cols                          | long               | row count of fuel-model-matrix                            |
-  | :cell-size                         | double             | feet                                                      |
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | :ignition-start-time               | double             | minutes                                                   |
-  | :max-runtime                       | double             | minutes                                                   |
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | :initial-ignition-site             | [i,j] or 2D tensor | [y,x] coordinate or categories 0-2 in tensor              |
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | :crowning-disabled?                | boolean            | true or false                                             |
-  | :ellipse-adjustment-factor         | double             | < 1.0 = more circular, > 1.0 = more elliptical            |
-  | :grass-suppression?                | boolean            | true or false                                             |
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | :rand-gen                          | java.util.Random   | uniform sample [0-1]                                      |
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | :get-elevation                     | (i,j) -> v         | feet                                                      |
-  | :get-slope                         | (i,j) -> v         | vertical feet/horizontal feet                             |
-  | :get-aspect                        | (i,j) -> v         | degrees clockwise from north [0-360)                      |
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | :get-canopy-cover                  | (i,j) -> v         | percent [0-100]                                           |
-  | :get-canopy-height                 | (i,j) -> v         | feet                                                      |
-  | :get-canopy-base-height            | (i,j) -> v         | feet                                                      |
-  | :get-crown-bulk-density            | (i,j) -> v         | lb/ft^3                                                   |
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | :get-fuel-model                    | (i,j) -> v         | fuel model numbers [1-256]                                |
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | :get-temperature                   | (b,i,j) -> v       | degrees Fahrenheit                                        |
-  | :get-relative-humidity             | (b,i,j) -> v       | percent [0-100]                                           |
-  | :get-wind-speed-20ft               | (b,i,j) -> v       | miles/hour                                                |
-  | :get-wind-from-direction           | (b,i,j) -> v       | degrees clockwise from north                              |
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | :get-fuel-moisture-dead-1hr        | (b,i,j) -> v       | ratio [0-1]                                               |
-  | :get-fuel-moisture-dead-10hr       | (b,i,j) -> v       | ratio [0-1]                                               |
-  | :get-fuel-moisture-dead-100hr      | (b,i,j) -> v       | ratio [0-1]                                               |
-  | :get-fuel-moisture-live-herbaceous | (b,i,j) -> v       | ratio [0-1]                                               |
-  | :get-fuel-moisture-live-woody      | (b,i,j) -> v       | ratio [0-1]                                               |
-  | :get-foliar-moisture               | (b,i,j) -> v       | ratio [0-1]                                               |
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | :spotting                          | map                | :decay-constant -> double                                 |
-  |                                    |                    | :num-firebrands -> long                                   |
-  |                                    |                    | :surface-fire-spotting -> map                             |
-  |                                    |                    | :crown-fire-spotting-percent -> double or [double double] |
-  |------------------------------------+--------------------+-----------------------------------------------------------|
-  | :suppression                       | map                | :suppression-dt -> double                                 |
-  |                                    |                    | :suppression-coefficient -> double                        | ; TODO add sdi suppression params
-  |------------------------------------+--------------------+-----------------------------------------------------------|"
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | Key                                               | Value Type         | Value Units                                               |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :num-rows                                         | long               | column count of fuel-model-matrix                         |
+  | :num-cols                                         | long               | row count of fuel-model-matrix                            |
+  | :cell-size                                        | double             | feet                                                      |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :ignition-start-time                              | double             | minutes                                                   |
+  | :max-runtime                                      | double             | minutes                                                   |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :initial-ignition-site                            | [i,j] or 2D tensor | [y,x] coordinate or categories 0-2 in tensor              |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :crowning-disabled?                               | boolean            | true or false                                             |
+  | :ellipse-adjustment-factor                        | double             | < 1.0 = more circular, > 1.0 = more elliptical            |
+  | :grass-suppression?                               | boolean            | true or false                                             |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :rand-gen                                         | java.util.Random   | uniform sample [0-1]                                      |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :get-elevation                                    | (i,j) -> v         | feet                                                      |
+  | :get-slope                                        | (i,j) -> v         | vertical feet/horizontal feet                             |
+  | :get-aspect                                       | (i,j) -> v         | degrees clockwise from north [0-360)                      |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :get-canopy-cover                                 | (i,j) -> v         | percent [0-100]                                           |
+  | :get-canopy-height                                | (i,j) -> v         | feet                                                      |
+  | :get-canopy-base-height                           | (i,j) -> v         | feet                                                      |
+  | :get-crown-bulk-density                           | (i,j) -> v         | lb/ft^3                                                   |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :get-fuel-model                                   | (i,j) -> v         | fuel model numbers [1-256]                                |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :get-temperature                                  | (b,i,j) -> v       | degrees Fahrenheit                                        |
+  | :get-relative-humidity                            | (b,i,j) -> v       | percent [0-100]                                           |
+  | :get-wind-speed-20ft                              | (b,i,j) -> v       | miles/hour                                                |
+  | :get-wind-from-direction                          | (b,i,j) -> v       | degrees clockwise from north                              |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :get-fuel-moisture-dead-1hr                       | (b,i,j) -> v       | ratio [0-1]                                               |
+  | :get-fuel-moisture-dead-10hr                      | (b,i,j) -> v       | ratio [0-1]                                               |
+  | :get-fuel-moisture-dead-100hr                     | (b,i,j) -> v       | ratio [0-1]                                               |
+  | :get-fuel-moisture-live-herbaceous                | (b,i,j) -> v       | ratio [0-1]                                               |
+  | :get-fuel-moisture-live-woody                     | (b,i,j) -> v       | ratio [0-1]                                               |
+  | :get-foliar-moisture                              | (b,i,j) -> v       | ratio [0-1]                                               |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :spotting                                         | map                | :decay-constant -> double                                 |
+  |                                                   |                    | :num-firebrands -> long                                   |
+  |                                                   |                    | :surface-fire-spotting -> map                             |
+  |                                                   |                    | :crown-fire-spotting-percent -> double or [double double] |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :fuel-number->spread-rate-adjustment-array-lookup | array of doubles   | unitless                                                  |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :suppression-dt                                   | double             | minutes                                                   |
+  | :suppression-coefficient                          | double             | none                                                      |
+  | :sdi-containment-overwhelming-area-growth-rate    | double             | Acres/day                                                 |
+  | :sdi-reference-suppression-speed                  | double             | percent/day                                               |
+  | :sdi-sensitivity-to-difficulty                    | double             | none                                                      |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|"
   (fn [inputs]
     (if (vector? (:initial-ignition-site inputs))
       :ignition-point

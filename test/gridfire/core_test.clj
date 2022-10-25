@@ -485,3 +485,82 @@
 
     (is (= 20.0 (:global-clock (second results)))
         "Global clock should end at start_time + max_runtime in sample_ignitions.csv")))
+
+
+;;-----------------------------------------------------------------------------
+;; Pyrome spread rate adjustment
+;;-----------------------------------------------------------------------------
+
+(deftest ^{:database true :simulation true} spread-rate-adjustment-test
+  (testing "successful run using explicitly defined spread-rate-adjustments for each simulation in the ensemble run "
+    (let [config (merge test-config-base
+                        {:landfire-layers                      {:aspect             {:type   :geotiff
+                                                                                     :source (in-file-path "asp.tif")}
+                                                                :canopy-base-height {:type   :geotiff
+                                                                                     :source (in-file-path "cbh.tif")}
+                                                                :canopy-cover       {:type   :geotiff
+                                                                                     :source (in-file-path "cc.tif")}
+                                                                :canopy-height      {:type   :geotiff
+                                                                                     :source (in-file-path "ch.tif")}
+                                                                :crown-bulk-density {:type   :geotiff
+                                                                                     :source (in-file-path "cbd.tif")}
+                                                                :elevation          {:type   :geotiff
+                                                                                     :source (in-file-path "dem.tif")}
+                                                                :fuel-model         {:type   :geotiff
+                                                                                     :source (in-file-path "fbfm40.tif")}
+                                                                :slope              {:type   :geotiff
+                                                                                     :source (in-file-path "slp.tif")}}
+                         :fuel-number->spread-rate-adjustment-samples [{144 0.5
+                                                                        148 0.5
+                                                                        164 0.5
+                                                                        184 0.5
+                                                                        188 0.5
+                                                                        102 0.5
+                                                                        204 0.5
+                                                                        104 0.5
+                                                                        106 0.5
+                                                                        108 0.5
+                                                                        122 0.5
+                                                                        124 0.5
+                                                                        141 0.5
+                                                                        145 0.5
+                                                                        149 0.5
+                                                                        161 0.5
+                                                                        165 0.5
+                                                                        181 0.5
+                                                                        185 0.5
+                                                                        189 0.5
+                                                                        201 0.5
+                                                                        142 0.5
+                                                                        146 0.5
+                                                                        162 0.5
+                                                                        182 0.5
+                                                                        186 0.5
+                                                                        101 0.5
+                                                                        202 0.5
+                                                                        103 0.5
+                                                                        105 0.5
+                                                                        107 0.5
+                                                                        109 0.5
+                                                                        121 0.5
+                                                                        123 0.5
+                                                                        143 0.5
+                                                                        147 0.5
+                                                                        163 0.5
+                                                                        183 0.5
+                                                                        187 0.5
+                                                                        203 0.5}]})]
+
+      (is (valid-exits? (run-test-simulation! config))))))
+
+(deftest ^{:database true :simulation true} spread-rate-adjustment-for-fuel-model-test
+  (testing "successful run using explicitly defined sdi suppresion constants for each simulation in the ensemble run"
+   (let [config (merge test-config-base
+                       {:suppression                                           {:sdi-layer      {:type   :geotiff
+                                                                                                 :source "test/gridfire/resources/sdi.tif"}
+                                                                                :suppression-dt 10}
+                        :sdi-sensitivity-to-difficulty-samples                 [1.0]
+                        :sdi-containment-overwhelming-area-growth-rate-samples [50000.0]
+                        :sdi-reference-suppression-speed-samples               [600.0]})]
+
+     (is (valid-exits? (run-test-simulation! config))))))

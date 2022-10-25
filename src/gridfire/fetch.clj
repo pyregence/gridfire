@@ -114,6 +114,8 @@
                       :units  :metric})
         convert-fn (get-units-convert-fn layer-name layer-spec nil 1.0)
         datatype   (if (= layer-name :fuel-model)
+                     ;; TODO investigate why postgis fuel-model is not converted to int32
+                     ;; NOTE: might have been fixed by refactoring to use get-wrapped-tensor. (Val, 25 Oct 2022)
                      :int32
                      :float32)]
     (get-wrapped-tensor config layer-spec convert-fn datatype)))

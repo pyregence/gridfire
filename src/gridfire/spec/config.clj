@@ -232,6 +232,20 @@
 (s/def ::output-flame-length-max  #{:max :directional})
 (s/def ::output-flame-length-sum  #{:max :directional})
 
+
+;;=============================================================================
+;; Spread Rate Adjustment
+;;=============================================================================
+
+(defn long? [x]
+  (instance? Long x))
+
+(s/def ::fuel-number->spread-rate-adjustment
+  (s/map-of long? double?))
+
+(s/def ::fuel-number->spread-rate-adjustment-samples
+  (s/coll-of ::fuel-number->spread-rate-adjustment :kind vector?))
+
 ;;=============================================================================
 ;; Burn Period
 ;;=============================================================================
@@ -286,6 +300,7 @@
              ::crowning-disabled?
              ::ellipse-adjustment-factor
              ::fractional-distance-combination
+             ::fuel-number->spread-rate-adjustment-samples
              ::parallel-strategy
              ::db-spec
              ::ignition-row
@@ -312,7 +327,12 @@
              ::output-burn-count?
              ::output-spot-count?
              ::output-flame-length-max
-             ::output-flame-length-sum])
+             ::output-flame-length-sum
+             ::suppression/suppression-dt-samples
+             ::suppression/suppression-coefficient-samples
+             ::suppression/sdi-sensitivity-to-difficult-samples
+             ::suppression/sdi-containment-overwhelming-area-growth-rate-samples
+             ::suppression/sdi-reference-suppression-speed-samples])
    ::ignition-layer-or-ignition-csv
    ::max-runtime-or-ignition-csv
    ::simulations-or-ignition-csv

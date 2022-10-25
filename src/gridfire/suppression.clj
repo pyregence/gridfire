@@ -293,12 +293,11 @@
   "Compute the updated fraction contained using suppression difficulty index algorithm"
   [inputs ignited-cells-since-last-suppression ^double previous-fraction-contained]
   (let [cell-size                                     (double (:cell-size inputs))
-        suppression                                   (:suppression inputs)
         get-suppression-difficulty-index              (:get-suppression-difficulty-index inputs)
-        suppression-dt                                (double (:suppression-dt suppression))
-        sdi-containment-overwhelming-area-growth-rate (double (:sdi-containment-overwhelming-area-growth-rate suppression))
-        sdi-sensitivity-to-difficulty                 (double (:sdi-sensitivity-to-difficulty suppression))
-        sdi-reference-suppression-speed               (double (:sdi-reference-suppression-speed suppression))
+        suppression-dt                                (double (:suppression-dt inputs))
+        sdi-containment-overwhelming-area-growth-rate (double (:sdi-containment-overwhelming-area-growth-rate inputs))
+        sdi-sensitivity-to-difficulty                 (double (:sdi-sensitivity-to-difficulty inputs))
+        sdi-reference-suppression-speed               (double (:sdi-reference-suppression-speed inputs))
         area-growth-rate                              (compute-area-growth-rate cell-size suppression-dt ignited-cells-since-last-suppression)
         change-in-fraction-contained-sign-multiplier  (compute-change-in-fraction-contained-sign-multiplier sdi-containment-overwhelming-area-growth-rate
                                                                                                             area-growth-rate)
@@ -330,8 +329,7 @@
    ignited-cells-since-last-suppression
    previous-fraction-contained]
   (let [max-runtime-fraction         (double max-runtime-fraction)
-        suppression-coefficient      (get-in inputs [:suppression
-                                                     :suppression-coefficient])
+        suppression-coefficient      (:suppression-coefficient inputs)
         previous-num-perimeter-cells (long previous-num-perimeter-cells)
         previous-suppressed-count    (long previous-suppressed-count)
         active-perimeter-cells       (into #{}
