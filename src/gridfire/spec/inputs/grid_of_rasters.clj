@@ -4,6 +4,6 @@
 (s/def ::type #{:grid_of_rasters})
 
 (s/def ::rasters_grid
-  (s/coll-of (s/coll-of ::raw-layer-coords-map)))
+  (s/coll-of (s/coll-of :gridfire.spec.common/raw-layer-coords-map)))
 
 (s/def ::raw-layer-coords-map (s/keys :req-un [::type ::rasters_grid]))
