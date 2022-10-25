@@ -106,8 +106,9 @@
                          (mapv (fn [col]
                                  {:type   :gridfire-envi-bsq
                                   :source (file-path working-dir
-                                                     folder-name
-                                                     (format "%s_%d_%d.bsq" file-name (inc row) (inc col)))})
+                                                     (str folder-name
+                                                          "/" ; REVIEW I'm not sure that's correct. (Val, 25 Oct 2022)
+                                                          (format "%s_%d_%d.bsq" file-name (inc row) (inc col))))})
                                (range 3))))})
 
 (defn resolve-layer-spec [{:strs [USE_TILED_IO] :as elmfire-config} output-dir folder-name layer-key]
