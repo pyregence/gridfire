@@ -2,7 +2,7 @@
   "A custom parser for BSQ-interleaved ENVI raster files.
   This is a special case of GDAL's ENVI .hdr Labelled Raster:
   https://gdal.org/drivers/raster/envi.html#raster-envi."
-  (:require [cheshire.core      :as json]
+  (:require [clojure.data.json  :as json]
             [clojure.java.io    :as io]
             [clojure.java.shell :as sh]
             [clojure.string     :as str]
@@ -43,7 +43,7 @@
   (-> (sh/sh "gdalinfo" "-json" "-proj4" (-> f (io/file) (.getPath)))
       (sh-successful-out)
       ;; NOTE not parsing keys to keywords because some of them are pathological, like "".
-      (json/parse-string)))
+      (json/read-str)))
 
 (defn- check-expectation!
   [err-msg find-error-data]
