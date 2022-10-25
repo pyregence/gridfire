@@ -450,8 +450,7 @@
                                              (pyrome-csv-rows->lookup-map (fn [s] (Long/parseLong s 10)))))]
     (assoc output-edn
            :fuel-number->spread-rate-adjustment-samples
-           (mapv (fn [pyrome-sample] (get pyrome->spread-rate-adjustment pyrome-sample))
-                 pyrome-samples))))
+           (tagged-literal 'gridfire.config/abbreviating [pyrome->spread-rate-adjustment (vec pyrome-samples)]))))
 
 (defn process-pyrome-specific-calibration
   [output-edn {:keys [pyrome-spread-rate-adjustment-csv pyrome-calibration-csv] :as options}]
