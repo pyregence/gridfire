@@ -197,7 +197,7 @@
 
 (defn- seq-no-shorter-than?
   "Computes whether a (potentially infinite) sequence contains at least n elements."
-  [n coll]
+  [^long n coll]
   (if (pos? n)
     (->> coll (drop (dec n)) seq some?)
     true))
