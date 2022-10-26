@@ -195,7 +195,7 @@
               :matrix     tensor})))
         (mfd/catch
          (fn [err]
-           (let [file-path (.getPath bsq-file)]
+           (let [file-path (.getPath (io/file bsq-file))]
              (throw (ex-info (format "Error parsing BSQ file (%s) with GridFire's custom parser: %s %s"
                                      (-> bsq-file (io/file) (.getPath))
                                      (-> err (type) (str))
