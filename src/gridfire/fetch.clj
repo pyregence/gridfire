@@ -145,7 +145,7 @@
   (let [weather-spec (get config weather-name)]
     (when (map? weather-spec)
       (get-wrapped-tensor config
-                          ignition-layer
+                          weather-spec
                           (get-units-convert-fn weather-name weather-spec nil)
                           :float32))))
 
@@ -158,7 +158,7 @@
   (let [spec (get-in fuel-moisture [category size])]
     (when (map? spec)
       (get-wrapped-tensor config
-                          ignition-layer
+                          spec
                           (let [fuel-moisture-name (keyword
                                                     ;; WARNING we rely on keyword structure:
                                                     ;; renaming those keywords would break the program.
@@ -175,7 +175,7 @@
   [{:keys [suppression] :as config}]
   (when-let [layer-spec (:sdi-layer suppression)]
     (get-wrapped-tensor config
-                        ignition-layer
+                        layer-spec
                         (get-units-convert-fn :suppression layer-spec nil)
                         :float32)))
 ;; fetch.clj ends here
