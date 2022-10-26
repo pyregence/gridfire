@@ -1,6 +1,7 @@
 (ns gridfire.fetch.grid-of-rasters
-  (:require [tech.v3.datatype :as d]
-            [tech.v3.tensor   :as t]))
+  (:require [clojure.spec.alpha :as s]
+            [tech.v3.datatype   :as d]
+            [tech.v3.tensor     :as t]))
 
 (defn- all-grid-elements
   [grid]
@@ -12,6 +13,17 @@
   [t]
   (->> t (d/shape) (take-last 2) (vec)))
 
+(defn- non-ij-shape
+  [t]
+  (->> t (d/shape) (drop-last 2)))
+
+(defn- has-consistent-xy-dims?
+  [layer]
+  (= [(:height layer) (:width layer)]
+     (ij-shape (:matrix layer))))
+
+(s/def :gridfire.spec.raster-map/has-consistent-xy-dims? has-consistent-xy-dims?)
+
 (defn map-grid2d
   "Like clojure.core/mapv, but for matrix-shaped data: [[e ...] ...] -> [[(f e) ...] ...]."
   [f grid2d]
@@ -19,44 +31,115 @@
          (vec (for [m-ij m-i]
                 (f m-ij))))))
 
-(defn valid-grid-of-layers?
+(defn- almost-equal?
+  "Like =, but leaves some room for floating-point inaccuracy."
+  [^double v1 ^double v2 ^double eps]
+  (< (Math/abs (- v1 v2))
+     eps))
+
+(defn- is-2D-grid?
   [fetched-rasters-grid]
   (and
    (vector? fetched-rasters-grid)
    (not-empty fetched-rasters-grid)
    (every? vector? fetched-rasters-grid)
    (every? not-empty fetched-rasters-grid)
-   (apply = (map count fetched-rasters-grid))
-   (let [n-y-rows (count fetched-rasters-grid)
-         n-x-cols (count (first fetched-rasters-grid))]
-     (letfn [(ith-grid-row [i] (nth fetched-rasters-grid i))
-             (jth-grid-col [j] (->> (range n-y-rows)
-                                    (mapv (fn [i] (nth (ith-grid-row i)
-                                                       j)))))
-             (all-layers [] (all-grid-elements fetched-rasters-grid))]
-       (and (->> (all-layers)
-                 (map (fn has-consistent-dims? [layer]
-                        (= [(:height layer) (:width layer)]
-                           (ij-shape (:matrix layer))))))
-            (->> (range n-y-rows)
-                 (map ith-grid-row)
-                 (every? (fn compatible-widths? [ith-row]
-                           (->> (range n-x-cols)
-                                (map (fn [j] (nth ith-row j)))
-                                (map :height)
-                                (apply =)))))
-            (->> (range n-x-cols)
-                 (map jth-grid-col)
-                 (every? (fn compatible-heights? [jth-col]
-                           (->> (range n-y-rows)
-                                (map (fn [i] (nth jth-col i)))
-                                (map :width)
-                                (apply =)))))
-            (->> (all-layers) (map :scalex) (apply =))
-            (->> (all-layers) (map :scaley) (apply =))
-            (->> (all-layers)
-                 (map (fn non-xy-shape [layer] (->> layer :matrix (d/shape) (drop-last 2))))
-                 (apply =)))))))
+   (apply = (map count fetched-rasters-grid))))
+
+(s/def ::is-2D-grid? is-2D-grid?)
+
+(defn- is-non-empty?
+  [fetched-rasters-grid]
+  (and
+   (not-empty fetched-rasters-grid)
+   (every? not-empty fetched-rasters-grid)))
+
+(s/def ::is-non-empty? is-non-empty?)
+
+(defn- n-y-rows
+  [fetched-rasters-grid]
+  (count fetched-rasters-grid))
+
+(defn- n-x-cols
+  [fetched-rasters-grid]
+  (count (first fetched-rasters-grid)))
+
+(defn- ith-grid-row
+  [fetched-rasters-grid i]
+  (nth fetched-rasters-grid i))
+
+(defn- jth-grid-col
+  [fetched-rasters-grid j]
+  (->> fetched-rasters-grid
+       (mapv (fn [row] (nth row j)))))
+
+(defn- height-is-constant-in-each-row?
+  [fetched-rasters-grid]
+  (->> (range (n-y-rows fetched-rasters-grid))
+       (map #(ith-grid-row fetched-rasters-grid %))
+       (every? (fn compatible-heights? [ith-row]
+                 (->> ith-row
+                      (map :height)
+                      (apply =))))))
+
+(s/def ::height-is-constant-in-each-row? height-is-constant-in-each-row?)
+
+(defn- width-is-constant-in-each-col?
+  [fetched-rasters-grid]
+  (->> (range (n-x-cols fetched-rasters-grid))
+       (map #(jth-grid-col fetched-rasters-grid %))
+       (every? (fn compatible-heights? [jth-col]
+                 (->> jth-col
+                      (map :width)
+                      (apply =))))))
+
+(s/def ::width-is-constant-in-each-col? width-is-constant-in-each-col?)
+
+(defn- layers-have-the-same?
+  [f fetched-rasters-grid]
+  (->> (all-grid-elements fetched-rasters-grid) (map f) (apply =)))
+
+(defn- all-blocks-have-the-same-scale?
+  [fetched-rasters-grid]
+  (and (layers-have-the-same? :scalex fetched-rasters-grid)
+       (layers-have-the-same? :scaley fetched-rasters-grid)))
+
+(s/def ::all-blocks-have-the-same-scale? all-blocks-have-the-same-scale?)
+
+(defn- meet-at-corners?
+  [fetched-rasters-grid]
+  (and
+   (->> (ith-grid-row fetched-rasters-grid 0)
+        (map (juxt :upperleftx :width :scalex))
+        (partition 2 1)
+        (every? (fn x-touch? [[[ulx-j w-j sx-j] [ulx-j+1 _w-j+1 _sx-j+1]]]
+                  (almost-equal? (+ (double ulx-j)
+                                    (* (double w-j) (double sx-j)))
+                                 (double ulx-j+1)
+                                 (Math/abs (* 1e-4 (double sx-j)))))))
+   (->> (jth-grid-col fetched-rasters-grid 0)
+        (map (juxt :upperlefty :height :scaley))
+        (partition 2 1)
+        (every? (fn y-touch? [[[uly-i h-i sy-i] [uly-i+1 _h-i+1 _sy-i+1]]]
+                  (almost-equal? (+ (double uly-i)
+                                    (* (double h-i) (double sy-i)))
+                                 (double uly-i+1)
+                                 (Math/abs (* 1e-4 (double sy-i)))))))))
+
+(s/def ::meet-at-corners? meet-at-corners?)
+
+(s/def ::same-bands (fn same-bands? [fetched-rasters-grid]
+                      (->> fetched-rasters-grid (layers-have-the-same? #(-> % :matrix (non-ij-shape))))))
+
+(s/def ::stitchable-grid-of-layers
+  (s/and ::is-2D-grid?
+         ::is-non-empty?
+         (s/coll-of (s/coll-of :gridfire.spec.raster-map/has-consistent-xy-dims?))
+         ::height-is-constant-in-each-row?
+         ::width-is-constant-in-each-col?
+         ::all-blocks-have-the-same-scale?
+         ::meet-at-corners?
+         ::same-bands))
 
 (defn stitch-tensors-in-grid2d
   "Computes a tensor by stitching a 2D grid of blocks,
@@ -105,7 +188,11 @@
 
 (defn stitch-grid-of-layers
   [fetched-rasters-grid]
-  {:pre [(valid-grid-of-layers? fetched-rasters-grid)]}     ; IMPROVEMENT detailed error. (Val, 24 Oct 2022)
+  (when-some [expl-data (s/explain-data ::stitchable-grid-of-layers fetched-rasters-grid)]
+    (throw (ex-info (format "Invalid grid of rasters: %s"
+                            (s/explain-str ::stitchable-grid-of-layers fetched-rasters-grid))
+                    {::fetched-rasters-grid fetched-rasters-grid
+                     ::explanation          expl-data})))
   (let [layer00      (get-in fetched-rasters-grid [0 0])
         tensors-grid (->> fetched-rasters-grid (map-grid2d :matrix))
         dst-tensor   (stitch-tensors-in-grid2d tensors-grid)

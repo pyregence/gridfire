@@ -1,6 +1,6 @@
 ENVI
 description = {
-test/gridfire/resources/grid-of-rasters-examples/ws_2018_y2_x0.bsq}
+test/gridfire/resources/grid-of-rasters-examples/ws_2018_x0_y0.bsq}
 samples = 1
 lines   = 1
 bands   = 3
