@@ -99,17 +99,26 @@
    "CH_FILENAME"  0.1
    "CBD_FILENAME" 0.01})
 
-(defn- build-grid-of-rasters [working-dir folder-name file-name]
+(defn- compute-grid2d
+  [[i-length j-length] f]
+  (->> (range i-length)
+       (mapv (fn [grid-i]
+               (->> (range j-length)
+                    (mapv (fn [grid-j]
+                            (f grid-i grid-j))))))))
+
+(defn- build-grid-of-rasters
+  [working-dir folder-name file-name]
   {:type         :grid_of_rasters
-   :rasters_grid (into []
-                       (for [row (range 3)]
-                         (mapv (fn [col]
-                                 {:type   :gridfire-envi-bsq
-                                  :source (file-path working-dir
-                                                     (str folder-name
-                                                          "/" ; REVIEW I'm not sure that's correct. (Val, 25 Oct 2022)
-                                                          (format "%s_%d_%d.bsq" file-name (inc row) (inc col))))})
-                               (range 3))))})
+   :rasters_grid (compute-grid2d [3 3]
+                                 (fn [^long grid-i ^long grid-j]
+                                   (let [elm-x (inc grid-j)
+                                         elm-y (inc (- 2 grid-i))]
+                                     {:type   :gridfire-envi-bsq
+                                      :source (file-path working-dir
+                                                         (str folder-name
+                                                              "/"
+                                                              (format "%s_%d_%d.bsq" file-name elm-x elm-y)))})))})
 
 (defn resolve-layer-spec [{:strs [USE_TILED_IO] :as elmfire-config} output-dir folder-name layer-key]
   (cond-> (if (true? USE_TILED_IO)
