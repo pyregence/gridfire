@@ -162,10 +162,10 @@
                                                 (get-fuel-moisture-dead-100hr band i j)
                                                 (calc-fuel-moisture relative-humidity temperature :dead :100hr))
         ^double fuel-moisture-live-herbaceous (if get-fuel-moisture-live-herbaceous
-                                                (get-fuel-moisture-live-herbaceous i j)
+                                                (get-fuel-moisture-live-herbaceous band i j)
                                                 (calc-fuel-moisture relative-humidity temperature :live :herbaceous))
         ^double fuel-moisture-live-woody      (if get-fuel-moisture-live-woody
-                                                (get-fuel-moisture-live-woody i j)
+                                                (get-fuel-moisture-live-woody band i j)
                                                 (calc-fuel-moisture relative-humidity temperature :live :woody))
         ^double foliar-moisture               (get-foliar-moisture band i j)
         surface-fire-min                      (rothermel-fast-wrapper-optimal fuel-model
