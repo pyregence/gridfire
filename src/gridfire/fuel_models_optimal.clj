@@ -84,6 +84,62 @@
    204 [:SB4 2.7 25 8 [0.2410 0.1607 0.2410 0.0000 0.0000] [2000.0 109.0 30.0    0.0    0.0]]
    })
 
+(def WUI-model-number->original
+  "Some variants of the above fuel models,
+  with a different fuel model number to distinguish them as
+  belonging to the Wildland Urban Interface (WUI).
+
+  Each of these WUI fuel models has the same physical characteristics
+  as one of the fuel models in the above table,
+  but having a different model number enables a different behavior
+  for other aspects, such as spread-rate adjustment or spotting.
+
+  This table provides the mapping from variant model number -> original model number.
+  Notice how the difference of model numbers is usually 100 or 110."
+  {;; Grass (GR)
+   211 101
+   212 102
+   213 103
+   214 104
+   215 105
+   216 106
+   217 107
+   218 108
+   ;; Grass-Shrub (GS)
+   221 121
+   222 122
+   223 123
+   224 124
+   ;; Shrub (SH)
+   241 141
+   242 142
+   243 143
+   244 144
+   245 145
+   246 146
+   247 147
+   248 148
+   249 149
+   ;; Timber-Understory (TU)
+   261 161
+   262 162
+   263 163
+   265 165
+   ;; Timber Litter (TL)
+   281 181
+   282 182
+   283 183
+   284 184
+   285 185
+   286 186
+   287 187
+   288 188
+   289 189
+   ;; Slash-Blowdown (SB)
+   301 201
+   302 202
+   303 203})
+
 (defrecord FuelModel
     [name
      ^long number
@@ -129,7 +185,20 @@
       ;; No dead-herbaceous values
       fuel-model)))
 
-(def fuel-models-precomputed (into {} (map #(vector % (map->FuelModel (compute-fuel-model %))) (keys fuel-models))))
+(defn- add-synonym-models
+  [variant->original-model-number number->model-data]
+  (reduce-kv (fn [ret v-num o-num]
+               (assoc ret v-num (or (get number->model-data o-num)
+                                    (throw (ex-info (format "Cannot find synonym fuel model number: %s" (pr-str o-num))
+                                                    {::variant-fuel-model-number  v-num
+                                                     ::original-fuel-model-number o-num})))))
+             number->model-data
+             variant->original-model-number))
+
+(def fuel-models-precomputed (->> fuel-models
+                                  (keys)
+                                  (into {} (map #(vector % (map->FuelModel (compute-fuel-model %)))))
+                                  (add-synonym-models WUI-model-number->original)))
 ;; fuel-model-definitions ends here
 
 ;; [[file:../../org/GridFire.org::fuel-category-and-size-class-functions][fuel-category-and-size-class-functions]]
