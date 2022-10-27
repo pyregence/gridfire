@@ -486,7 +486,7 @@
   [output-edn]
   (dissoc output-edn :pyrome-samples))
 
-(defn build-edn
+(defn add-output-edn
   [{:keys [elmfire-config] :as options}]
   (let [{:strs [COMPUTATIONAL_DOMAIN_CELLSIZE A_SRS SIMULATION_TSTOP SEED FOLIAR_MOISTURE_CONTENT
                 NUM_ENSEMBLE_MEMBERS]} elmfire-config]
@@ -611,7 +611,7 @@
   (->> options
        (parse-elmfire-config)
        (parse-elmfire-summary-csv)
-       (build-edn)
+       (add-output-edn)
        (merge-override-config override-config)
        (write-config)))
 
