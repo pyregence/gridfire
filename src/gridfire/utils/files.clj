@@ -36,10 +36,7 @@
 
 (defn- expand-abbreviations
   [[abbr->v data]]
-  (walk/postwalk (fn [x]
-                   (if-some [[_k v] (find abbr->v x)]
-                     v
-                     x))
+  (walk/postwalk #(get abbr->v % %)
                  data))
 
 (def convenience-encoding-readers
