@@ -14,7 +14,9 @@
   ;; and natural for describing a matrix by blocks:
   ;; for example, traversing the stitched matrix in the [i j] -> [i+1 j] direction
   ;; will traverse the blocks in the [grid-i grid-j] -> [grid-i+1 grid-j] direction.
-  ;; WARNING: this organizing principle might feel at odds with your GIS intuition
+  ;; This organizing principle was chosen because it is the most conceptually simple,
+  ;; being agnostic of whatever GIS interpretations we might superimpose on it.
+  ;; WARNING: however, this organizing principle might feel at odds with your GIS intuition
   ;; of organizing blocks in a [x increasing, y increasing] layout:
   ;; if so, don't blame :rasters_grid - blame the sub-tensors.
   (s/coll-of (s/coll-of :gridfire.spec.common/raw-layer-coords-map)))
