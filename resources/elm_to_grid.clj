@@ -51,11 +51,11 @@
 ;; Write gridfire.edn
 ;;=============================================================================
 
-(defn write-config [{:keys [output-dir] :as _options} config-params]
+(defn write-config [{:keys [output-dir output-edn] :as _options}]
   (let [output-file-path (.toString (io/file output-dir "gridfire.edn"))]
     (println "Creating config file:" output-file-path)
     (with-open [writer (io/writer output-file-path)]
-      (pprint config-params writer))))
+      (pprint output-edn writer))))
 
 ;;=============================================================================
 ;; Merge Override Config
@@ -490,29 +490,31 @@
   [{:keys [elmfire-config] :as options}]
   (let [{:strs [COMPUTATIONAL_DOMAIN_CELLSIZE A_SRS SIMULATION_TSTOP SEED FOLIAR_MOISTURE_CONTENT
                 NUM_ENSEMBLE_MEMBERS]} elmfire-config]
-    (-> {:cell-size                       (m->ft COMPUTATIONAL_DOMAIN_CELLSIZE)
-         :srid                            (or A_SRS "EPSG:32610")
-         :max-runtime                     (sec->min SIMULATION_TSTOP)
-         :simulations                     NUM_ENSEMBLE_MEMBERS
-         ;; FIXME temperature elmfire does not use temperature, this is a required key in gridfire.
-         ;; Default to 80 or set in override-config
-         :temperature                     80
-         :random-seed                     SEED
-         :foliar-moisture                 FOLIAR_MOISTURE_CONTENT
-         :ellipse-adjustment-factor       1.0
-         :parallel-strategy               :between-fires
-         :fractional-distance-combination :sum} ; FIXME: unused parameter
-        (process-landfire-layers options)
-        (process-ignition options)
-        (process-weather options)
-        (process-output options)
-        (process-perturbations options)
-        (process-spotting options)
-        (process-fuel-moisture options)
-        (process-suppression options)
-        (process-elmfire-summary-maps options)
-        (process-pyrome-specific-calibration options)
-        (remove-unecessary-keys))))
+    (assoc options
+           :output-edn
+           (-> {:cell-size                       (m->ft COMPUTATIONAL_DOMAIN_CELLSIZE)
+                :srid                            (or A_SRS "EPSG:32610")
+                :max-runtime                     (sec->min SIMULATION_TSTOP)
+                :simulations                     NUM_ENSEMBLE_MEMBERS
+                ;; FIXME temperature elmfire does not use temperature, this is a required key in gridfire.
+                ;; Default to 80 or set in override-config
+                :temperature                     80
+                :random-seed                     SEED
+                :foliar-moisture                 FOLIAR_MOISTURE_CONTENT
+                :ellipse-adjustment-factor       1.0
+                :parallel-strategy               :between-fires
+                :fractional-distance-combination :sum} ; FIXME: unused parameter
+               (process-landfire-layers options)
+               (process-ignition options)
+               (process-weather options)
+               (process-output options)
+               (process-perturbations options)
+               (process-spotting options)
+               (process-fuel-moisture options)
+               (process-suppression options)
+               (process-elmfire-summary-maps options)
+               (process-pyrome-specific-calibration options)
+               (remove-unecessary-keys)))))
 
 
 ;;=============================================================================
@@ -597,7 +599,8 @@
                                                            (convert-key k)
                                                            (convert-val v))))
                                       (sorted-map)
-                                      (str/split content #"\n")))))
+                                      (str/split content #"\n"))
+           :output-dir (.getParent (io/file elmfire-config)))))
 
 ;;=============================================================================
 ;; Main
@@ -610,7 +613,7 @@
        (parse-elmfire-summary-csv)
        (build-edn)
        (merge-override-config override-config)
-       (write-config options)))
+       (write-config)))
 
 (def cli-options
   [[nil "--elmfire-config PATH" "PATH to an elmfire.data configuration file"
@@ -657,7 +660,7 @@
 
       ;; Valid --elmfire-config argument provided, so perform conversion
       (:elmfire-config options)
-      (convert-config! (assoc options :output-dir (.getParent (io/file (:elmfire-config options)))))
+      (convert-config! options)
 
       ;; Incorrect CLI invocation
       :else
