@@ -122,7 +122,7 @@
 ;; Ignition
 ;;=============================================================================
 
-(defn process-ignition
+(defn setup-ignition-from-layers
   [output-edn {:keys [output-dir elmfire-config] :as _options}]
   (let [{:strs [PHI_FILENAME FUELS_AND_TOPOGRAPHY_DIRECTORY RANDOM_IGNITIONS
                 USE_IGNITION_MASK EDGEBUFFER IGNITION_MASK_FILENAME]} elmfire-config]
@@ -142,6 +142,12 @@
               :source      (file-path output-dir FUELS_AND_TOPOGRAPHY_DIRECTORY PHI_FILENAME)
               :burn-values {:burned   -1.0
                             :unburned 1.0}}))))
+
+(defn process-ignition
+  [output-edn options]
+  (if (:elmfire-summary-maps options)
+    output-edn
+    (setup-ignition-from-layers output-edn options)))
 
 ;;=============================================================================
 ;; Weather
@@ -611,7 +617,7 @@
     :validate [#(.exists  (io/file %)) "The provided --elmfire-config does not exist."
                #(.canRead (io/file %)) "The provided --elmfire-config--override-config is not readable."]]
 
-   [nil "--elmfire-summary-csv PATH" "Optinal PATH to summary csv file for a completed elmfire run."
+   [nil "--elmfire-summary-csv PATH" "Optinal PATH to summary csv file for a completed elmfire run. Determines the ignition locations and pyrome-specific parameters."
     :id :elmfire-summary-csv
     :validate [#(.exists  (io/file %)) "The provided --elmfire-summary-csv does not exist."
                #(.canRead (io/file %)) "The provided --elmfire-summary-csv is not readable."]]
