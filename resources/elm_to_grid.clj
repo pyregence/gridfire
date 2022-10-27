@@ -41,29 +41,18 @@
   [path]
   (re-matches #"^((\.){1,2}\/)+.*" path))
 
-(defn file-path
-  ([output-dir file-or-directory]
-   (-> (if (relative-path? file-or-directory)
-         (io/file output-dir file-or-directory)
-         (io/file file-or-directory))
-       (.toPath)
-       (.normalize)
-       (.toString)))
-  ([output-dir directory tif-file-prefix]
-   (let [file-name (if (relative-path? directory)
-                     (io/file output-dir directory (str tif-file-prefix ".tif"))
-                     (io/file directory (str tif-file-prefix ".tif")))]
-     (-> file-name
-         (.toPath)
-         (.normalize)
-         (.toString)))))
+(defn build-file-path
+  [path]
+  (if (relative-path? path)
+    (tagged-literal 'gridfire.utils.files/from-this-file path)
+    path))
 
 ;;=============================================================================
 ;; Write gridfire.edn
 ;;=============================================================================
 
-(defn write-config [{:keys [output-dir]} config-params]
-  (let [output-file-path (file-path output-dir "./gridfire.edn")]
+(defn write-config [{:keys [output-dir] :as _options} config-params]
+  (let [output-file-path (.toString (io/file output-dir "gridfire.edn"))]
     (println "Creating config file:" output-file-path)
     (with-open [writer (io/writer output-file-path)]
       (pprint config-params writer))))
@@ -108,50 +97,48 @@
                             (f grid-i grid-j))))))))
 
 (defn- build-grid-of-rasters
-  [working-dir folder-name file-name]
+  [folder-name file-name]
   {:type         :grid_of_rasters
    :rasters_grid (compute-grid2d [3 3]
                                  (fn [^long grid-i ^long grid-j]
                                    (let [elm-x (inc grid-j)
                                          elm-y (inc (- 2 grid-i))]
                                      {:type   :gridfire-envi-bsq
-                                      :source (file-path working-dir
-                                                         (str folder-name
-                                                              "/"
-                                                              (format "%s_%d_%d.bsq" file-name elm-x elm-y)))})))})
+                                      :source (build-file-path (str folder-name "/" (format "%s_%d_%d.bsq" file-name elm-x elm-y)))})))})
 
-(defn resolve-layer-spec [{:strs [USE_TILED_IO] :as elmfire-config} output-dir folder-name layer-key]
-  (cond-> (if (true? USE_TILED_IO)
-            (build-grid-of-rasters output-dir folder-name (get elmfire-config layer-key))
-            {:type   :geotiff
-             :source (file-path output-dir folder-name layer-key)})
-    (contains? layer-key->unit layer-key)       (assoc :units (get layer-key->unit layer-key))
-    (contains? layer-key->multiplier layer-key) (assoc :multiplier (get layer-key->multiplier layer-key))))
+(defn resolve-layer-spec [{:strs [USE_TILED_IO] :as elmfire-config} folder-name layer-key]
+  (let [file-name (get elmfire-config layer-key)]
+    (cond-> (if (true? USE_TILED_IO)
+              (build-grid-of-rasters folder-name file-name)
+              {:type   :geotiff
+               :source (build-file-path (str folder-name "/" file-name ".tif"))})
+      (contains? layer-key->unit layer-key)       (assoc :units (get layer-key->unit layer-key))
+      (contains? layer-key->multiplier layer-key) (assoc :multiplier (get layer-key->multiplier layer-key)))))
 
 ;;=============================================================================
 ;; LANDFIRE
 ;;=============================================================================
 
 (defn process-landfire-layers
-  [output-edn {:keys [output-dir elmfire-config] :as _options}]
+  [output-edn {:keys [ elmfire-config] :as _options}]
   (let [{:strs [FUELS_AND_TOPOGRAPHY_DIRECTORY]} elmfire-config]
     (assoc output-edn
            :landfire-layers
-           {:aspect             (resolve-layer-spec elmfire-config output-dir FUELS_AND_TOPOGRAPHY_DIRECTORY "ASP_FILENAME")
-            :canopy-base-height (resolve-layer-spec elmfire-config output-dir FUELS_AND_TOPOGRAPHY_DIRECTORY "CBH_FILENAME")
-            :canopy-cover       (resolve-layer-spec elmfire-config output-dir FUELS_AND_TOPOGRAPHY_DIRECTORY "CC_FILENAME")
-            :canopy-height      (resolve-layer-spec elmfire-config output-dir FUELS_AND_TOPOGRAPHY_DIRECTORY "CH_FILENAME")
-            :crown-bulk-density (resolve-layer-spec elmfire-config output-dir FUELS_AND_TOPOGRAPHY_DIRECTORY "CBD_FILENAME")
-            :elevation          (resolve-layer-spec elmfire-config output-dir FUELS_AND_TOPOGRAPHY_DIRECTORY "DEM_FILENAME")
-            :fuel-model         (resolve-layer-spec elmfire-config output-dir FUELS_AND_TOPOGRAPHY_DIRECTORY "FBFM_FILENAME")
-            :slope              (resolve-layer-spec elmfire-config output-dir FUELS_AND_TOPOGRAPHY_DIRECTORY "SLP_FILENAME")})))
+           {:aspect             (resolve-layer-spec elmfire-config FUELS_AND_TOPOGRAPHY_DIRECTORY "ASP_FILENAME")
+            :canopy-base-height (resolve-layer-spec elmfire-config FUELS_AND_TOPOGRAPHY_DIRECTORY "CBH_FILENAME")
+            :canopy-cover       (resolve-layer-spec elmfire-config FUELS_AND_TOPOGRAPHY_DIRECTORY "CC_FILENAME")
+            :canopy-height      (resolve-layer-spec elmfire-config FUELS_AND_TOPOGRAPHY_DIRECTORY "CH_FILENAME")
+            :crown-bulk-density (resolve-layer-spec elmfire-config FUELS_AND_TOPOGRAPHY_DIRECTORY "CBD_FILENAME")
+            :elevation          (resolve-layer-spec elmfire-config FUELS_AND_TOPOGRAPHY_DIRECTORY "DEM_FILENAME")
+            :fuel-model         (resolve-layer-spec elmfire-config FUELS_AND_TOPOGRAPHY_DIRECTORY "FBFM_FILENAME")
+            :slope              (resolve-layer-spec elmfire-config FUELS_AND_TOPOGRAPHY_DIRECTORY "SLP_FILENAME")})))
 
 ;;=============================================================================
 ;; Ignition
 ;;=============================================================================
 
 (defn process-ignition
-  [output-edn {:keys [output-dir elmfire-config] :as _options}]
+  [output-edn {:keys [elmfire-config] :as _options}]
   (let [{:strs [FUELS_AND_TOPOGRAPHY_DIRECTORY RANDOM_IGNITIONS
                 USE_IGNITION_MASK EDGEBUFFER]} elmfire-config]
     (if RANDOM_IGNITIONS
@@ -159,13 +146,13 @@
              :random-ignition
              (cond-> {}
                USE_IGNITION_MASK
-               (assoc :ignition-mask (resolve-layer-spec elmfire-config output-dir FUELS_AND_TOPOGRAPHY_DIRECTORY "IGNITION_MASK_FILENAME"))
+               (assoc :ignition-mask (resolve-layer-spec elmfire-config FUELS_AND_TOPOGRAPHY_DIRECTORY "IGNITION_MASK_FILENAME"))
 
                EDGEBUFFER
                (assoc :edge-buffer (m->ft EDGEBUFFER))))
       (assoc output-edn
              :ignition-layer
-             (-> (resolve-layer-spec elmfire-config output-dir FUELS_AND_TOPOGRAPHY_DIRECTORY "PHI_FILENAME")
+             (-> (resolve-layer-spec elmfire-config FUELS_AND_TOPOGRAPHY_DIRECTORY "PHI_FILENAME")
                  (assoc :burn-values {:burned   -1.0
                                       :unburned 1.0}))))))
 
@@ -175,21 +162,21 @@
 
 ;; FIXME: Since tmpf.tif and rh.tif aren't provided in elmfire.data, where are these files on disk?
 (defn process-weather
-  [output-edn {:keys [elmfire-config output-dir] :as _options}]
+  [output-edn {:keys [elmfire-config] :as _options}]
   (let [{:strs [WEATHER_DIRECTORY]} elmfire-config]
     (assoc output-edn
-           :wind-speed-20ft     (resolve-layer-spec elmfire-config output-dir WEATHER_DIRECTORY "WS_FILENAME")
-           :wind-from-direction (resolve-layer-spec elmfire-config output-dir WEATHER_DIRECTORY "WD_FILENAME"))))
+           :wind-speed-20ft     (resolve-layer-spec elmfire-config WEATHER_DIRECTORY "WS_FILENAME")
+           :wind-from-direction (resolve-layer-spec elmfire-config WEATHER_DIRECTORY "WD_FILENAME"))))
 
 ;;=============================================================================
 ;; Output
 ;;=============================================================================
 
 (defn process-output
-  [output-edn {:keys [elmfire-config output-dir] :as _options}]
+  [output-edn {:keys [elmfire-config] :as _options}]
   (let [{:strs [OUTPUTS_DIRECTORY DUMP_BURN_PROBABILITY_AT_DTDUMP DTDUMP]} elmfire-config]
     (cond-> (assoc output-edn
-                   :output-directory        (file-path output-dir OUTPUTS_DIRECTORY)
+                   :output-directory        (build-file-path OUTPUTS_DIRECTORY)
                    :outfile-suffix          ""
                    :output-landfire-inputs? false
                    :output-geotiffs?        false
@@ -371,27 +358,27 @@
 
 ;; FIXME: Since mlw.tif and mlh.tif aren't provided in elmfire.data, where are these files on disk?
 (defn process-fuel-moisture
-  [output-edn {:keys [elmfire-config output-dir] :as _options}]
+  [output-edn {:keys [elmfire-config] :as _options}]
   (let [{:strs [WEATHER_DIRECTORY USE_CONSTANT_LW USE_CONSTANT_LH LW_MOISTURE_CONTENT
                 LH_MOISTURE_CONTENT]} elmfire-config]
     (assoc output-edn
            :fuel-moisture
-           {:dead {:1hr   (resolve-layer-spec elmfire-config output-dir WEATHER_DIRECTORY "M1_FILENAME")
-                   :10hr  (resolve-layer-spec elmfire-config output-dir WEATHER_DIRECTORY "M10_FILENAME")
-                   :100hr (resolve-layer-spec elmfire-config output-dir WEATHER_DIRECTORY "M100_FILENAME")}
+           {:dead {:1hr   (resolve-layer-spec elmfire-config WEATHER_DIRECTORY "M1_FILENAME")
+                   :10hr  (resolve-layer-spec elmfire-config WEATHER_DIRECTORY "M10_FILENAME")
+                   :100hr (resolve-layer-spec elmfire-config WEATHER_DIRECTORY "M100_FILENAME")}
             :live {:woody      (if USE_CONSTANT_LW
                                  (* 0.01 ^double LW_MOISTURE_CONTENT)
-                                 (resolve-layer-spec elmfire-config output-dir WEATHER_DIRECTORY "MLW_FILENAME"))
+                                 (resolve-layer-spec elmfire-config WEATHER_DIRECTORY "MLW_FILENAME"))
                    :herbaceous (if USE_CONSTANT_LH
                                  (* 0.01 ^double LH_MOISTURE_CONTENT)
-                                 (resolve-layer-spec elmfire-config output-dir WEATHER_DIRECTORY "MLH_FILENAME"))}})))
+                                 (resolve-layer-spec elmfire-config WEATHER_DIRECTORY "MLH_FILENAME"))}})))
 
 ;;=============================================================================
 ;; Suppression
 ;;=============================================================================
 
 (defn- process-suppression
-  [output-edn {:keys [elmfire-config output-dir]}]
+  [output-edn {:keys [elmfire-config]}]
   (let [{:strs
          [FUELS_AND_TOPOGRAPHY_DIRECTORY USE_SDI B_SDI
           AREA_NO_CONTAINMENT_CHANGE MAX_CONTAINMENT_PER_DAY]} elmfire-config]
@@ -399,7 +386,7 @@
       (assoc output-edn
              :suppression
              {:suppression-dt                                60.0
-              :sdi-layer                                     (resolve-layer-spec elmfire-config output-dir FUELS_AND_TOPOGRAPHY_DIRECTORY "SDI_FILENAME")
+              :sdi-layer                                     (resolve-layer-spec elmfire-config FUELS_AND_TOPOGRAPHY_DIRECTORY "SDI_FILENAME")
               :sdi-sensitivity-to-difficulty                 B_SDI
               :sdi-containment-overwhelming-area-growth-rate AREA_NO_CONTAINMENT_CHANGE
               :sdi-reference-suppression-speed               MAX_CONTAINMENT_PER_DAY})
@@ -610,8 +597,7 @@
                                                            (convert-key k)
                                                            (convert-val v))))
                                       (sorted-map)
-                                      (str/split content #"\n"))
-           :output-dir (.getParent (io/file elmfire-config)))))
+                                      (str/split content #"\n")))))
 
 ;;=============================================================================
 ;; Main
@@ -671,7 +657,7 @@
 
       ;; Valid --elmfire-config argument provided, so perform conversion
       (:elmfire-config options)
-      (convert-config! options)
+      (convert-config! (assoc options :output-dir (.getParent (io/file (:elmfire-config options)))))
 
       ;; Incorrect CLI invocation
       :else
