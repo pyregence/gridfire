@@ -1,6 +1,6 @@
 (ns gridfire.surface-fire-optimal
   (:require [gridfire.conversion          :refer [deg->rad rad->deg]]
-            [gridfire.fuel-models-optimal :refer [map-category map-size-class category-sum size-class-sum]]))
+            [gridfire.fuel-models-optimal :refer [is-dynamic-grass-fuel-model-number? map-category map-size-class category-sum size-class-sum]]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -112,13 +112,10 @@
       (/ (* I_R xi) rho_b-epsilon-Q_ig)
       0.0)))
 
-(defn- grass-fuel-model? [^long number]
-  (and (> number 100) (< number 110)))
-
 ;; Addition proposed by Chris Lautenberger (REAX 2015)
 (defn calc-suppressed-spread-rate ^double [^double R ^long number grass-suppression?]
   (let [spread-rate-multiplier (if (and grass-suppression?
-                                        (grass-fuel-model? number))
+                                        (is-dynamic-grass-fuel-model-number? number))
                                  0.5
                                  1.0)]
     (* R spread-rate-multiplier)))

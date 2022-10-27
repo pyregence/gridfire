@@ -7,12 +7,13 @@
   "Lookup table including one entry for each of the Anderson 13 and
    Scott & Burgan 40 fuel models. The fields have the following
    meanings:
-   {number
+   {fuel-model-number
     [name delta M_x-dead h
      [w_o-dead-1hr w_o-dead-10hr w_o-dead-100hr w_o-live-herbaceous w_o-live-woody]
      [sigma-dead-1hr sigma-dead-10hr sigma-dead-100hr sigma-live-herbaceous sigma-live-woody]]
    }"
   {
+   ;; Anderson 13:
    ;; Grass and Grass-dominated (short-grass,timber-grass-and-understory,tall-grass)
    1   [:R01 1.0 12 8 [0.0340 0.0000 0.0000 0.0000 0.0000] [3500.0   0.0  0.0    0.0    0.0]]
    2   [:R02 1.0 15 8 [0.0920 0.0460 0.0230 0.0230 0.0000] [3000.0 109.0 30.0 1500.0    0.0]]
@@ -36,6 +37,7 @@
    93  [:NB3 0.0  0 0 [0.0000 0.0000 0.0000 0.0000 0.0000] [   0.0   0.0  0.0    0.0    0.0]]
    98  [:NB4 0.0  0 0 [0.0000 0.0000 0.0000 0.0000 0.0000] [   0.0   0.0  0.0    0.0    0.0]]
    99  [:NB5 0.0  0 0 [0.0000 0.0000 0.0000 0.0000 0.0000] [   0.0   0.0  0.0    0.0    0.0]]
+   ;; Scott & Burgan 40:
    ;; Grass (GR)
    101 [:GR1 0.4 15 8 [0.0046 0.0000 0.0000 0.0138 0.0000] [2200.0 109.0 30.0 2000.0    0.0]]
    102 [:GR2 1.0 15 8 [0.0046 0.0000 0.0000 0.0459 0.0000] [2000.0 109.0 30.0 1800.0    0.0]]
@@ -156,6 +158,10 @@
      f_i
      g_ij])
 
+(defn is-dynamic-fuel-model-number?
+  [^long fuel-model-number]
+  (> fuel-model-number 100))
+
 (defn compute-fuel-model
   [^long fuel-model-number]
   (let [[name delta M_x-dead h
@@ -176,7 +182,7 @@
                     :rho_p  [32.0 32.0 32.0 32.0 32.0 32.0]
                     :S_T    [0.0555 0.0555 0.0555 0.0555 0.0555 0.0555]
                     :S_e    [0.01 0.01 0.01 0.01 0.01 0.01]}]
-    (if (and (> fuel-model-number 100)
+    (if (and (is-dynamic-fuel-model-number? fuel-model-number)
              (pos? ^double w_o-live-herbaceous))
       ;; Set dead-herbaceous values
       (-> fuel-model
@@ -223,7 +229,7 @@
   (let [^long number                 (:number fuel-model)
         w_o                          (:w_o fuel-model)
         ^double live-herbaceous-load (w_o 4)] ; 4 = live-herbaceous
-    (if (and (> number 100) (pos? live-herbaceous-load))
+    (if (and (is-dynamic-fuel-model-number? number) (pos? live-herbaceous-load))
       ;; dynamic fuel model
       (let [name           (:name fuel-model)
             delta          (:delta fuel-model)
@@ -246,6 +252,17 @@
       ;; static fuel model
       (assoc fuel-model :M_f M_f))))
 ;; add-dynamic-fuel-loading ends here
+
+(defn is-burnable-fuel-model-number?
+  [^double fm-number]
+  (and (pos? fm-number)
+       (or (< fm-number 91.0)
+           (> fm-number 99.0))))
+
+(defn is-dynamic-grass-fuel-model-number?
+  [^long fm-number]
+  (or (and (< 100 fm-number) (< fm-number 110))
+      (and (< 210 fm-number) (< fm-number 220))))
 
 ;; [[file:../../org/GridFire.org::add-weighting-factors][add-weighting-factors]]
 (defn add-weighting-factors

@@ -1,8 +1,9 @@
 (ns gridfire.common
-  (:require [tech.v3.datatype            :as d]
-            [tech.v3.datatype.argops     :as da]
-            [tech.v3.datatype.functional :as dfn]
-            [tech.v3.tensor              :as t]))
+  (:require [gridfire.fuel-models-optimal :as f-opt]
+            [tech.v3.datatype             :as d]
+            [tech.v3.datatype.argops      :as da]
+            [tech.v3.datatype.functional  :as dfn]
+            [tech.v3.tensor               :as t]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -45,10 +46,9 @@
        (< j cols)))
 
 (defn burnable-fuel-model?
-  [^double number]
-  (and (pos? number)
-       (or (< number 91.0)
-           (> number 99.0))))
+  [^double fm-number]
+  ;; REVIEW: Why are we getting a ^double and not a ^long here? (Val, 27 Oct 2022)
+  (f-opt/is-burnable-fuel-model-number? fm-number))
 
 ;; FIXME: This logic doesn't look right.
 (defn burnable?
