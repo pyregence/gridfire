@@ -9,7 +9,8 @@
          '[clojure.java.shell :refer [sh]]
          '[clojure.pprint     :refer [pprint]]
          '[clojure.string     :as str]
-         '[clojure.tools.cli  :refer [parse-opts]])
+         '[clojure.tools.cli  :refer [parse-opts]]
+         '[clojure.test       :as test])
 
 ;;=============================================================================
 ;; Units conversion functions
@@ -245,39 +246,109 @@
 ;;=============================================================================
 
 (defn extract-fuel-range [s]
-  (->> s
-       (re-find #"(\d+):(\d+)")
-       (rest)
-       (mapv #(Integer/parseInt %))))
+  (let [min-fuel (some-> (re-find #"(\d+)(?=:)" s)
+                         first
+                         Integer/parseInt)
+        max-fuel (some-> (re-find #"(?<=:)(\d+)" s)
+                         first
+                         Integer/parseInt)]
+    [(or min-fuel 1) (or max-fuel 303)]))
+
+(test/deftest extract-fuel-range-test
+  (test/are [min-val max-val s] (= [min-val max-val] (extract-fuel-range s))
+    1   303 "CRITICAL_SPOTTING_FIRELINE_INTENSITY(:)"
+    110 303 "CRITICAL_SPOTTING_FIRELINE_INTENSITY(110:)"
+    1   110 "CRITICAL_SPOTTING_FIRELINE_INTENSITY(:110)"))
 
 ;; FIXME: Is this logic (and return format) right?
-(defn extract-surface-spotting-percents
-  [data]
-  (if-let [SURFACE_FIRE_SPOTTING_PERCENT (get data "SURFACE_FIRE_SPOTTING_PERCENT(:)")]
-    [[[1 204] SURFACE_FIRE_SPOTTING_PERCENT]]
-    (transduce (filter #(str/includes? % "SURFACE_FIRE_SPOTTING_PERCENT"))
-               (completing (fn [acc k] (conj acc (extract-fuel-range k) (get data k))))
-               []
-               (keys data))))
+;; TODO depcracte and use create-fuel->value instead for processing all keys with the syntax
+;; SOMEPARM(:), SOMEPARM(x:y), SOMEPARM(x:), or SOMEPARM(:y)
+(defn fuel-ranges->value
+  [elmfire-config key]
+  (transduce (filter #(str/includes? % key))
+             (completing (fn [acc k] (conj acc [(extract-fuel-range k) (get elmfire-config k)])))
+             []
+             (keys elmfire-config)))
+
+(test/deftest fuel-ranges->value-test
+  (test/is (= [[[0 256] 1200.0]
+               [[257 303] 100.0]]
+              (fuel-ranges->value {"SOME_PARAM(0:256)" 1200.0
+                                   "SOME_PARAM(257:)"  100.0}
+                                  "SOME_PARAM"))))
 
 ;; FIXME: Is this logic (and return format) right?
 (defn extract-global-surface-spotting-percents
   [{:strs
     [^double GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN
      ^double GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MAX
-     ^double GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT
-     ENABLE_SPOTTING] :as data}]
-  (if (or GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN)
-    (if ENABLE_SPOTTING
-      [[[1 204] [(* 0.01 GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN) (* 0.01 GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MAX)]]]
-      [[[1 204] (* 0.01 GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT)]])
-    (extract-surface-spotting-percents data)))
+     ^double GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT] :as elmfire-config}]
+  (cond
+    (and GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MAX)
+    [[[1 204] [(* 0.01 GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN) (* 0.01 GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MAX)]]]
+
+    GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT
+    [[[1 204] (* 0.01 GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT)]]
+
+    :else (fuel-ranges->value elmfire-config "SURFACE_FIRE_SPOTTING_PERCENT(")))
+
+(defn- create-fuel->value
+  [elmfire-config key]
+  (let [result (loop [key-vals   (seq elmfire-config)
+                      result-map {}]
+                 (if key-vals
+                   (let [[cur-key cur-val] (first key-vals)]
+                     (if (str/includes? cur-key key)
+                       (let [[min-fuel-number max-fuel-number] (extract-fuel-range cur-key)]
+                         (recur (next key-vals)
+                                (merge result-map
+                                       (zipmap (range min-fuel-number (inc max-fuel-number))
+                                               cur-val))))
+                       (recur (next key-vals)
+                              result-map)))
+                   result-map))]
+    (if (seq result)
+      result
+      nil)))
+
+(test/deftest create-fuel->value-test
+  (test/testing "single line"
+    (let [config {"SOME_PARAM(211:213)" [1.0 2.0]}]
+      (test/is (= {211 1.0
+                   212 2.0}
+                  (create-fuel->value config "SOME_PARAM")))))
+
+  (test/testing "multiple lines"
+    (let [config {"SOME_PARAM(211:212)" [1.0 2.0]
+                  "SOME_PARAM(213:214)" [3.0 4.0]}]
+      (test/is (= {211 1.0
+                   212 2.0
+                   213 3.0
+                   214 4.0}
+                  (create-fuel->value config "SOME_PARAM")))))
+
+  (test/testing "unbounded max fuel number"
+    (let [config {"SOME_PARAM(301:)" [1.0 2.0 3.0]}]
+      (test/is (= {301 1.0
+                   302 2.0
+                   303 3.0}
+                  (create-fuel->value config "SOME_PARAM")))
+      "should create fuel-number entries from specified min up to max fuel number 303"))
+
+  (test/testing "unbounded min fuel number"
+    (let [config {"SOME_PARAM(:3)" [1.0 2.0 3.0]}]
+      (test/is (= {1 1.0
+                   2 2.0
+                   3 3.0}
+                  (create-fuel->value config "SOME_PARAM")))
+      "should create fuel-number entries from minimal fuel number 1 up to end of specified max")))
 
 ;; FIXME: Is this logic (and return format) right?
 (defn extract-num-firebrands
   [{:strs [NEMBERS NEMBERS_MIN NEMBERS_MIN_LO NEMBERS_MIN_HI NEMBERS_MAX
-           NEMBERS_MAX_LO NEMBERS_MAX_HI ENABLE_SPOTTING]}]
-  (if ENABLE_SPOTTING
+           NEMBERS_MAX_LO NEMBERS_MAX_HI]}]
+  (if (and (or NEMBERS_MIN NEMBERS_MIN_LO)
+           (or NEMBERS_MAX NEMBERS_MAX_LO))
     {:lo (cond
            (and NEMBERS_MIN_LO (= NEMBERS_MIN_LO NEMBERS_MIN_HI)) NEMBERS_MIN_LO
            NEMBERS_MIN_LO                                         [NEMBERS_MIN_LO NEMBERS_MIN_HI]
@@ -291,9 +362,8 @@
 (defn extract-crown-fire-spotting-percent
   [{:strs [^double CROWN_FIRE_SPOTTING_PERCENT_MIN
            ^double CROWN_FIRE_SPOTTING_PERCENT_MAX
-           ^double CROWN_FIRE_SPOTTING_PERCENT
-           ENABLE_SPOTTING]}]
-  (if ENABLE_SPOTTING
+           ^double CROWN_FIRE_SPOTTING_PERCENT]}]
+  (if (and CROWN_FIRE_SPOTTING_PERCENT_MIN CROWN_FIRE_SPOTTING_PERCENT_MAX)
     [(* 0.01 CROWN_FIRE_SPOTTING_PERCENT_MIN) (* 0.01 CROWN_FIRE_SPOTTING_PERCENT_MAX)]
     (* 0.01 CROWN_FIRE_SPOTTING_PERCENT)))
 
@@ -339,8 +409,11 @@
 
       (and ENABLE_SPOTTING ENABLE_SURFACE_FIRE_SPOTTING)
       (assoc-in [:spotting :surface-fire-spotting]
-                {:spotting-percent             (extract-global-surface-spotting-percents elmfire-config)
-                 :critical-fire-line-intensity (kW-m->Btu-ft-s CRITICAL_SPOTTING_FIRELINE_INTENSITY)}))))
+                {:spotting-percent                                 (extract-global-surface-spotting-percents elmfire-config)
+                 :fuel-number->surface-spotting-percent-multiplier (create-fuel->value elmfire-config "SURFACE_FIRE_SPOTTING_PERCENT_MULT")
+                 :critical-fire-line-intensity                     (or (some-> CRITICAL_SPOTTING_FIRELINE_INTENSITY kW-m->Btu-ft-s)
+                                                                       (fuel-ranges->value elmfire-config "CRITICAL_SPOTTING_FIRELINE_INTENSITY(")
+                                                                       0.0)}))))
 
 ;;=============================================================================
 ;; Fuel moisture layers
@@ -577,7 +650,16 @@
         (re-matches #".FALSE." s-trimmed)              false
         (re-matches #"'[0-9a-zA-Z_.//]*'" s-trimmed)   (subs s-trimmed 1 (dec char-count))
         (str/includes? s-trimmed "proj")               (get-srid (subs s-trimmed 1 (dec char-count)))
+        (str/includes? s-trimmed ",")                  (mapv (fn [x] (Double/parseDouble x)) (str/split s-trimmed #","))
         :else                                          nil))))
+
+(test/deftest convert-val-test
+  (test/testing "value is comma seperated values"
+    (let [to-convert "1., 1., 1.,"]
+      (test/is (= [1.0 1.0 1.0] (convert-val to-convert) )))
+
+    (let [to-convert "1.0, 1.0, 1.0,"]
+      (test/is (= [1.0 1.0 1.0] (convert-val to-convert))))))
 
 (defn parse-elmfire-config [{:keys [elmfire-config] :as options}]
   (let [content (slurp elmfire-config)]
@@ -661,4 +743,6 @@
     ;; Exit cleanly
     (System/exit 0)))
 
-(main *command-line-args*)
+(test/run-tests)
+
+;; (main *command-line-args*)
