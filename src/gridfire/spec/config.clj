@@ -165,7 +165,7 @@
 (s/def ::surface-fire-spotting
   (s/keys :req-un [::spotting-percent
                    ::critical-fire-line-intensity]
-          :opt-un [:fuel-number->surface-spotting-percent-multiplier]))
+          :opt-un [::fuel-number->surface-spotting-percent-multiplier]))
 
 (s/def ::spotting
   (s/keys :req-un [::num-firebrands
