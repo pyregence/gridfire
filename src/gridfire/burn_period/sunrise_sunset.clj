@@ -109,23 +109,23 @@
   based on the time-of-year angle gamma."
   ^double [^double gamma]
   (*
-    229.18
-    (fourier-series-approximation
-      [[0.000075]
-       [0.001868 -0.032077]
-       [-0.014615 -0.040849]]
-      gamma)))
+   229.18
+   (fourier-series-approximation
+    [[0.000075]
+     [0.001868 -0.032077]
+     [-0.014615 -0.040849]]
+    gamma)))
 
 (defn declivity-at
   "[rad] the angle between the Earth's equatorial plane and its orbital plane,
   based on the time-of-year angle gamma."
   ^double [^double gamma]
   (fourier-series-approximation
-    [[0.006918]
-     [-0.399912 0.070257]
-     [-0.006758 0.000907]
-     [-0.002697 0.00148]]
-    gamma))
+   [[0.006918]
+    [-0.399912 0.070257]
+    [-0.006758 0.000907]
+    [-0.002697 0.00148]]
+   gamma))
 
 (defn daylight-half-angle
   "[rad] (Approximately) half of the angle exposed to sunlight in a given iso-latitude circle.
@@ -135,27 +135,27 @@
   - decl: declivity [rad]"
   ^double [^double lat ^double decl]
   (Math/acos
-    (+
-      ;; Approximate cosine of daylight-half-angle, see e.g:
-      ;; https://vvvvalvalval.github.io/posts/2019-12-03-inferring-earth-tilt-from-day-lengths.html#Physical-Model
-      (* -1.0 (Math/tan lat) (Math/tan decl))
-      ;; Small correction
-      (/
-        (Math/cos (* Math/PI (/ 90.833 180.0)))
-        (* (Math/cos lat) (Math/cos decl))))))
+   (+
+    ;; Approximate cosine of daylight-half-angle, see e.g:
+    ;; https://vvvvalvalval.github.io/posts/2019-12-03-inferring-earth-tilt-from-day-lengths.html#Physical-Model
+    (* -1.0 (Math/tan lat) (Math/tan decl))
+    ;; Small correction
+    (/
+     (Math/cos (* Math/PI (/ 90.833 180.0)))
+     (* (Math/cos lat) (Math/cos decl))))))
 
 (defn longitudinal-angle->duration
   "[min] converts an angular offset (in rad) to a time offset."
   ^double [^double lng-angle]
   (*
-    ;; APPROXIMATE - the Earth actually rotates
-    ;; a little more than 360° between 2 solar noons,
-    ;; due to orbital movement
-    ;; (about (360/365) ≈ 0.98° more, it depends on the time of the year,
-    ;; but the error is something like 4 minutes per rotation).
-    4.0 ;; [min/deg] (/ (* 24 60) 360)
-    (/ 180.0 Math/PI) ;; [deg/rad]
-    lng-angle))
+   ;; APPROXIMATE - the Earth actually rotates
+   ;; a little more than 360° between 2 solar noons,
+   ;; due to orbital movement
+   ;; (about (360/365) ≈ 0.98° more, it depends on the time of the year,
+   ;; but the error is something like 4 minutes per rotation).
+   4.0 ;; [min/deg] (/ (* 24 60) 360)
+   (/ 180.0 Math/PI) ;; [deg/rad]
+   lng-angle))
 
 (def ^:const min-per-hour 60.0)
 
@@ -174,10 +174,10 @@
         decl   (declivity-at gamma)
         ha     (daylight-half-angle lat decl)]
     (+
-      (- 12.0 (min->hr eqtime))
-      (-> (- lng) (- ha)
-          (longitudinal-angle->duration)
-          (min->hr)))))
+     (- 12.0 (min->hr eqtime))
+     (-> (- lng) (- ha)
+         (longitudinal-angle->duration)
+         (min->hr)))))
 
 (defn sunset-hour
   "[hr] UTC hour of the day at which the sun sets."
@@ -186,93 +186,93 @@
         decl   (declivity-at gamma)
         ha     (daylight-half-angle lat decl)]
     (+
-      (- 12.0 (min->hr eqtime))
-      (-> (- lng) (+ ha)
-          (longitudinal-angle->duration)
-          (min->hr)))))
+     (- 12.0 (min->hr eqtime))
+     (-> (- lng) (+ ha)
+         (longitudinal-angle->duration)
+         (min->hr)))))
 
 (test/deftest sunrise-sunset-reality-checks
   (test/is
-    (<
-      (sunrise-hour 0.3 0.0 Math/PI)
-      (sunrise-hour 0.1 0.0 Math/PI))
-    "In Northern summer, the sun rises earlier at higher latitudes.")
+   (<
+    (sunrise-hour 0.3 0.0 Math/PI)
+    (sunrise-hour 0.1 0.0 Math/PI))
+   "In Northern summer, the sun rises earlier at higher latitudes.")
   (test/is
-    (>
-      (sunset-hour 0.3 0.0 Math/PI)
-      (sunset-hour 0.1 0.0 Math/PI))
-    "... and sets later.")
+   (>
+    (sunset-hour 0.3 0.0 Math/PI)
+    (sunset-hour 0.1 0.0 Math/PI))
+   "... and sets later.")
   (test/is
-    (>
-      (sunrise-hour -0.3 0.0 Math/PI)
-      (sunrise-hour -0.1 0.0 Math/PI))
-    "The situation is reversed in Southern Winter.")
+   (>
+    (sunrise-hour -0.3 0.0 Math/PI)
+    (sunrise-hour -0.1 0.0 Math/PI))
+   "The situation is reversed in Southern Winter.")
   (test/is
-    (>
-      (sunrise-hour 0.3 0.0 0.0)
-      (sunrise-hour 0.1 0.0 0.0))
-    "... and Northern Winter.")
+   (>
+    (sunrise-hour 0.3 0.0 0.0)
+    (sunrise-hour 0.1 0.0 0.0))
+   "... and Northern Winter.")
   (test/is
-    (every? true?
-      (for [lat   [-0.4 -0.2 0.0 0.1 0.3]
-            gamma [0.0 1.0 2.0 3.0 5.0 6.0]]
-        (<
-          (sunrise-hour lat 0.5 gamma)
-          (sunrise-hour lat -0.5 gamma))))
-    "The sun rises in the East before in the West.")
+   (every? true?
+           (for [lat   [-0.4 -0.2 0.0 0.1 0.3]
+                 gamma [0.0 1.0 2.0 3.0 5.0 6.0]]
+             (<
+              (sunrise-hour lat 0.5 gamma)
+              (sunrise-hour lat -0.5 gamma))))
+   "The sun rises in the East before in the West.")
   (test/is
-    (every? true?
-      (for [lat   [-0.4 -0.2 0.0 0.1 0.3]
-            lng   [-3.0 -2.0 -1.0 0.0 1.0 2.0 3.0]
-            gamma [0.0 1.0 2.0 3.0 5.0 6.0]]
-        (<
-          (sunrise-hour lat lng gamma)
-          (sunset-hour lat lng gamma))))
-    "Sunrise is always before sunset.")
+   (every? true?
+           (for [lat   [-0.4 -0.2 0.0 0.1 0.3]
+                 lng   [-3.0 -2.0 -1.0 0.0 1.0 2.0 3.0]
+                 gamma [0.0 1.0 2.0 3.0 5.0 6.0]]
+             (<
+              (sunrise-hour lat lng gamma)
+              (sunset-hour lat lng gamma))))
+   "Sunrise is always before sunset.")
   (test/is
-    (=
-      (->> (range 12)
-           (map (fn [mnth]
-                  (-> mnth (/ 12.0) (* 2.0 Math/PI))))
-           (mapv (fn [gamma]
-                   (-
-                     (sunset-hour 0.0 0.0 gamma)
-                     (sunrise-hour 0.0 0.0 gamma)))))
-      [12.120711690930627
-       12.116455880448317
-       12.111944801470845
-       12.111445309127586
-       12.115166383631657
-       12.119873606728143
-       12.120728143894391
-       12.116778690773202
-       12.11228595353197
-       12.11123549802302
-       12.11458941491778
-       12.119607952649702])
-    "At the Equator, pretty much 12 hours of sunlight per day, all year long.")
+   (=
+    (->> (range 12)
+         (map (fn [mnth]
+                (-> mnth (/ 12.0) (* 2.0 Math/PI))))
+         (mapv (fn [gamma]
+                 (-
+                  (sunset-hour 0.0 0.0 gamma)
+                  (sunrise-hour 0.0 0.0 gamma)))))
+    [12.120711690930627
+     12.116455880448317
+     12.111944801470845
+     12.111445309127586
+     12.115166383631657
+     12.119873606728143
+     12.120728143894391
+     12.116778690773202
+     12.11228595353197
+     12.11123549802302
+     12.11458941491778
+     12.119607952649702])
+   "At the Equator, pretty much 12 hours of sunlight per day, all year long.")
   (test/is
-    (=
-      (->> (range 12)
-           (map (fn [mnth]
-                  (-> mnth (/ 12.0) (* 2.0 Math/PI))))
-           (mapv (fn [gamma]
-                   (-
-                     (sunset-hour 0.8 0.5 gamma)
-                     (sunrise-hour 0.8 0.5 gamma)))))
-      [8.725544159704336
-       9.650457702575103
-       11.16798773916028
-       12.811517288872603
-       14.359379610955962
-       15.485521075449928
-       15.66341255886112
-       14.783619423056567
-       13.3366494848639
-       11.72573857583448
-       10.149741212187232
-       8.947654067059547])
-    "The situation is clearly more varied at high latitudes."))
+   (=
+    (->> (range 12)
+         (map (fn [mnth]
+                (-> mnth (/ 12.0) (* 2.0 Math/PI))))
+         (mapv (fn [gamma]
+                 (-
+                  (sunset-hour 0.8 0.5 gamma)
+                  (sunrise-hour 0.8 0.5 gamma)))))
+    [8.725544159704336
+     9.650457702575103
+     11.16798773916028
+     12.811517288872603
+     14.359379610955962
+     15.485521075449928
+     15.66341255886112
+     14.783619423056567
+     13.3366494848639
+     11.72573857583448
+     10.149741212187232
+     8.947654067059547])
+   "The situation is clearly more varied at high latitudes."))
 
 ;;=============================================================================
 ;; Gridfire config transformation
@@ -302,23 +302,23 @@
                           (.atZone ZoneOffset/UTC))
         y-floor       (->
                         (ZonedDateTime/of
-                          (.getYear dt)
-                          (int 1) (int 1)                   ; January 1st
-                          (int 0) (int 0) (int 0)
-                          (int 0)
-                          ZoneOffset/UTC)
-                        (.toInstant))
-        y-ceil       (->
-                       (ZonedDateTime/of
-                         (-> (.getYear dt) (inc) (int))
+                         (.getYear dt)
                          (int 1) (int 1)                   ; January 1st
                          (int 0) (int 0) (int 0)
                          (int 0)
                          ZoneOffset/UTC)
+                        (.toInstant))
+        y-ceil       (->
+                       (ZonedDateTime/of
+                        (-> (.getYear dt) (inc) (int))
+                        (int 1) (int 1)                   ; January 1st
+                        (int 0) (int 0) (int 0)
+                        (int 0)
+                        ZoneOffset/UTC)
                        (.toInstant))
         year-duration (-
-                        (instant-ms y-ceil)
-                        (instant-ms y-floor))]
+                       (instant-ms y-ceil)
+                       (instant-ms y-floor))]
     (->
       (instant-ms t)
       (double)
@@ -328,23 +328,23 @@
 
 (test/deftest gamma-at-instant-examples
   (test/is
-    (= 0.0
+   (= 0.0
       (/ (gamma-at-instant #inst "2022-01-01") (* 2.0 Math/PI))))
   (test/is
-    (= 0.21643835616438353
+   (= 0.21643835616438353
       (/ (gamma-at-instant #inst "2022-03-21") (* 2.0 Math/PI))))
   (test/is
-    (= 0.49589041095890407
+   (= 0.49589041095890407
       (/ (gamma-at-instant #inst "2022-07-01") (* 2.0 Math/PI))))
   (test/is
-    (= 0.7753424657534247
+   (= 0.7753424657534247
       (/ (gamma-at-instant #inst "2022-10-11") (* 2.0 Math/PI)))))
 
 (defn format-fractional-hour
   [^double h]
   (format "%02d:%02d"
-    (-> h (Math/floor) (long))
-    (-> h (rem 1.0) (* 60.0) (double) (Math/round) (long))))
+          (-> h (Math/floor) (long))
+          (-> h (rem 1.0) (* 60.0) (double) (Math/round) (long))))
 
 (test/deftest format-fractional-hour-examples
   (test/is (= "09:12" (format-fractional-hour 9.2)))
