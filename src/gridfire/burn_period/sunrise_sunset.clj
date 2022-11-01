@@ -1,10 +1,6 @@
-#!/usr/bin/env bb
-
-(require '[clojure.java.io   :as io]
-         '[clojure.string    :as str]
-         '[clojure.tools.cli :as cli]
-         '[clojure.test      :as test])
-(import '(java.time Instant ZonedDateTime ZoneOffset))
+(ns gridfire.burn-period.sunrise-sunset
+  (:require [clojure.test :as test])
+  (:import  (java.time Instant ZonedDateTime ZoneOffset)))
 
 ;; WARNING running this script in polar circles is at your own risk!
 
@@ -357,14 +353,14 @@
   given a `bp-info` map which may contain the same keys
   as a regular GridFire :burn-period,
   and some more information specific to this script."
-  [{wds-t     :weather-start-timestamp
+  [{ign-t     :ignition-start-timestamp
     bp-length :burn-period-length
     bp-frac   :burn-period-frac
     lat-deg   ::lat-deg
     lng-deg   ::lng-deg
     :or       {bp-frac 0.5}
     :as       _bp-info}]
-  (let [gamma           (gamma-at-instant wds-t)
+  (let [gamma           (gamma-at-instant ign-t)
         lat             (deg->rad lat-deg)
         lng             (deg->rad lng-deg)
         h-sunrise       (sunrise-hour lat lng gamma)
@@ -387,7 +383,7 @@
     {:start "04:15",
      :end   "19:13"}
     (infer-burn-period
-     {:weather-start-timestamp #inst"2022-07-19T16:54:09.073-00:00"
+     {:ignition-start-timestamp #inst"2022-07-19T16:54:09.073-00:00"
       ::lat-deg                43.17
       ::lng-deg                5.60}))
    "correct sunrise/sunset hours for La Ciotat, France on 2022-07-19.")
@@ -397,7 +393,7 @@
     {:start "08:14",
      :end   "18:14"}
     (infer-burn-period
-     {:weather-start-timestamp #inst"2022-07-19T16:54:09.073-00:00"
+     {:ignition-start-timestamp #inst"2022-07-19T16:54:09.073-00:00"
       ::lat-deg                43.17
       ::lng-deg                5.60
       :burn-period-length      10.0
@@ -405,106 +401,4 @@
       :burn-period-frac        (/ (- 15.0 6.0) (- 21.0 6.0))}))
    (str "if provided, correctly uses " (pr-str :burn-period-length) " and " (pr-str :burn-period-frac) ".")))
 
-(defn transform-gridfire-config
-  [gridfire-config script-opts]
-  (-> gridfire-config
-      (as-> new-config
-            (merge new-config (select-keys script-opts [:weather-start-timestamp]))
-            (update new-config :burn-period
-                    (fn [burn-period]
-                      (merge burn-period
-                             (let [bp-info (merge
-                                            ;; NOTE gathering relevant information from the various maps at our disposal,
-                                            ;; enabling callers to supply it in a flexible and Clojure-idiomatic way.
-                                            (select-keys gridfire-config [:weather-start-timestamp])
-                                            burn-period
-                                            script-opts)]
-                               (infer-burn-period bp-info))))))))
-
-;;=============================================================================
-;; Command-Line Interface (CLI)
-;;=============================================================================
-
-(defn parse-double-num
-  [s]
-  (Double/parseDouble s))
-
-;; Distinct fns, to get explicit stacktraces
-(defn parse-lat-deg
-  [s]
-  (parse-double-num s))
-
-(defn parse-lng-deg
-  [s]
-  (parse-double-num s))
-
-(defn parse-weather-start-timestamp
-  [s]
-  (read-string (str "#inst " (pr-str s))))
-
-(def cli-options
-  [[nil "--lat-deg NUMBER" "Latitude coordinate, in degrees."
-    :id ::lat-deg
-    :parse-fn parse-lat-deg]
-   [nil "--lng-deg NUMBER" "Longitude coordinate, in degrees."
-    :id ::lng-deg
-    :parse-fn parse-lng-deg]
-   [nil "--weather-start-timestamp--rfc3339 INSTANT"
-    :id :weather-start-timestamp
-    :desc "RFC-3339-encoded :weather-start-timestamp, e.g 2022-07-19T16:54:09.073-00:00. Optional: can be supplied in gridfire.edn instead."
-    :parse-fn parse-weather-start-timestamp]
-   [nil "--burn-period-length DOUBLE"
-    :id :burn-period-length
-    :desc (str "Length of the burn period, in hours. "
-               "When supplied, the burn period will be centered around a time given by " (pr-str :burn-period-frac) ". "
-               "Optional. Maybe also be specified in the input GridFire config.")
-    :parse-fn parse-double-num]
-   [nil "--burn-period-frac DOUBLE"
-    :id :burn-period-frac
-    :desc (str "A number from 0.0 to 1.0, positioning the center of the burn period in the interval between sunrise and sunset. "
-               "Only used when " (pr-str :burn-period-length) "is specified. "
-               "Optional. Maybe also be specified in the input GridFire config.")
-    :parse-fn parse-double-num]
-   [nil "--input-gf-config"
-    :id ::input-gf-config
-    :desc "(Optional.) The path to the input GridFire configuration file to read from."]
-   [nil "--output-gf-config LOCATION" "A file path to save the output."
-    :id ::output-gf-config
-    :desc "The path to the output GridFire configuration file to write to."]])
-
-(defn transform-config-by!
-  [cli-opts transform-fn]
-  (let [gf-config0 (or (some-> (::input-gf-config cli-opts)
-                               (slurp)
-                               (read-string))
-                       {})
-        gf-config1 (transform-fn gf-config0 cli-opts)]
-    (spit (::output-gf-config cli-opts) (pr-str gf-config1))))
-
-(def program-banner
-  (->> ["burn_period_from_sunrise_sunset.clj: enrich an EDN-encoded GridFire configuration by resolving :burn-period from sunrise and sunset."
-        "Copyright © 2022 Spatial Informatics Group, LLC."]
-       (str/join "\n")))
-
-(defn main
-  [cli-args]
-  (println program-banner)
-  (let [{:keys [options summary errors]} (cli/parse-opts cli-args cli-options)]
-    (if (seq errors)
-      ;; Errors encountered during input parsing
-      (binding [*out* *err*]
-        (run! println errors)
-        (println (str "\nUsage:\n" summary))
-        (System/exit 1))
-      (transform-config-by! options transform-gridfire-config))
-
-    ;; Exit cleanly
-    (System/exit 0)))
-
 #_(test/run-tests)
-(main *command-line-args*)
-
-;; Example usage:
-; $ bb ./resources/burn_period_from_sunrise_sunset.clj --lat-deg 43.17 --lng-deg 5.6 --weather-start-timestamp--rfc3339 2022-07-19 --output-gf-config "./my-override.edn"
-;; Checkpoint: in my-override.edn, you'll see:
-; {... :weather-start-timestamp #inst "2022-07-19T00:00:00.000-00:00", :burn-period {:start "04:14", :end "19:14"} ...}
