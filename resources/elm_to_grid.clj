@@ -45,9 +45,9 @@
   default values [L H]."
   [s L+H]
   (let [[L H]    L+H
-        min-fuel (some-> (re-find #"\d+(?=:)" s)
+        min-fuel (some-> (re-find #"\d+(?=:)" s) ; NOTE: ?=: is zero-width positive lookahead, matching digits before a ':'.
                          (Long/parseLong 10))
-        max-fuel (some-> (re-find #"(?<=:)\d+" s)
+        max-fuel (some-> (re-find #"(?<=:)\d+" s) ; NOTE: ?<=: is negative lookbehind, matching digits after a ':'.
                          (Long/parseLong 10))]
     [(or min-fuel L) (or max-fuel H)]))
 
