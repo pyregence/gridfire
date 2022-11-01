@@ -41,7 +41,7 @@
 
 (defn extract-fuel-range
   "Given elmfire key parse lower and upper bound of fuel-number
-  values. If lower and/or upper bound is not specified us given
+  values. If lower and/or upper bound is not specified use the given
   default values [L H]."
   [s L+H]
   (let [[L H]    L+H
