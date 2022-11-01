@@ -9,6 +9,7 @@
          '[clojure.java.shell :refer [sh]]
          '[clojure.pprint     :refer [pprint]]
          '[clojure.string     :as str]
+         '[clojure.test       :as test]
          '[clojure.tools.cli  :refer [parse-opts]])
 
 ;;=============================================================================
@@ -114,6 +115,28 @@
                :source (build-file-path (str folder-name "/" file-name ".tif"))})
       (contains? layer-key->unit layer-key)       (assoc :units (get layer-key->unit layer-key))
       (contains? layer-key->multiplier layer-key) (assoc :multiplier (get layer-key->multiplier layer-key)))))
+
+(test/deftest resolve-layer-spec-test
+  (test/testing "single geotiff"
+    (test/is (= {:type :geotiff :source (tagged-literal 'gridfire.utils.files/from-this-file "./fuel_and_topography/asp.tif")}
+                (resolve-layer-spec {"USE_TILED_IO" false "ASP_FILENAME" "asp"}
+                                    "./fuel_and_topography"
+                                    "ASP_FILENAME"))))
+  (test/testing "grid of bsqs"
+    (test/is (= {:type :grid_of_rasters,
+                 :rasters_grid
+                 [[{:type :gridfire-envi-bsq :source (tagged-literal 'gridfire.utils.files/from-this-file "./fuel_and_topography/asp_1_3.bsq")}
+                   {:type :gridfire-envi-bsq :source (tagged-literal 'gridfire.utils.files/from-this-file "./fuel_and_topography/asp_2_3.bsq")}
+                   {:type :gridfire-envi-bsq :source (tagged-literal 'gridfire.utils.files/from-this-file "./fuel_and_topography/asp_3_3.bsq")}]
+                  [{:type :gridfire-envi-bsq :source (tagged-literal 'gridfire.utils.files/from-this-file "./fuel_and_topography/asp_1_2.bsq")}
+                   {:type :gridfire-envi-bsq :source (tagged-literal 'gridfire.utils.files/from-this-file "./fuel_and_topography/asp_2_2.bsq")}
+                   {:type :gridfire-envi-bsq :source (tagged-literal 'gridfire.utils.files/from-this-file "./fuel_and_topography/asp_3_2.bsq")}]
+                  [{:type :gridfire-envi-bsq :source (tagged-literal 'gridfire.utils.files/from-this-file "./fuel_and_topography/asp_1_1.bsq")}
+                   {:type :gridfire-envi-bsq :source (tagged-literal 'gridfire.utils.files/from-this-file "./fuel_and_topography/asp_2_1.bsq")}
+                   {:type :gridfire-envi-bsq :source (tagged-literal 'gridfire.utils.files/from-this-file "./fuel_and_topography/asp_3_1.bsq")}]]}
+                (resolve-layer-spec {"USE_TILED_IO" true "ASP_FILENAME" "asp"}
+                                    "./fuel_and_topography"
+                                    "ASP_FILENAME")))))
 
 ;;=============================================================================
 ;; LANDFIRE
@@ -671,4 +694,6 @@
     ;; Exit cleanly
     (System/exit 0)))
 
-(main *command-line-args*)
+(test/run-tests)
+
+;; (main *command-line-args*)
