@@ -374,15 +374,15 @@
                                                 (* bp-frac h-sunset))]
                             [(-> h-center (- bp-half-length))
                              (-> h-center (+ bp-half-length))]))]
-    {:start (format-fractional-hour h-start)
-     :end   (format-fractional-hour h-end)}))
+    {:burn-period-start (format-fractional-hour h-start)
+     :burn-period-end   (format-fractional-hour h-end)}))
 
 (test/deftest infer-burn-period-example
   (test/is
    (=
     ;; Almost correct, Météo France says 6:15 / 21:14.
-    {:start "04:15",
-     :end   "19:13"}
+    {:burn-period-start "04:15",
+     :burn-period-end   "19:13"}
     (infer-burn-period
      {:ignition-start-timestamp #inst"2022-07-19T16:54:09.073-00:00"
       ::lat-deg                43.17
@@ -391,8 +391,8 @@
 
   (test/is
    (=
-    {:start "08:14",
-     :end   "18:14"}
+    {:burn-period-start "08:14",
+     :burn-period-end   "18:14"}
     (infer-burn-period
      {:ignition-start-timestamp #inst"2022-07-19T16:54:09.073-00:00"
       ::lat-deg                43.17
