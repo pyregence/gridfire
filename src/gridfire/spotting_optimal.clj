@@ -260,15 +260,16 @@
 
 (defn resolve-fuel-varying-values
   "Returns the surface spotting probability, given:
-   - A vector of vectors where the first entry is a vector range of fuel models,
-     and the second entry is either a single probability or vector range of probabilities
+   - `fuel-range-percents-or-value` is either a scalar value or a  vector of
+     vectors where the first entry is a vector range of fuel models, and the second
+     entry is either a single probability or vector range of probabilities
      of those fuels spotting (e.g. `[[[10 20] 0.2]]` or `[[[10 20] [0.2 0.4]]]`)
-   - The fuel model number for the particular cell
+   - The `fuel-model-number` for the particular cell
    - A random number generator, which is used to generate the probability when
      a range of probabilities is given"
   ^double
-  [fuel-range-percents fuel-model-number rand-gen]
-  (if (vector? fuel-range-percents)
+  [fuel-range-percents-or-value fuel-model-number rand-gen]
+  (if (vector? fuel-range-percents-or-value)
     (reduce (fn [acc [fuel-range percent]]
               (if (in-range? fuel-range fuel-model-number)
                 (if (vector? percent)
@@ -276,8 +277,8 @@
                   percent)
                 acc))
             0.0
-            fuel-range-percents)
-    fuel-range-percents))
+            fuel-range-percents-or-value)
+    fuel-range-percents-or-value))
 
 (defn surface-fire-spot-fire?
   "Expects surface-fire-spotting config to be a sequence of tuples of
