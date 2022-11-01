@@ -802,6 +802,8 @@
       (when compute-directional-values?
         (t/mset! directional-flame-length-matrix i j (t/mget flame-length-matrix i j))))))
 
+(def ^:const ^:private minutes-per-24h 1440.0)
+
 ;; FIXME Update target spread rate on burn-vectors if new band > band
 (defn- run-loop
   [inputs matrices ignited-cells]
@@ -818,19 +820,23 @@
         burn-period-start                (parse-burn-period (:burn-period-start inputs))
         burn-period-end                  (let [bp-end (parse-burn-period (:burn-period-end inputs))]
                                            (if (< bp-end burn-period-start)
-                                             (+ bp-end 1440.0)
+                                             (+ bp-end minutes-per-24h)
                                              bp-end))
         burn-period-dt                   (- burn-period-end burn-period-start)
-        non-burn-period-dt               (- 1440.0 burn-period-dt)
+        non-burn-period-dt               (- minutes-per-24h burn-period-dt)
         burn-period-clock                (+ ignition-start-time
                                             (double
+                                             ;; This correction ensures that the ignition occurs at the start of the Burn Period.
                                              (cond
-
+                                               ;; If too early in the day:
+                                               ;; skipping ahead to the beginning of today's Burn Period
                                                (< ignition-start-time-min-into-day burn-period-start)
                                                (- burn-period-start ignition-start-time-min-into-day)
 
+                                               ;; If too late in the day:
+                                               ;; skipping ahead to the beginning of tomorrow's Burn Period
                                                (> ignition-start-time-min-into-day burn-period-end)
-                                               (+ (- 1440.0 ignition-start-time-min-into-day) burn-period-start)
+                                               (+ (- minutes-per-24h ignition-start-time-min-into-day) burn-period-start)
 
                                                :else
                                                (- burn-period-start ignition-start-time-min-into-day))))
