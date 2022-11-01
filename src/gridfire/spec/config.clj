@@ -6,13 +6,6 @@
             [gridfire.spec.suppression   :as suppression]))
 
 ;;=============================================================================
-;; Predicates
-;;=============================================================================
-
-(defn- long? [x]
-  (instance? Long x))
-
-;;=============================================================================
 ;; Required Keys
 ;;=============================================================================
 
@@ -153,8 +146,6 @@
 (s/def ::normalized-distance-variance ::common/number-or-range-map)
 (s/def ::crown-fire-spotting-percent  ::common/ratio-or-range)
 
-(s/def ::fuel-number->surface-spotting-percent-multiplier (s/map-of long? float?))
-
 (s/def ::valid-fuel-range             (fn [[lo hi]] (< 0 lo hi 205)))
 (s/def ::fuel-number-range            (s/and ::common/integer-range ::valid-fuel-range))
 (s/def ::fuel-percent-pair            (s/tuple ::fuel-number-range ::common/float-or-range))
@@ -164,8 +155,7 @@
 
 (s/def ::surface-fire-spotting
   (s/keys :req-un [::spotting-percent
-                   ::critical-fire-line-intensity]
-          :opt-un [::fuel-number->surface-spotting-percent-multiplier]))
+                   ::critical-fire-line-intensity]))
 
 (s/def ::spotting
   (s/keys :req-un [::num-firebrands
@@ -247,6 +237,9 @@
 ;;=============================================================================
 ;; Spread Rate Adjustment
 ;;=============================================================================
+
+(defn- long? [x]
+  (instance? Long x))
 
 (s/def ::fuel-number->spread-rate-adjustment
   (s/map-of long? double?))
