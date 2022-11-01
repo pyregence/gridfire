@@ -287,8 +287,6 @@
                     (intranges-mapping-for-config-key config "SOME_PARAM" [1 303] 1.0)))
         "should create fuel-number entries from minimal fuel number 1 up to end of specified max"))))
 
-
-
 ;;=============================================================================
 ;; File access functions
 ;;=============================================================================
