@@ -4059,7 +4059,29 @@ Here's an example of fetching LANDFIRE layers from a Postgresql database.
                                            :source "landfire.dem WHERE rid=100"}}}
 #+end_src
 
-Here's an example of fetching LANDFIRE layers from files on disk.
+Here's an example of fetching LANDFIRE layers from files on disk using
+relative paths to where the gridfire.edn resides.
+#+begin_src clojure
+{:landfire-layers {:aspect             {:type   :geotiff
+                                        :source #gridfire.utils.files/from-this-file "./asp.tif"}
+                   :canopy-base-height {:type   :geotiff
+                                        :source #gridfire.utils.files/fromj-this-file "./cbh.tif"}
+                   :canopy-cover       {:type   :geotiff
+                                        :source #gridfire.utils.files/fromj-this-file "./cc.tif"}
+                   :canopy-height      {:type   :geotiff
+                                        :source #gridfire.utils.files/fromj-this-file "./ch.tif"}
+                   :crown-bulk-density {:type   :geotiff
+                                        :source #gridfire.utils.files/fromj-this-file "./cbd.tif"}
+                   :elevation          {:type   :geotiff
+                                        :source #gridfire.utils.files/fromj-this-file "./dem.tif"}
+                   :fuel-model         {:type   :geotiff
+                                        :source #gridfire.utils.files/fromj-this-file "./fbfm40.tif"}
+                   :slope              {:type   :geotiff
+                                        :source #gridfire.utils.files/fromj-this-file "./slp.tif"}}}
+#+end_src
+
+Here's an example of fetching LANDFIRE layers from files on disk using
+full file paths.
 #+begin_src clojure
 {:landfire-layers {:aspect             {:type   :geotiff
                                         :source "test/gridfire/resources/asp.tif"}
