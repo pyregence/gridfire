@@ -24,15 +24,12 @@
           (let [config base-config
                 inputs (load-inputs! config)]
             (is (= {:ignition-start-timestamps ign-start-ts
-                    ;; Those weird >24 hours arise from the offset to UTC. (Val, 01 Nov 2022)
-                    ;; They make for straightforward arithmetics, but are not proper times-of-the-day.
-                    ;; Shall we fix them using #(-> % (mod 24))? FIXME REVIEW
-                    :burn-period-samples       [{:burn-period-start "15:23" :burn-period-end "25:07"}
-                                                {:burn-period-start "14:49" :burn-period-end "26:02"}
-                                                {:burn-period-start "13:58" :burn-period-end "26:34"}
-                                                {:burn-period-start "12:58" :burn-period-end "27:33"}
-                                                {:burn-period-start "14:06" :burn-period-end "25:56"}
-                                                {:burn-period-start "15:22" :burn-period-end "25:05"}]}
+                    :burn-period-samples       [{:burn-period-start "15:23" :burn-period-end "01:07"}
+                                                {:burn-period-start "14:49" :burn-period-end "02:02"}
+                                                {:burn-period-start "13:58" :burn-period-end "02:34"}
+                                                {:burn-period-start "12:58" :burn-period-end "03:33"}
+                                                {:burn-period-start "14:06" :burn-period-end "01:56"}
+                                                {:burn-period-start "15:22" :burn-period-end "01:05"}]}
                    (-> inputs
                        (select-keys [:ignition-start-timestamps
                                      :burn-period-samples]))))))
@@ -41,12 +38,12 @@
                               {:burn-period-length 10.0})
                 inputs (load-inputs! config)]
             (is (= {:ignition-start-timestamps ign-start-ts
-                    :burn-period-samples       [{:burn-period-start "16:13" :burn-period-end "26:13"}
-                                                {:burn-period-start "16:33" :burn-period-end "26:33"}
-                                                {:burn-period-start "16:32" :burn-period-end "26:32"}
-                                                {:burn-period-start "16:43" :burn-period-end "26:43"}
-                                                {:burn-period-start "16:12" :burn-period-end "26:12"}
-                                                {:burn-period-start "16:12" :burn-period-end "26:12"}]}
+                    :burn-period-samples       [{:burn-period-start "16:13" :burn-period-end "02:13"}
+                                                {:burn-period-start "16:33" :burn-period-end "02:33"}
+                                                {:burn-period-start "16:32" :burn-period-end "02:32"}
+                                                {:burn-period-start "16:43" :burn-period-end "02:43"}
+                                                {:burn-period-start "16:12" :burn-period-end "02:12"}
+                                                {:burn-period-start "16:12" :burn-period-end "02:12"}]}
                    (-> inputs
                        (select-keys [:ignition-start-timestamps
                                      :burn-period-samples]))))))))))

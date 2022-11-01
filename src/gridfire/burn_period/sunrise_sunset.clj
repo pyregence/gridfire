@@ -339,14 +339,15 @@
 (defn format-fractional-hour
   [^double h]
   (format "%02d:%02d"
-          (-> h (Math/floor) (long))
+          (-> h (Math/floor) (long) (mod 24))
           (-> h (rem 1.0) (* 60.0) (double) (Math/round) (long))))
 
 (test/deftest format-fractional-hour-examples
   (test/is (= "09:12" (format-fractional-hour 9.2)))
   (test/is (= "19:45" (format-fractional-hour 19.75)))
   (test/is (= "00:00" (format-fractional-hour 0.0)))
-  (test/is (= "23:59" (format-fractional-hour 23.99))))
+  (test/is (= "23:59" (format-fractional-hour 23.99)))
+  (test/is (= "02:30" (format-fractional-hour 26.5))))
 
 (defn infer-burn-period
   "Resolves the :burn-period map,
