@@ -95,10 +95,10 @@
   (mapv (fn [[d-paral d-perp]]
           (let [d-paral (double d-paral)
                 d-perp  (double d-perp)
-                H  (hypotenuse d-paral d-perp)
-                t1 wind-direction
-                t2 (convert/rad->deg (Math/atan (/ d-perp d-paral)))
-                t3 (+ t1 t2)]
+                H       (hypotenuse d-paral d-perp)
+                t1      wind-direction
+                t2      (convert/rad->deg (Math/atan (/ d-perp d-paral)))
+                t3      (+ t1 t2)]
             [(* H (Math/sin (convert/deg->rad t3)))
              (* -1 H (Math/cos (convert/deg->rad t3)))]))
         deltas))
@@ -258,7 +258,7 @@
   [[min max] fuel-model-number]
   (<= min fuel-model-number max))
 
-(defn surface-spot-percent
+(defn resolve-fuel-varying-values
   "Returns the surface spotting probability, given:
    - A vector of vectors where the first entry is a vector range of fuel models,
      and the second entry is either a single probability or vector range of probabilities
@@ -268,14 +268,16 @@
      a range of probabilities is given"
   ^double
   [fuel-range-percents fuel-model-number rand-gen]
-  (reduce (fn [acc [fuel-range percent]]
-            (if (in-range? fuel-range fuel-model-number)
-              (if (vector? percent)
-                (my-rand-range rand-gen (percent 0) (percent 1))
-                percent)
-              acc))
-          0.0
-          fuel-range-percents))
+  (if (vector? fuel-range-percents)
+    (reduce (fn [acc [fuel-range percent]]
+              (if (in-range? fuel-range fuel-model-number)
+                (if (vector? percent)
+                  (my-rand-range rand-gen (percent 0) (percent 1))
+                  percent)
+                acc))
+            0.0
+            fuel-range-percents)
+    fuel-range-percents))
 
 (defn surface-fire-spot-fire?
   "Expects surface-fire-spotting config to be a sequence of tuples of
@@ -285,14 +287,17 @@
   [[141 149] 1.0]
   [[150 256] 1.0]]"
   [inputs [i j] ^double fire-line-intensity]
-  (let [rand-gen              (:rand-gen inputs)
-        get-fuel-model        (:get-fuel-model inputs)
-        surface-fire-spotting (:surface-fire-spotting (:spotting inputs))]
+  (let [rand-gen                     (:rand-gen inputs)
+        get-fuel-model               (:get-fuel-model inputs)
+        fuel-model-number            (long (get-fuel-model i j))
+        surface-fire-spotting        (:surface-fire-spotting (:spotting inputs))
+        critical-fire-line-intensity (resolve-fuel-varying-values (:critical-fire-line-intensity surface-fire-spotting)
+                                                                  fuel-model-number rand-gen)]
     (when (and surface-fire-spotting
-               (> fire-line-intensity ^double (:critical-fire-line-intensity surface-fire-spotting)))
-      (let [fuel-range-percents (:spotting-percent surface-fire-spotting)
-            fuel-model-number   (long (get-fuel-model i j))
-            spot-percent        (surface-spot-percent fuel-range-percents fuel-model-number rand-gen)]
+               (> fire-line-intensity critical-fire-line-intensity))
+      (let [spot-percent (resolve-fuel-varying-values (:spotting-percent surface-fire-spotting)
+                                                      fuel-model-number
+                                                      rand-gen)]
         (>= spot-percent (my-rand-range rand-gen 0.0 1.0))))))
 
 (defn crown-spot-fire?
