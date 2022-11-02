@@ -3,13 +3,14 @@
 ;; FIXME: document babashka (bb) and gdalsrsinfo as installation dependencies for running this script
 ;; FIXME: use babashka's pod protocol to integrate this script with gridfire.server
 
-(require '[clojure.data.csv   :as csv]
-         '[clojure.edn        :as edn]
+(require '[clojure.edn        :as edn]
          '[clojure.java.io    :as io]
          '[clojure.java.shell :refer [sh]]
          '[clojure.pprint     :refer [pprint]]
          '[clojure.string     :as str]
-         '[clojure.tools.cli  :refer [parse-opts]])
+         '[clojure.test       :as test]
+         '[clojure.tools.cli  :refer [parse-opts]]
+         '[clojure.data.csv   :as csv])
 
 ;;=============================================================================
 ;; Units conversion functions
@@ -32,6 +33,259 @@
   ^double
   [^double kW-m]
   (* kW-m 0.28887942532730604))
+
+
+;;=============================================================================
+;; Intrange Parsing
+;;=============================================================================
+
+(defn extract-fuel-range
+  "Given elmfire key parse lower and upper bound of fuel-number
+  values. If lower and/or upper bound is not specified use the given
+  default values [L H]."
+  [s L+H]
+  (let [[L H]    L+H
+        min-fuel (some-> (re-find #"\d+(?=:)" s) ; NOTE: ?=: is zero-width positive lookahead, matching digits before a ':'.
+                         (Long/parseLong 10))
+        max-fuel (some-> (re-find #"(?<=:)\d+" s) ; NOTE: ?<=: is negative lookbehind, matching digits after a ':'.
+                         (Long/parseLong 10))]
+    [(or min-fuel L) (or max-fuel H)]))
+
+(test/deftest extract-fuel-range-test
+  (test/are [min-val max-val s L H] (= [min-val max-val]
+                                       (extract-fuel-range s [L H]))
+    1   303 "CRITICAL_SPOTTING_FIRELINE_INTENSITY(:)"    1 303
+    110 303 "CRITICAL_SPOTTING_FIRELINE_INTENSITY(110:)" 1 303
+    1   110 "CRITICAL_SPOTTING_FIRELINE_INTENSITY(:110)" 1 303))
+
+(defn- intrange?
+  [v]
+  (and (vector? v)
+       (= 2 (count v))
+       (let [[l h] v]
+         (and (integer? l)
+              (integer? h)
+              (<= l h)))))
+
+(defn- simplify-intranges
+  "Simplifies a sequence of consecutive non-overlapping integer ranges,
+  merging them where they touch."
+  [irs]
+  (when-not (empty? irs)
+    (loop [ir0  (first irs)
+           ir1+ (rest irs)]
+      (if (empty? ir1+)
+        [ir0]
+        (let [[ir1 & ir2+] ir1+
+              [l0 h0]      ir0
+              [l1 h1]      ir1
+              touch?       (= h0 (dec l1))]
+          (assert (< h0 l1) "the ranges must be consecutive and non-overlapping.")
+          (if touch?
+            (recur [l0 h1]
+                   ir2+)
+            (lazy-cat [ir0]
+                      (simplify-intranges ir1+))))))))
+
+(defn- intrange-intersection
+  [ir1 ir2]
+  {:pre [(intrange? ir1)
+         (intrange? ir2)]}
+  (let [[l1 h1] ir1
+        [l2 h2] ir2
+        l3      (max (long l1) (long l2))
+        h3      (min (long h1) (long h2))]
+    (if (> l3 h3)
+      nil
+      [l3 h3])))
+
+(defn- intranges-mapping?
+  [m]
+  (and (seqable? m)
+       (->> m (every? (fn intranges-entry? [e]
+                        (and (vector? e)
+                             (= 2 (count e))
+                             (let [[l+h _v] e]
+                               (intrange? l+h))))))))
+
+(defn- simplify-intranges-mapping
+  [l+h->v]
+  {:pre [(intranges-mapping? l+h->v)]}
+  (->> l+h->v
+       ;; Simplification:
+       ;; 1) Grouping consecutive intranges which map to the same value:
+       (sort-by (fn lower-bound [[[l _h] _v]] l))
+       (partition-by (fn mapping-value [[_ir v]] v))
+       ;; 2) Merging them where they touch:
+       (mapcat (fn simplify-consecutive-intranges-with-same-value [ir+vs]
+                 (let [[_ir0 the-value] (first ir+vs)
+                       irs              (map first ir+vs)]
+                   (->> irs
+                        (simplify-intranges)
+                        (mapv (fn to-mapping-entry [ir]
+                                [ir the-value]))))))
+       (into {})))
+
+(defn- combine-intranges-mappings
+  "Given intranges-mappings m1 and m2, and a 2-arg function f,
+  creates an intranges-mapping over the integers supporting both m1 and m2:
+  for each integer i, if m1 maps i to v1 and m2 maps i to v2,
+  then the returned mapping maps i to (f v1 v2)."
+  [m1 m2 f]
+  {:pre [(intranges-mapping? m1)
+         (intranges-mapping? m2)]}
+  (->> (for [[k1 v1] m1
+             [k2 v2] m2
+             :let    [inter (intrange-intersection k1 k2)]
+             :when   (some? inter)]
+         [inter (f v1 v2)])
+       (simplify-intranges-mapping)))
+
+(test/deftest combine-intranges-mapping-test
+  (test/is (= {[1 3] 9
+               [4 5] 10
+               [7 7] 20
+               [8 9] 19}
+              (combine-intranges-mappings {[1 5 ] 10
+                                           [7 12] 20}
+                                          {[1 3] 1
+                                           [4 7] 0
+                                           [8 9] 1}
+                                          -))))
+
+(defn- complete-intranges-mapping
+  "Completes a mapping of integer ranges so that gaps are filled by mapping to default-value.
+  Optionally, lower and upper bounds can be supplied to also complete left and right tails."
+  ([l+h->v default-value]
+   {:pre [(intranges-mapping? l+h->v)]}
+   (if (= (count l+h->v) 1)
+     l+h->v
+     (->> l+h->v
+          (sort-by (fn lower-bound [[[l _h] _v]] l))
+          (partition 2 1)
+          (mapcat (fn [[e1 e2]]
+                    (let [[_l1 h1] (first e1)
+                          [l2 _h2] (first e2)
+                          touch?   (= h1 (dec l2))]
+                      (if touch?
+                        [e1
+                         e2]
+                        (let [gap [(inc h1) (dec l2)]]
+                          [e1
+                           [gap default-value]
+                           e2])))))
+          (dedupe)
+          (into {}))))
+  ([l+h->v l+h default-value]
+   {:pre [(intranges-mapping? l+h->v)
+          (intrange? l+h)]}
+   (if (empty? l+h->v)
+     {l+h default-value}
+     (let [[l h] l+h
+           lmin  (->> l+h->v
+                      (map first)
+                      (map (fn lower-bound [[l _h]] l))
+                      (apply min))
+           hmax  (->> l+h->v
+                      (map first)
+                      (map (fn upper-bound [[_l h]] h))
+                      (apply max))]
+       (-> l+h->v
+           (cond-> (< l lmin) (conj [[l l] default-value])
+                   (> h hmax) (conj [[h h] default-value]))
+           (complete-intranges-mapping default-value)
+           (simplify-intranges-mapping))))))
+
+(test/deftest complete-intranges-mapping-test
+  (test/testing "nominal case"
+    (test/is (= {[0 1]  1.0
+                 [2 4]  0.5
+                 [5 5]  1.0
+                 [6 8]  1.5
+                 [9 10] 1.0}
+                (complete-intranges-mapping {[2 4] 0.5
+                                             [6 8] 1.5}
+                                            [0 10]
+                                            1.0))))
+
+  (test/testing "edge cases"
+    (test/testing "complete map with single entry"
+      (test/is (= {[1 303] 1.0}
+                  (complete-intranges-mapping {[1 303] 1.0} 1.0)))
+
+      (test/is (= {[1 303] 1.0}
+                  (complete-intranges-mapping {} [1 303] 1.0)))
+
+      (test/is (= {}
+                  (complete-intranges-mapping {} 1.0))))))
+
+(defn- intranges-mapping-for-config-key
+  [elmfire-config ef-key-prefix L+H default-val]
+  (let [incomplete-intrange->v (some->> (filterv (fn by-key [[k _]] (str/starts-with? k ef-key-prefix)) elmfire-config)
+                                        (seq)
+                                        (mapv (fn parse-key [[k v]] [(extract-fuel-range k L+H) v]))
+                                        (mapcat (fn [[k v]]
+                                                  (let [[l h] k]
+                                                    (if (vector? v)
+                                                      (mapv (fn [l v] [[l l] v])
+                                                            (range l (inc h))
+                                                            v)
+                                                      (mapv (fn [l] [[l l] v])
+                                                            (range l (inc h))))))))]
+    (if incomplete-intrange->v
+      (complete-intranges-mapping incomplete-intrange->v L+H default-val)
+      nil)))
+
+(test/deftest intranges-mapping-for-config-key-test
+  (test/testing "value is a scalar"
+    (test/testing "multiple lines"
+      (let [config {"SOME_PARAM(0:256)" 1200.0
+                    "SOME_PARAM(257:)"  100.0}]
+        (test/is (= {[0 256]   1200.0
+                     [257 303] 100.0}
+                    (intranges-mapping-for-config-key config "SOME_PARAM" [1 303] 1.0))))))
+
+  (test/testing "value is a vector"
+    (test/testing "single line"
+      (let [config {"SOME_PARAM(2:8)" [5.0 5.0 6.0 6.0 7.0 7.0 8.0 8.0]}]
+        (test/is (= {[1 1]  1.0
+                     [2 3]  5.0
+                     [4 5]  6.0
+                     [6 7]  7.0
+                     [8 8]  8.0
+                     [9 10] 1.0}
+                    (intranges-mapping-for-config-key config "SOME_PARAM" [1 10] 1.0)))))
+
+    (test/testing "multiple lines"
+      (let [config {"SOME_PARAM(2:4)" [2.0 3.0 4.0]
+                    "SOME_PARAM(7:8)" [5.0 6.0]}]
+        (test/is (= {[1 1]  1.0
+                     [2 2]  2.0
+                     [3 3]  3.0
+                     [4 4]  4.0
+                     [5 6]  1.0
+                     [7 7]  5.0
+                     [8 8]  6.0
+                     [9 10] 1.0}
+                    (intranges-mapping-for-config-key config "SOME_PARAM" [1 10] 1.0)))))
+
+    (test/testing "unbounded max fuel number"
+      (let [config {"SOME_PARAM(301:)" [4.0 5.0 6.0]}]
+        (test/is (= {[1 300]   1.0
+                     [301 301] 4.0
+                     [302 302] 5.0
+                     [303 303] 6.0}
+                    (intranges-mapping-for-config-key config "SOME_PARAM" [1 303] 1.0)))
+        "should create intrange entries from specified min up to max fuel number 303"))
+
+    (test/testing "unbounded min fuel number"
+      (let [config {"SOME_PARAM(:3)" [1.0 2.0 3.0]}]
+        (test/is (= {[1 1]   1.0
+                     [2 2]   2.0
+                     [3 3]   3.0
+                     [4 303] 1.0}
+                    (intranges-mapping-for-config-key config "SOME_PARAM" [1 303] 1.0)))
+        "should create fuel-number entries from minimal fuel number 1 up to end of specified max"))))
 
 ;;=============================================================================
 ;; File access functions
@@ -244,40 +498,12 @@
 ;; Spotting
 ;;=============================================================================
 
-(defn extract-fuel-range [s]
-  (->> s
-       (re-find #"(\d+):(\d+)")
-       (rest)
-       (mapv #(Integer/parseInt %))))
-
-;; FIXME: Is this logic (and return format) right?
-(defn extract-surface-spotting-percents
-  [data]
-  (if-let [SURFACE_FIRE_SPOTTING_PERCENT (get data "SURFACE_FIRE_SPOTTING_PERCENT(:)")]
-    [[[1 204] SURFACE_FIRE_SPOTTING_PERCENT]]
-    (transduce (filter #(str/includes? % "SURFACE_FIRE_SPOTTING_PERCENT"))
-               (completing (fn [acc k] (conj acc (extract-fuel-range k) (get data k))))
-               []
-               (keys data))))
-
-;; FIXME: Is this logic (and return format) right?
-(defn extract-global-surface-spotting-percents
-  [{:strs
-    [^double GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN
-     ^double GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MAX
-     ^double GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT
-     ENABLE_SPOTTING] :as data}]
-  (if (or GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN)
-    (if ENABLE_SPOTTING
-      [[[1 204] [(* 0.01 GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN) (* 0.01 GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MAX)]]]
-      [[[1 204] (* 0.01 GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT)]])
-    (extract-surface-spotting-percents data)))
-
 ;; FIXME: Is this logic (and return format) right?
 (defn extract-num-firebrands
   [{:strs [NEMBERS NEMBERS_MIN NEMBERS_MIN_LO NEMBERS_MIN_HI NEMBERS_MAX
-           NEMBERS_MAX_LO NEMBERS_MAX_HI ENABLE_SPOTTING]}]
-  (if ENABLE_SPOTTING
+           NEMBERS_MAX_LO NEMBERS_MAX_HI]}]
+  (if (and (or NEMBERS_MIN NEMBERS_MIN_LO)
+           (or NEMBERS_MAX NEMBERS_MAX_LO))
     {:lo (cond
            (and NEMBERS_MIN_LO (= NEMBERS_MIN_LO NEMBERS_MIN_HI)) NEMBERS_MIN_LO
            NEMBERS_MIN_LO                                         [NEMBERS_MIN_LO NEMBERS_MIN_HI]
@@ -291,9 +517,8 @@
 (defn extract-crown-fire-spotting-percent
   [{:strs [^double CROWN_FIRE_SPOTTING_PERCENT_MIN
            ^double CROWN_FIRE_SPOTTING_PERCENT_MAX
-           ^double CROWN_FIRE_SPOTTING_PERCENT
-           ENABLE_SPOTTING]}]
-  (if ENABLE_SPOTTING
+           ^double CROWN_FIRE_SPOTTING_PERCENT]}]
+  (if (and CROWN_FIRE_SPOTTING_PERCENT_MIN CROWN_FIRE_SPOTTING_PERCENT_MAX)
     [(* 0.01 CROWN_FIRE_SPOTTING_PERCENT_MIN) (* 0.01 CROWN_FIRE_SPOTTING_PERCENT_MAX)]
     (* 0.01 CROWN_FIRE_SPOTTING_PERCENT)))
 
@@ -323,6 +548,39 @@
       {:lo MEAN_SPOTTING_DIST_MIN
        :hi MEAN_SPOTTING_DIST_MAX}))
 
+(defn- multiply-spotting-pct
+  [spotting-pct multiplier]
+  (cond
+    (number? spotting-pct) (* spotting-pct multiplier)
+    (vector? spotting-pct) (let [[p0 p1] spotting-pct]
+                             [(* p0 multiplier)
+                              (* p1 multiplier)])))
+
+(defn- apply-spotting-multipliers
+  [output-edn l+h->multiplier]
+  (update-in output-edn
+             [:spotting :surface-fire-spotting :spotting-percent]
+             (fn [l+h->spotting-pct]
+               (-> (combine-intranges-mappings l+h->spotting-pct
+                                               (-> l+h->multiplier
+                                                   (complete-intranges-mapping [1 303] 1.0))
+                                               multiply-spotting-pct)
+                   (vec)))))
+
+(defn extract-global-surface-spotting-percents
+  [{:strs
+    [^double GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN
+     ^double GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MAX
+     ^double GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT] :as elmfire-config}]
+  (cond
+    (and GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MAX)
+    [[[1 303] [(* 0.01 GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN) (* 0.01 GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MAX)]]]
+
+    GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT
+    [[[1 303] (* 0.01 GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT)]]
+
+    :else (intranges-mapping-for-config-key elmfire-config "SURFACE_FIRE_SPOTTING_PERCENT(" [1 303] 0.0)))
+
 (defn process-spotting
   [output-edn {:keys [elmfire-config] :as _options}]
   (let [{:strs [ENABLE_SPOTTING ENABLE_SURFACE_FIRE_SPOTTING CRITICAL_SPOTTING_FIRELINE_INTENSITY]} elmfire-config]
@@ -338,9 +596,12 @@
               :decay-constant               0.005})
 
       (and ENABLE_SPOTTING ENABLE_SURFACE_FIRE_SPOTTING)
-      (assoc-in [:spotting :surface-fire-spotting]
-                {:spotting-percent             (extract-global-surface-spotting-percents elmfire-config)
-                 :critical-fire-line-intensity (kW-m->Btu-ft-s CRITICAL_SPOTTING_FIRELINE_INTENSITY)}))))
+      (-> (assoc-in [:spotting :surface-fire-spotting]
+                    {:spotting-percent             (extract-global-surface-spotting-percents elmfire-config)
+                     :critical-fire-line-intensity (or (some-> CRITICAL_SPOTTING_FIRELINE_INTENSITY kW-m->Btu-ft-s)
+                                                       (intranges-mapping-for-config-key elmfire-config "CRITICAL_SPOTTING_FIRELINE_INTENSITY(" [1 303] 0.0)
+                                                       0.0)})
+          (apply-spotting-multipliers (intranges-mapping-for-config-key elmfire-config "SURFACE_FIRE_SPOTTING_PERCENT_MULT" [1 303] 1.0))))))
 
 ;;=============================================================================
 ;; Fuel moisture layers
@@ -571,12 +832,21 @@
           char-count (count s-trimmed)]
       (cond
         (re-matches #"^-?[0-9]\d*\.(\d+)?$" s-trimmed) (Double/parseDouble s-trimmed)
-        (re-matches #"^-?\d+$" s-trimmed)              (Integer/parseInt s-trimmed)
+        (re-matches #"^-?\d+$" s-trimmed)              (Long/parseLong s-trimmed 10)
         (re-matches #".TRUE." s-trimmed)               true
         (re-matches #".FALSE." s-trimmed)              false
         (re-matches #"'[0-9a-zA-Z_.//]*'" s-trimmed)   (subs s-trimmed 1 (dec char-count))
         (str/includes? s-trimmed "proj")               (get-srid (subs s-trimmed 1 (dec char-count)))
+        (str/includes? s-trimmed ",")                  (mapv (fn [x] (Double/parseDouble x)) (str/split s-trimmed #","))
         :else                                          nil))))
+
+(test/deftest convert-val-test
+  (test/testing "value is comma seperated values"
+    (let [to-convert "1., 1., 1.,"]
+      (test/is (= [1.0 1.0 1.0] (convert-val to-convert) )))
+
+    (let [to-convert "1.0, 1.0, 1.0,"]
+      (test/is (= [1.0 1.0 1.0] (convert-val to-convert))))))
 
 (defn parse-elmfire-config [{:keys [elmfire-config] :as options}]
   (let [content (slurp elmfire-config)]
@@ -659,5 +929,7 @@
 
     ;; Exit cleanly
     (System/exit 0)))
+
+;; (test/run-tests)
 
 (main *command-line-args*)
