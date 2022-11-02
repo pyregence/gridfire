@@ -258,27 +258,37 @@
   [[min max] fuel-model-number]
   (<= min fuel-model-number max))
 
-(defn resolve-fuel-varying-values
-  "Returns the surface spotting probability, given:
-   - `fuel-range-percents-or-value` is either a scalar value or a  vector of
-     vectors where the first entry is a vector range of fuel models, and the second
-     entry is either a single probability or vector range of probabilities
-     of those fuels spotting (e.g. `[[[10 20] 0.2]]` or `[[[10 20] [0.2 0.4]]]`)
-   - The `fuel-model-number` for the particular cell
-   - A random number generator, which is used to generate the probability when
-     a range of probabilities is given"
-  ^double
-  [fuel-range-percents-or-value fuel-model-number rand-gen]
-  (if (vector? fuel-range-percents-or-value)
-    (reduce (fn [acc [fuel-range percent]]
-              (if (in-range? fuel-range fuel-model-number)
-                (if (vector? percent)
-                  (my-rand-range rand-gen (percent 0) (percent 1))
-                  percent)
-                acc))
-            0.0
-            fuel-range-percents-or-value)
-    fuel-range-percents-or-value))
+(defn- intranges-mapping-lookup
+  "Looks up a value in a mapping from fuel number to anything,
+  encoded as either a single value v (constant mapping),
+  or as a vector of [[min-fuel-number max-fuel-number] v] pairs,
+  such as:
+  [[[1 140]   0.0]
+   [[141 149] 1.0]
+   [[150 256] 1.0]]"
+  [intranges-mapping fuel-model-number]
+  (if (vector? intranges-mapping)
+    ;; IMPROVEMENT for performance, we could do a non-sequential lookup, (Val, 02 Nov 2022)
+    ;; e.g. a dichotomic search,
+    ;; or even better just (aget) an array into which we have indexed the decompressed mapping.
+    (loop [irm-entries intranges-mapping]
+      (if (empty? irm-entries)
+        nil
+        (let [[fuel-range v] (first irm-entries)]
+          (if (in-range? fuel-range fuel-model-number)
+            v
+            (recur (rest irm-entries))))))
+    intranges-mapping))
+
+(defn- sample-from-uniform
+  "Draws a random number from a Uniform Distribution,
+  encoded as either a single number (no randomness, a.k.a. Constant Distribution)
+  or a [min max] range."
+  [values-range rand-gen]
+  (cond
+    (number? values-range) values-range
+    (vector? values-range) (let [[min max] values-range]
+                             (my-rand-range rand-gen min max))))
 
 (defn surface-fire-spot-fire?
   "Expects surface-fire-spotting config to be a sequence of tuples of
@@ -292,13 +302,16 @@
         get-fuel-model               (:get-fuel-model inputs)
         fuel-model-number            (long (get-fuel-model i j))
         surface-fire-spotting        (:surface-fire-spotting (:spotting inputs))
-        critical-fire-line-intensity (resolve-fuel-varying-values (:critical-fire-line-intensity surface-fire-spotting)
-                                                                  fuel-model-number rand-gen)]
+        critical-fire-line-intensity (-> (:critical-fire-line-intensity surface-fire-spotting)
+                                         (intranges-mapping-lookup fuel-model-number)
+                                         (or 0.0)
+                                         (sample-from-uniform rand-gen))]
     (when (and surface-fire-spotting
                (> fire-line-intensity critical-fire-line-intensity))
-      (let [spot-percent (resolve-fuel-varying-values (:spotting-percent surface-fire-spotting)
-                                                      fuel-model-number
-                                                      rand-gen)]
+      (let [spot-percent (-> (:spotting-percent surface-fire-spotting)
+                             (intranges-mapping-lookup fuel-model-number)
+                             (or 0.0)
+                             (sample-from-uniform rand-gen))]
         (>= spot-percent (my-rand-range rand-gen 0.0 1.0))))))
 
 (defn crown-spot-fire?
