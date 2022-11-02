@@ -3,7 +3,8 @@
             [clojure.string           :as str]
             [gridfire.core            :as core]
             [gridfire.magellan-bridge :refer [register-custom-projections!]]
-            [gridfire.postgis-bridge  :refer [db-pool-cache close-db-pool]]))
+            [gridfire.postgis-bridge  :refer [db-pool-cache close-db-pool]])
+  (:import (java.io File)))
 
 ;;-----------------------------------------------------------------------------
 ;; Config
@@ -26,8 +27,9 @@
   (.mkdir (io/file dirname)))
 
 (defn delete-directory [dirname]
-  (doseq [file (reverse (file-seq (io/file dirname)))]
-    (io/delete-file file)))
+  (doseq [^File file (reverse (file-seq (io/file dirname)))]
+    (when (.exists file)
+      (io/delete-file file))))
 
 (defn run-gridfire! [config]
   (some-> config
