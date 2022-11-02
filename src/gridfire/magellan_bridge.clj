@@ -53,8 +53,7 @@
    post-processed raster values as a Clojure tensor using the dtype-next/tech.v3.tensor API
    along with all of the georeferencing information associated with this tile in a
    hash-map with the following form:
-  {:srid 900916,
-   :upperleftx -321043.875,
+  {:upperleftx -321043.875,
    :upperlefty -1917341.5,
    :width 486,
    :height 534,
@@ -67,12 +66,10 @@
   [file-path & [datatype convert-fn]]
   (let [raster   (read-raster file-path)
         grid     ^GridGeometry2D (:grid raster)
-        r-info   (inspect/describe-raster raster)
-        image    (:image r-info)
-        envelope (:envelope r-info)
+        image    (inspect/describe-image (:image raster))
+        envelope (inspect/describe-envelope (:envelope raster))
         crs2d    ^AffineTransform2D (.getGridToCRS2D grid)]
-    {:srid       (:srid r-info)
-     :upperleftx (get-in envelope [:x :min])
+    {:upperleftx (get-in envelope [:x :min])
      :upperlefty (get-in envelope [:y :max])
      :width      (:width image)
      :height     (:height image)
