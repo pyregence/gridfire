@@ -211,8 +211,7 @@
      foliar-moisture
      wind-speed-20ft
      canopy-base-height
-     crown-bulk-density
-     suppression-difficulty-index] :as params}]
+     crown-bulk-density] :as params}]
   (deep-merge base-config
               {:params           params
                :landfire-layers  {:fuel-model   (->tif fuel-model)
@@ -226,9 +225,7 @@
               (when-not (some #(= :zero-raster %) [canopy-cover canopy-base-height crown-bulk-density])
                 {:landfire-layers {:canopy-base-height (->tif canopy-base-height)
                                    :canopy-height      (->ch canopy-base-height)
-                                   :crown-bulk-density (->tif crown-bulk-density)}})
-              (when suppression-difficulty-index
-                {:suppression {:sdi-layer (->tif suppression-difficulty-index)}})))
+                                   :crown-bulk-density (->tif crown-bulk-density)}})))
 
 (defn- gen-scenarios [scenario-type scenarios]
   (deep-flatten
@@ -240,8 +237,7 @@
            foliar-moisture              (:foliar-moisture scenarios)
            wind-speed-20ft              (:wind-speed-20ft scenarios)
            canopy-base-height           (:canopy-base-height scenarios)
-           crown-bulk-density           (:crown-bulk-density scenarios)
-           suppression-difficulty-index (or (:suppression-difficulty-index scenarios) [:zero-raster])]
+           crown-bulk-density           (:crown-bulk-density scenarios)]
        (gen-scenario {:scenario-type                scenario-type
                       :fuel-model                   fuel-model
                       :canopy-base-height           canopy-base-height
@@ -251,8 +247,7 @@
                       :fuel-moisture                fuel-moisture
                       :foliar-moisture              foliar-moisture
                       :slope                        slope
-                      :wind-speed-20ft              wind-speed-20ft
-                      :suppression-difficulty-index suppression-difficulty-index})))))
+                      :wind-speed-20ft              wind-speed-20ft})))))
 
 ;;; Tests
 
@@ -266,7 +261,10 @@
 
 (deftest ^:surface test-surface-scenarios
   (let [test-file (str "test-surface-"(now)".csv")]
-    (results->csv test-file (pmap run-sim! (gen-scenarios :surface surface-scenarios)))))
+    (->> (gen-scenarios :surface surface-scenarios)
+         ;(take 1) ; Uncomment me to run only 1 simulation.
+         (pmap run-sim!)
+         (results->csv test-file))))
 
 (deftest ^:crowning test-crowning-scenarios
   (let [test-file (str "test-crowning-"(now)".csv")]
@@ -288,7 +286,7 @@
   (run-sim! (-> (first (gen-scenarios :suppression-curve suppression-curve-scenarios))
                 (assoc :output-layers {:directional-flame-length 72
                                        :flame-length             :final})
-                (assoc :suppression {:suppression-dt          300
+                (assoc :suppression {:suppression-dt          300.0
                                      :suppression-coefficient 2.0})
                 (assoc :weather-start-timestamp #inst "1970-01-01T00-00:00"))))
 
@@ -297,11 +295,18 @@
                 (assoc :output-layers {:directional-flame-length 72
                                        :flame-length             :final})
                 (update-in [:suppression]
-                           #(merge % {:suppression-dt                                300
+                           #(merge % {:suppression-dt                                300.0
+                                      :sdi-layer                                     (->tif :zero-raster)
                                       :sdi-sensitivity-to-difficulty                 2.0
                                       :sdi-containment-overwhelming-area-growth-rate 50000
                                       :sdi-reference-suppression-speed               800}))
                 (assoc :weather-start-timestamp #inst "1970-01-01T00-00:00"))))
 
 (comment
+  ;; TIP: this is how you run only a subset of test cases. (Val, 03 Nov 2022)
+  (clojure.test/test-vars [#'test-surface-spotting-scenarios
+                           #'test-crown-spotting-scenarios
+                           #'test-suppression-scenario
+                           #'test-suppression-sdi-scenario])
+
   (run-tests 'gridfire.canonical-test))
