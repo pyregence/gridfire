@@ -46,8 +46,9 @@
        (< j cols)))
 
 (defn burnable-fuel-model?
+  ;; NOTE: the motivation for accepting a double-typed argument
+  ;; is that (get-value-fn) return doubles.
   [^double fm-number]
-  ;; REVIEW: Why are we getting a ^double and not a ^long here? (Val, 27 Oct 2022)
   (f-opt/is-burnable-fuel-model-number? fm-number))
 
 ;; FIXME: This logic doesn't look right.
