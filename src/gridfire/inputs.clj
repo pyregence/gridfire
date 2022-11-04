@@ -267,8 +267,8 @@
   [{:keys
     [^long num-rows ^long num-cols ignition-row ignition-col simulations ^double cell-size random-ignition
      rand-gen ignition-matrix ignition-csv config-file-path ignition-mask-matrix
-     fuel-model-matrix] :as inputs}]
-  (if (or ignition-matrix ignition-csv)
+     fuel-model-matrix ignition-rows] :as inputs}]
+  (if (or ignition-matrix ignition-csv ignition-rows)
     inputs
     (let [ignitable-cell?   (if ignition-mask-matrix
                               (fn [row col]
