@@ -305,7 +305,7 @@
                         "ws_2018.bsq"}}))))
 
 (deftest ^:bsq-test-suite example-bsq-load-like-the-geotiffs-test
-  (testing "We parse our BSQ rasters equivalently to the corresponding GeoTiffs."
+  (testing "We parse our BSQ rasters equivalently to the corresponding GeoTIFFs."
     (->> (get-test-bsq-files)
          (pmap
           (fn [bsq-file]
@@ -325,7 +325,7 @@
               (testing "We return {:srid nil}, but do provide an Envelope2D at :envelope."
                 (is (nil? (:srid bsq-map)))
                 (is (instance? Envelope2D (:envelope bsq-map)))
-                (testing "This Envelope2D can then be supplied to Magellan to save the data as GeoTiff."
+                (testing "This Envelope2D can then be supplied to Magellan to save the data as GeoTIFF."
                   (let [tensor   (:matrix bsq-map)
                         matrix2D (t/mget tensor 0)]
                     (is (some? (matrix-to-raster (-> bsq-file (io/file) (file-name))

@@ -22,7 +22,7 @@
 ;; GDAL then GeoTools would add a lot of overhead.
 ;; And at the time of writing, we use BSQ precisely because we want high
 ;; inputs-loading performance. And indeed, this is much faster than
-;; loading equivalent GeoTiffs.
+;; loading equivalent GeoTIFFs.
 
 (defn- slurp-array
   ^bytes [in]
@@ -76,8 +76,8 @@
                                (fn unwrap-cs-string [cstr]
                                  (-> (re-matches #"\{(.*)\}" cstr)
                                      (nth 1)))]]
-               :let [[k propname coerce-fn] prop-to-parse]
-               :when (str/starts-with? l propname)]
+               :let          [[k propname coerce-fn] prop-to-parse]
+               :when         (str/starts-with? l propname)]
            (let [lrest    (subs l (count propname))
                  [_ vstr] (or (re-matches #"\s*=\s*([^\s](.*[^\s])?)\s*" lrest)
                               (throw (ex-info (format "Failed to parse .hdr property %s" (pr-str propname))
@@ -97,8 +97,8 @@
 
 (defn- fetch-hdr-data
   [bsq-file]
-  (let [hdr-file    (find-hdr-file bsq-file)
-        hdr-txt     (slurp hdr-file)]
+  (let [hdr-file (find-hdr-file bsq-file)
+        hdr-txt  (slurp hdr-file)]
     (parse-hdr-txt hdr-txt)))
 
 (defn- parse-WKT-into-CRS
