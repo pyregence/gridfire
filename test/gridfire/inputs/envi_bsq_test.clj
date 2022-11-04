@@ -350,6 +350,3 @@
                   (is (dfn/equals bsq-tensor tif-tensor)
                       "Same numeric values."))))))
          (doall))))
-
-
-
