@@ -148,9 +148,10 @@
 
 (s/def ::valid-fuel-range             (fn [[lo hi]] (< 0 lo hi 205)))
 (s/def ::fuel-number-range            (s/and ::common/integer-range ::valid-fuel-range))
-(s/def ::fuel-percent-pair            (s/tuple ::fuel-number-range ::common/float-or-range))
-(s/def ::spotting-percent             (s/coll-of ::fuel-percent-pair :kind vector?))
-(s/def ::critical-fire-line-intensity number?)
+(s/def ::fuel-range+number            (s/tuple ::fuel-number-range ::common/float-or-range))
+(s/def ::spotting-percent             (s/coll-of ::fuel-range+number :kind vector?))
+(s/def ::critical-fire-line-intensity (s/or :number            number?
+                                            :fuel-percent-pair (s/coll-of ::fuel-range+number :kind vector?)))
 
 (s/def ::surface-fire-spotting
   (s/keys :req-un [::spotting-percent
@@ -237,7 +238,7 @@
 ;; Spread Rate Adjustment
 ;;=============================================================================
 
-(defn long? [x]
+(defn- long? [x]
   (instance? Long x))
 
 (s/def ::fuel-number->spread-rate-adjustment
