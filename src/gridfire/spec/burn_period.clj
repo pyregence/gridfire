@@ -1,5 +1,6 @@
 (ns gridfire.spec.burn-period
-  (:require [clojure.spec.alpha :as s]))
+  (:require [clojure.spec.alpha :as s]
+            [gridfire.common :as common]))
 
 (def burn-period-regex #"^([01]\d|2[0-3]):?([0-5]\d)$")
 
@@ -11,6 +12,10 @@
 
 (s/def ::burn-period
   (s/keys :req-un [::start ::end]))
+
+(s/def ::burn-period-frac ::common/ratio)
+
+(s/def ::burn-period-length float?)
 
 ;; Test
 #_(s/explain ::burn-period {:start "08:00"

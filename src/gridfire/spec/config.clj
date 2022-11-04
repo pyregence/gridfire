@@ -237,9 +237,10 @@
 ;;=============================================================================
 
 (s/def ::burn-period-required-keys
-  (fn [{:keys [burn-period weather-start-timestamp]}]
-    (or (nil? burn-period)
-        weather-start-timestamp)))
+  (fn [{:keys [burn-period burn-period-frac burn-period-length weather-start-timestamp]}]
+    (or (every? nil? [burn-period burn-period-frac burn-period-length])
+        (and burn-period weather-start-timestamp)
+        (and burn-period-frac burn-period-length weather-start-timestamp))))
 
 ;;=============================================================================
 ;; Timestamps
@@ -281,6 +282,8 @@
              ::landfire-layers]
     :opt-un [::max-runtime
              ::burn-period/burn-period
+             ::burn-period/burn-period-frac
+             ::burn-period/burn-period-length
              ::simulations
              ::random-seed
              ::crowning-disabled?

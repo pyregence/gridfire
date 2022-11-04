@@ -4631,8 +4631,16 @@ value pair at the top level of the config file:
 ** Section 11: Burn period
 
 Gridfire allows you to specify a burn period in the day that fires are
-allowed to burn. By default it is set to burn from "00:00" to "24:00".
-To specify a different period, you must include a few keys at the top
+allowed to burn. The burn period can be specified in two ways:
+
+1. Explicitly setting the start and end clock
+
+2. Infer the start and end clock computing the approximate sunrise and sunset times
+   using the geospatial data in the input landfire layer.
+
+By default the burn-period is set from "00:00" to "24:00".
+
+To explicitly set a burn period period, you must include a few keys at the top
 level of the config file.
 
 1. *:burn-period* :: map with the following keys:
@@ -4650,9 +4658,25 @@ level of the config file.
  :ignition-start-timestamp  #inst "2022-07-12T09:05:00.000-00:00"}
 #+end_src
 
-The pre-processing script at `resources/burn_period_from_sunrise_sunset.clj`
-may be used to transform GridFire configuration files so that the `:burn-period`
-is resolved from (approximate) sunrise and sunset hours.
+To infer the burn period using the sunrise and sunset of the input
+data, you must include a few keys at the top level of the config file.
+
+1. *:burn-period-frac* :: A number from 0.0 to 1.0, positioning the
+   center of the burn period in the interval between sunrise and
+   sunset
+
+2. *:burn-period-length* :: Length of the burn period, in hours
+
+3. *:weather-start-timestamp* :: inst (timezone aware)
+
+4. *:ignition-start-timestamp* :: inst (timezone aware)
+
+#+begin_src clojure
+{:burn-period-frac          0.6
+ :burn-period-duration      10.0
+ :weather-start-timestamp   #inst "2022-07-12T09:00:00.000+00:00"
+ :ignition-start-timestamp  #inst "2022-07-12T09:05:00.000-00:00"}
+#+end_src
 
 ** Section 12: Suppression
 
