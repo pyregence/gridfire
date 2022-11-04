@@ -117,6 +117,11 @@
 
 (deftest ^:bsq-test-suite bsq-metadata-examples-test
   (testing "Examples of .hdr files."
+    ;; NOTE this test case does little to guarantee correctness:
+    ;; instead, it's more of a documentation test case,
+    ;; with the added benefit of enforcing that our expectations
+    ;; about what the HDR files contain are preserved
+    ;; as the codebase evolves.
     (is (= (->> (get-test-bsq-files)
                 (filter #(contains? small-example-filenames (file-name %)))
                 (pmap (fn [bsq-file]
