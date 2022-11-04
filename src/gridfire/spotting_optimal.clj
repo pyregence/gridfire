@@ -272,12 +272,10 @@
     ;; e.g. a dichotomic search,
     ;; or even better just (aget) an array into which we have indexed the decompressed mapping.
     (loop [irm-entries intranges-mapping]
-      (if (empty? irm-entries)
-        nil
-        (let [[fuel-range v] (first irm-entries)]
-          (if (in-range? fuel-range fuel-model-number)
-            v
-            (recur (rest irm-entries))))))
+      (when-let [[fuel-range v] (first irm-entries)]
+        (if (in-range? fuel-range fuel-model-number)
+          v
+          (recur (rest irm-entries)))))
     intranges-mapping))
 
 (defn- sample-from-uniform
