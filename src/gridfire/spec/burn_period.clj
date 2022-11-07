@@ -1,6 +1,6 @@
 (ns gridfire.spec.burn-period
   (:require [clojure.spec.alpha :as s]
-            [gridfire.common :as common]))
+            [gridfire.common    :as common]))
 
 (def burn-period-regex #"^([01]\d|2[0-3]):?([0-5]\d)$")
 
