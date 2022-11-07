@@ -99,8 +99,8 @@
 
 (defn- build-grid-of-rasters
   [folder-name file-name]
-  {:type         :grid_of_rasters
-   :rasters_grid (compute-grid2d [3 3]
+  {:type         :grid-of-rasters
+   :rasters-grid (compute-grid2d [3 3]
                                  (fn [^long grid-i ^long grid-j]
                                    (let [elm-x (inc grid-j)
                                          elm-y (inc (- 2 grid-i))]
@@ -123,8 +123,8 @@
                                     "./fuel_and_topography"
                                     "ASP_FILENAME"))))
   (test/testing "grid of bsqs"
-    (test/is (= {:type :grid_of_rasters,
-                 :rasters_grid
+    (test/is (= {:type :grid-of-rasters,
+                 :rasters-grid
                  [[{:type :gridfire-envi-bsq :source (tagged-literal 'gridfire.utils.files/from-this-file "./fuel_and_topography/asp_1_3.bsq")}
                    {:type :gridfire-envi-bsq :source (tagged-literal 'gridfire.utils.files/from-this-file "./fuel_and_topography/asp_2_3.bsq")}
                    {:type :gridfire-envi-bsq :source (tagged-literal 'gridfire.utils.files/from-this-file "./fuel_and_topography/asp_3_3.bsq")}]
