@@ -31,10 +31,10 @@
                        ;; the y coordinates must be increasing with the file's y number.
                        (reverse)
                        (mapv vec))]
-    (for [xj (range (count x-windows))
-          :let [[xmin xmax+1] (nth x-windows xj)]
-          yi (range (count y-windows))
-          :let [[ymin ymax+1] (nth y-windows yi)]
+    (for [xj             (range (count x-windows))
+          :let           [[xmin xmax+1] (nth x-windows xj)]
+          yi             (range (count y-windows))
+          :let           [[ymin ymax+1] (nth y-windows yi)]
           [fext gt-opts] [["bsq" ["-of" "ENVI" "-co" "INTERLEAVE=BSQ"]]
                           ["tif" nil]]]
       (->> (concat ["gdal_translate"]
@@ -52,7 +52,9 @@
                                    (let [xj   grid-j
                                          yi   (- (dec 3) grid-i)
                                          fext (nth ["tif" "bsq"] (-> (+ yi xj) (mod 2)))]
-                                     {:type   (case fext "tif" :geotiff "bsq" :gridfire-envi-bsq)
+                                     {:type   (case fext
+                                                "tif" :geotiff
+                                                "bsq" :gridfire-envi-bsq)
                                       :source (example-subraster-file-path fname xj yi fext)})))})
 
 (deftest example-file-names-test

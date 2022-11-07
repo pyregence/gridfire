@@ -203,6 +203,7 @@
             ;; NOTE I'm not entirely sure that aggregating with the min and max is always correct, (Val, 24 Oct 2022)
             ;; but it is at least consistent with the current implementation of
             ;; gridfire.magellan-bridge/geotiff-raster-to-tensor, which uses the x-min and y-max of the envelope.
+            ;; Kenneth Cheung confirmed that it is correct. (Val, 07 Nov 2022)
             :upperleftx (->> fetched-rasters-grid
                              (map first)
                              (map :upperleftx)
