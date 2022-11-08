@@ -107,6 +107,10 @@
     (when (> new-value old-value)
       (t/mset! matrix i j new-value))))
 
+(defn- lookup-spread-rate-adjustment
+  [fuel-number->spread-rate-adjustment-array-lookup fuel-model]
+  (aget fuel-number->spread-rate-adjustment-array-lookup fuel-model))
+
 (defn- compute-max-in-situ-values!
   [inputs matrices band i j]
   (let [compute-directional-values?                      (:compute-directional-values? inputs)
@@ -127,9 +131,10 @@
         get-fuel-moisture-live-herbaceous                (:get-fuel-moisture-live-herbaceous inputs)
         get-fuel-moisture-live-woody                     (:get-fuel-moisture-live-woody inputs)
         get-foliar-moisture                              (:get-foliar-moisture inputs)
+        ellipse-adjustment-factor                        (:ellipse-adjustment-factor inputs)
+        fuel-number->spread-rate-adjustment-array-lookup (:fuel-number->spread-rate-adjustment-array-lookup inputs)
         crowning-disabled?                               (:crowning-disabled? inputs)
         ellipse-adjustment-factor                        (:ellipse-adjustment-factor inputs)
-        fuel-number->spread-rate-adjustment-array-lookup nil
         grass-suppression?                               (:grass-suppression? inputs)
         max-spread-rate-matrix                           (:max-spread-rate-matrix matrices)
         max-spread-direction-matrix                      (:max-spread-direction-matrix matrices)
@@ -182,12 +187,15 @@
                                                              (wind-adjustment-factor ^double (:fuel-bed-depth surface-fire-min)
                                                                                      canopy-height
                                                                                      canopy-cover)))
+        spread-rate-adjustment                           (some-> fuel-number->spread-rate-adjustment-array-lookup
+                                                                 (lookup-spread-rate-adjustment fuel-model))
         surface-fire-max                                 (rothermel-surface-fire-spread-max surface-fire-min
                                                                                             midflame-wind-speed
                                                                                             wind-from-direction
                                                                                             slope
                                                                                             aspect
-                                                                                            ellipse-adjustment-factor)
+                                                                                            ellipse-adjustment-factor
+                                                                                            spread-rate-adjustment)
         max-spread-rate                                  (:max-spread-rate surface-fire-max)
         max-spread-direction                             (:max-spread-direction surface-fire-max)
         eccentricity                                     (:eccentricity surface-fire-max)
@@ -254,19 +262,6 @@
         (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i+ j-)
         (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i+ j)
         (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i+ j+))))
-
-(defn- calc-new-spread-rate!
-  [inputs matrices modified-time-matrix max-spread-rate-matrix
-   max-spread-direction-matrix eccentricity-matrix band direction i j]
-  (when (> ^long band (dec ^long (t/mget modified-time-matrix i j)))
-    (compute-max-in-situ-values! inputs matrices band i j))
-  (let [max-spread-rate      (t/mget max-spread-rate-matrix i j)
-        max-spread-direction (t/mget max-spread-direction-matrix i j)
-        eccentricity         (t/mget eccentricity-matrix i j)]
-    (compute-spread-rate max-spread-rate
-                         max-spread-direction
-                         eccentricity
-                         direction)))
 
 (defn make-burn-vector-constructor
   [num-rows num-cols burn-probability max-spread-rate-matrix
@@ -671,7 +666,10 @@
                           max-spread-rate         (double (t/mget max-spread-rate-matrix new-i new-j))
                           max-spread-direction    (double (t/mget max-spread-direction-matrix new-i new-j))
                           eccentricity            (double (t/mget eccentricity-matrix new-i new-j))
-                          new-spread-rate         (compute-spread-rate max-spread-rate max-spread-direction eccentricity direction)
+                          new-spread-rate         (compute-spread-rate max-spread-rate
+                                                                       max-spread-direction
+                                                                       eccentricity
+                                                                       direction)
                           ;; TODO move case form to functions
                           new-terrain-distance    (double (compute-terrain-distance cell-size get-elevation num-rows num-cols new-i new-j
                                                                                     (case direction
@@ -751,7 +749,10 @@
                     max-spread-rate      (double (t/mget max-spread-rate-matrix i j))
                     max-spread-direction (double (t/mget max-spread-direction-matrix i j))
                     eccentricity         (double (t/mget eccentricity-matrix i j))
-                    new-spread-rate      (compute-spread-rate max-spread-rate max-spread-direction eccentricity direction)]
+                    new-spread-rate      (compute-spread-rate max-spread-rate
+                                                              max-spread-direction
+                                                              eccentricity
+                                                              direction)]
                 (assoc burn-vector :spread-rate new-spread-rate))))
           burn-vectors)))
 
@@ -785,7 +786,10 @@
               max-spread-rate      (t/mget max-spread-rate-matrix i j)
               max-spread-direction (t/mget max-spread-direction-matrix i j)
               eccentricity         (t/mget eccentricity-matrix i j)
-              spread-rate          (compute-spread-rate max-spread-rate max-spread-direction eccentricity direction)
+              spread-rate          (compute-spread-rate max-spread-rate
+                                                        max-spread-direction
+                                                        eccentricity
+                                                        direction)
               residence-time       (t/mget residence-time-matrix i j)
               reaction-intensity   (t/mget reaction-intensity-matrix i j)
               fire-line-intensity  (->> (anderson-flame-depth spread-rate residence-time)
@@ -838,13 +842,12 @@
         non-burn-period-clock            (+ burn-period-clock burn-period-dt)
         ignition-start-time              (max ignition-start-time burn-period-clock)
         band                             (min->hour ignition-start-time)
-        suppression                      (:suppression inputs)
-        suppression-dt                   (double (or (:suppression-dt suppression) Double/NaN))]
+        suppression-dt                   (double (or (:suppression-dt inputs) Double/NaN))]
     (initialize-fire-in-situ-values! inputs matrices band ignited-cells)
     (loop [global-clock                         ignition-start-time
            band                                 band
            non-burn-period-clock                non-burn-period-clock
-           suppression-clock                    (double (if suppression (+ ignition-start-time suppression-dt) max-runtime))
+           suppression-clock                    (double (if suppression-dt (+ ignition-start-time suppression-dt) max-runtime))
            burn-vectors                         (ignited-cells->burn-vectors inputs matrices ignited-cells [])
            spot-ignitions                       {}
            spot-count                           0
@@ -855,9 +858,9 @@
       (if (and (< global-clock ignition-stop-time)
                (or (seq burn-vectors) (seq spot-ignitions)))
         (let [dt-until-max-runtime               (- ignition-stop-time global-clock)
-              ^double dt-until-suppression-clock (when suppression (- suppression-clock global-clock))]
+              ^double dt-until-suppression-clock (when suppression-dt (- suppression-clock global-clock))]
           (cond
-            (and suppression (= global-clock suppression-clock))
+            (and suppression-dt (= global-clock suppression-clock))
             (let [max-runtime-fraction (/ (- global-clock ignition-start-time) max-runtime)
                   [bvs-to-process-next
                    total-cells-suppressed
@@ -885,7 +888,7 @@
             (let [timestep  (double (min non-burn-period-dt dt-until-max-runtime))
                   new-clock (+ global-clock timestep)
                   new-band  (min->hour new-clock)]
-              (if (and suppression (<= suppression-clock new-clock))
+              (if (and suppression-dt (<= suppression-clock new-clock))
                 (let [suppression-clocks     (iterate #(+ (double %) suppression-dt) suppression-clock)
                       last-suppression-clock (double (last (take-while #(<= (double %) new-clock) suppression-clocks)))
                       [bvs-to-process-next
@@ -1080,8 +1083,11 @@
   |---------------------------------------------------+--------------------+-----------------------------------------------------------|
   | :fuel-number->spread-rate-adjustment-array-lookup | array of doubles   | unitless                                                  |
   |---------------------------------------------------+--------------------+-----------------------------------------------------------|
-  | :suppression                                      | map                | :suppression-dt -> double                                 |
-  |                                                   |                    | :suppression-coefficient -> double                        | ; TODO add sdi suppression params
+  | :suppression-dt                                   | double             | minutes                                                   |
+  | :suppression-coefficient                          | double             | none                                                      |
+  | :sdi-containment-overwhelming-area-growth-rate    | double             | Acres/day                                                 |
+  | :sdi-reference-suppression-speed                  | double             | percent/day                                               |
+  | :sdi-sensitivity-to-difficulty                    | double             | none                                                      |
   |---------------------------------------------------+--------------------+-----------------------------------------------------------|"
   (fn [inputs]
     (if (vector? (:initial-ignition-site inputs))

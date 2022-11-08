@@ -336,3 +336,60 @@
     (-> inputs
         (assoc :ignition-start-timestamps ignition-start-timestamps)
         (dissoc :ignition-start-timestamp))))
+
+(defn add-suppression
+  [{:keys
+    [rand-gen simulations suppression suppression-dt-samples suppression-coefficient-samples
+     sdi-sensitivity-to-difficulty-samples sdi-containment-overwhelming-area-growth-rate-samples
+     sdi-reference-suppression-speed-samples] :as inputs}]
+  (if suppression
+    (let [{:keys
+           [suppression-dt
+            suppression-coefficient
+            sdi-sensitivity-to-difficulty
+            sdi-containment-overwhelming-area-growth-rate
+            sdi-reference-suppression-speed]} suppression]
+      (cond-> inputs
+
+        (and suppression-dt
+             (nil? suppression-dt-samples))
+        (assoc :suppression-dt-samples
+               (draw-samples rand-gen simulations suppression-dt))
+
+        (and suppression-coefficient
+             (nil? suppression-coefficient-samples))
+        (assoc :suppression-coefficient-samples
+               (draw-samples rand-gen simulations suppression-coefficient))
+
+        (and sdi-sensitivity-to-difficulty
+             (nil? sdi-sensitivity-to-difficulty-samples))
+        (assoc :sdi-sensitivity-to-difficulty-samples
+               (draw-samples rand-gen simulations sdi-sensitivity-to-difficulty))
+
+        (and sdi-containment-overwhelming-area-growth-rate
+             (nil? sdi-containment-overwhelming-area-growth-rate-samples))
+        (assoc :sdi-containment-overwhelming-area-growth-rate-samples
+               (draw-samples rand-gen simulations sdi-containment-overwhelming-area-growth-rate))
+
+        (and sdi-reference-suppression-speed
+             (nil? sdi-reference-suppression-speed-samples))
+        (assoc :sdi-reference-suppression-speed-samples
+               (draw-samples rand-gen simulations sdi-reference-suppression-speed))))
+    inputs))
+
+(defn- convert-map->array-lookup
+  [lookup-map]
+  (let [indices      (keys lookup-map)
+        size         (inc (long (apply max indices)))
+        array-lookup (double-array size)]
+    (doseq [index indices]
+      (aset array-lookup index (get lookup-map index)))
+    array-lookup))
+
+(defn add-fuel-number->spread-rate-adjustment-array-lookup-samples
+  [{:keys [fuel-number->spread-rate-adjustment-samples] :as inputs}]
+  (if fuel-number->spread-rate-adjustment-samples
+    (assoc inputs
+           :fuel-number->spread-rate-adjustment-array-lookup-samples
+           (mapv convert-map->array-lookup fuel-number->spread-rate-adjustment-samples))
+    inputs))
