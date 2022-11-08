@@ -241,12 +241,36 @@
                   (str "-index-multiplier")
                   keyword)))
 
+(defn- tensor-cell-getter
+  "Returns a function roughly similar to (partial t/mget m),
+  but is more tolerant of both m (may be a number)
+  the subsequently passed indices (the band index will be ignored
+  if m is 2D.)"
+  [m]
+  ;; NOTE due to how Clojure's call graph works,
+  ;; there is no point in calling the returned fn
+  ;; with primitive args.
+  (if (number? m)
+    (fn get0d
+      ([_i _j] m)
+      ([_b _i _j] m))
+    (case (count (d/shape m))
+      2 (fn get2d
+          ([i j] (t/mget m i j))
+          ;; This case is important, because some input tensors (Val, 03 Nov 2022)
+          ;; like moisture will be provided sometimes in 2d, sometimes in 3d.
+          ([_b i j] (t/mget m i j)))
+      3 (fn get3d
+          ([i j] (t/mget m 0 i j))
+          ([b i j] (t/mget m b i j))))))
+
 (defn- get-value-fn
   [{:keys [perturbations] :as inputs} rand-gen layer-name i]
   (when-let [matrix-or-num (matrix-or-i inputs layer-name i)]
     (let [index-multiplier             (get-index-multiplier inputs layer-name)
           {:keys [spatial-type range]} (get perturbations layer-name)
-          [range-min range-max]        range]
+          [range-min range-max]        range
+          lookup-cell                  (tensor-cell-getter matrix-or-num)]
       (cond
         (and (number? matrix-or-num) (nil? (get perturbations layer-name)))
         (fn
@@ -260,16 +284,16 @@
               (^double [^long i ^long j]
                (let [row (long (* i index-multiplier))
                      col (long (* j index-multiplier))]
-                 (t/mget matrix-or-num row col)))
+                 (lookup-cell row col)))
               (^double [^long b ^long i ^long j]
                (let [row (long (* i index-multiplier))
                      col (long (* j index-multiplier))]
-                 (t/mget matrix-or-num b row col)))))
+                 (lookup-cell b row col)))))
           (fn
             (^double [i j]
-             (t/mget matrix-or-num i j))
+             (lookup-cell i j))
             (^double [b i j]
-             (t/mget matrix-or-num b i j))))
+             (lookup-cell b i j))))
 
         (and (number? matrix-or-num) (= spatial-type :pixel))
         (let [band-cache            (atom 0)
@@ -315,7 +339,7 @@
                  (let [row (long (* i index-multiplier))
                        col (long (* j index-multiplier))]
                    (or (get @perturbed-value-cache [row col])
-                       (let [new-value (max 0.0 (+ ^double (t/mget matrix-or-num row col)
+                       (let [new-value (max 0.0 (+ ^double (lookup-cell row col)
                                                    (my-rand-range rand-gen range-min range-max)))]
                          (swap! perturbed-value-cache assoc [row col] new-value)
                          new-value))))
@@ -326,14 +350,14 @@
                  (let [row (long (* i index-multiplier))
                        col (long (* j index-multiplier))]
                    (or (get @perturbed-value-cache [row col])
-                       (let [new-value (max 0.0 (+ ^double (t/mget matrix-or-num b row col)
+                       (let [new-value (max 0.0 (+ ^double (lookup-cell b row col)
                                                    (my-rand-range rand-gen range-min range-max)))]
                          (swap! perturbed-value-cache assoc [row col] new-value)
                          new-value))))))
             (fn
               (^double [i j]
                (or (get @perturbed-value-cache [i j])
-                   (let [new-value (max 0.0 (+ ^double (t/mget matrix-or-num i j)
+                   (let [new-value (max 0.0 (+ ^double (lookup-cell i j)
                                                (my-rand-range rand-gen range-min range-max)))]
                      (swap! perturbed-value-cache assoc [i j] new-value)
                      new-value)))
@@ -342,7 +366,7 @@
                  (reset! band-cache b)
                  (reset! perturbed-value-cache {}))
                (or (get @perturbed-value-cache [i j])
-                   (let [new-value (max 0.0 (+ ^double (t/mget matrix-or-num b i j)
+                   (let [new-value (max 0.0 (+ ^double (lookup-cell b i j)
                                                (my-rand-range rand-gen range-min range-max)))]
                      (swap! perturbed-value-cache assoc [i j] new-value)
                      new-value))))))
@@ -357,7 +381,7 @@
                        col            (long (* j index-multiplier))
                        ^double offset (or @offset-cache
                                           (reset! offset-cache (my-rand-range rand-gen range-min range-max)))]
-                   (max 0.0 (+ ^double (t/mget matrix-or-num row col) offset))))
+                   (max 0.0 (+ ^double (lookup-cell row col) offset))))
                 (^double [^long b ^long i ^long j]
                  (let [row            (long (* i index-multiplier))
                        col            (long (* j index-multiplier))
@@ -365,18 +389,18 @@
                                           (let [new-offset (my-rand-range rand-gen range-min range-max)]
                                             (reset! offset-cache {b new-offset})
                                             new-offset))]
-                   (max 0.0 (+ ^double (t/mget matrix-or-num b row col) offset))))))
+                   (max 0.0 (+ ^double (lookup-cell b row col) offset))))))
             (fn
               (^double [i j]
                (let [^double offset (or @offset-cache
                                         (reset! offset-cache (my-rand-range rand-gen range-min range-max)))]
-                 (max 0.0 (+ ^double (t/mget matrix-or-num i j) offset))))
+                 (max 0.0 (+ ^double (lookup-cell i j) offset))))
               (^double [b i j]
                (let [^double offset (or (get @offset-cache b)
                                         (let [new-offset (my-rand-range rand-gen range-min range-max)]
                                           (reset! offset-cache {b new-offset})
                                           new-offset))]
-                 (max 0.0 (+ ^double (t/mget matrix-or-num b i j) offset)))))))))))
+                 (max 0.0 (+ ^double (lookup-cell b i j) offset)))))))))))
 
 (defrecord SimulationInputs
     [^long num-rows
