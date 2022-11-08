@@ -492,18 +492,21 @@ custom fuel models desired by the user.
 
 #+name: fuel-model-definitions
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj :padline no :no-expand :comments link
-(ns gridfire.fuel-models)
+(ns gridfire.fuel-models-optimal)
+
+(set! *unchecked-math* :warn-on-boxed)
 
 (def fuel-models
   "Lookup table including one entry for each of the Anderson 13 and
    Scott & Burgan 40 fuel models. The fields have the following
    meanings:
-   {number
+   {fuel-model-number
     [name delta M_x-dead h
      [w_o-dead-1hr w_o-dead-10hr w_o-dead-100hr w_o-live-herbaceous w_o-live-woody]
      [sigma-dead-1hr sigma-dead-10hr sigma-dead-100hr sigma-live-herbaceous sigma-live-woody]]
    }"
   {
+   ;; Anderson 13:
    ;; Grass and Grass-dominated (short-grass,timber-grass-and-understory,tall-grass)
    1   [:R01 1.0 12 8 [0.0340 0.0000 0.0000 0.0000 0.0000] [3500.0   0.0  0.0    0.0    0.0]]
    2   [:R02 1.0 15 8 [0.0920 0.0460 0.0230 0.0230 0.0000] [3000.0 109.0 30.0 1500.0    0.0]]
@@ -527,6 +530,7 @@ custom fuel models desired by the user.
    93  [:NB3 0.0  0 0 [0.0000 0.0000 0.0000 0.0000 0.0000] [   0.0   0.0  0.0    0.0    0.0]]
    98  [:NB4 0.0  0 0 [0.0000 0.0000 0.0000 0.0000 0.0000] [   0.0   0.0  0.0    0.0    0.0]]
    99  [:NB5 0.0  0 0 [0.0000 0.0000 0.0000 0.0000 0.0000] [   0.0   0.0  0.0    0.0    0.0]]
+   ;; Scott & Burgan 40:
    ;; Grass (GR)
    101 [:GR1 0.4 15 8 [0.0046 0.0000 0.0000 0.0138 0.0000] [2200.0 109.0 30.0 2000.0    0.0]]
    102 [:GR2 1.0 15 8 [0.0046 0.0000 0.0000 0.0459 0.0000] [2000.0 109.0 30.0 1800.0    0.0]]
@@ -574,6 +578,126 @@ custom fuel models desired by the user.
    203 [:SB3 1.2 25 8 [0.2525 0.1263 0.1377 0.0000 0.0000] [2000.0 109.0 30.0    0.0    0.0]]
    204 [:SB4 2.7 25 8 [0.2410 0.1607 0.2410 0.0000 0.0000] [2000.0 109.0 30.0    0.0    0.0]]
    })
+
+(def WUI-model-number->original
+  "Some variants of the above fuel models,
+  with a different fuel model number to distinguish them as
+  belonging to the Wildland Urban Interface (WUI).
+
+  Each of these WUI fuel models has the same physical characteristics
+  as one of the fuel models in the above table,
+  but having a different model number enables a different behavior
+  for other aspects, such as spread-rate adjustment or spotting.
+
+  This table provides the mapping from variant model number -> original model number.
+  Notice how the difference of model numbers is usually 100 or 110."
+  {;; Grass (GR)
+   211 101
+   212 102
+   213 103
+   214 104
+   215 105
+   216 106
+   217 107
+   218 108
+   ;; Grass-Shrub (GS)
+   221 121
+   222 122
+   223 123
+   224 124
+   ;; Shrub (SH)
+   241 141
+   242 142
+   243 143
+   244 144
+   245 145
+   246 146
+   247 147
+   248 148
+   249 149
+   ;; Timber-Understory (TU)
+   261 161
+   262 162
+   263 163
+   265 165
+   ;; Timber Litter (TL)
+   281 181
+   282 182
+   283 183
+   284 184
+   285 185
+   286 186
+   287 187
+   288 188
+   289 189
+   ;; Slash-Blowdown (SB)
+   301 201
+   302 202
+   303 203})
+
+(defrecord FuelModel
+    [name
+     ^long number
+     ^double delta
+     M_x
+     w_o
+     sigma
+     h
+     rho_p
+     S_T
+     S_e
+     M_f
+     f_ij
+     f_i
+     g_ij])
+
+(defn is-dynamic-fuel-model-number?
+  [^long fuel-model-number]
+  (> fuel-model-number 100))
+
+(defn compute-fuel-model
+  [^long fuel-model-number]
+  (let [[name delta M_x-dead h
+         [w_o-dead-1hr w_o-dead-10hr w_o-dead-100hr
+          w_o-live-herbaceous w_o-live-woody]
+         [sigma-dead-1hr sigma-dead-10hr sigma-dead-100hr
+          sigma-live-herbaceous sigma-live-woody]]
+        (fuel-models fuel-model-number)
+        M_x-dead   (* ^long M_x-dead 0.01)
+        h          (* ^long h 1000.0)
+        fuel-model {:name   name
+                    :number fuel-model-number
+                    :delta  delta
+                    :M_x    [M_x-dead M_x-dead M_x-dead 0.0 0.0 0.0]
+                    :w_o    [w_o-dead-1hr w_o-dead-10hr w_o-dead-100hr 0.0 w_o-live-herbaceous w_o-live-woody]
+                    :sigma  [sigma-dead-1hr sigma-dead-10hr sigma-dead-100hr 0.0 sigma-live-herbaceous sigma-live-woody]
+                    :h      [h h h h h h]
+                    :rho_p  [32.0 32.0 32.0 32.0 32.0 32.0]
+                    :S_T    [0.0555 0.0555 0.0555 0.0555 0.0555 0.0555]
+                    :S_e    [0.01 0.01 0.01 0.01 0.01 0.01]}]
+    (if (and (is-dynamic-fuel-model-number? fuel-model-number)
+             (pos? ^double w_o-live-herbaceous))
+      ;; Set dead-herbaceous values
+      (-> fuel-model
+          (assoc-in [:M_x   3] M_x-dead)
+          (assoc-in [:sigma 3] sigma-live-herbaceous))
+      ;; No dead-herbaceous values
+      fuel-model)))
+
+(defn- add-synonym-models
+  [variant->original-model-number number->model-data]
+  (reduce-kv (fn [ret v-num o-num]
+               (assoc ret v-num (or (get number->model-data o-num)
+                                    (throw (ex-info (format "Cannot find synonym fuel model number: %s" (pr-str o-num))
+                                                    {::variant-fuel-model-number  v-num
+                                                     ::original-fuel-model-number o-num})))))
+             number->model-data
+             variant->original-model-number))
+
+(def fuel-models-precomputed (->> fuel-models
+                                  (keys)
+                                  (into {} (map #(vector % (map->FuelModel (compute-fuel-model %)))))
+                                  (add-synonym-models WUI-model-number->original)))
 #+end_src
 
 Once fuel moisture is added to the base fuel model definitions, they

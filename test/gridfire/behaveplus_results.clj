@@ -4,7 +4,14 @@
 (defn within [a b epsilon]
   (<= (Math/abs ^double (- a b)) epsilon))
 
-(def sb40-fuel-models (filterv #(> % 100) (sort (keys fuel-models))))
+(defn is-sb40-fuel-model-number?
+  [^long fm-number]
+  (and (> fm-number 100)
+       ;; NOTE This check is redundant... at the time of writing. (Val, 27 Oct 2022)
+       ;; I don't trust that it will always be so.
+       (<= fm-number 204)))
+
+(def sb40-fuel-models (filterv is-sb40-fuel-model-number? (sort (keys fuel-models))))
 
 (def test-fuel-moisture
   {:dry {:dead {:1hr 0.04 :10hr 0.04 :100hr 0.06}
