@@ -377,7 +377,7 @@
         size         (inc (long (apply max indices)))
         array-lookup (double-array size)]
     (doseq [index indices]
-      (aset array-lookup index (get lookup-map index)))
+      (aset array-lookup (int index) (double (get lookup-map index))))
     array-lookup))
 
 (defn add-fuel-number->spread-rate-adjustment-array-lookup-samples

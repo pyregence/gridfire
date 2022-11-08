@@ -109,7 +109,7 @@
 
 (defn- lookup-spread-rate-adjustment
   ^double [fuel-number->spread-rate-adjustment-array-lookup fuel-model]
-  (aget fuel-number->spread-rate-adjustment-array-lookup fuel-model))
+  (aget (doubles fuel-number->spread-rate-adjustment-array-lookup) fuel-model))
 
 (defn- compute-max-in-situ-values!
   [inputs matrices band i j]

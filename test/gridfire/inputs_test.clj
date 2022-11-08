@@ -82,7 +82,7 @@
 
 (defn- one-dimensional-double-array? [x]
   (= (Class/forName "[D")
-     (.getClass x)))
+     (class x)))
 
 (deftest add-spread-rate-adjustment-factors-test
   (let [inputs       (-> *base-config*
@@ -93,4 +93,4 @@
 
     (is (one-dimensional-double-array? (first (:fuel-number->spread-rate-adjustment-array-lookup-samples inputs-after))))
 
-    (is (= 0.1 (aget (first (:fuel-number->spread-rate-adjustment-array-lookup-samples inputs-after)) 101)))))
+    (is (= 0.1 (aget (doubles (first (:fuel-number->spread-rate-adjustment-array-lookup-samples inputs-after))) 101)))))

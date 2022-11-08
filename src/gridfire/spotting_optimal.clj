@@ -282,9 +282,9 @@
   "Draws a random number from a Uniform Distribution,
   encoded as either a single number (no randomness, a.k.a. Constant Distribution)
   or a [min max] range."
-  [values-range rand-gen]
+  ^double [values-range rand-gen]
   (cond
-    (number? values-range) values-range
+    (number? values-range) (double values-range)
     (vector? values-range) (let [[min max] values-range]
                              (my-rand-range rand-gen min max))))
 
