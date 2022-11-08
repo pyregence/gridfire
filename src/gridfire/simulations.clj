@@ -75,10 +75,10 @@
                (gf-async/nil-when-completed))))
          (gf-async/nil-when-all-completed))))
 
-(def layer-name->matrix
+(def layer-name+matrix-key+is-optional
   [["fire_spread"              :fire-spread-matrix]
    ["flame_length"             :flame-length-matrix]
-   ["directional_flame_length" :directional-flame-length-matrix]
+   ["directional_flame_length" :directional-flame-length-matrix true]
    ["fire_line_intensity"      :fire-line-intensity-matrix]
    ["burn_history"             :burn-time-matrix]
    ["spread_rate"              :spread-rate-matrix]
@@ -86,7 +86,7 @@
 
 (defn filter-output-layers [output-layers]
   (let [layers-to-filter (set (map (comp kebab->snake name) (keys output-layers)))]
-    (filter (fn [[name _]] (contains? layers-to-filter name)) layer-name->matrix)))
+    (filter (fn [[name _]] (contains? layers-to-filter name)) layer-name+matrix-key+is-optional)))
 
 (defn process-output-layers!
   [{:keys [output-layers output-geotiffs? output-pngs?] :as config}
@@ -95,10 +95,10 @@
    simulation-id]
   (let [layers (if output-layers
                  (filter-output-layers output-layers)
-                 layer-name->matrix)]
+                 layer-name+matrix-key+is-optional)]
     (->> layers
          (mapv
-           (fn [[name layer]]
+           (fn [[name layer is-optional?]]
              (let [kw       (keyword (snake->kebab name))
                    timestep (get output-layers kw)]
                (if (int? timestep)
@@ -108,20 +108,26 @@
                                                     layer
                                                     timestep
                                                     envelope)
-                 (->
-                   (outputs/exec-in-outputs-writing-pool
-                     (fn []
-                       (if (= layer "burn_history")
-                         (to-color-map-values layer global-clock)
-                         (fire-spread-results layer))))
-                   (mfd/chain
-                     (fn [matrix]
-                       (mfd/zip
-                         (when output-geotiffs?
-                           (outputs/output-geotiff config matrix name envelope simulation-id))
-                         (when output-pngs?
-                           (outputs/output-png config matrix name envelope simulation-id)))))
-                   (gf-async/nil-when-completed))))))
+                 (when-some [matrix0 (or (get fire-spread-results layer)
+                                         (if is-optional?
+                                           nil
+                                           (throw (ex-info (format "missing layer %s in fire-spread-results" (pr-str layer))
+                                                           {::layer-key layer}))))]
+                   (-> (outputs/exec-in-outputs-writing-pool
+                        (fn []
+                          (-> matrix0
+                              ;; TODO that check will never be true, (Val, 03 Nov 2022)
+                              ;; since we are comparing a Keyword to a String,
+                              ;; but I suspect we've been relying on that bug until now.
+                              (cond-> (= layer "burn_history") (to-color-map-values global-clock)))))
+                       (mfd/chain
+                        (fn [matrix]
+                          (mfd/zip
+                           (when output-geotiffs?
+                             (outputs/output-geotiff config matrix name envelope simulation-id))
+                           (when output-pngs?
+                             (outputs/output-png config matrix name envelope simulation-id)))))
+                       (gf-async/nil-when-completed)))))))
          (gf-async/nil-when-all-completed))))
 
 (defn process-burn-count!
