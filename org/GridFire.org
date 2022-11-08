@@ -4633,9 +4633,9 @@ value pair at the top level of the config file:
 Gridfire allows you to specify a burn period in the day that fires are
 allowed to burn. The burn period can be specified in two ways:
 
-1. Explicitly setting the start and end clock
+1. Explicitly setting the start and end clock.
 
-2. Infer the start and end clock computing the approximate sunrise and sunset times
+2. Inferring the start and end clock by computing the approximate sunrise and sunset times
    using the geospatial data in the input landfire layer.
 
 By default the burn-period is set from "00:00" to "24:00".
