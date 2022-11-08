@@ -4640,7 +4640,7 @@ allowed to burn. The burn period can be specified in two ways:
 
 By default the burn-period is set from "00:00" to "24:00".
 
-To explicitly set a burn period period, you must include a few keys at the top
+To explicitly set a burn period, you must include a few keys at the top
 level of the config file.
 
 1. *:burn-period* :: map with the following keys:
