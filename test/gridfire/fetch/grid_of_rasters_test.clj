@@ -31,10 +31,10 @@
                        ;; the y coordinates must be increasing with the file's y number.
                        (reverse)
                        (mapv vec))]
-    (for [xj (range (count x-windows))
-          :let [[xmin xmax+1] (nth x-windows xj)]
-          yi (range (count y-windows))
-          :let [[ymin ymax+1] (nth y-windows yi)]
+    (for [xj             (range (count x-windows))
+          :let           [[xmin xmax+1] (nth x-windows xj)]
+          yi             (range (count y-windows))
+          :let           [[ymin ymax+1] (nth y-windows yi)]
           [fext gt-opts] [["bsq" ["-of" "ENVI" "-co" "INTERLEAVE=BSQ"]]
                           ["tif" nil]]]
       (->> (concat ["gdal_translate"]
@@ -46,19 +46,21 @@
 
 (defn example-grid-layer-spec
   [fname]
-  {:type         :grid_of_rasters
-   :rasters_grid (compute-grid2d [3 2]
+  {:type         :grid-of-rasters
+   :rasters-grid (compute-grid2d [3 2]
                                  (fn [^long grid-i ^long grid-j]
                                    (let [xj   grid-j
                                          yi   (- (dec 3) grid-i)
                                          fext (nth ["tif" "bsq"] (-> (+ yi xj) (mod 2)))]
-                                     {:type   (case fext "tif" :geotiff "bsq" :gridfire-envi-bsq)
+                                     {:type   (case fext
+                                                "tif" :geotiff
+                                                "bsq" :gridfire-envi-bsq)
                                       :source (example-subraster-file-path fname xj yi fext)})))})
 
 (deftest example-file-names-test
   (testing "Our test files are gridded as follows:"
-    (is (= {:type         :grid_of_rasters,
-            :rasters_grid [[{:type   :geotiff
+    (is (= {:type         :grid-of-rasters,
+            :rasters-grid [[{:type   :geotiff
                              :source "test/gridfire/resources/grid-of-rasters-examples/fbfm40_x0_y2.tif"}
                             {:type   :gridfire-envi-bsq
                              :source "test/gridfire/resources/grid-of-rasters-examples/fbfm40_x1_y2.bsq"}]
@@ -73,7 +75,7 @@
            (example-grid-layer-spec "fbfm40"))))
   (testing "And these files all exist:"
     (->> (example-grid-layer-spec "fbfm40")
-         :rasters_grid
+         :rasters-grid
          (sequence cat)
          (every? (fn [layer-spec]
                    (is (.exists (io/file (:source layer-spec)))))))))
@@ -116,7 +118,7 @@
              "Same tensor contents."))))
 
 (deftest ^:simulation fetch-grid-of-rasters-test
-  (testing ":grid_of_rasters: Stitching the :rasters_grid yields the same layer as the original."
+  (testing ":grid-of-rasters: Stitching the :rasters-grid yields the same layer as the original."
     (->> ["fbfm40"
           "ws_2018"]
          (every? (fn [fname]
@@ -132,7 +134,7 @@
                      (assert-equivalent-layers layer0 layer1)))))))
 
 (defn are-grid-corner-coords-as-we-expect
-  [rasters_grid]
+  [rasters-grid]
   (letfn [(gdal-corner-coords [input]
             (-> input :source
                 (get-gdal-info)
@@ -164,13 +166,13 @@
           (is (= (-> cc (get "upperLeft") (corner-y))
                  (-> cc (get "upperRight") (corner-y)))))))
     (testing "Increasing i advances from upper to lower."
-      (let [j=0-col (mapv first rasters_grid)]
+      (let [j=0-col (mapv first rasters-grid)]
         (->> j=0-col
              (pmap gdal-corner-coords)
              (partition 2 1)
              (every? is-lower-i=upper-i+1))))
     (testing "Increasing j advances from left to right."
-      (let [i=0-row (first rasters_grid)]
+      (let [i=0-row (first rasters-grid)]
         (->> i=0-row
              (pmap gdal-corner-coords)
              (partition 2 1)
@@ -178,4 +180,4 @@
 
 (deftest ^:simulation gdal-corner-coordinates
   (testing "How our test grids touch."
-    (are-grid-corner-coords-as-we-expect (:rasters_grid (example-grid-layer-spec "fbfm40")))))
+    (are-grid-corner-coords-as-we-expect (:rasters-grid (example-grid-layer-spec "fbfm40")))))

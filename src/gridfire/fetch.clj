@@ -88,13 +88,13 @@
 
 (defn get-grid-of-rasters
   [env layer-spec convert-fn target-dtype]
-  (let [fetched-rasters-grid (->> (:rasters_grid layer-spec)
+  (let [fetched-rasters-grid (->> (:rasters-grid layer-spec)
                                   (map-grid2d (fn [layer-spec-ij]
                                                 (future (get-wrapped-tensor env layer-spec-ij convert-fn target-dtype))))
                                   (map-grid2d deref))]
     (stitch-grid-of-layers fetched-rasters-grid)))
 
-(defmethod get-wrapped-tensor-multi :grid_of_rasters
+(defmethod get-wrapped-tensor-multi :grid-of-rasters
   [env layer-spec convert-fn target-dtype]
   ;; It's good practice to not do advanced work inside (defmethod ...): (Val, 25 Oct 2022)
   ;; code located in (defn ...) is more developer-friendly.
