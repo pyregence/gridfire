@@ -108,7 +108,7 @@
       (t/mset! matrix i j new-value))))
 
 (defn- lookup-spread-rate-adjustment
-  [fuel-number->spread-rate-adjustment-array-lookup fuel-model]
+  ^double [fuel-number->spread-rate-adjustment-array-lookup fuel-model]
   (aget fuel-number->spread-rate-adjustment-array-lookup fuel-model))
 
 (defn- compute-max-in-situ-values!
@@ -848,12 +848,13 @@
         non-burn-period-clock            (+ burn-period-clock burn-period-dt)
         ignition-start-time              (max ignition-start-time burn-period-clock)
         band                             (min->hour ignition-start-time)
-        suppression-dt                   (double (or (:suppression-dt inputs) Double/NaN))]
+        suppression-dt                   (double (or (:suppression-dt inputs) Double/NaN))
+        suppression-dt?                  (not (Double/isNaN suppression-dt))]
     (initialize-fire-in-situ-values! inputs matrices band ignited-cells)
     (loop [global-clock                         ignition-start-time
            band                                 band
            non-burn-period-clock                non-burn-period-clock
-           suppression-clock                    (double (if suppression-dt (+ ignition-start-time suppression-dt) max-runtime))
+           suppression-clock                    (double (if suppression-dt? (+ ignition-start-time suppression-dt) max-runtime))
            burn-vectors                         (ignited-cells->burn-vectors inputs matrices ignited-cells [])
            spot-ignitions                       {}
            spot-count                           0
@@ -863,10 +864,9 @@
            fraction-contained                   0.0]
       (if (and (< global-clock ignition-stop-time)
                (or (seq burn-vectors) (seq spot-ignitions)))
-        (let [dt-until-max-runtime               (- ignition-stop-time global-clock)
-              ^double dt-until-suppression-clock (when suppression-dt (- suppression-clock global-clock))]
+        (let [dt-until-max-runtime               (- ignition-stop-time global-clock)]
           (cond
-            (and suppression-dt (= global-clock suppression-clock))
+            (and suppression-dt? (= global-clock suppression-clock))
             (let [max-runtime-fraction (/ (- global-clock ignition-start-time) max-runtime)
                   [bvs-to-process-next
                    total-cells-suppressed
@@ -894,7 +894,7 @@
             (let [timestep  (double (min non-burn-period-dt dt-until-max-runtime))
                   new-clock (+ global-clock timestep)
                   new-band  (min->hour new-clock)]
-              (if (and suppression-dt (<= suppression-clock new-clock))
+              (if (and suppression-dt? (<= suppression-clock new-clock))
                 (let [suppression-clocks     (iterate #(+ (double %) suppression-dt) suppression-clock)
                       last-suppression-clock (double (last (take-while #(<= (double %) new-clock) suppression-clocks)))
                       [bvs-to-process-next
@@ -947,7 +947,8 @@
                                                     dt-until-new-hour              (min dt-until-new-hour)
                                                     dt-until-max-runtime           (min dt-until-max-runtime)
                                                     dt-until-non-burn-period-clock (min dt-until-non-burn-period-clock)
-                                                    dt-until-suppression-clock     (min dt-until-suppression-clock)))
+                                                    suppression-dt?                (min (let [dt-until-suppression-clock (- suppression-clock global-clock)]
+                                                                                          dt-until-suppression-clock))))
                   new-clock                      (+ global-clock timestep)
                   [grown-bvs
                    ignited-cells]                (grow-burn-vectors! matrices global-clock timestep bvs)
