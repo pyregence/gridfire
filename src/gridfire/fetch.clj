@@ -1,15 +1,16 @@
 ;; [[file:../../org/GridFire.org::fetch.clj][fetch.clj]]
 (ns gridfire.fetch
-  (:require [clojure.string           :as s]
-            [gridfire.conversion      :as convert]
-            [gridfire.fetch.base      :refer [convert-tensor-as-requested get-wrapped-tensor get-wrapped-tensor-multi]]
-            [gridfire.inputs.envi-bsq :as gf-bsq]
-            [gridfire.magellan-bridge :refer [geotiff-raster-to-tensor]]
-            [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]
-            [magellan.core            :refer [make-envelope]]
-            [manifold.deferred        :as mfd]
-            [tech.v3.datatype         :as d]
-            [tech.v3.tensor           :as t]))
+  (:require [clojure.string                 :as s]
+            [gridfire.conversion            :as convert]
+            [gridfire.fetch.base            :refer [convert-tensor-as-requested get-wrapped-tensor get-wrapped-tensor-multi]]
+            [gridfire.fetch.grid-of-rasters :refer [map-grid2d stitch-grid-of-layers]]
+            [gridfire.inputs.envi-bsq       :as gf-bsq]
+            [gridfire.magellan-bridge       :refer [geotiff-raster-to-tensor]]
+            [gridfire.postgis-bridge        :refer [postgis-raster-to-matrix]]
+            [magellan.core                  :refer [make-envelope]]
+            [manifold.deferred              :as mfd]
+            [tech.v3.datatype               :as d]
+            [tech.v3.tensor                 :as t]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -84,6 +85,20 @@
                                            (or target-dtype
                                                (let [tensor-dtype (d/elemwise-datatype t)]
                                                  (request-dtype-like-magellan tensor-dtype))))))))
+
+(defn get-grid-of-rasters
+  [env layer-spec convert-fn target-dtype]
+  (let [fetched-rasters-grid (->> (:rasters_grid layer-spec)
+                                  (map-grid2d (fn [layer-spec-ij]
+                                                (future (get-wrapped-tensor env layer-spec-ij convert-fn target-dtype))))
+                                  (map-grid2d deref))]
+    (stitch-grid-of-layers fetched-rasters-grid)))
+
+(defmethod get-wrapped-tensor-multi :grid_of_rasters
+  [env layer-spec convert-fn target-dtype]
+  ;; It's good practice to not do advanced work inside (defmethod ...): (Val, 25 Oct 2022)
+  ;; code located in (defn ...) is more developer-friendly.
+  (get-grid-of-rasters env layer-spec convert-fn target-dtype))
 
 ;;-----------------------------------------------------------------------------
 ;; LANDFIRE
