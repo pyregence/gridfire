@@ -1,6 +1,7 @@
 (ns gridfire.utils.test
   (:require [clojure.java.io          :as io]
             [clojure.string           :as str]
+            [clojure.walk             :as walk]
             [gridfire.core            :as core]
             [gridfire.magellan-bridge :refer [register-custom-projections!]]
             [gridfire.postgis-bridge  :refer [db-pool-cache close-db-pool]])
@@ -63,3 +64,27 @@
 (defn with-register-custom-projections [test-fn]
   (register-custom-projections!)
   (test-fn))
+
+;;-----------------------------------------------------------------------------
+;; Expectations
+;;-----------------------------------------------------------------------------
+
+(defn round-floating-point
+  "Updates the floating-point numbers in a nested data structure by rounding to a certain precision.
+
+  More precisely, each number x is rounded so that (* x precision-factor) is an integer.
+  Therefore, to round to 0.1% precision, choose 1000 for precision-factor.
+
+  Useful for making test point robust to slight floating-point variability."
+  [precision-factor data]
+  (let [pf (double precision-factor)]
+    (walk/postwalk (fn round-if-number [x]
+                     (if (float? x)
+                       (-> x
+                           (double)
+                           (* pf)
+                           (double)
+                           (Math/round)
+                           (/ pf))
+                       x))
+                   data)))

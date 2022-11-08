@@ -21,12 +21,21 @@
   useful when the data provider cannot do it directly."
   [layer-map convert-fn target-dtype]
   (let [old-tensor        (:matrix layer-map)
+        old-dtype         (d/elemwise-datatype old-tensor)
         needs-converting? (or (some? convert-fn)
                               (and (some? target-dtype)
-                                   (not= target-dtype (d/elemwise-datatype old-tensor))))]
+                                   (not= target-dtype old-dtype)))]
     (if needs-converting?
-      (let [new-tensor (d/clone (d/emap (or convert-fn identity)
-                                        target-dtype
-                                        old-tensor))]
+      (let [converted  (d/emap (or convert-fn identity)
+                               target-dtype
+                               old-tensor)
+            new-tensor (if (= old-dtype target-dtype)
+                         (do
+                           ;; converts in-place when possible, as it's more efficient.
+                           (d/copy! converted old-tensor)
+                           ;; Redundant since the above (d/copy! ...) already returns old-tensor,
+                           ;; but I'd rather be very explicit about mutation. (Val, 04 Nov 2022)
+                           old-tensor)
+                         (d/clone converted))]
         (assoc layer-map :matrix new-tensor))
       layer-map)))

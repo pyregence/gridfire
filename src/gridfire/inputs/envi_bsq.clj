@@ -2,7 +2,7 @@
   "A custom parser for BSQ-interleaved ENVI raster files.
   This is a special case of GDAL's ENVI .hdr Labelled Raster:
   https://gdal.org/drivers/raster/envi.html#raster-envi."
-  (:require [cheshire.core      :as json]
+  (:require [clojure.data.json  :as json]
             [clojure.java.io    :as io]
             [clojure.java.shell :as sh]
             [clojure.string     :as str]
@@ -22,7 +22,7 @@
 ;; GDAL then GeoTools would add a lot of overhead.
 ;; And at the time of writing, we use BSQ precisely because we want high
 ;; inputs-loading performance. And indeed, this is much faster than
-;; loading equivalent GeoTiffs.
+;; loading equivalent GeoTIFFs.
 
 (defn- slurp-array
   ^bytes [in]
@@ -43,7 +43,7 @@
   (-> (sh/sh "gdalinfo" "-json" "-proj4" (-> f (io/file) (.getPath)))
       (sh-successful-out)
       ;; NOTE not parsing keys to keywords because some of them are pathological, like "".
-      (json/parse-string)))
+      (json/read-str)))
 
 (defn- check-expectation!
   [err-msg find-error-data]
@@ -76,8 +76,8 @@
                                (fn unwrap-cs-string [cstr]
                                  (-> (re-matches #"\{(.*)\}" cstr)
                                      (nth 1)))]]
-               :let [[k propname coerce-fn] prop-to-parse]
-               :when (str/starts-with? l propname)]
+               :let          [[k propname coerce-fn] prop-to-parse]
+               :when         (str/starts-with? l propname)]
            (let [lrest    (subs l (count propname))
                  [_ vstr] (or (re-matches #"\s*=\s*([^\s](.*[^\s])?)\s*" lrest)
                               (throw (ex-info (format "Failed to parse .hdr property %s" (pr-str propname))
@@ -97,8 +97,8 @@
 
 (defn- fetch-hdr-data
   [bsq-file]
-  (let [hdr-file    (find-hdr-file bsq-file)
-        hdr-txt     (slurp hdr-file)]
+  (let [hdr-file (find-hdr-file bsq-file)
+        hdr-txt  (slurp hdr-file)]
     (parse-hdr-txt hdr-txt)))
 
 (defn- parse-WKT-into-CRS
@@ -195,7 +195,7 @@
               :matrix     tensor})))
         (mfd/catch
          (fn [err]
-           (let [file-path (.getPath bsq-file)]
+           (let [file-path (.getPath (io/file bsq-file))]
              (throw (ex-info (format "Error parsing BSQ file (%s) with GridFire's custom parser: %s %s"
                                      (-> bsq-file (io/file) (.getPath))
                                      (-> err (type) (str))

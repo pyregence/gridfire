@@ -4,6 +4,7 @@
             [clojure.test                :refer [deftest is testing]]
             [gridfire.inputs.envi-bsq    :as gf-bsq]
             [gridfire.magellan-bridge    :refer [geotiff-raster-to-tensor]]
+            [gridfire.utils.test         :as utils]
             [magellan.core               :refer [matrix-to-raster]]
             [tech.v3.datatype            :as d]
             [tech.v3.datatype.functional :as dfn]
@@ -116,6 +117,11 @@
 
 (deftest ^:bsq-test-suite bsq-metadata-examples-test
   (testing "Examples of .hdr files."
+    ;; NOTE this test case does little to guarantee correctness:
+    ;; instead, it's more of a documentation test case,
+    ;; with the added benefit of enforcing that our expectations
+    ;; about what the HDR files contain are preserved
+    ;; as the codebase evolves.
     (is (= (->> (get-test-bsq-files)
                 (filter #(contains? small-example-filenames (file-name %)))
                 (pmap (fn [bsq-file]
@@ -185,93 +191,94 @@
                              (update-in ["coordinateSystem" "wkt"]
                                         (fn elide-wkt [wkt]
                                           (str (subs wkt 0 8) " ...(ELIDED BY TESTING CODE)..."))))]))
+                (utils/round-floating-point 1e2)
                 (into (sorted-map)))
-           {"cbh.bsq"    {"bands"             [{"band"                1,
-                                                "block"               [80 1],
-                                                "type"                "Int16",
-                                                "colorInterpretation" "Undefined",
-                                                "noDataValue"         -9999.0,
-                                                "metadata"            {}}],
-                          "driverLongName"    "ENVI .hdr Labelled",
-                          "coordinateSystem"  {"wkt"                      "PROJCRS[ ...(ELIDED BY TESTING CODE)...",
-                                               "dataAxisToSRSAxisMapping" [1 2],
-                                               "proj4"                    "+proj=aea +lat_0=23 +lon_0=-96 +lat_1=29.5 +lat_2=45.5 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs"},
+           {"cbh.bsq"    {"bands"             [{"band"                1
+                                                "block"               [80 1]
+                                                "type"                "Int16"
+                                                "colorInterpretation" "Undefined"
+                                                "noDataValue"         -9999.0
+                                                "metadata"            {}}]
+                          "driverLongName"    "ENVI .hdr Labelled"
+                          "coordinateSystem"  {"wkt"                      "PROJCRS[ ...(ELIDED BY TESTING CODE)..."
+                                               "dataAxisToSRSAxisMapping" [1 2]
+                                               "proj4"                    "+proj=aea +lat_0=23 +lon_0=-96 +lat_1=29.5 +lat_2=45.5 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs"}
                           "files"             ["./test/gridfire/resources/envi-bsq-examples/cbh.bsq"
                                                "./test/gridfire/resources/envi-bsq-examples/cbh.bsq.aux.xml"
-                                               "./test/gridfire/resources/envi-bsq-examples/cbh.hdr"],
-                          "wgs84Extent"       {"type"        "Polygon",
-                                               "coordinates" [[[-119.672647 38.3266058]
-                                                               [-119.662402 38.2954784]
-                                                               [-119.6355513 38.3007517]
-                                                               [-119.6457857 38.3318813]
-                                                               [-119.672647 38.3266058]]]},
-                          "metadata"          {"" {"AREA_OR_POINT" "Area", "Band_1" "Band 1"}, "IMAGE_STRUCTURE" {"INTERLEAVE" "BAND"}},
-                          "geoTransform"      [-2028825.0 30.0 -0.0 1953435.0 -0.0 -30.0],
-                          "size"              [80 120],
-                          "cornerCoordinates" {"upperLeft"  [-2028825.0 1953435.0],
-                                               "lowerLeft"  [-2028825.0 1949835.0],
-                                               "lowerRight" [-2026425.0 1949835.0],
-                                               "upperRight" [-2026425.0 1953435.0],
-                                               "center"     [-2027625.0 1951635.0]},
-                          "driverShortName"   "ENVI",
-                          "description"       "./test/gridfire/resources/envi-bsq-examples/cbh.bsq"},
-            "fbfm40.bsq" {"bands"             [{"band"                1,
-                                                "block"               [80 1],
-                                                "type"                "Int16",
-                                                "colorInterpretation" "Undefined",
-                                                "noDataValue"         -9999.0,
-                                                "metadata"            {}}],
-                          "driverLongName"    "ENVI .hdr Labelled",
-                          "coordinateSystem"  {"wkt"                      "PROJCRS[ ...(ELIDED BY TESTING CODE)...",
-                                               "dataAxisToSRSAxisMapping" [1 2],
-                                               "proj4"                    "+proj=aea +lat_0=23 +lon_0=-96 +lat_1=29.5 +lat_2=45.5 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs"},
+                                               "./test/gridfire/resources/envi-bsq-examples/cbh.hdr"]
+                          "wgs84Extent"       {"type"        "Polygon"
+                                               "coordinates" [[[-119.67 38.33]
+                                                               [-119.66 38.3]
+                                                               [-119.64 38.3]
+                                                               [-119.65 38.33]
+                                                               [-119.67 38.33]]]}
+                          "metadata"          {"" {"AREA_OR_POINT" "Area" "Band_1" "Band 1"} "IMAGE_STRUCTURE" {"INTERLEAVE" "BAND"}}
+                          "geoTransform"      [-2028825.0 30.0 0.0 1953435.0 0.0 -30.0]
+                          "size"              [80 120]
+                          "cornerCoordinates" {"upperLeft"  [-2028825.0 1953435.0]
+                                               "lowerLeft"  [-2028825.0 1949835.0]
+                                               "lowerRight" [-2026425.0 1949835.0]
+                                               "upperRight" [-2026425.0 1953435.0]
+                                               "center"     [-2027625.0 1951635.0]}
+                          "driverShortName"   "ENVI"
+                          "description"       "./test/gridfire/resources/envi-bsq-examples/cbh.bsq"}
+            "fbfm40.bsq" {"bands"             [{"band"                1
+                                                "block"               [80 1]
+                                                "type"                "Int16"
+                                                "colorInterpretation" "Undefined"
+                                                "noDataValue"         -9999.0
+                                                "metadata"            {}}]
+                          "driverLongName"    "ENVI .hdr Labelled"
+                          "coordinateSystem"  {"wkt"                      "PROJCRS[ ...(ELIDED BY TESTING CODE)..."
+                                               "dataAxisToSRSAxisMapping" [1 2]
+                                               "proj4"                    "+proj=aea +lat_0=23 +lon_0=-96 +lat_1=29.5 +lat_2=45.5 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs"}
                           "files"             ["./test/gridfire/resources/envi-bsq-examples/fbfm40.bsq"
                                                "./test/gridfire/resources/envi-bsq-examples/fbfm40.bsq.aux.xml"
-                                               "./test/gridfire/resources/envi-bsq-examples/fbfm40.hdr"],
-                          "wgs84Extent"       {"type"        "Polygon",
-                                               "coordinates" [[[-119.672647 38.3266058]
-                                                               [-119.662402 38.2954784]
-                                                               [-119.6355513 38.3007517]
-                                                               [-119.6457857 38.3318813]
-                                                               [-119.672647 38.3266058]]]},
-                          "metadata"          {"" {"AREA_OR_POINT" "Area", "Band_1" "Band 1"}, "IMAGE_STRUCTURE" {"INTERLEAVE" "BAND"}},
-                          "geoTransform"      [-2028825.0 30.0 -0.0 1953435.0 -0.0 -30.0],
-                          "size"              [80 120],
-                          "cornerCoordinates" {"upperLeft"  [-2028825.0 1953435.0],
-                                               "lowerLeft"  [-2028825.0 1949835.0],
-                                               "lowerRight" [-2026425.0 1949835.0],
-                                               "upperRight" [-2026425.0 1953435.0],
-                                               "center"     [-2027625.0 1951635.0]},
-                          "driverShortName"   "ENVI",
-                          "description"       "./test/gridfire/resources/envi-bsq-examples/fbfm40.bsq"},
-            "phi.bsq"    {"bands"             [{"band"                1,
-                                                "block"               [80 1],
-                                                "type"                "Float32",
-                                                "colorInterpretation" "Undefined",
-                                                "noDataValue"         -9999.0,
-                                                "metadata"            {}}],
-                          "driverLongName"    "ENVI .hdr Labelled",
-                          "coordinateSystem"  {"wkt"                      "PROJCRS[ ...(ELIDED BY TESTING CODE)...",
-                                               "dataAxisToSRSAxisMapping" [1 2],
-                                               "proj4"                    "+proj=aea +lat_0=23 +lon_0=-96 +lat_1=29.5 +lat_2=45.5 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs"},
+                                               "./test/gridfire/resources/envi-bsq-examples/fbfm40.hdr"]
+                          "wgs84Extent"       {"type"        "Polygon"
+                                               "coordinates" [[[-119.67 38.33]
+                                                               [-119.66 38.3]
+                                                               [-119.64 38.3]
+                                                               [-119.65 38.33]
+                                                               [-119.67 38.33]]]}
+                          "metadata"          {"" {"AREA_OR_POINT" "Area" "Band_1" "Band 1"} "IMAGE_STRUCTURE" {"INTERLEAVE" "BAND"}}
+                          "geoTransform"      [-2028825.0 30.0 0.0 1953435.0 0.0 -30.0]
+                          "size"              [80 120]
+                          "cornerCoordinates" {"upperLeft"  [-2028825.0 1953435.0]
+                                               "lowerLeft"  [-2028825.0 1949835.0]
+                                               "lowerRight" [-2026425.0 1949835.0]
+                                               "upperRight" [-2026425.0 1953435.0]
+                                               "center"     [-2027625.0 1951635.0]}
+                          "driverShortName"   "ENVI"
+                          "description"       "./test/gridfire/resources/envi-bsq-examples/fbfm40.bsq"}
+            "phi.bsq"    {"bands"             [{"band"                1
+                                                "block"               [80 1]
+                                                "type"                "Float32"
+                                                "colorInterpretation" "Undefined"
+                                                "noDataValue"         -9999.0
+                                                "metadata"            {}}]
+                          "driverLongName"    "ENVI .hdr Labelled"
+                          "coordinateSystem"  {"wkt"                      "PROJCRS[ ...(ELIDED BY TESTING CODE)..."
+                                               "dataAxisToSRSAxisMapping" [1 2]
+                                               "proj4"                    "+proj=aea +lat_0=23 +lon_0=-96 +lat_1=29.5 +lat_2=45.5 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs"}
                           "files"             ["./test/gridfire/resources/envi-bsq-examples/phi.bsq"
                                                "./test/gridfire/resources/envi-bsq-examples/phi.bsq.aux.xml"
-                                               "./test/gridfire/resources/envi-bsq-examples/phi.hdr"],
-                          "wgs84Extent"       {"type"        "Polygon",
-                                               "coordinates" [[[-119.672647 38.3266058]
-                                                               [-119.662402 38.2954784]
-                                                               [-119.6355513 38.3007517]
-                                                               [-119.6457857 38.3318813]
-                                                               [-119.672647 38.3266058]]]},
-                          "metadata"          {"" {"AREA_OR_POINT" "Area", "Band_1" "Band 1"}, "IMAGE_STRUCTURE" {"INTERLEAVE" "BAND"}},
-                          "geoTransform"      [-2028825.0 30.0 -0.0 1953435.0 -0.0 -30.0],
-                          "size"              [80 120],
-                          "cornerCoordinates" {"upperLeft"  [-2028825.0 1953435.0],
-                                               "lowerLeft"  [-2028825.0 1949835.0],
-                                               "lowerRight" [-2026425.0 1949835.0],
-                                               "upperRight" [-2026425.0 1953435.0],
-                                               "center"     [-2027625.0 1951635.0]},
-                          "driverShortName"   "ENVI",
+                                               "./test/gridfire/resources/envi-bsq-examples/phi.hdr"]
+                          "wgs84Extent"       {"type"        "Polygon"
+                                               "coordinates" [[[-119.67 38.33]
+                                                               [-119.66 38.3]
+                                                               [-119.64 38.3]
+                                                               [-119.65 38.33]
+                                                               [-119.67 38.33]]]}
+                          "metadata"          {"" {"AREA_OR_POINT" "Area" "Band_1" "Band 1"} "IMAGE_STRUCTURE" {"INTERLEAVE" "BAND"}}
+                          "geoTransform"      [-2028825.0 30.0 0.0 1953435.0 0.0 -30.0]
+                          "size"              [80 120]
+                          "cornerCoordinates" {"upperLeft"  [-2028825.0 1953435.0]
+                                               "lowerLeft"  [-2028825.0 1949835.0]
+                                               "lowerRight" [-2026425.0 1949835.0]
+                                               "upperRight" [-2026425.0 1953435.0]
+                                               "center"     [-2027625.0 1951635.0]}
+                          "driverShortName"   "ENVI"
                           "description"       "./test/gridfire/resources/envi-bsq-examples/phi.bsq"}}))))
 
 (deftest ^:bsq-test-suite represented-data-types-test
@@ -305,7 +312,7 @@
                         "ws_2018.bsq"}}))))
 
 (deftest ^:bsq-test-suite example-bsq-load-like-the-geotiffs-test
-  (testing "We parse our BSQ rasters equivalently to the corresponding GeoTiffs."
+  (testing "We parse our BSQ rasters equivalently to the corresponding GeoTIFFs."
     (->> (get-test-bsq-files)
          (pmap
           (fn [bsq-file]
@@ -325,7 +332,7 @@
               (testing "We return {:srid nil}, but do provide an Envelope2D at :envelope."
                 (is (nil? (:srid bsq-map)))
                 (is (instance? Envelope2D (:envelope bsq-map)))
-                (testing "This Envelope2D can then be supplied to Magellan to save the data as GeoTiff."
+                (testing "This Envelope2D can then be supplied to Magellan to save the data as GeoTIFF."
                   (let [tensor   (:matrix bsq-map)
                         matrix2D (t/mget tensor 0)]
                     (is (some? (matrix-to-raster (-> bsq-file (io/file) (file-name))
@@ -343,6 +350,3 @@
                   (is (dfn/equals bsq-tensor tif-tensor)
                       "Same numeric values."))))))
          (doall))))
-
-
-
