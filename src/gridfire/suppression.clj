@@ -310,7 +310,7 @@
                                                              suppression-difficulty-factor)
                                                           (percent->dec)
                                                           (* (min->day suppression-dt)))]
-    (+ previous-fraction-contained change-in-fraction-contained)))
+    (max 0.0 (+ previous-fraction-contained change-in-fraction-contained))))
 
 (defn- compute-fraction-contained-sc
   "Compute fraction contained using suppression curve algorithm"
