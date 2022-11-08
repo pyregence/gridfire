@@ -2,6 +2,7 @@
   (:require [clojure.data.csv        :as csv]
             [clojure.java.io         :as io]
             [clojure.string          :as str]
+            [gridfire.burn-period    :as burnp]
             [gridfire.common         :refer [burnable-fuel-model?]]
             [gridfire.conversion     :refer [conversion-table min->ms ms->min percent->dec]]
             [gridfire.fetch          :as fetch]
@@ -309,13 +310,6 @@
          :flame-length-max-matrix (when output-flame-length-max (t/new-tensor [num-rows num-cols]))
          :spot-count-matrix       (when output-spot-count? (t/new-tensor [num-rows num-cols]))))
 
-(defn add-burn-period-params
-  [{:keys [burn-period] :as inputs}]
-  (let [{:keys [start end]} burn-period]
-    (-> inputs
-        (assoc :burn-period-start (or start "00:00"))
-        (assoc :burn-period-end   (or end   "24:00")))))
-
 (defn add-ignition-start-times
   [{:keys [ignition-start-times ignition-start-timestamp weather-start-timestamp simulations] :as inputs}]
   (if (and (nil? ignition-start-times) ignition-start-timestamp weather-start-timestamp)
@@ -393,3 +387,16 @@
            :fuel-number->spread-rate-adjustment-array-lookup-samples
            (mapv convert-map->array-lookup fuel-number->spread-rate-adjustment-samples))
     inputs))
+
+(defn add-burn-period-samples
+  [{:keys [ignition-start-timestamps] :as inputs}]
+  (let [from-sunrise-sunset? (some? (:burn-period-frac inputs))]
+    (-> inputs
+        (assoc :burn-period-samples
+               (->> ignition-start-timestamps
+                    (mapv (if from-sunrise-sunset?
+                            (fn [ignition-start-timestamp]
+                              (burnp/from-sunrise-sunset inputs ignition-start-timestamp))
+                            (let [{:keys [start end]} inputs]
+                              (constantly {:burn-period-start (or start "00:00")
+                                           :burn-period-end   (or end "24:00")})))))))))

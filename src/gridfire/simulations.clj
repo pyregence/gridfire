@@ -448,8 +448,8 @@
   [^long i
    {:keys
     [num-rows num-cols crowning-disabled? grass-suppression? output-csvs? envelope ignition-matrix cell-size max-runtime-samples
-     ignition-rows ignition-cols ellipse-adjustment-factor-samples random-seed ignition-start-times spotting
-     burn-period-start burn-period-end ignition-start-timestamps output-flame-length-sum output-flame-length-max
+     ignition-rows ignition-cols burn-period-samples ellipse-adjustment-factor-samples random-seed ignition-start-times spotting
+     ignition-start-timestamps output-flame-length-sum output-flame-length-max
      output-layers fuel-number->spread-rate-adjustment-array-lookup-array-lookup-samples suppression-dt-samples suppression-coefficient-samples
      sdi-sensitivity-to-difficulty-samples sdi-containment-overwhelming-area-growth-rate-samples
      sdi-reference-suppression-speed-samples]
@@ -457,6 +457,7 @@
   (tufte/profile
    {:id :run-simulation}
    (let [rand-gen           (if random-seed (Random. (+ ^long random-seed i)) (Random.))
+         burn-period        (burn-period-samples i)
          simulation-inputs  {:num-rows                                         num-rows
                              :num-cols                                         num-cols
                              :cell-size                                        cell-size
@@ -465,8 +466,8 @@
                                                                                    [(ignition-rows i) (ignition-cols i)])
                              :ignition-start-time                              (get ignition-start-times i 0.0)
                              :ignition-start-timestamp                         (get ignition-start-timestamps i)
-                             :burn-period-start                                burn-period-start
-                             :burn-period-end                                  burn-period-end
+                             :burn-period-start                                (:burn-period-start burn-period)
+                             :burn-period-end                                  (:burn-period-end burn-period)
                              :max-runtime                                      (max-runtime-samples i)
                              :compute-directional-values?                      (or (= output-flame-length-max :directional)
                                                                                    (= output-flame-length-sum :directional)

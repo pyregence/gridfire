@@ -63,9 +63,9 @@
       (inputs/add-fuel-moisture-params)
       (inputs/add-random-ignition-sites)
       (inputs/add-aggregate-matrices)
-      (inputs/add-burn-period-params)
       (inputs/add-ignition-start-times)
       (inputs/add-ignition-start-timestamps)
+      (inputs/add-burn-period-samples)
       (inputs/add-suppression)
       (inputs/add-fuel-number->spread-rate-adjustment-array-lookup-samples)))
 
