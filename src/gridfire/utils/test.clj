@@ -25,7 +25,7 @@
   (str output-dirname filename))
 
 (defn make-directory [dirname]
-  (.mkdir (io/file dirname)))
+  (.mkdirs (io/file dirname)))
 
 (defn delete-directory [dirname]
   (doseq [^File file (reverse (file-seq (io/file dirname)))]

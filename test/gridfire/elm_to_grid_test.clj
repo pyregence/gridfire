@@ -1,10 +1,10 @@
 (ns gridfire.elm-to-grid-test
-  (:require [clojure.edn          :as edn]
-            [clojure.java.io      :as io]
+  (:require [clojure.java.io      :as io]
             [clojure.java.shell   :as sh]
             [clojure.spec.alpha   :as s]
             [clojure.test         :refer [deftest is use-fixtures]]
             [gridfire.spec.config :as spec]
+            [gridfire.utils.files :as files]
             [gridfire.utils.test  :refer [with-temp-directories]]))
 
 (def gridfire-edn-path "test/gridfire/resources/config_test/gridfire.edn")
@@ -16,7 +16,9 @@
 ;;-----------------------------------------------------------------------------
 
 (defn delete-gridfire-edn []
-  (.delete (io/file gridfire-edn-path)))
+  (let [gf (io/file gridfire-edn-path)]
+    (when (.exists gf)
+      (.delete gf))))
 
 (defn with-clean-gridfire-edn [test-fn]
   (delete-gridfire-edn)
@@ -32,8 +34,6 @@
 ;;-----------------------------------------------------------------------------
 
 (deftest ^:unit elm-to-grid-test
-  (sh/sh elm-to-grid-path "-e" elmfire-data-path)
-  (let [config (-> gridfire-edn-path
-                   slurp
-                   edn/read-string)]
+  (sh/sh elm-to-grid-path "--elmfire-config" elmfire-data-path)
+  (let [config (files/read-situated-edn-file gridfire-edn-path)]
     (is (s/valid? ::spec/config config))))
