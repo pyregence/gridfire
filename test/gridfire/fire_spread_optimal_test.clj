@@ -4,7 +4,7 @@
             [tech.v3.datatype             :as d]
             [tech.v3.tensor               :as t]))
 
-(deftest create-new-burn-vectors_test
+(deftest ^:unit create-new-burn-vectors_test
   (let [num-rows                    10
         num-cols                    10
         shape                       [num-rows num-cols]

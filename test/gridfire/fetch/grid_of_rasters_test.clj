@@ -57,7 +57,7 @@
                                                 "bsq" :gridfire-envi-bsq)
                                       :source (example-subraster-file-path fname xj yi fext)})))})
 
-(deftest example-file-names-test
+(deftest ^:unit example-file-names-test
   (testing "Our test files are gridded as follows:"
     (is (= {:type         :grid-of-rasters,
             :rasters-grid [[{:type   :geotiff

@@ -282,7 +282,7 @@
     (let [test-file (str "test-crown-spotting-"(now)".csv")]
       (run-sim! (first (gen-scenarios :spotting crown-spotting-scenarios)))))
 
-(deftest ^:suppression-curve test-suppression-scenario
+(deftest ^{:suppression-curve true :simulation true} test-suppression-scenario
   (run-sim! (-> (first (gen-scenarios :suppression-curve suppression-curve-scenarios))
                 (assoc :output-layers {:directional-flame-length 72
                                        :flame-length             :final})
@@ -290,7 +290,7 @@
                                      :suppression-coefficient 2.0})
                 (assoc :weather-start-timestamp #inst "1970-01-01T00-00:00"))))
 
-(deftest ^:suppression-sdi test-suppression-sdi-scenario
+(deftest ^{:suppression-sdi true :simulation true} test-suppression-sdi-scenario
   (run-sim! (-> (first (gen-scenarios :suppression-sdi suppression-sdi-scenarios))
                 (assoc :output-layers {:directional-flame-length 72
                                        :flame-length             :final})

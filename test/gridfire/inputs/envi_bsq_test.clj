@@ -26,7 +26,7 @@
   []
   (test-files-ending-with ".bsq"))
 
-(deftest available-test-files-test
+(deftest ^:unit available-test-files-test
   (testing "We test the BSQ-parsing on clipped inputs files from a CONUS run:"
    (is (= (into (sorted-set)
                 (map file-name)

@@ -31,7 +31,7 @@
 ;; Tests
 ;;-----------------------------------------------------------------------------
 
-(deftest add-random-ignition-sites-test
+(deftest  ^:unit add-random-ignition-sites-test
   (let [valid-ignition-count? (fn [inputs]
                                 (= (-> inputs :ignition-rows count)
                                    (-> inputs :ignition-cols count)
@@ -64,7 +64,7 @@
                               (:ignition-rows inputs-after) (:ignition-cols inputs-after)))
             "All ignition sites should have positive values in the ignition mask")))))
 
-(deftest add-suppression-test
+(deftest ^:unit add-suppression-test
   (let [inputs       {:suppression {:sdi-layer                                     {:type   :geotiff
                                                                                     :source "path/to/suppression/layer"}
                                     :suppression-dt                                42.0
@@ -84,7 +84,7 @@
   (= (Class/forName "[D")
      (class x)))
 
-(deftest add-spread-rate-adjustment-factors-test
+(deftest ^:unit add-spread-rate-adjustment-factors-test
   (let [inputs       (-> *base-config*
                          (merge {:fuel-number->spread-rate-adjustment-samples [{101 0.1}]}))
         inputs-after (inputs/add-fuel-number->spread-rate-adjustment-array-lookup-samples inputs)]
