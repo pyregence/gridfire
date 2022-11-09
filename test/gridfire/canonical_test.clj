@@ -251,7 +251,7 @@
 
 ;;; Tests
 
-(defn- run-test-scenario! [{:keys [params] :as scenario}]
+(defn run-test-scenario! [{:keys [params] :as scenario}]
   (let [control-dir   (output-directory (assoc params :base-dir canonical-dir))
         control-stats (str control-dir summary-stats-csv)
         new-stats     (str (:output-directory scenario) summary-stats-csv)]
