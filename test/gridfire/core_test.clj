@@ -21,15 +21,22 @@
               :password    "gridfire_test"})
 
 (def test-config-base
-  {:db-spec                   db-spec
-   :landfire-layers           {:aspect             "landfire.asp WHERE rid=1"
-                               :canopy-base-height "landfire.cbh WHERE rid=1"
-                               :canopy-cover       "landfire.cc WHERE rid=1"
-                               :canopy-height      "landfire.ch WHERE rid=1"
-                               :crown-bulk-density "landfire.cbd WHERE rid=1"
-                               :fuel-model         "landfire.fbfm40 WHERE rid=1"
-                               :slope              "landfire.slp WHERE rid=1"
-                               :elevation          "landfire.dem WHERE rid=1"}
+  {:landfire-layers           {:aspect             {:type   :geotiff
+                                                    :source "test/gridfire/resources/asp.tif"}
+                               :canopy-base-height {:type   :geotiff
+                                                    :source "test/gridfire/resources/cbh.tif"}
+                               :canopy-cover       {:type   :geotiff
+                                                    :source "test/gridfire/resources/cc.tif"}
+                               :canopy-height      {:type   :geotiff
+                                                    :source "test/gridfire/resources/ch.tif"}
+                               :crown-bulk-density {:type   :geotiff
+                                                    :source "test/gridfire/resources/cbd.tif"}
+                               :elevation          {:type   :geotiff
+                                                    :source "test/gridfire/resources/dem.tif"}
+                               :fuel-model         {:type   :geotiff
+                                                    :source "test/gridfire/resources/fbfm40.tif"}
+                               :slope              {:type   :geotiff
+                                                    :source "test/gridfire/resources/slp.tif"}}
    :srid                      "CUSTOM:900914"
    :cell-size                 98.425     ;; (feet)
    :ignition-row              [10 10]
@@ -186,7 +193,7 @@
 ;; Ignition Layer Tests
 ;;-----------------------------------------------------------------------------
 
-(deftest ^{:database true :simulation true} geotiff-ignition-test
+(deftest ^:simulation geotiff-ignition-test
   (testing "Running simulation with ignition layers read from geotiff files"
     (let [config (merge test-config-base
                         {:ignition-layer {:type   :geotiff
@@ -201,7 +208,7 @@
                                           :source "ignition.ign WHERE rid=1"}})]
       (is (valid-exits? (run-test-simulation! config))))))
 
-(deftest ^{:database true :simulation true} burn-value-test
+(deftest ^:simulation burn-value-test
   (testing "Running simulation with burned and unburned values different from Gridfire's definition"
     (let [config (merge test-config-base
                         {:ignition-layer {:type        :geotiff
@@ -248,7 +255,7 @@
    :wind-from-direction {:type   :geotiff
                          :source (in-file-path "weather-test/wd_to_sample.tif")}})
 
-(deftest ^{:database true :simulation true} run-test-simulation!-weather-test
+(deftest ^:simulation run-test-simulation!-weather-test
   (doseq [weather weather-layers]
     (let [config (merge test-config-base
                         weather
@@ -283,7 +290,7 @@
 ;; Perturbation Tests
 ;;-----------------------------------------------------------------------------
 
-(deftest ^{:database true :simulation true} run-test-simulation!-with-landfire-perturbations
+(deftest ^:simulation run-test-simulation!-with-landfire-perturbations
   (testing "with global perturbation value"
     (let [config (merge test-config-base
                         {:perturbations {:canopy-height {:spatial-type :global
@@ -296,7 +303,7 @@
                                                          :range        [-1.0 1.0]}}})]
       (is (valid-exits? (run-test-simulation! config))))))
 
-(deftest ^{:database true :simulation true} run-test-simulation!-with-weather-perturbations
+(deftest ^:simulation run-test-simulation!-with-weather-perturbations
   (testing "temperature"
     (are [config] (valid-exits? (run-test-simulation! config))
       (merge test-config-base
@@ -379,7 +386,7 @@
 ;; Outputs
 ;;-----------------------------------------------------------------------------
 
-(deftest ^{:database true :simulation true} binary-output-files-test
+(deftest ^:simulation binary-output-files-test
   (let [config         (merge test-config-base
                               {:output-binary?   true
                                :output-directory "test/output"})
@@ -406,7 +413,7 @@
 ;; Crowning disabled
 ;;-----------------------------------------------------------------------------
 
-(deftest ^{:database true :simulation true} crowning-disabled-test
+(deftest ^:simulation crowning-disabled-test
   (let [config (merge test-config-base
                       {:crowning-disabled? true})]
     (is (valid-exits? (run-test-simulation! config)))))
@@ -472,7 +479,7 @@
 ;; Ignition CSV
 ;;-----------------------------------------------------------------------------
 
-(deftest ^{:database true :simulation true} ignition-csv-test
+(deftest ^:simulation ignition-csv-test
   (let [results (run-test-simulation! (assoc test-config-base :ignition-csv (in-file-path "sample_ignitions.csv")))]
 
     (is (valid-exits? results))
@@ -491,26 +498,10 @@
 ;; Pyrome spread rate adjustment
 ;;-----------------------------------------------------------------------------
 
-(deftest ^{:database true :simulation true} spread-rate-adjustment-test
+(deftest ^:simulation spread-rate-adjustment-test
   (testing "successful run using explicitly defined spread-rate-adjustments for each simulation in the ensemble run "
     (let [config (merge test-config-base
-                        {:landfire-layers                      {:aspect             {:type   :geotiff
-                                                                                     :source (in-file-path "asp.tif")}
-                                                                :canopy-base-height {:type   :geotiff
-                                                                                     :source (in-file-path "cbh.tif")}
-                                                                :canopy-cover       {:type   :geotiff
-                                                                                     :source (in-file-path "cc.tif")}
-                                                                :canopy-height      {:type   :geotiff
-                                                                                     :source (in-file-path "ch.tif")}
-                                                                :crown-bulk-density {:type   :geotiff
-                                                                                     :source (in-file-path "cbd.tif")}
-                                                                :elevation          {:type   :geotiff
-                                                                                     :source (in-file-path "dem.tif")}
-                                                                :fuel-model         {:type   :geotiff
-                                                                                     :source (in-file-path "fbfm40.tif")}
-                                                                :slope              {:type   :geotiff
-                                                                                     :source (in-file-path "slp.tif")}}
-                         :fuel-number->spread-rate-adjustment-samples [{144 0.5
+                        {:fuel-number->spread-rate-adjustment-samples [{144 0.5
                                                                         148 0.5
                                                                         164 0.5
                                                                         184 0.5
@@ -553,14 +544,14 @@
 
       (is (valid-exits? (run-test-simulation! config))))))
 
-(deftest ^{:database true :simulation true} spread-rate-adjustment-for-fuel-model-test
+(deftest ^:simulation spread-rate-adjustment-for-fuel-model-test
   (testing "successful run using explicitly defined sdi suppresion constants for each simulation in the ensemble run"
-   (let [config (merge test-config-base
-                       {:suppression                                           {:sdi-layer      {:type   :geotiff
-                                                                                                 :source "test/gridfire/resources/sdi.tif"}
-                                                                                :suppression-dt 10}
-                        :sdi-sensitivity-to-difficulty-samples                 [1.0]
-                        :sdi-containment-overwhelming-area-growth-rate-samples [50000.0]
-                        :sdi-reference-suppression-speed-samples               [600.0]})]
+    (let [config (merge test-config-base
+                        {:suppression                                           {:sdi-layer      {:type   :geotiff
+                                                                                                  :source "test/gridfire/resources/sdi.tif"}
+                                                                                 :suppression-dt 10}
+                         :sdi-sensitivity-to-difficulty-samples                 [1.0]
+                         :sdi-containment-overwhelming-area-growth-rate-samples [50000.0]
+                         :sdi-reference-suppression-speed-samples               [600.0]})]
 
-     (is (valid-exits? (run-test-simulation! config))))))
+      (is (valid-exits? (run-test-simulation! config))))))
