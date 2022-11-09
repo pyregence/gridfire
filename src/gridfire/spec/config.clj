@@ -146,7 +146,7 @@
 (s/def ::normalized-distance-variance ::common/number-or-range-map)
 (s/def ::crown-fire-spotting-percent  ::common/ratio-or-range)
 
-(s/def ::valid-fuel-range             (fn [[lo hi]] (< 0 lo hi 205)))
+(s/def ::valid-fuel-range             (fn [[lo hi]] (< 0 lo hi (inc 303))))
 (s/def ::fuel-number-range            (s/and ::common/integer-range ::valid-fuel-range))
 (s/def ::fuel-range+number            (s/tuple ::fuel-number-range ::common/float-or-range))
 (s/def ::spotting-percent             (s/coll-of ::fuel-range+number :kind vector?))
