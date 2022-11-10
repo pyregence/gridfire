@@ -1,6 +1,9 @@
 (ns gridfire.burn-period-test
-  (:require [clojure.test  :refer [deftest is testing]]
-            [gridfire.core :refer [load-config! load-inputs!]]))
+  (:require [clojure.test        :refer [deftest is testing use-fixtures]]
+            [gridfire.core       :refer [load-config! load-inputs!]]
+            [gridfire.utils.test :refer [with-temp-directories]]))
+
+(use-fixtures :once (with-temp-directories ["outputs/simple/"]))
 
 (deftest ^:unit burn-period-examples-test
   (testing (str "The Burn period gets resolved into " :burn-period-samples)
