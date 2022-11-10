@@ -84,14 +84,21 @@
 (s/def ::file-path      (s/and string? #(re-matches file-path-regex %)))
 (s/def ::directory-path (s/and string? #(re-matches directory-path-regex %)))
 
+(def ^:dynamic *check-files-exist?*
+  "Whether to check for existing files when validating the GridFire config."
+  true)
+
 (defn file-exists? [f]
-  (.exists (io/file f)))
+  (or (not *check-files-exist?*)
+      (.exists (io/file f))))
 
 (defn file-readable? [f]
-  (.canRead (io/file f)))
+  (or (not *check-files-exist?*)
+      (.canRead (io/file f))))
 
 (defn file-writable? [f]
-  (.canWrite (io/file f)))
+  (or (not *check-files-exist?*)
+      (.canWrite (io/file f))))
 
 (s/def ::readable-file (s/and ::file-path file-exists? file-readable?))
 (s/def ::writable-file (s/and ::file-path file-exists? file-writable?))
