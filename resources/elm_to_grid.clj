@@ -291,6 +291,10 @@
 ;; File access functions
 ;;=============================================================================
 
+(defn file->path
+  ^String [f]
+  (.getPath (io/file f)))
+
 (defn relative-path?
   [path]
   (re-matches #"^((\.){1,2}\/)+.*" path))
@@ -358,14 +362,16 @@
                                    (let [elm-x (inc grid-j)
                                          elm-y (inc (- 2 grid-i))]
                                      {:type   :gridfire-envi-bsq
-                                      :source (build-file-path (str folder-name "/" (format "%s_%d_%d.bsq" file-name elm-x elm-y)))})))})
+                                      :source (build-file-path (file->path (io/file folder-name
+                                                                                    (format "%s_%d_%d.bsq" file-name elm-x elm-y))))})))})
 
 (defn resolve-layer-spec [{:strs [USE_TILED_IO] :as elmfire-config} folder-name layer-key]
   (let [file-name (get elmfire-config layer-key)]
     (cond-> (if (true? USE_TILED_IO)
               (build-grid-of-rasters folder-name file-name)
               {:type   :geotiff
-               :source (build-file-path (str folder-name "/" file-name ".tif"))})
+               :source (build-file-path (file->path (io/file folder-name
+                                                             (str file-name ".tif"))))})
       (contains? layer-key->unit layer-key)       (assoc :units (get layer-key->unit layer-key))
       (contains? layer-key->multiplier layer-key) (assoc :multiplier (get layer-key->multiplier layer-key)))))
 
