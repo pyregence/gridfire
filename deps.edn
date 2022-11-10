@@ -46,6 +46,18 @@
                                :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
                                              "-m" "cognitect.test-runner"
                                              "--include" ":unit"]}
+           ;; A moderately fast high-coverage test suite to be run before submitting code, using command:
+           ;; clojure -M:test-ci
+           :test-ci           {:extra-paths ["test"]
+                               :extra-deps  {com.cognitect/test-runner
+                                             {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                              :sha     "dd6da11611eeb87f08780a30ac8ea6012d4c05ce"}}
+                               :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
+                                             "-m" "cognitect.test-runner"
+                                             "--include" ":unit"
+                                             "--include" ":simulation"
+                                             "--exclude" ":database"
+                                             "--exclude" ":canonical"]}
            :check-reflections {:extra-paths ["test"]
                                :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
                                              "-e" "(require,'gridfire.cli)"
