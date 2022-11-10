@@ -14,14 +14,14 @@
                      (into-array
                       (repeat width value))))))))
 
-(deftest get-layer-fn-test
+(deftest ^:unit get-layer-fn-test
   (testing "no perturbations"
     (testing "scalar"
       (let [inputs       {:perturbations       nil
                           :temperature-samples [10.]}
             get-layer-fn (#'simulations/grid-getter inputs (Random. 1234) :temperature 0)]
 
-        (is (= 10. (grid-lookup/double-at get-layer-fn 0 0 0)))))
+        (is (= 10.0 (grid-lookup/double-at get-layer-fn 0 0 0)))))
 
     (testing "matrix"
       (let [inputs       {:perturbations      nil

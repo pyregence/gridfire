@@ -1,9 +1,10 @@
 (ns gridfire.common
-  (:require [gridfire.grid-lookup        :as grid-lookup]
-            [tech.v3.datatype            :as d]
-            [tech.v3.datatype.argops     :as da]
-            [tech.v3.datatype.functional :as dfn]
-            [tech.v3.tensor              :as t]))
+  (:require [gridfire.fuel-models-optimal :as f-opt]
+            [gridfire.grid-lookup         :as grid-lookup]
+            [tech.v3.datatype             :as d]
+            [tech.v3.datatype.argops      :as da]
+            [tech.v3.datatype.functional  :as dfn]
+            [tech.v3.tensor               :as t]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -46,10 +47,10 @@
        (< j cols)))
 
 (defn burnable-fuel-model?
-  [^double number]
-  (and (pos? number)
-       (or (< number 91.0)
-           (> number 99.0))))
+  ;; NOTE: the motivation for accepting a double-typed argument
+  ;; is that (grid-lookup/double-at) return doubles.
+  [^double fm-number]
+  (f-opt/is-burnable-fuel-model-number? fm-number))
 
 ;; FIXME: This logic doesn't look right.
 (defn burnable?

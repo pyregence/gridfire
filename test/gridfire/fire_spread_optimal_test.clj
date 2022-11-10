@@ -1,9 +1,10 @@
 (ns gridfire.fire-spread-optimal-test
-  (:require [tech.v3.tensor       :as t]
-            [clojure.test :refer [deftest are]]
-            [tech.v3.datatype :as d]))
+  (:require [clojure.test                 :refer [deftest are]]
+            [gridfire.fire-spread-optimal]
+            [tech.v3.datatype             :as d]
+            [tech.v3.tensor               :as t]))
 
-(deftest create-new-burn-vectors_test
+(deftest ^:unit create-new-burn-vectors_test
   (let [num-rows                    10
         num-cols                    10
         shape                       [num-rows num-cols]
@@ -20,9 +21,9 @@
         j                           5]
     (are [result travel-lines-matrix] (let [burn-vectors (#'gridfire.fire-spread-optimal/create-new-burn-vectors!
                                                           (transient [])
-                                                          num-rows num-cols cell-size get-elevation fire-spread-matrix travel-lines-matrix
-                                                          max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix get-fuel-model
-                                                          i j burn-probability)]
+                                                          num-rows num-cols cell-size get-elevation travel-lines-matrix
+                                                          max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix
+                                                          fire-spread-matrix i j burn-probability)]
                                         (= result (count burn-vectors)))
       8 (t/new-tensor shape :datatype :short)                          ; No burn vectors in cell
       7 (t/mset! (t/new-tensor shape :datatype :short) i j 2r00000001) ; N burn vector exists
