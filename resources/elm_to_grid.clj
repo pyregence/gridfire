@@ -313,7 +313,8 @@
   (let [output-file-path (.toString (io/file output-dir "gridfire.edn"))]
     (println "Creating config file:" output-file-path)
     (with-open [writer (io/writer output-file-path)]
-      (pprint output-edn writer))))
+      (pprint (into (sorted-map) output-edn) ; sorting the top-level keys for readability and stability.
+              writer))))
 
 ;;=============================================================================
 ;; Merge Override Config
