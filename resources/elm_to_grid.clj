@@ -703,8 +703,9 @@
      (->> data-rows
           (map (fn to-map [[pyrome-id & double-params]]
                  [(Long/parseLong pyrome-id 10)
-                  (zipmap rest-colname-parsed
-                          (mapv (fn [s] (Double/parseDouble s)) double-params))]))
+                  (->> (zipmap rest-colname-parsed
+                               (mapv (fn [s] (Double/parseDouble s)) double-params))
+                       (into (sorted-map)))]))
           (into {})))))
 
 (defn- process-pyrome-calibration-csv
@@ -747,7 +748,8 @@
                                              (pyrome-csv-rows->lookup-map (fn [s] (Long/parseLong s 10)))))]
     (assoc output-edn
            :fuel-number->spread-rate-adjustment-samples
-           (tagged-literal 'gridfire.config/abbreviating [pyrome->spread-rate-adjustment (vec pyrome-samples)]))))
+           (tagged-literal 'gridfire.config/abbreviating [(into (sorted-map) pyrome->spread-rate-adjustment)
+                                                          (vec pyrome-samples)]))))
 
 (defn process-pyrome-specific-calibration
   [output-edn {:keys [pyrome-spread-rate-adjustment-csv pyrome-calibration-csv] :as options}]
