@@ -291,7 +291,7 @@
                 (assoc :weather-start-timestamp #inst "1970-01-01T00-00:00"))))
 
 (deftest ^{:suppression-sdi true :simulation true :canonical true} test-suppression-sdi-scenario
-  (run-sim! (-> (first (gen-scenarios ))
+  (run-sim! (-> (first (gen-scenarios :suppression-sdi suppression-sdi-scenarios))
                 (assoc :output-layers {:directional-flame-length 72
                                        :flame-length             :final})
                 (update-in [:suppression]
