@@ -709,35 +709,25 @@
           (into {})))))
 
 (defn- process-pyrome-calibration-csv
-  [{:keys [pyrome-samples] :as output-edn } {:keys [pyrome-calibration-csv] :as _options}]
+  [{:keys [pyrome-samples] :as output-edn} {:keys [pyrome-calibration-csv] :as _options}]
   (let [[header & _ :as csv-rows]     (with-open [reader (io/reader pyrome-calibration-csv)]
                                         (-> reader
                                             csv/read-csv
                                             doall))
-        pyrome->calibration-constants (pyrome-csv-rows->lookup-map csv-rows keyword)
+        pyrome->calibration-constants (pyrome-csv-rows->lookup-map csv-rows)
         header-set                    (set header)]
-    (cond-> output-edn
-
-      (contains? header-set "sdi-sensitivity-to-difficulty")
-      (assoc :sdi-sensitivity-to-difficulty-samples
-             (mapv (fn [pyrome-sample]
-                     (get-in pyrome->calibration-constants
-                             [pyrome-sample :sdi-sensitivity-to-difficulty]))
-                   pyrome-samples))
-
-      (contains? header-set "sdi-reference-suppression-speed")
-      (assoc :sdi-reference-suppression-speed-samples
-             (mapv (fn [pyrome-sample]
-                     (get-in pyrome->calibration-constants
-                             [pyrome-sample :sdi-reference-suppression-speed]))
-                   pyrome-samples))
-
-      (contains? header-set "sdi-containment-overwhelming-area-growth-rate")
-      (assoc :sdi-containment-overwhelming-area-growth-rate-samples
-             (mapv (fn [pyrome-sample]
-                     (get-in pyrome->calibration-constants
-                             [pyrome-sample :sdi-containment-overwhelming-area-growth-rate]))
-                   pyrome-samples)))))
+    (letfn [(assoc-from-csv [gfr-config elm-header-name gf-samples-key]
+              (cond-> gfr-config
+                (contains? header-set elm-header-name)
+                (assoc gf-samples-key
+                       (mapv (fn [pyrome-sample]
+                               (get-in pyrome->calibration-constants
+                                       [pyrome-sample elm-header-name]))
+                               pyrome-samples))))]
+      (-> output-edn
+          (assoc-from-csv "b_sdi"                      :sdi-sensitivity-to-difficulty-samples)
+          (assoc-from-csv "max_containment_per_day"    :sdi-reference-suppression-speed-samples)
+          (assoc-from-csv "area_no_containment_change" :sdi-containment-overwhelming-area-growth-rate-samples)))))
 
 (defn- process-pyrome-spread-rate-adjustment-csv
   [{:keys [pyrome-samples] :as output-edn } {:keys [pyrome-spread-rate-adjustment-csv] :as _options}]

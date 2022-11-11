@@ -73,8 +73,6 @@
                                                 ;; NOTE created manually by editing another file. (Val, 10 Nov 2022)
                                                 "--elmfire-summary-csv"               (str dir-path "synthetic-elmfire-summary.csv")
                                                 "--pyrome-spread-rate-adjustment-csv" (str dir-path "pyrome_adjustment_factors.csv")
-                                                ;; NOTE this file might have been reworked; there's another CSV with different column names: (Val, 10 Nov 2022)
-                                                ;; see pyrome_calibration_constants.csv.
-                                                "--pyrome-calibration-csv"            (str dir-path "pyrome_calibration_constants_for_gridfire.csv")]
+                                                "--pyrome-calibration-csv"            (str dir-path "pyrome_calibration_constants.csv")]
                                                gfr-conf-path
                                                (str dir-path "expected-1-gridfire.edn")))))))
