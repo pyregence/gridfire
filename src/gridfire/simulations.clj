@@ -243,7 +243,7 @@
                   (str "-index-multiplier")
                   keyword)))
 
-(defn- tensor-cell-getter
+(defn tensor-cell-getter
   "Returns a function roughly similar to (partial t/mget m),
   but is more tolerant of both m (may be a number)
   the subsequently passed indices (the band index will be ignored
