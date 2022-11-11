@@ -33,6 +33,7 @@
            :repl              {:main-opts ["-e" "(require,'gridfire.core)"
                                            "-e" "(in-ns,'gridfire.core)"
                                            "-r"]}
+           :vsampling         {:jvm-opts ["-Dgridfire.utils.vsampling.enabled=true"]}
            :gen-raster        {:main-opts ["-m" "gridfire.gen-raster"]}
            :test              {:extra-paths ["test"]
                                :extra-deps  {com.cognitect/test-runner
