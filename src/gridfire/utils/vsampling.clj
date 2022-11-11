@@ -3,12 +3,12 @@
   (subsets of) the values which occur in our formulas.")
 
 ;; You can activate this e.g. with clj -J-Dgridfire.utils.vsampling.enabled="true",
-;; or by using the :values-sampling CLI alias.
+;; or by using the :vsampling CLI alias.
 (defn is-enabled?
   []
   (= "true" (System/getProperty "gridfire.utils.vsampling.enabled")))
 
-(def ^:private ^:dynamic *current-point-id* nil)
+(def ^:dynamic *current-point-id* nil)
 
 (def ^:dynamic db* (atom {}))
 
