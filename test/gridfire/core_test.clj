@@ -147,7 +147,8 @@
 (deftest ^{:database true :simulation true} run-test-simulation!-test
   (testing "Running simulation with different ways to fetch LANDFIRE layers"
     (let [postgis-config  (merge test-config-base
-                                 {:landfire-layers {:aspect             {:type   :postgis
+                                 {:db-spec         db-spec
+                                  :landfire-layers {:aspect             {:type   :postgis
                                                                          :source "landfire.asp WHERE rid=1"}
                                                     :canopy-base-height {:type   :postgis
                                                                          :source "landfire.cbh WHERE rid=1"}
@@ -204,7 +205,8 @@
 (deftest ^{:database true :simulation true} postgis-ignition-test
   (testing "Running simulation with ignition layers read from Postgres database"
     (let [config (merge test-config-base
-                        {:ignition-layer {:type   :postgis
+                        {:db-spec         db-spec
+                         :ignition-layer {:type   :postgis
                                           :source "ignition.ign WHERE rid=1"}})]
       (is (valid-exits? (run-test-simulation! config))))))
 
