@@ -1,5 +1,6 @@
 (ns gridfire.common
   (:require [gridfire.fuel-models-optimal :as f-opt]
+            [gridfire.grid-lookup         :as grid-lookup]
             [tech.v3.datatype             :as d]
             [tech.v3.datatype.argops      :as da]
             [tech.v3.datatype.functional  :as dfn]
@@ -47,7 +48,7 @@
 
 (defn burnable-fuel-model?
   ;; NOTE: the motivation for accepting a double-typed argument
-  ;; is that (get-value-fn) return doubles.
+  ;; is that (grid-lookup/double-at) return doubles.
   [^double fm-number]
   (f-opt/is-burnable-fuel-model-number? fm-number))
 
@@ -109,7 +110,7 @@
 (defn burnable-cell?
   [get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i j]
   (and (in-bounds-optimal? num-rows num-cols i j)
-       (burnable-fuel-model? (get-fuel-model i j))
+       (burnable-fuel-model? (grid-lookup/double-at get-fuel-model i j))
        (> (double burn-probability) ^double (t/mget fire-spread-matrix i j))))
 
 (defn compute-terrain-distance
@@ -122,7 +123,7 @@
         di        (* cell-size (- i new-i))
         dj        (* cell-size (- j new-j))]
     (if (in-bounds-optimal? num-rows num-cols new-i new-j)
-      (let [dz (- ^double (get-elevation i j)
-                  ^double (get-elevation new-i new-j))]
+      (let [dz (- (grid-lookup/double-at get-elevation i j)
+                  (grid-lookup/double-at get-elevation new-i new-j))]
         (Math/sqrt (+ (* di di) (* dj dj) (* dz dz))))
       (Math/sqrt (+ (* di di) (* dj dj))))))

@@ -1,17 +1,19 @@
 (ns gridfire.simulations
-  (:require [clojure.java.io              :as io]
-            [gridfire.binary-output       :as binary]
-            [gridfire.common              :refer [get-neighbors in-bounds?]]
-            [gridfire.conversion          :refer [min->hour kebab->snake snake->kebab]]
-            [gridfire.fire-spread-optimal :refer [run-fire-spread]]
-            [gridfire.outputs             :as outputs]
-            [gridfire.utils.async         :as gf-async]
-            [gridfire.utils.random        :refer [my-rand-range]]
-            [manifold.deferred            :as mfd]
-            [taoensso.tufte               :as tufte]
-            [tech.v3.datatype             :as d]
-            [tech.v3.datatype.functional  :as dfn]
-            [tech.v3.tensor               :as t])
+  (:require [clojure.java.io                              :as io]
+            [gridfire.binary-output                       :as binary]
+            [gridfire.common                              :refer [get-neighbors in-bounds?]]
+            [gridfire.conversion                          :refer [min->hour kebab->snake snake->kebab]]
+            [gridfire.fire-spread-optimal                 :refer [run-fire-spread]]
+            [gridfire.grid-lookup                         :as grid-lookup]
+            [gridfire.outputs                             :as outputs]
+            [gridfire.perturbations.pixel.hash-determined :as pixel-hdp]
+            [gridfire.utils.async                         :as gf-async]
+            [gridfire.utils.random                        :refer [my-rand-range]]
+            [manifold.deferred                            :as mfd]
+            [taoensso.tufte                               :as tufte]
+            [tech.v3.datatype                             :as d]
+            [tech.v3.datatype.functional                  :as dfn]
+            [tech.v3.tensor                               :as t])
   (:import java.util.Random))
 
 (set! *unchecked-math* :warn-on-boxed)
@@ -241,166 +243,113 @@
                   (str "-index-multiplier")
                   keyword)))
 
-(defn- tensor-cell-getter
+(defn tensor-cell-getter
   "Returns a function roughly similar to (partial t/mget m),
   but is more tolerant of both m (may be a number)
   the subsequently passed indices (the band index will be ignored
   if m is 2D.)"
   [m]
-  ;; NOTE due to how Clojure's call graph works,
-  ;; there is no point in calling the returned fn
-  ;; with primitive args.
+  {:post [(grid-lookup/suitable-for-primitive-lookup? %)]}
   (if (number? m)
-    (fn get0d
-      ([_i _j] m)
-      ([_b _i _j] m))
+    (let [v (double m)]
+      (fn get0d
+        (^double [_b] v)
+        (^double [_i _j] v)
+        (^double [_b _i _j] v)))
     (case (count (d/shape m))
       2 (fn get2d
-          ([i j] (t/mget m i j))
+          (^double [i j] (t/mget m i j))
           ;; This case is important, because some input tensors (Val, 03 Nov 2022)
           ;; like moisture will be provided sometimes in 2d, sometimes in 3d.
-          ([_b i j] (t/mget m i j)))
+          (^double [_b i j] (t/mget m i j)))
       3 (fn get3d
-          ([i j] (t/mget m 0 i j))
-          ([b i j] (t/mget m b i j))))))
+          (^double [i j] (t/mget m 0 i j))
+          (^double [b i j] (t/mget m b i j))))))
 
-(defn- get-value-fn
+(def n-buckets 1024)
+
+(defmulti perturbation-getter (fn [perturb-config _rand-gen] (:spatial-type perturb-config)))
+
+(defn- sample-h->perturb
+  [perturb-config rand-gen]
+  (let [[range-min range-max] (:range perturb-config)
+        gen-perturbation      (fn gen-in-range [_h]
+                                (my-rand-range rand-gen range-min range-max))
+        h->perturb            (pixel-hdp/gen-hash->perturbation n-buckets gen-perturbation)]
+    h->perturb))
+
+(defmethod perturbation-getter :global
+  [perturb-config rand-gen]
+  (let [h->perturb (sample-h->perturb perturb-config rand-gen)]
+    (fn get-global-perturbation
+      (^double [_i _j]
+       ;; NOTE we used to resolve {:spatial-type :global} perturbations using an atom-held cache,
+       ;; which is not a problem performance-wise,
+       ;; but even in this case a Hash-Determined strategy is better,
+       ;; because it makes the perturbation more robustly reproducible,
+       ;; as it won't be affected by other uses of the random generator
+       ;; during the simulation loop.
+       (pixel-hdp/resolve-perturbation-for-coords h->perturb -1 -1 -1))
+      (^double [b _i _j]
+       (pixel-hdp/resolve-perturbation-for-coords h->perturb b -1 -1)))))
+
+(defmethod perturbation-getter :pixel
+  [perturb-config rand-gen]
+  (let [h->perturb (sample-h->perturb perturb-config rand-gen)]
+    (fn get-pixel-perturbation
+      (^double [i j]
+       (pixel-hdp/resolve-perturbation-for-coords h->perturb i j))
+      (^double [b i j]
+       (pixel-hdp/resolve-perturbation-for-coords h->perturb b i j)))))
+
+(defn- grid-getter
+  "Pre-computes a 'getter' for resolving perturbed input values in the GridFire space-time grid.
+
+  Returns a 'getter' object, to be called with (gridfire.grid-lookup/double-at getter b i j)
+  in order to resolve the input value at coordinates [b i j].
+  At the time of writing, this getter object will be a function, but that's an implementation detail,
+  do not rely on it.
+
+  The perturbed value might be lazily computed, and its computation may involve pseudo-randomness,
+  but calling (grid-lookup/double-at ...) several times at the same coordinates
+  will always return the same result."
   [{:keys [perturbations] :as inputs} rand-gen layer-name i]
+  {:post [(or (nil? %) (grid-lookup/suitable-for-primitive-lookup? %))]}
   (when-let [matrix-or-num (matrix-or-i inputs layer-name i)]
-    (let [index-multiplier             (get-index-multiplier inputs layer-name)
-          {:keys [spatial-type range]} (get perturbations layer-name)
-          [range-min range-max]        range
-          lookup-cell                  (tensor-cell-getter matrix-or-num)]
-      (cond
-        (and (number? matrix-or-num) (nil? (get perturbations layer-name)))
-        (fn
-          (^double [_ _] matrix-or-num)
-          (^double [_ _ _] matrix-or-num))
-
-        (and (not (number? matrix-or-num)) (nil? (get perturbations layer-name)))
-        (if index-multiplier
-          (let [index-multiplier (double index-multiplier)]
-            (fn
-              (^double [^long i ^long j]
-               (let [row (long (* i index-multiplier))
-                     col (long (* j index-multiplier))]
-                 (lookup-cell row col)))
-              (^double [^long b ^long i ^long j]
-               (let [row (long (* i index-multiplier))
-                     col (long (* j index-multiplier))]
-                 (lookup-cell b row col)))))
-          (fn
-            (^double [i j]
-             (lookup-cell i j))
-            (^double [b i j]
-             (lookup-cell b i j))))
-
-        (and (number? matrix-or-num) (= spatial-type :pixel))
-        (let [band-cache            (atom 0)
-              perturbed-value-cache (atom {})
-              matrix-or-num         (double matrix-or-num)]
-          (fn
-            (^double [i j]
-             (or (get @perturbed-value-cache [i j])
-                 (let [new-value (max 0.0 (+ matrix-or-num (my-rand-range rand-gen range-min range-max)))]
-                   (swap! perturbed-value-cache assoc [i j] new-value)
-                   new-value)))
-            (^double [b i j]
-             (when-not (= b @band-cache)
-               (reset! band-cache b)
-               (reset! perturbed-value-cache {}))
-             (or (get @perturbed-value-cache [i j]) ;TODO benchmark [i j] vs string i j
-                 (let [new-value (max 0.0 (+ matrix-or-num (my-rand-range rand-gen range-min range-max)))] ;TODO document we are snapping negative values to 0
-                   (swap! perturbed-value-cache assoc [i j] new-value)
-                   new-value)))))
-
-        (and (number? matrix-or-num) (= spatial-type :global))
-        (let [perturbed-value-cache (atom nil)
-              matrix-or-num         (double matrix-or-num)]
-          (fn
-            (^double [_ _]
-             (or @perturbed-value-cache
-                 (let [new-value (max 0.0 (+ matrix-or-num (my-rand-range rand-gen range-min range-max)))]
-                   (reset! perturbed-value-cache new-value)
-                   new-value)))
-            (^double [b _ _]
-             (or (get @perturbed-value-cache b)
-                 (let [new-value (max 0.0 (+ matrix-or-num (my-rand-range rand-gen range-min range-max)))]
-                   (reset! perturbed-value-cache {b new-value})
-                   new-value)))))
-
-        (and (not (number? matrix-or-num)) (= spatial-type :pixel))
-        (let [band-cache            (atom 0)
-              perturbed-value-cache (atom {})]
-          (if index-multiplier
-            (let [index-multiplier (double index-multiplier)]
-              (fn
-                (^double [^long i ^long j]
-                 (let [row (long (* i index-multiplier))
-                       col (long (* j index-multiplier))]
-                   (or (get @perturbed-value-cache [row col])
-                       (let [new-value (max 0.0 (+ ^double (lookup-cell row col)
-                                                   (my-rand-range rand-gen range-min range-max)))]
-                         (swap! perturbed-value-cache assoc [row col] new-value)
-                         new-value))))
-                (^double [^long b ^long i ^long j]
-                 (when-not (= b @band-cache)
-                   (reset! band-cache b)
-                   (reset! perturbed-value-cache {}))
-                 (let [row (long (* i index-multiplier))
-                       col (long (* j index-multiplier))]
-                   (or (get @perturbed-value-cache [row col])
-                       (let [new-value (max 0.0 (+ ^double (lookup-cell b row col)
-                                                   (my-rand-range rand-gen range-min range-max)))]
-                         (swap! perturbed-value-cache assoc [row col] new-value)
-                         new-value))))))
-            (fn
-              (^double [i j]
-               (or (get @perturbed-value-cache [i j])
-                   (let [new-value (max 0.0 (+ ^double (lookup-cell i j)
-                                               (my-rand-range rand-gen range-min range-max)))]
-                     (swap! perturbed-value-cache assoc [i j] new-value)
-                     new-value)))
-              (^double [b i j]
-               (when-not (= b @band-cache)
-                 (reset! band-cache b)
-                 (reset! perturbed-value-cache {}))
-               (or (get @perturbed-value-cache [i j])
-                   (let [new-value (max 0.0 (+ ^double (lookup-cell b i j)
-                                               (my-rand-range rand-gen range-min range-max)))]
-                     (swap! perturbed-value-cache assoc [i j] new-value)
-                     new-value))))))
-
-        (and (not (number? matrix-or-num)) (= spatial-type :global))
-        (let [offset-cache (atom nil)]
-          (if index-multiplier
-            (let [index-multiplier (double index-multiplier)]
-              (fn
-                (^double [^long i ^long j]
-                 (let [row            (long (* i index-multiplier))
-                       col            (long (* j index-multiplier))
-                       ^double offset (or @offset-cache
-                                          (reset! offset-cache (my-rand-range rand-gen range-min range-max)))]
-                   (max 0.0 (+ ^double (lookup-cell row col) offset))))
-                (^double [^long b ^long i ^long j]
-                 (let [row            (long (* i index-multiplier))
-                       col            (long (* j index-multiplier))
-                       ^double offset (or (get @offset-cache b)
-                                          (let [new-offset (my-rand-range rand-gen range-min range-max)]
-                                            (reset! offset-cache {b new-offset})
-                                            new-offset))]
-                   (max 0.0 (+ ^double (lookup-cell b row col) offset))))))
-            (fn
-              (^double [i j]
-               (let [^double offset (or @offset-cache
-                                        (reset! offset-cache (my-rand-range rand-gen range-min range-max)))]
-                 (max 0.0 (+ ^double (lookup-cell i j) offset))))
-              (^double [b i j]
-               (let [^double offset (or (get @offset-cache b)
-                                        (let [new-offset (my-rand-range rand-gen range-min range-max)]
-                                          (reset! offset-cache {b new-offset})
-                                          new-offset))]
-                 (max 0.0 (+ ^double (lookup-cell b i j) offset)))))))))))
+    (let [index-multiplier (get-index-multiplier inputs layer-name)
+          tensor-lookup    (tensor-cell-getter matrix-or-num)
+          get-unperturbed  (if (number? matrix-or-num)
+                             tensor-lookup
+                             (if (nil? index-multiplier)
+                               tensor-lookup
+                               (let [index-multiplier (double index-multiplier)]
+                                 (fn multiplied-tensor-lookup
+                                   (^double [i j]
+                                    (let [i   (long i)
+                                          j   (long j)
+                                          row (long (* i index-multiplier))
+                                          col (long (* j index-multiplier))]
+                                      (grid-lookup/double-at tensor-lookup row col)))
+                                   (^double [b i j]
+                                    (let [i   (long i)
+                                          j   (long j)
+                                          row (long (* i index-multiplier))
+                                          col (long (* j index-multiplier))]
+                                      (grid-lookup/double-at tensor-lookup b row col)))))))
+          get-perturbation (if-some [perturb-config (get perturbations layer-name)]
+                             (perturbation-getter perturb-config rand-gen)
+                             nil)]
+      (fn grid-getter
+        (^double [i j]
+         (cond-> (grid-lookup/double-at get-unperturbed i j)
+           (some? get-perturbation)
+           (-> (+ (grid-lookup/double-at get-perturbation i j))
+               (max 0.))))
+        (^double [b i j]
+         (cond-> (grid-lookup/double-at get-unperturbed b i j)
+           (some? get-perturbation)
+           (-> (+ (grid-lookup/double-at get-perturbation b i j))
+               (max 0.))))))))
 
 (defrecord SimulationInputs
     [^long num-rows
@@ -472,25 +421,25 @@
                              :compute-directional-values?                      (or (= output-flame-length-max :directional)
                                                                                    (= output-flame-length-sum :directional)
                                                                                    (:directional-flame-length output-layers))
-                             :get-aspect                                       (get-value-fn inputs rand-gen :aspect i)
-                             :get-canopy-base-height                           (get-value-fn inputs rand-gen :canopy-base-height i)
-                             :get-canopy-cover                                 (get-value-fn inputs rand-gen :canopy-cover i)
-                             :get-canopy-height                                (get-value-fn inputs rand-gen :canopy-height i)
-                             :get-crown-bulk-density                           (get-value-fn inputs rand-gen :crown-bulk-density i)
-                             :get-elevation                                    (get-value-fn inputs rand-gen :elevation i)
-                             :get-foliar-moisture                              (get-value-fn inputs rand-gen :foliar-moisture i)
-                             :get-fuel-model                                   (get-value-fn inputs rand-gen :fuel-model i)
-                             :get-fuel-moisture-dead-100hr                     (get-value-fn inputs rand-gen :fuel-moisture-dead-100hr i)
-                             :get-fuel-moisture-dead-10hr                      (get-value-fn inputs rand-gen :fuel-moisture-dead-10hr i)
-                             :get-fuel-moisture-dead-1hr                       (get-value-fn inputs rand-gen :fuel-moisture-dead-1hr i)
-                             :get-fuel-moisture-live-herbaceous                (get-value-fn inputs rand-gen :fuel-moisture-live-herbaceous i)
-                             :get-fuel-moisture-live-woody                     (get-value-fn inputs rand-gen :fuel-moisture-live-woody i)
-                             :get-relative-humidity                            (get-value-fn inputs rand-gen :relative-humidity i)
-                             :get-slope                                        (get-value-fn inputs rand-gen :slope i)
-                             :get-suppression-difficulty-index                 (get-value-fn inputs rand-gen :suppression-difficulty-index i)
-                             :get-temperature                                  (get-value-fn inputs rand-gen :temperature i)
-                             :get-wind-from-direction                          (get-value-fn inputs rand-gen :wind-from-direction i)
-                             :get-wind-speed-20ft                              (get-value-fn inputs rand-gen :wind-speed-20ft i)
+                             :get-aspect                                       (grid-getter inputs rand-gen :aspect i)
+                             :get-canopy-base-height                           (grid-getter inputs rand-gen :canopy-base-height i)
+                             :get-canopy-cover                                 (grid-getter inputs rand-gen :canopy-cover i)
+                             :get-canopy-height                                (grid-getter inputs rand-gen :canopy-height i)
+                             :get-crown-bulk-density                           (grid-getter inputs rand-gen :crown-bulk-density i)
+                             :get-elevation                                    (grid-getter inputs rand-gen :elevation i)
+                             :get-foliar-moisture                              (grid-getter inputs rand-gen :foliar-moisture i)
+                             :get-fuel-model                                   (grid-getter inputs rand-gen :fuel-model i)
+                             :get-fuel-moisture-dead-100hr                     (grid-getter inputs rand-gen :fuel-moisture-dead-100hr i)
+                             :get-fuel-moisture-dead-10hr                      (grid-getter inputs rand-gen :fuel-moisture-dead-10hr i)
+                             :get-fuel-moisture-dead-1hr                       (grid-getter inputs rand-gen :fuel-moisture-dead-1hr i)
+                             :get-fuel-moisture-live-herbaceous                (grid-getter inputs rand-gen :fuel-moisture-live-herbaceous i)
+                             :get-fuel-moisture-live-woody                     (grid-getter inputs rand-gen :fuel-moisture-live-woody i)
+                             :get-relative-humidity                            (grid-getter inputs rand-gen :relative-humidity i)
+                             :get-slope                                        (grid-getter inputs rand-gen :slope i)
+                             :get-suppression-difficulty-index                 (grid-getter inputs rand-gen :suppression-difficulty-index i)
+                             :get-temperature                                  (grid-getter inputs rand-gen :temperature i)
+                             :get-wind-from-direction                          (grid-getter inputs rand-gen :wind-from-direction i)
+                             :get-wind-speed-20ft                              (grid-getter inputs rand-gen :wind-speed-20ft i)
                              :crowning-disabled?                               (true? crowning-disabled?) ; NOTE not using samples yet. Might never be needed.
                              :ellipse-adjustment-factor                        (ellipse-adjustment-factor-samples i)
                              :grass-suppression?                               (true? grass-suppression?)

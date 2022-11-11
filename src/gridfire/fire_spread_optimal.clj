@@ -13,6 +13,7 @@
                                                    van-wagner-crown-fire-initiation?]]
             [gridfire.fuel-models-optimal  :refer [fuel-models-precomputed
                                                    moisturize]]
+            [gridfire.grid-lookup          :as grid-lookup]
             [gridfire.spotting-optimal     :as spot-optimal]
             [gridfire.suppression          :as suppression]
             [gridfire.surface-fire-optimal :refer [rothermel-surface-fire-spread-no-wind-no-slope
@@ -70,8 +71,8 @@
           cell-size-diagonal (double (:cell-size-diagonal inputs))
           get-aspect         (:get-aspect inputs)
           get-slope          (:get-slope inputs)
-          ^double aspect     (get-aspect i j)
-          ^double slope      (get-slope i j)
+          ^double aspect     (grid-lookup/double-at get-aspect i j)
+          ^double slope      (grid-lookup/double-at get-slope i j)
           theta              (Math/abs (- aspect direction))
           slope-factor       (/
                               (if (<= theta 90.0)
@@ -131,7 +132,6 @@
         get-fuel-moisture-live-herbaceous                (:get-fuel-moisture-live-herbaceous inputs)
         get-fuel-moisture-live-woody                     (:get-fuel-moisture-live-woody inputs)
         get-foliar-moisture                              (:get-foliar-moisture inputs)
-        ellipse-adjustment-factor                        (:ellipse-adjustment-factor inputs)
         fuel-number->spread-rate-adjustment-array-lookup (:fuel-number->spread-rate-adjustment-array-lookup inputs)
         crowning-disabled?                               (:crowning-disabled? inputs)
         ellipse-adjustment-factor                        (:ellipse-adjustment-factor inputs)
@@ -147,33 +147,33 @@
         residence-time-matrix                            (:residence-time-matrix matrices)
         reaction-intensity-matrix                        (:reaction-intensity-matrix matrices)
         band                                             (long band)
-        ^double slope                                    (get-slope i j)
-        ^double aspect                                   (get-aspect i j)
-        ^double canopy-cover                             (get-canopy-cover i j)
-        ^double canopy-height                            (get-canopy-height i j)
-        ^double canopy-base-height                       (get-canopy-base-height i j)
-        ^double crown-bulk-density                       (get-crown-bulk-density i j)
-        ^double fuel-model                               (get-fuel-model i j)
-        ^double temperature                              (get-temperature band i j)
-        ^double relative-humidity                        (get-relative-humidity band i j)
-        ^double wind-speed-20ft                          (get-wind-speed-20ft band i j)
-        ^double wind-from-direction                      (get-wind-from-direction band i j)
-        ^double fuel-moisture-dead-1hr                   (if get-fuel-moisture-dead-1hr
-                                                           (get-fuel-moisture-dead-1hr band i j)
+        slope                                            (grid-lookup/double-at get-slope i j)
+        aspect                                           (grid-lookup/double-at get-aspect i j)
+        canopy-cover                                     (grid-lookup/double-at get-canopy-cover i j)
+        canopy-height                                    (grid-lookup/double-at get-canopy-height i j)
+        canopy-base-height                               (grid-lookup/double-at get-canopy-base-height i j)
+        crown-bulk-density                               (grid-lookup/double-at get-crown-bulk-density i j)
+        fuel-model                                       (grid-lookup/double-at get-fuel-model i j)
+        temperature                                      (grid-lookup/double-at get-temperature band i j)
+        relative-humidity                                (grid-lookup/double-at get-relative-humidity band i j)
+        wind-speed-20ft                                  (grid-lookup/double-at get-wind-speed-20ft band i j)
+        wind-from-direction                              (grid-lookup/double-at get-wind-from-direction band i j)
+        fuel-moisture-dead-1hr                           (if get-fuel-moisture-dead-1hr
+                                                           (grid-lookup/double-at get-fuel-moisture-dead-1hr band i j)
                                                            (calc-fuel-moisture relative-humidity temperature :dead :1hr))
-        ^double fuel-moisture-dead-10hr                  (if get-fuel-moisture-dead-10hr
-                                                           (get-fuel-moisture-dead-10hr band i j)
+        fuel-moisture-dead-10hr                          (if get-fuel-moisture-dead-10hr
+                                                           (grid-lookup/double-at get-fuel-moisture-dead-10hr band i j)
                                                            (calc-fuel-moisture relative-humidity temperature :dead :10hr))
-        ^double fuel-moisture-dead-100hr                 (if get-fuel-moisture-dead-100hr
-                                                           (get-fuel-moisture-dead-100hr band i j)
+        fuel-moisture-dead-100hr                         (if get-fuel-moisture-dead-100hr
+                                                           (grid-lookup/double-at get-fuel-moisture-dead-100hr band i j)
                                                            (calc-fuel-moisture relative-humidity temperature :dead :100hr))
-        ^double fuel-moisture-live-herbaceous            (if get-fuel-moisture-live-herbaceous
-                                                           (get-fuel-moisture-live-herbaceous band i j)
+        fuel-moisture-live-herbaceous                    (if get-fuel-moisture-live-herbaceous
+                                                           (grid-lookup/double-at get-fuel-moisture-live-herbaceous band i j)
                                                            (calc-fuel-moisture relative-humidity temperature :live :herbaceous))
-        ^double fuel-moisture-live-woody                 (if get-fuel-moisture-live-woody
-                                                           (get-fuel-moisture-live-woody band i j)
+        fuel-moisture-live-woody                         (if get-fuel-moisture-live-woody
+                                                           (grid-lookup/double-at get-fuel-moisture-live-woody band i j)
                                                            (calc-fuel-moisture relative-humidity temperature :live :woody))
-        ^double foliar-moisture                          (get-foliar-moisture band i j)
+        foliar-moisture                                  (grid-lookup/double-at get-foliar-moisture band i j)
         surface-fire-min                                 (rothermel-fast-wrapper-optimal fuel-model
                                                                                          [fuel-moisture-dead-1hr
                                                                                           fuel-moisture-dead-10hr
@@ -209,42 +209,42 @@
                                                 foliar-moisture
                                                 max-surface-intensity))
       (let [crown-spread-max        (cruz-crown-fire-spread wind-speed-20ft
-                                                            crown-bulk-density
-                                                            fuel-moisture-dead-1hr)
+                                      crown-bulk-density
+                                      fuel-moisture-dead-1hr)
             crown-type              (if (neg? crown-spread-max) 2.0 3.0) ; 2=passive, 3=active
             crown-spread-max        (Math/abs crown-spread-max)
             max-crown-intensity     (crown-fire-line-intensity crown-spread-max
-                                                               crown-bulk-density
-                                                               (- canopy-height canopy-base-height)
-                                                               (:heat-of-combustion surface-fire-min))
+                                      crown-bulk-density
+                                      (- canopy-height canopy-base-height)
+                                      (:heat-of-combustion surface-fire-min))
             max-fire-line-intensity (+ max-surface-intensity max-crown-intensity)
             max-eccentricity        (if (> ^double max-spread-rate crown-spread-max)
                                       eccentricity
                                       (crown-fire-eccentricity wind-speed-20ft ellipse-adjustment-factor))
             max-spread-rate         (max ^double max-spread-rate crown-spread-max)]
-        (t/mset! max-spread-rate-matrix           i j max-spread-rate)
-        (t/mset! max-spread-direction-matrix      i j max-spread-direction)
-        (t/mset! eccentricity-matrix              i j max-eccentricity)
-        (t/mset! modified-time-matrix             i j (inc band))
+        (t/mset! max-spread-rate-matrix i j max-spread-rate)
+        (t/mset! max-spread-direction-matrix i j max-spread-direction)
+        (t/mset! eccentricity-matrix i j max-eccentricity)
+        (t/mset! modified-time-matrix i j (inc band))
         (when compute-directional-values?
-          (t/mset! residence-time-matrix          i j residence-time)
-          (t/mset! reaction-intensity-matrix      i j reaction-intensity))
-        (store-if-max! spread-rate-matrix         i j max-spread-rate)
-        (store-if-max! flame-length-matrix        i j (byram-flame-length max-fire-line-intensity))
+          (t/mset! residence-time-matrix i j residence-time)
+          (t/mset! reaction-intensity-matrix i j reaction-intensity))
+        (store-if-max! spread-rate-matrix i j max-spread-rate)
+        (store-if-max! flame-length-matrix i j (byram-flame-length max-fire-line-intensity))
         (store-if-max! fire-line-intensity-matrix i j max-fire-line-intensity)
-        (store-if-max! fire-type-matrix           i j crown-type))
+        (store-if-max! fire-type-matrix i j crown-type))
       (do
-        (t/mset! max-spread-rate-matrix           i j max-spread-rate)
-        (t/mset! max-spread-direction-matrix      i j max-spread-direction)
-        (t/mset! eccentricity-matrix              i j eccentricity)
-        (t/mset! modified-time-matrix             i j (inc band))
+        (t/mset! max-spread-rate-matrix i j max-spread-rate)
+        (t/mset! max-spread-direction-matrix i j max-spread-direction)
+        (t/mset! eccentricity-matrix i j eccentricity)
+        (t/mset! modified-time-matrix i j (inc band))
         (when compute-directional-values?
-          (t/mset! residence-time-matrix          i j residence-time)
-          (t/mset! reaction-intensity-matrix      i j reaction-intensity))
-        (store-if-max! spread-rate-matrix         i j max-spread-rate)
-        (store-if-max! flame-length-matrix        i j (byram-flame-length max-surface-intensity))
+          (t/mset! residence-time-matrix i j residence-time)
+          (t/mset! reaction-intensity-matrix i j reaction-intensity))
+        (store-if-max! spread-rate-matrix i j max-spread-rate)
+        (store-if-max! flame-length-matrix i j (byram-flame-length max-surface-intensity))
         (store-if-max! fire-line-intensity-matrix i j max-surface-intensity)
-        (store-if-max! fire-type-matrix           i j 1.0)))))
+        (store-if-max! fire-type-matrix i j 1.0)))))
 
 (defn- burnable-neighbors?
   [get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i j]
@@ -554,8 +554,8 @@
               (if (and (burnable-cell? get-fuel-model fire-spread-matrix burn-probability
                                        num-rows num-cols new-i new-j)
                        (or (not (diagonal? direction))
-                           (burnable-fuel-model? (get-fuel-model new-i j))
-                           (burnable-fuel-model? (get-fuel-model i new-j))))
+                           (burnable-fuel-model? (grid-lookup/double-at get-fuel-model new-i j))
+                           (burnable-fuel-model? (grid-lookup/double-at get-fuel-model i new-j))))
                 (let [spread-rate             (double (:spread-rate burn-vector))
                       terrain-distance        (double (:terrain-distance burn-vector))
                       dt-after-ignition       (- new-clock local-burn-time)
@@ -651,8 +651,8 @@
                 (if (and (burnable-cell? get-fuel-model fire-spread-matrix burn-probability
                                          num-rows num-cols new-i new-j)
                          (or (not (diagonal? direction))
-                             (burnable-fuel-model? (get-fuel-model new-i j))
-                             (burnable-fuel-model? (get-fuel-model i new-j))))
+                             (burnable-fuel-model? (grid-lookup/double-at get-fuel-model new-i j))
+                             (burnable-fuel-model? (grid-lookup/double-at get-fuel-model i new-j))))
                   (do
                     (when (> band (dec ^long (t/mget modified-time-matrix new-i new-j)))
                       ;; vector is first in this timestep to compute

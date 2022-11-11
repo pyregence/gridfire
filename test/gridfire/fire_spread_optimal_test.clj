@@ -1,6 +1,7 @@
 (ns gridfire.fire-spread-optimal-test
   (:require [clojure.test                 :refer [deftest are]]
             [gridfire.fire-spread-optimal]
+            [gridfire.simulations         :as simulations]
             [tech.v3.datatype             :as d]
             [tech.v3.tensor               :as t]))
 
@@ -9,8 +10,7 @@
         num-cols                    10
         shape                       [num-rows num-cols]
         cell-size                   98.425
-        get-elevation               (fn [_ _] 1.0)
-        get-fuel-model              (fn [_ _] 101)
+        get-elevation               (simulations/tensor-cell-getter 1.0)
         burn-probability            1.0
         zero-tensor                 (t/new-tensor shape)
         fire-spread-matrix          (d/clone zero-tensor)
