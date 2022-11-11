@@ -2,6 +2,7 @@
 {:paths ["src" "resources"]
 
  :deps {cnuernber/dtype-next                {:mvn/version "9.000"}
+        commons-codec/commons-codec         {:mvn/version "1.15"}
         com.nextjournal/beholder            {:mvn/version "1.0.0"}
         com.taoensso/tufte                  {:mvn/version "2.2.0"}
         hikari-cp/hikari-cp                 {:mvn/version "2.13.0"}
@@ -14,36 +15,26 @@
         org.clojure/java.jdbc               {:mvn/version "0.7.12"}
         org.clojure/tools.cli               {:mvn/version "1.0.206"}
         org.postgresql/postgresql           {:mvn/version "42.2.23"}
-        sig-gis/magellan                    {:mvn/version "2022.03.18"}
+        sig-gis/magellan                    {:mvn/version "2022.10.21"}
         sig-gis/triangulum                  {:git/url "https://github.com/sig-gis/triangulum"
                                              :sha     "5b179a97ebd8fbcbff51776db06d9770cb649b9d"}}
 
  :mvn/repos {"osgeo" {:url "https://repo.osgeo.org/repository/release/"}}
 
- :aliases {:build-test-db     {:extra-paths ["test"]
+ :aliases {:build             {:deps       {io.github.clojure/tools.build
+                                            {:git/tag "v0.8.3" :git/sha "0d20256"}}
+                               :ns-default build}
+           :with-tools-build  {:extra-deps {io.github.clojure/tools.build
+                                            {:git/tag "v0.8.3" :git/sha "0d20256"}}}
+           :build-test-db     {:extra-paths ["test"]
                                :main-opts   ["-m" "gridfire.build-test-db"]}
            :run               {:main-opts ["-m" "gridfire.cli"]
                                :jvm-opts  ["-XX:MaxRAMPercentage=90"]}
            :repl              {:main-opts ["-e" "(require,'gridfire.core)"
                                            "-e" "(in-ns,'gridfire.core)"
                                            "-r"]}
+           :vsampling         {:jvm-opts ["-Dgridfire.utils.vsampling.enabled=true"]}
            :gen-raster        {:main-opts ["-m" "gridfire.gen-raster"]}
-           :make-uberjar      {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
-                               :exec-fn      hf.depstar/uberjar
-                               :exec-args    {:jar         target/gridfire-2022.02.07.jar
-                                              :main-class  gridfire.cli
-                                              :aot         true
-                                              :sync-pom    true
-                                              :group-id    sig-gis
-                                              :artifact-id gridfire
-                                              :version     "2022.02.07"
-                                              :manifest
-                                              {:specification-title    "Java Advanced Imaging Image I/O Tools"
-                                               :specification-version  "1.1"
-                                               :specification-vendor   "Sun Microsystems, Inc."
-                                               :implementation-title   "com.sun.media.imageio"
-                                               :implementation-version "1.1"
-                                               :implementation-vendor  "Sun Microsystems, Inc."}}}
            :test              {:extra-paths ["test"]
                                :extra-deps  {com.cognitect/test-runner
                                              {:git/url "https://github.com/cognitect-labs/test-runner.git"
@@ -57,6 +48,18 @@
                                :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
                                              "-m" "cognitect.test-runner"
                                              "--include" ":unit"]}
+           ;; A moderately fast high-coverage test suite to be run before submitting code, using command:
+           ;; clojure -M:test-ci
+           :test-ci           {:extra-paths ["test"]
+                               :extra-deps  {com.cognitect/test-runner
+                                             {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                              :sha     "dd6da11611eeb87f08780a30ac8ea6012d4c05ce"}}
+                               :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
+                                             "-m" "cognitect.test-runner"
+                                             "--include" ":unit"
+                                             "--include" ":simulation"
+                                             "--exclude" ":database"
+                                             "--exclude" ":canonical"]}
            :check-reflections {:extra-paths ["test"]
                                :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
                                              "-e" "(require,'gridfire.cli)"

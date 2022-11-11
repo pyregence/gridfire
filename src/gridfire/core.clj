@@ -7,7 +7,7 @@
             [gridfire.outputs             :as outputs]
             [gridfire.simulations         :as simulations]
             [gridfire.spec.config         :as config-spec]
-            [gridfire.utils.files         :as gfr-files]
+            [gridfire.utils.files         :as files]
             [manifold.deferred            :as mfd]
             [taoensso.tufte               :as tufte]
             [triangulum.logging           :refer [log log-str]]))
@@ -63,13 +63,15 @@
       (inputs/add-fuel-moisture-params)
       (inputs/add-random-ignition-sites)
       (inputs/add-aggregate-matrices)
-      (inputs/add-burn-period-params)
       (inputs/add-ignition-start-times)
-      (inputs/add-ignition-start-timestamps)))
+      (inputs/add-ignition-start-timestamps)
+      (inputs/add-burn-period-samples)
+      (inputs/add-suppression)
+      (inputs/add-fuel-number->spread-rate-adjustment-array-lookup-samples)))
 
 (defn load-config!
   [config-file-path]
-  (let [config (gfr-files/read-situated-edn-file config-file-path)]
+  (let [config (files/read-situated-edn-file config-file-path)]
     (if (spec/valid? ::config-spec/config config)
       (assoc config :config-file-path config-file-path)
       (log-str (format "Invalid config file [%s]:\n%s"

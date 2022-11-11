@@ -1,14 +1,16 @@
 (ns gridfire.utils.files
   "File-system utilities for GridFire."
-  (:require [clojure.edn :as edn]
-            [clojure.java.io :as io]))
+  (:require [clojure.edn     :as edn]
+            [clojure.java.io :as io]
+            [clojure.walk    :as walk])
+  (:import java.io.File))
 
 (defn- build-absolute-path
   [^String current-dir-path, ^String rel-path]
-  (.getCanonicalPath
-   (apply io/file current-dir-path (if (string? rel-path)
-                                     [rel-path]
-                                     rel-path))))
+  (let [^File file (apply io/file current-dir-path (if (string? rel-path)
+                                                     [rel-path]
+                                                     rel-path))]
+    (.getCanonicalPath file)))
 
 (defn location-aware-edn-readers
   "Returns a map of EDN :readers such that
@@ -32,6 +34,29 @@
 
   *e)
 
+(defn- expand-abbreviations
+  [[abbr->v data]]
+  (walk/postwalk #(get abbr->v % %)
+                 data))
+
+(def convenience-encoding-readers
+  {'gridfire.config/abbreviating (fn [abbrv-tuple] (expand-abbreviations abbrv-tuple))})
+
+(comment
+  ;; EDN tag #gridfire.config/abbreviating is useful for concisely encoding redundant config: INTRO
+  (edn/read-string {:readers convenience-encoding-readers}
+                   "#gridfire.config/abbreviating [{m0 {:this :map :is :arguably :quite :verbose} m1 {:so :is :this :one :I :daresay}} {:my-maps [m0 m1 m1 m1 m0 m0 m1]}]")
+  ;;=>
+  {:my-maps [{:this :map :is :arguably :quite :verbose}
+             {:so :is :this :one :I :daresay}
+             {:so :is :this :one :I :daresay}
+             {:so :is :this :one :I :daresay}
+             {:this :map :is :arguably :quite :verbose}
+             {:this :map :is :arguably :quite :verbose}
+             {:so :is :this :one :I :daresay}]}
+
+  *e)
+
 (defn read-situated-edn-file
   "Slurps and parses an EDN file such that the EDN tag
   #gridfire.utils.files/from-this-file ... will work
@@ -39,5 +64,6 @@
   containing that same file."
   [edn-file]
   (edn/read-string
-   {:readers (location-aware-edn-readers edn-file)}
+   {:readers (merge (location-aware-edn-readers edn-file)
+                    convenience-encoding-readers)}
    (slurp edn-file)))
