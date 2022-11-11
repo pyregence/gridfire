@@ -6,6 +6,7 @@
                                            burnable?]]
             [gridfire.utils.random :refer [my-rand-range]]
             [gridfire.conversion   :as convert]
+            [gridfire.grid-lookup  :as grid-lookup]
             [tech.v3.tensor        :as t])
   (:import java.util.Random))
 
@@ -319,12 +320,12 @@
   (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
     (let [band              (long (/ global-clock 60.0))
           [i j]             cell
-          tmp               (get-temperature band i j)
-          rh                (get-relative-humidity band i j)
-          ws                (get-wind-speed-20ft band i j)
-          wd                (get-wind-from-direction band i j)
+          tmp               (grid-lookup/double-at get-temperature band i j)
+          rh                (grid-lookup/double-at get-relative-humidity band i j)
+          ws                (grid-lookup/double-at get-wind-speed-20ft band i j)
+          wd                (grid-lookup/double-at get-wind-from-direction band i j)
           m1                (if get-fuel-moisture-dead-1hr
-                              (get-fuel-moisture-dead-1hr band i j)
+                              (grid-lookup/double-at get-fuel-moisture-dead-1hr band i j)
                               (calc-fuel-moisture rh tmp :dead :1hr))
           deltas            (sample-wind-dir-deltas inputs
                                                     fire-line-intensity-matrix

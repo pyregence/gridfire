@@ -10,8 +10,8 @@
 
 ;; Checks live fuel moisture of extinction and dynamic fuel loading for the S&B40 fuel models under fully cured conditions
 (deftest ^:unit moisturize-test-dry
-  (doseq [num sb40-fuel-models]
-    (let [gridfire-fuel-model-dry   (build-fuel-model num)
+  (doseq [fm-number sb40-fuel-models]
+    (let [gridfire-fuel-model-dry   (build-fuel-model fm-number)
           gridfire-fuel-model-wet   (moisturize gridfire-fuel-model-dry (test-fuel-moisture :dry))
           gridfire-M_x-live         (* 100 (-> gridfire-fuel-model-wet :M_x :live :herbaceous))
           gridfire-fraction-cured   (if (pos? (-> gridfire-fuel-model-dry :w_o :live :herbaceous))

@@ -6,7 +6,7 @@
 
 (s/def ::range ::common/number-range)
 
-;; FIXME: Define a ::units field since it is added by gridfire.config/convert-config! and elm_to_grid.clj
+;; FIXME: Define a ::units field since it is added by elm_to_grid.clj
 (s/def ::perturbation
   (s/keys :req-un [::spatial-type ::range]))
 
@@ -24,4 +24,3 @@
 (s/def ::fuel-moisture-live-herbaceous ::perturbation)
 (s/def ::fuel-moisture-live-woody      ::perturbation)
 (s/def ::foliar-moisture               ::perturbation)
-

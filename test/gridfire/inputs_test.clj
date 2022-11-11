@@ -31,7 +31,7 @@
 ;; Tests
 ;;-----------------------------------------------------------------------------
 
-(deftest add-random-ignition-sites-test
+(deftest  ^:unit add-random-ignition-sites-test
   (let [valid-ignition-count? (fn [inputs]
                                 (= (-> inputs :ignition-rows count)
                                    (-> inputs :ignition-cols count)
@@ -63,3 +63,34 @@
         (is (every? pos? (map #(t/mget (:ignition-mask-matrix inputs-after) %1 %2)
                               (:ignition-rows inputs-after) (:ignition-cols inputs-after)))
             "All ignition sites should have positive values in the ignition mask")))))
+
+(deftest ^:unit add-suppression-test
+  (let [inputs       {:suppression {:sdi-layer                                     {:type   :geotiff
+                                                                                    :source "path/to/suppression/layer"}
+                                    :suppression-dt                                42.0
+                                    :sdi-sensitivity-to-difficulty                 42.0
+                                    :sdi-containment-overwhelming-area-growth-rate 42.0
+                                    :sdi-reference-suppression-speed               42.0}
+                      :simulations 1
+                      :rand-gen    (Random. 1234)}
+        inputs-after (inputs/add-suppression inputs)]
+
+    (is (= [42.0] (inputs-after :suppression-dt-samples)))
+    (is (= [42.0] (inputs-after :sdi-sensitivity-to-difficulty-samples)))
+    (is (= [42.0] (inputs-after :sdi-containment-overwhelming-area-growth-rate-samples)))
+    (is (= [42.0] (inputs-after :sdi-reference-suppression-speed-samples)))))
+
+(defn- one-dimensional-double-array? [x]
+  (= (Class/forName "[D")
+     (class x)))
+
+(deftest ^:unit add-spread-rate-adjustment-factors-test
+  (let [inputs       (-> *base-config*
+                         (merge {:fuel-number->spread-rate-adjustment-samples [{101 0.1}]}))
+        inputs-after (inputs/add-fuel-number->spread-rate-adjustment-array-lookup-samples inputs)]
+
+    (is (contains? inputs-after :fuel-number->spread-rate-adjustment-array-lookup-samples))
+
+    (is (one-dimensional-double-array? (first (:fuel-number->spread-rate-adjustment-array-lookup-samples inputs-after))))
+
+    (is (= 0.1 (aget (doubles (first (:fuel-number->spread-rate-adjustment-array-lookup-samples inputs-after))) 101)))))

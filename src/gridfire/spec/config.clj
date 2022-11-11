@@ -2,7 +2,8 @@
   (:require [clojure.spec.alpha          :as s]
             [gridfire.spec.burn-period   :as burn-period]
             [gridfire.spec.common        :as common]
-            [gridfire.spec.perturbations :as perturbations]))
+            [gridfire.spec.perturbations :as perturbations]
+            [gridfire.spec.suppression   :as suppression]))
 
 ;;=============================================================================
 ;; Required Keys
@@ -15,6 +16,8 @@
 (s/def ::foliar-moisture ::common/number-sample)
 
 ;; Weather
+
+(s/def ::weather-start-timestamp inst?)
 
 (s/def ::weather
   (s/or :matrix ::common/layer-coords
@@ -52,6 +55,7 @@
 ;;=============================================================================
 
 (s/def ::random-seed                     integer?)
+(s/def ::crowning-disabled?              boolean?)
 (s/def ::ellipse-adjustment-factor       ::common/number-sample)
 (s/def ::fractional-distance-combination #{:sum}) ; FIXME This is currently unused.
 (s/def ::parallel-strategy               #{:within-fires :between-fires})
@@ -74,6 +78,7 @@
 
 ;; Ignitions
 
+(s/def ::ignition-start-timestamp inst?)
 (s/def ::ignition-row ::common/integer-sample)
 (s/def ::ignition-col ::common/integer-sample)
 
@@ -85,12 +90,12 @@
 
 (s/def ::ignition-layer
   (s/and
-   ::common/postgis-or-geotiff
+   (s/nonconforming ::common/raw-layer-coords-map)
    (s/keys :opt-un [::burn-values])))
 
 (s/def ::ignition-csv ::common/readable-file)
 
-(s/def ::ignition-mask ::common/postgis-or-geotiff)
+(s/def ::ignition-mask ::common/raw-layer-coords-map)
 
 (s/def ::edge-buffer number?)
 
@@ -141,11 +146,12 @@
 (s/def ::normalized-distance-variance ::common/number-or-range-map)
 (s/def ::crown-fire-spotting-percent  ::common/ratio-or-range)
 
-(s/def ::valid-fuel-range             (fn [[lo hi]] (< 0 lo hi 205)))
+(s/def ::valid-fuel-range             (fn [[lo hi]] (< 0 lo hi (inc 303))))
 (s/def ::fuel-number-range            (s/and ::common/integer-range ::valid-fuel-range))
-(s/def ::fuel-percent-pair            (s/tuple ::fuel-number-range ::common/float-or-range))
-(s/def ::spotting-percent             (s/coll-of ::fuel-percent-pair :kind vector?))
-(s/def ::critical-fire-line-intensity number?)
+(s/def ::fuel-range+number            (s/tuple ::fuel-number-range ::common/float-or-range))
+(s/def ::spotting-percent             (s/coll-of ::fuel-range+number :kind vector?))
+(s/def ::critical-fire-line-intensity (s/or :number            number?
+                                            :fuel-percent-pair (s/coll-of ::fuel-range+number :kind vector?)))
 
 (s/def ::surface-fire-spotting
   (s/keys :req-un [::spotting-percent
@@ -159,6 +165,18 @@
                    ::normalized-distance-variance
                    ::crown-fire-spotting-percent]
           :opt-un [::surface-fire-spotting]))
+
+;; Suppression
+
+(s/def ::suppression
+  (s/and
+   (s/keys :req-un [::suppression/suppression-dt]
+           :opt-un [::suppression/suppression-coefficient
+                    ::suppression/sdi-layer
+                    ::suppression/sdi-sensitivity-to-difficulty
+                    ::suppression/sdi-containment-overwhelming-area-growth-rate
+                    ::suppression/sdi-reference-suppression-speed])
+   ::suppression/mutually-exclusive-keys))
 
 ;; Perturbations
 
@@ -212,8 +230,56 @@
 (s/def ::output-burn-probability  ::output-frequency) ; FIXME: Why isn't this also just boolean?
 (s/def ::output-burn-count?       boolean?)
 (s/def ::output-spot-count?       boolean?)
-(s/def ::output-flame-length-max? boolean?)
-(s/def ::output-flame-length-sum? boolean?)
+(s/def ::output-flame-length-max  #{:max :directional})
+(s/def ::output-flame-length-sum  #{:max :directional})
+
+
+;;=============================================================================
+;; Spread Rate Adjustment
+;;=============================================================================
+
+(defn- long? [x]
+  (instance? Long x))
+
+(s/def ::fuel-number->spread-rate-adjustment
+  (s/map-of long? double?))
+
+(s/def ::fuel-number->spread-rate-adjustment-samples
+  (s/coll-of ::fuel-number->spread-rate-adjustment :kind vector?))
+
+;;=============================================================================
+;; Burn Period
+;;=============================================================================
+
+(s/def ::burn-period-required-keys
+  (fn [{:keys [burn-period burn-period-frac burn-period-length weather-start-timestamp]}]
+    (or (every? nil? [burn-period burn-period-frac burn-period-length])
+        (and burn-period weather-start-timestamp)
+        (and burn-period-frac burn-period-length weather-start-timestamp))))
+
+;;=============================================================================
+;; Timestamps
+;;=============================================================================
+
+(defn- not-after? [t1 t2]
+  (<= (inst-ms t1) (inst-ms t2)))
+
+(s/def ::valid-timestamps
+  (fn [{:keys [ignition-start-timestamp weather-start-timestamp]}]
+    (or (nil? ignition-start-timestamp)
+        (and weather-start-timestamp
+             ignition-start-timestamp
+             (not-after? weather-start-timestamp ignition-start-timestamp)))))
+
+;;=============================================================================
+;; Mutually exclusive-keys
+;;=============================================================================
+
+(s/def ::mutually-exclusive-keys
+  (fn [{:keys [ignition-start-timestamp ignition-csv]}]
+    (or (and ignition-start-timestamp (nil? ignition-csv))
+        (and (nil? ignition-start-timestamp) ignition-csv)
+        (every? nil? [ignition-start-timestamp ignition-csv]))))
 
 ;;=============================================================================
 ;; Config Map
@@ -230,21 +296,28 @@
              ::wind-from-direction
              ::landfire-layers]
     :opt-un [::max-runtime
-             ::burn-period
+             ::burn-period/burn-period
+             ::burn-period/burn-period-frac
+             ::burn-period/burn-period-length
              ::simulations
              ::random-seed
+             ::crowning-disabled?
              ::ellipse-adjustment-factor
              ::fractional-distance-combination
+             ::fuel-number->spread-rate-adjustment-samples
              ::parallel-strategy
              ::db-spec
              ::ignition-row
              ::ignition-col
              ::ignition-layer
              ::ignition-csv
+             ::ignition-start-timestamp
+             ::weather-start-timestamp
              ::random-ignition
              ::relative-humidity
              ::fuel-moisture
              ::spotting
+             ::suppression
              ::perturbations
              ::output-directory
              ::outfile-suffix
@@ -257,9 +330,17 @@
              ::output-burn-probability
              ::output-burn-count?
              ::output-spot-count?
-             ::output-flame-length-max?
-             ::output-flame-length-sum?])
+             ::output-flame-length-max
+             ::output-flame-length-sum
+             ::suppression/suppression-dt-samples
+             ::suppression/suppression-coefficient-samples
+             ::suppression/sdi-sensitivity-to-difficult-samples
+             ::suppression/sdi-containment-overwhelming-area-growth-rate-samples
+             ::suppression/sdi-reference-suppression-speed-samples])
    ::ignition-layer-or-ignition-csv
    ::max-runtime-or-ignition-csv
    ::simulations-or-ignition-csv
-   ::rh-or-fuel-moisture))
+   ::rh-or-fuel-moisture
+   ::burn-period-required-keys
+   ::valid-timestamps
+   ::mutually-exclusive-keys))
