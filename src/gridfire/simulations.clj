@@ -16,6 +16,15 @@
 
 (set! *unchecked-math* :warn-on-boxed)
 
+(def ^:dynamic *log-performance-metrics*
+  "Whether to log performance monitoring metrics,
+  which adds latency to simulations,
+  and verbosity to the logs."
+  (= "true"
+     ;; TIP: to re-def this Var as true in your REPL,
+     ;; comment out the following expr and reload the code, using #_
+     (System/getProperty "gridfire.simulations.log-performance-metrics")))
+
 (defn layer-snapshot [burn-time-matrix layer-matrix ^double t]
   (d/clone
    (d/emap (fn [^double layer-value ^double burn-time]
