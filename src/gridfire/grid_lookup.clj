@@ -119,7 +119,6 @@
 
 (comment
  ;; (double-at ...) does allow lookup without primitive boxing:
- (require '[clj-java-decompiler.core])
  (clj-java-decompiler.core/decompile
   (let [f
         ;; Let's make sure the Clojure compiler won't guess the signature of f:
