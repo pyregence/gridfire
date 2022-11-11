@@ -16,6 +16,7 @@
                                                   van-wagner-crown-fire-initiation?]]
             [gridfire.fire-spread-optimal :refer [rothermel-fast-wrapper-optimal]]
             [gridfire.fuel-models         :refer [build-fuel-model moisturize]]
+            [gridfire.grid-lookup         :as grid-lookup]
             [gridfire.spotting            :as spot]
             [gridfire.surface-fire        :refer [anderson-flame-depth
                                                   byram-fire-line-intensity
@@ -148,59 +149,59 @@
    overflow-trajectory
    overflow-heat
    global-clock]
-  (let [band                                        (int (/ global-clock 60.0))
-        ^double aspect                              (get-aspect i j)
-        ^double canopy-base-height                  (get-canopy-base-height i j)
-        ^double canopy-height                       (get-canopy-height i j)
-        ^double canopy-cover                        (get-canopy-cover i j)
-        ^double crown-bulk-density                  (get-crown-bulk-density i j)
-        ^double fuel-model                          (get-fuel-model i j)
-        ^double slope                               (get-slope i j)
-        ^double relative-humidity                   (get-relative-humidity band i j)
-        ^double temperature                         (get-temperature band i j)
-        ^double wind-speed-20ft                     (get-wind-speed-20ft band i j)
-        ^double wind-from-direction                 (get-wind-from-direction band i j)
-        ^double fuel-moisture-dead-1hr              (if get-fuel-moisture-dead-1hr
-                                                      (get-fuel-moisture-dead-1hr band i j)
-                                                      (calc-fuel-moisture relative-humidity temperature :dead :1hr))
-        ^double fuel-moisture-dead-10hr             (if get-fuel-moisture-dead-10hr
-                                                      (get-fuel-moisture-dead-10hr band i j)
-                                                      (calc-fuel-moisture relative-humidity temperature :dead :10hr))
-        ^double fuel-moisture-dead-100hr            (if get-fuel-moisture-dead-100hr
-                                                      (get-fuel-moisture-dead-100hr band i j)
-                                                      (calc-fuel-moisture relative-humidity temperature :dead :100hr))
-        ^double fuel-moisture-live-herbaceous       (if get-fuel-moisture-live-herbaceous
-                                                      (get-fuel-moisture-live-herbaceous i j)
-                                                      (calc-fuel-moisture relative-humidity temperature :live :herbaceous))
-        ^double fuel-moisture-live-woody            (if get-fuel-moisture-live-woody
-                                                      (get-fuel-moisture-live-woody i j)
-                                                      (calc-fuel-moisture relative-humidity temperature :live :woody))
-        ^double foliar-moisture                     (get-foliar-moisture band i j)
-        surface-fire-min                            (rothermel-fast-wrapper-optimal
-                                                     fuel-model
-                                                     [fuel-moisture-dead-1hr
-                                                      fuel-moisture-dead-10hr
-                                                      fuel-moisture-dead-100hr
-                                                      0.0 ; fuel-moisture-dead-herbaceous
-                                                      fuel-moisture-live-herbaceous
-                                                      fuel-moisture-live-woody]
-                                                     grass-suppression?)
-        midflame-wind-speed                         (mph->fpm
-                                                     (* wind-speed-20ft
-                                                        (wind-adjustment-factor (:fuel-bed-depth surface-fire-min)
-                                                                                canopy-height
-                                                                                canopy-cover)))
-        surface-fire-max                            (rothermel-surface-fire-spread-max surface-fire-min
-                                                                                       midflame-wind-speed
-                                                                                       wind-from-direction
-                                                                                       slope
-                                                                                       aspect
-                                                                                       ellipse-adjustment-factor)
-        crown-spread-max                            (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density fuel-moisture-dead-1hr)
-        crown-type                                  (if (neg? crown-spread-max) :passive-crown :active-crown)
-        crown-spread-max                            (Math/abs crown-spread-max)
-        crown-eccentricity                          (crown-fire-eccentricity wind-speed-20ft
-                                                                             ellipse-adjustment-factor)]
+  (let [band                          (int (/ global-clock 60.0))
+        aspect                        (grid-lookup/double-at get-aspect i j)
+        canopy-base-height            (grid-lookup/double-at get-canopy-base-height i j)
+        canopy-height                 (grid-lookup/double-at get-canopy-height i j)
+        canopy-cover                  (grid-lookup/double-at get-canopy-cover i j)
+        crown-bulk-density            (grid-lookup/double-at get-crown-bulk-density i j)
+        fuel-model                    (grid-lookup/double-at get-fuel-model i j)
+        slope                         (grid-lookup/double-at get-slope i j)
+        relative-humidity             (grid-lookup/double-at get-relative-humidity band i j)
+        temperature                   (grid-lookup/double-at get-temperature band i j)
+        wind-speed-20ft               (grid-lookup/double-at get-wind-speed-20ft band i j)
+        wind-from-direction           (grid-lookup/double-at get-wind-from-direction band i j)
+        fuel-moisture-dead-1hr        (if get-fuel-moisture-dead-1hr
+                                        (grid-lookup/double-at get-fuel-moisture-dead-1hr band i j)
+                                        (calc-fuel-moisture relative-humidity temperature :dead :1hr))
+        fuel-moisture-dead-10hr       (if get-fuel-moisture-dead-10hr
+                                        (grid-lookup/double-at get-fuel-moisture-dead-10hr band i j)
+                                        (calc-fuel-moisture relative-humidity temperature :dead :10hr))
+        fuel-moisture-dead-100hr      (if get-fuel-moisture-dead-100hr
+                                        (grid-lookup/double-at get-fuel-moisture-dead-100hr band i j)
+                                        (calc-fuel-moisture relative-humidity temperature :dead :100hr))
+        fuel-moisture-live-herbaceous (if get-fuel-moisture-live-herbaceous
+                                        (grid-lookup/double-at get-fuel-moisture-live-herbaceous i j)
+                                        (calc-fuel-moisture relative-humidity temperature :live :herbaceous))
+        fuel-moisture-live-woody      (if get-fuel-moisture-live-woody
+                                        (grid-lookup/double-at get-fuel-moisture-live-woody i j)
+                                        (calc-fuel-moisture relative-humidity temperature :live :woody))
+        foliar-moisture               (grid-lookup/double-at get-foliar-moisture band i j)
+        surface-fire-min              (rothermel-fast-wrapper-optimal
+                                        fuel-model
+                                        [fuel-moisture-dead-1hr
+                                         fuel-moisture-dead-10hr
+                                         fuel-moisture-dead-100hr
+                                         0.0                ; fuel-moisture-dead-herbaceous
+                                         fuel-moisture-live-herbaceous
+                                         fuel-moisture-live-woody]
+                                        grass-suppression?)
+        midflame-wind-speed           (mph->fpm
+                                        (* wind-speed-20ft
+                                          (wind-adjustment-factor (:fuel-bed-depth surface-fire-min)
+                                            canopy-height
+                                            canopy-cover)))
+        surface-fire-max              (rothermel-surface-fire-spread-max surface-fire-min
+                                        midflame-wind-speed
+                                        wind-from-direction
+                                        slope
+                                        aspect
+                                        ellipse-adjustment-factor)
+        crown-spread-max              (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density fuel-moisture-dead-1hr)
+        crown-type                    (if (neg? crown-spread-max) :passive-crown :active-crown)
+        crown-spread-max              (Math/abs crown-spread-max)
+        crown-eccentricity            (crown-fire-eccentricity wind-speed-20ft
+                                        ellipse-adjustment-factor)]
     (into []
           (comp
            (filter #(and (in-bounds? num-rows num-cols %)

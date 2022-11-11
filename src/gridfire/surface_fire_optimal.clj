@@ -1,6 +1,6 @@
 (ns gridfire.surface-fire-optimal
   (:require [gridfire.conversion          :refer [deg->rad rad->deg]]
-            [gridfire.fuel-models-optimal :refer [map-category map-size-class category-sum size-class-sum]]))
+            [gridfire.fuel-models-optimal :refer [is-dynamic-grass-fuel-model-number? map-category map-size-class category-sum size-class-sum]]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -112,13 +112,10 @@
       (/ (* I_R xi) rho_b-epsilon-Q_ig)
       0.0)))
 
-(defn- grass-fuel-model? [^long number]
-  (and (> number 100) (< number 110)))
-
 ;; Addition proposed by Chris Lautenberger (REAX 2015)
 (defn calc-suppressed-spread-rate ^double [^double R ^long number grass-suppression?]
   (let [spread-rate-multiplier (if (and grass-suppression?
-                                        (grass-fuel-model? number))
+                                        (is-dynamic-grass-fuel-model-number? number))
                                  0.5
                                  1.0)]
     (* R spread-rate-multiplier)))
@@ -162,7 +159,7 @@
           (Math/pow B-inverse)))))
 
 (defrecord SurfaceFireMin
-    [^double spread-rate
+    [^double unadj-spread-rate
      ^double reaction-intensity
      ^double residence-time
      ^double fuel-bed-depth
@@ -370,10 +367,17 @@
             effective-wind-speed (get-wind-speed phi-combined)]
         (->SurfaceFireMax max-spread-rate max-spread-direction effective-wind-speed 0.0)))))
 
+(defn resolve-spread-rate ^double
+  [^SurfaceFireMin surface-fire-min ^double adjustment-factor]
+  (-> surface-fire-min
+      (:unadj-spread-rate)
+      (double)
+      (* adjustment-factor)))
+
 (defn rothermel-surface-fire-spread-max
   "Note: fire ellipse adjustment factor, < 1.0 = more circular, > 1.0 = more elliptical"
-  [surface-fire-min midflame-wind-speed wind-from-direction slope aspect ellipse-adjustment-factor]
-  (let [spread-rate               (double (:spread-rate surface-fire-min))
+  [surface-fire-min midflame-wind-speed wind-from-direction slope aspect ellipse-adjustment-factor spread-rate-adjustment]
+  (let [spread-rate               (resolve-spread-rate surface-fire-min (or spread-rate-adjustment 1.0))
         reaction-intensity        (double (:reaction-intensity surface-fire-min))
         get-phi_S                 (:get-phi_S surface-fire-min)
         get-phi_W                 (:get-phi_W surface-fire-min)

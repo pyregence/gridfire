@@ -6,6 +6,10 @@
 
 (set! *unchecked-math* :warn-on-boxed)
 
+(def ^:const square-feet-per-acre 43560.0)
+
+(def ^:const days-per-minute 0.000694444)
+
 (defn F->K
   "Convert fahrenheit to kelvin."
   ^double
@@ -176,6 +180,18 @@
   [^double minutes]
   (* minutes 60.0))
 
+(defn ms->min
+  "Convert milliseconds to minutes."
+  ^double
+  [^double milliseconds]
+  (* milliseconds 0.000016667))
+
+(defn min->ms
+  "Convert minutes to milliseconds."
+  ^long
+  [^double minutes]
+  (long (* minutes 60000.0)))
+
 (defn hour->min
   "Converts hours to minutes."
   ^double
@@ -188,6 +204,12 @@
   [^double minutes]
   (long (/ minutes 60.0)))
 
+(defn min->day
+  "Convert minutes to days."
+  ^double
+  [^double minutes]
+  (* minutes days-per-minute))
+
 (defn convert-date-string
   "Convert a date string between two formats."
   [date-str from-format to-format]
@@ -198,6 +220,13 @@
     (->> date-str
          (.parse in-format)
          (.format out-format))))
+
+(defn cells->acres
+  "Converts number of cells to acres."
+  ^double
+  [^double cell-size ^long num-cells]
+  (let [acres-per-cell (/ (* cell-size cell-size) square-feet-per-acre)]
+    (* acres-per-cell num-cells)))
 
 ;; TODO remove when code is in triangulum
 (defn camel->kebab
