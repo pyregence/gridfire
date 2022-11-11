@@ -2,6 +2,7 @@
   (:require [clojure.data.csv        :as csv]
             [clojure.java.io         :as io]
             [clojure.string          :as str]
+            [gridfire.burn-period    :as burnp]
             [gridfire.common         :refer [burnable-fuel-model?]]
             [gridfire.conversion     :refer [conversion-table min->ms ms->min percent->dec]]
             [gridfire.fetch          :as fetch]
@@ -35,7 +36,8 @@
           fuel-moisture-dead-10hr-layer       (future (fetch/fuel-moisture-layer config :dead :10hr))
           fuel-moisture-dead-100hr-layer      (future (fetch/fuel-moisture-layer config :dead :100hr))
           fuel-moisture-live-herbaceous-layer (future (fetch/fuel-moisture-layer config :live :herbaceous))
-          fuel-moisture-live-woody-layer      (future (fetch/fuel-moisture-layer config :live :woody))]
+          fuel-moisture-live-woody-layer      (future (fetch/fuel-moisture-layer config :live :woody))
+          sdi-layer                           (future (fetch/sdi-layer config))]
       (assoc config
              :envelope                             (fetch/layer->envelope @fuel-model-layer (:srid config))
              :aspect-matrix                        (:matrix @aspect-layer)
@@ -56,7 +58,8 @@
              :fuel-moisture-dead-10hr-matrix       (:matrix @fuel-moisture-dead-10hr-layer)
              :fuel-moisture-dead-100hr-matrix      (:matrix @fuel-moisture-dead-100hr-layer)
              :fuel-moisture-live-herbaceous-matrix (:matrix @fuel-moisture-live-herbaceous-layer)
-             :fuel-moisture-live-woody-matrix      (:matrix @fuel-moisture-live-woody-layer)))))
+             :fuel-moisture-live-woody-matrix      (:matrix @fuel-moisture-live-woody-layer)
+             :suppression-difficulty-index-matrix  (:matrix @sdi-layer)))))
 
 (defn- multi-band? [matrix]
   (> ^long (:n-dims (t/tensor->dimensions matrix)) 2))
@@ -193,43 +196,71 @@
                  (into final-ignition-sites additional-sites)))
         final-ignition-sites))))
 
+(defn- seq-no-shorter-than?
+  "Computes whether a (potentially infinite) sequence contains at least n elements."
+  [^long n coll]
+  (if (pos? n)
+    (->> coll (drop (dec n)) seq some?)
+    true))
+
+(defn- all-ignitable-cells
+  [ignitable-cell? ignition-rows ignition-cols]
+  (for [row   ignition-rows
+        col   ignition-cols
+        :when (ignitable-cell? row col)]
+    [row col]))
+
 (defn- sample-ignition-sites-shuffle
+  "Selects a random subset of all ignitable cells of size (up to) S := simulations
+   by shuffling them and taking the first S of them.
+   Requires an exhaustive scan of all cells.
+   Linear complexity: performance in Θ(N), where N := (n-rows * n-cols).
+   Returns a vector of cell coordinates."
   [{:keys [rand-gen ^long simulations]} ignitable-cell? ignition-rows ignition-cols]
   (let [ignitable-sites (my-shuffle rand-gen
-                                    (for [row   ignition-rows
-                                          col   ignition-cols
-                                          :when (ignitable-cell? row col)]
-                                      [row col]))]
+                                    (all-ignitable-cells ignitable-cell? ignition-rows ignition-cols))]
     (subvec ignitable-sites 0 (min simulations (count ignitable-sites)))))
 
 (defn sample-ignition-sites-darts
+  "Selects a random subset of all ignitable cells of size (up to) S := simulations
+   by repeated sampling without replacement ('throwing darts').
+   Efficient in the case of small S and a high enough density p of ignitable cells,
+   in which case the time complexity is O(S/p);
+   very slow (superlinear) if p ≈ S/N or lower.
+   Returns a vector of cell coordinates."
   [{:keys [rand-gen simulations]} ignitable-cell? ignition-rows ignition-cols]
   (let [total-cells (* (count ignition-rows) (count ignition-cols))]
-    (loop [[i j :as cell]    (vector (my-rand-nth rand-gen ignition-rows) (my-rand-nth rand-gen ignition-cols))
-           ignitable-cells   #{}
+    (loop [ignitable-cells   #{}
            unignitable-cells #{}]
       (if (or (= (count ignitable-cells) simulations)
-              (= (+ (count ignitable-cells) (count unignitable-cells))
+              (=
+                 ;; WARNING: it can be shown that it typically takes about N*ln(N) loop iterations to reach that point,
+                 ;; where N := total-cells.
+                 ;; Proof hint: the expected number of never-hit cells after t iterations is N*(1 - 1/N)^t.
+                 ;; You'd better hope that N is not too big! (* (Math/log 1e6) 1e6) => 1.3815510557964273e7
+                 (+ (count ignitable-cells) (count unignitable-cells))
                  total-cells))
         (vec ignitable-cells)
-        (if (ignitable-cell? i j)
-          (recur (vector (my-rand-nth rand-gen ignition-rows) (my-rand-nth rand-gen ignition-cols))
-                 (conj ignitable-cells cell)
-                 unignitable-cells)
-          (recur (vector (my-rand-nth rand-gen ignition-rows) (my-rand-nth rand-gen ignition-cols))
-                 ignitable-cells
-                 (conj unignitable-cells cell)))))))
+        (let [[i j :as cell] (vector (my-rand-nth rand-gen ignition-rows) (my-rand-nth rand-gen ignition-cols))]
+          (if (ignitable-cell? i j)
+            (recur (conj ignitable-cells cell)
+                   unignitable-cells)
+            (recur ignitable-cells
+                   (conj unignitable-cells cell))))))))
 
 (defn select-ignition-algorithm
   [{:keys [^long num-rows ^long num-cols]} ignitable-cell? ignition-rows ignition-cols]
+  ;; NOTE Here, the selection criterion is based on proving that the density of ignitable cells (Val, 06 Jul 2022)
+  ;; exceeds a certain threshold, via an (early-stopping) linear scan of ignitable cells.
+  ;; Some potential enhancements:
+  ;; 1) Estimate the ignitable density p not by scanning, but by fixed-size random sampling;
+  ;; e.g sampling 100 cells with replacement and counting those which are ignitable.
+  ;; 2) Compare to a threshold not the ignitable density p, but N*p/S,
+  ;; where N = (n-rows * n-cols) and S = (:simulations inputs);
+  ;; see (doc sample-ignition-sites-darts) to see why N*p/S is a relevant quantity.
   (let [ratio-threshold (max 1 (int (* 0.0025 num-rows num-cols)))] ; the inflection point from our benchmarks
-    (if (= ratio-threshold
-           (reduce +
-                   (take ratio-threshold
-                         (for [row   ignition-rows
-                               col   ignition-cols
-                               :when (ignitable-cell? row col)]
-                           1))))
+    (if (->> (all-ignitable-cells ignitable-cell? ignition-rows ignition-cols)
+             (seq-no-shorter-than? ratio-threshold))
       :use-darts
       :use-shuffle)))
 
@@ -237,8 +268,8 @@
   [{:keys
     [^long num-rows ^long num-cols ignition-row ignition-col simulations ^double cell-size random-ignition
      rand-gen ignition-matrix ignition-csv config-file-path ignition-mask-matrix
-     fuel-model-matrix] :as inputs}]
-  (if (or ignition-matrix ignition-csv)
+     fuel-model-matrix ignition-rows] :as inputs}]
+  (if (or ignition-matrix ignition-csv ignition-rows)
     inputs
     (let [ignitable-cell?   (if ignition-mask-matrix
                               (fn [row col]
@@ -279,13 +310,6 @@
          :flame-length-max-matrix (when output-flame-length-max (t/new-tensor [num-rows num-cols]))
          :spot-count-matrix       (when output-spot-count? (t/new-tensor [num-rows num-cols]))))
 
-(defn add-burn-period-params
-  [{:keys [burn-period] :as inputs}]
-  (let [{:keys [start end]} burn-period]
-    (-> inputs
-        (assoc :burn-period-start (or start "00:00"))
-        (assoc :burn-period-end   (or end   "24:00")))))
-
 (defn add-ignition-start-times
   [{:keys [ignition-start-times ignition-start-timestamp weather-start-timestamp simulations] :as inputs}]
   (if (and (nil? ignition-start-times) ignition-start-timestamp weather-start-timestamp)
@@ -306,3 +330,73 @@
     (-> inputs
         (assoc :ignition-start-timestamps ignition-start-timestamps)
         (dissoc :ignition-start-timestamp))))
+
+(defn add-suppression
+  [{:keys
+    [rand-gen simulations suppression suppression-dt-samples suppression-coefficient-samples
+     sdi-sensitivity-to-difficulty-samples sdi-containment-overwhelming-area-growth-rate-samples
+     sdi-reference-suppression-speed-samples] :as inputs}]
+  (if suppression
+    (let [{:keys
+           [suppression-dt
+            suppression-coefficient
+            sdi-sensitivity-to-difficulty
+            sdi-containment-overwhelming-area-growth-rate
+            sdi-reference-suppression-speed]} suppression]
+      (cond-> inputs
+
+        (and suppression-dt
+             (nil? suppression-dt-samples))
+        (assoc :suppression-dt-samples
+               (draw-samples rand-gen simulations suppression-dt))
+
+        (and suppression-coefficient
+             (nil? suppression-coefficient-samples))
+        (assoc :suppression-coefficient-samples
+               (draw-samples rand-gen simulations suppression-coefficient))
+
+        (and sdi-sensitivity-to-difficulty
+             (nil? sdi-sensitivity-to-difficulty-samples))
+        (assoc :sdi-sensitivity-to-difficulty-samples
+               (draw-samples rand-gen simulations sdi-sensitivity-to-difficulty))
+
+        (and sdi-containment-overwhelming-area-growth-rate
+             (nil? sdi-containment-overwhelming-area-growth-rate-samples))
+        (assoc :sdi-containment-overwhelming-area-growth-rate-samples
+               (draw-samples rand-gen simulations sdi-containment-overwhelming-area-growth-rate))
+
+        (and sdi-reference-suppression-speed
+             (nil? sdi-reference-suppression-speed-samples))
+        (assoc :sdi-reference-suppression-speed-samples
+               (draw-samples rand-gen simulations sdi-reference-suppression-speed))))
+    inputs))
+
+(defn- convert-map->array-lookup
+  [lookup-map]
+  (let [indices      (keys lookup-map)
+        size         (inc (long (apply max indices)))
+        array-lookup (double-array size)]
+    (doseq [index indices]
+      (aset array-lookup (int index) (double (get lookup-map index))))
+    array-lookup))
+
+(defn add-fuel-number->spread-rate-adjustment-array-lookup-samples
+  [{:keys [fuel-number->spread-rate-adjustment-samples] :as inputs}]
+  (if fuel-number->spread-rate-adjustment-samples
+    (assoc inputs
+           :fuel-number->spread-rate-adjustment-array-lookup-samples
+           (mapv convert-map->array-lookup fuel-number->spread-rate-adjustment-samples))
+    inputs))
+
+(defn add-burn-period-samples
+  [{:keys [ignition-start-timestamps] :as inputs}]
+  (let [from-sunrise-sunset? (some? (:burn-period-frac inputs))]
+    (-> inputs
+        (assoc :burn-period-samples
+               (->> ignition-start-timestamps
+                    (mapv (if from-sunrise-sunset?
+                            (fn [ignition-start-timestamp]
+                              (burnp/from-sunrise-sunset inputs ignition-start-timestamp))
+                            (let [{:keys [start end]} inputs]
+                              (constantly {:burn-period-start (or start "00:00")
+                                           :burn-period-end   (or end "24:00")})))))))))

@@ -4,16 +4,12 @@
 
 (defn get-calendar-branch-version []
   (let [today  (Date.)
-        branch (b/git-process {:git-args "branch --show-current"})
-        label  (case branch
-                 "main"        "stable"
-                 "development" "dev"
-                 branch)]
+        commit (b/git-process {:git-args "rev-parse --short HEAD"})]
     (format "%d.%d.%d-%s"
             (+ 1900 (.getYear today))
             (+ 1 (.getMonth today))
             (.getDate today)
-            label)))
+            commit)))
 
 (def build-folder "target")
 (def jar-content (str build-folder "/classes"))
