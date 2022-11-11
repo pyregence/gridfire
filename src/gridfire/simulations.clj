@@ -393,107 +393,118 @@
      suppression-coefficient
      suppression-dt])
 
-(defn run-simulation!
+(defn prepare-simulation-inputs
   [^long i
    {:keys
-    [num-rows num-cols crowning-disabled? grass-suppression? output-csvs? envelope ignition-matrix cell-size max-runtime-samples
-     ignition-rows ignition-cols burn-period-samples ellipse-adjustment-factor-samples random-seed ignition-start-times spotting
-     ignition-start-timestamps output-flame-length-sum output-flame-length-max
-     output-layers fuel-number->spread-rate-adjustment-array-lookup-array-lookup-samples suppression-dt-samples suppression-coefficient-samples
-     sdi-sensitivity-to-difficulty-samples sdi-containment-overwhelming-area-growth-rate-samples
-     sdi-reference-suppression-speed-samples]
+    [num-rows num-cols crowning-disabled? grass-suppression? ignition-matrix cell-size max-runtime-samples
+     ignition-rows ignition-cols ellipse-adjustment-factor-samples random-seed ignition-start-times spotting
+     burn-period-samples ignition-start-timestamps
+     output-flame-length-sum output-flame-length-max output-layers]
     :as inputs}]
+  (let [rand-gen           (if random-seed (Random. (+ ^long random-seed i)) (Random.))
+        burn-period        (burn-period-samples i)
+        simulation-inputs  {:num-rows                                         num-rows
+                            :num-cols                                         num-cols
+                            :cell-size                                        cell-size
+                            :rand-gen                                         rand-gen
+                            :initial-ignition-site                            (or ignition-matrix
+                                                                                  [(ignition-rows i) (ignition-cols i)])
+                            :ignition-start-time                              (get ignition-start-times i 0.0)
+                            :ignition-start-timestamp                         (get ignition-start-timestamps i)
+                            :burn-period-start                                (:burn-period-start burn-period)
+                            :burn-period-end                                  (:burn-period-end burn-period)
+                            :max-runtime                                      (max-runtime-samples i)
+                            :compute-directional-values?                      (or (= output-flame-length-max :directional)
+                                                                                  (= output-flame-length-sum :directional)
+                                                                                  (:directional-flame-length output-layers))
+                            :get-aspect                                       (grid-getter inputs rand-gen :aspect i)
+                            :get-canopy-base-height                           (grid-getter inputs rand-gen :canopy-base-height i)
+                            :get-canopy-cover                                 (grid-getter inputs rand-gen :canopy-cover i)
+                            :get-canopy-height                                (grid-getter inputs rand-gen :canopy-height i)
+                            :get-crown-bulk-density                           (grid-getter inputs rand-gen :crown-bulk-density i)
+                            :get-elevation                                    (grid-getter inputs rand-gen :elevation i)
+                            :get-foliar-moisture                              (grid-getter inputs rand-gen :foliar-moisture i)
+                            :get-fuel-model                                   (grid-getter inputs rand-gen :fuel-model i)
+                            :get-fuel-moisture-dead-100hr                     (grid-getter inputs rand-gen :fuel-moisture-dead-100hr i)
+                            :get-fuel-moisture-dead-10hr                      (grid-getter inputs rand-gen :fuel-moisture-dead-10hr i)
+                            :get-fuel-moisture-dead-1hr                       (grid-getter inputs rand-gen :fuel-moisture-dead-1hr i)
+                            :get-fuel-moisture-live-herbaceous                (grid-getter inputs rand-gen :fuel-moisture-live-herbaceous i)
+                            :get-fuel-moisture-live-woody                     (grid-getter inputs rand-gen :fuel-moisture-live-woody i)
+                            :get-relative-humidity                            (grid-getter inputs rand-gen :relative-humidity i)
+                            :get-slope                                        (grid-getter inputs rand-gen :slope i)
+                            :get-suppression-difficulty-index                 (grid-getter inputs rand-gen :suppression-difficulty-index i)
+                            :get-temperature                                  (grid-getter inputs rand-gen :temperature i)
+                            :get-wind-from-direction                          (grid-getter inputs rand-gen :wind-from-direction i)
+                            :get-wind-speed-20ft                              (grid-getter inputs rand-gen :wind-speed-20ft i)
+                            :crowning-disabled?                               (true? crowning-disabled?) ; NOTE not using samples yet. Might never be needed.
+                            :ellipse-adjustment-factor                        (ellipse-adjustment-factor-samples i)
+                            :grass-suppression?                               (true? grass-suppression?)
+                            :sdi-containment-overwhelming-area-growth-rate    (some-> (:sdi-containment-overwhelming-area-growth-rate-samples inputs) (get i))
+                            :sdi-reference-suppression-speed                  (some-> (:sdi-reference-suppression-speed-samples inputs) (get i))
+                            :sdi-sensitivity-to-difficulty                    (some-> (:sdi-sensitivity-to-difficulty-samples inputs) (get i))
+                            :spotting                                         spotting
+                            :fuel-number->spread-rate-adjustment-array-lookup (some-> (:fuel-number->spread-rate-adjustment-array-lookup-array-lookup-samples inputs) (get i))
+                            :suppression-coefficient                          (some-> (:suppression-coefficient-samples inputs) (get i))
+                            :suppression-dt                                   (some-> (:suppression-dt-samples inputs) (get i))}]
+    (map->SimulationInputs simulation-inputs)))
+
+(defn process-simulation-results!
+  [^long i
+   {:keys [output-csvs? envelope cell-size ignition-rows ignition-cols] :as inputs}
+   simulation-inputs
+   simulation-results]
+  (when simulation-results
+    (->
+      (mfd/zip
+       (process-output-layers! inputs simulation-results envelope i)
+       (process-aggregate-output-layers! inputs simulation-results)
+       (process-binary-output! inputs simulation-results i))
+      (gf-async/nil-when-completed)
+      (deref)))
+  (when output-csvs?
+    (-> simulation-inputs
+        (dissoc :get-aspect
+                :get-canopy-height
+                :get-canopy-base-height
+                :get-canopy-cover
+                :get-crown-bulk-density
+                :get-fuel-model
+                :get-slope
+                :get-elevation
+                :get-temperature
+                :get-relative-humidity
+                :get-wind-speed-20ft
+                :get-wind-from-direction
+                :get-fuel-moisture-dead-1hr
+                :get-fuel-moisture-dead-10hr
+                :get-fuel-moisture-dead-100hr
+                :get-fuel-moisture-live-herbaceous
+                :get-fuel-moisture-live-woody
+                :get-foliar-moisture)
+        (merge {:simulation         (inc i)
+                :ignition-row       (get ignition-rows i)
+                :ignition-col       (get ignition-cols i)
+                :global-clock       (:global-clock simulation-results)
+                :exit-condition     (:exit-condition simulation-results :no-fire-spread)
+                :surface-fire-count (:surface-fire-count simulation-results)
+                :crown-fire-count   (:crown-fire-count simulation-results)
+                :spot-count         (:spot-count simulation-results)})
+        (merge
+         (if simulation-results
+           (tufte/p
+            :summarize-fire-spread-results
+            (summarize-fire-spread-results simulation-results cell-size))
+           {:fire-size                  0.0
+            :flame-length-mean          0.0
+            :flame-length-stddev        0.0
+            :fire-line-intensity-mean   0.0
+            :fire-line-intensity-stddev 0.0})))))
+
+(defn run-simulation!
+  [^long i inputs]
   (tufte/profile
    {:id :run-simulation}
-   (let [rand-gen           (if random-seed (Random. (+ ^long random-seed i)) (Random.))
-         burn-period        (burn-period-samples i)
-         simulation-inputs  {:num-rows                                         num-rows
-                             :num-cols                                         num-cols
-                             :cell-size                                        cell-size
-                             :rand-gen                                         rand-gen
-                             :initial-ignition-site                            (or ignition-matrix
-                                                                                   [(ignition-rows i) (ignition-cols i)])
-                             :ignition-start-time                              (get ignition-start-times i 0.0)
-                             :ignition-start-timestamp                         (get ignition-start-timestamps i)
-                             :burn-period-start                                (:burn-period-start burn-period)
-                             :burn-period-end                                  (:burn-period-end burn-period)
-                             :max-runtime                                      (max-runtime-samples i)
-                             :compute-directional-values?                      (or (= output-flame-length-max :directional)
-                                                                                   (= output-flame-length-sum :directional)
-                                                                                   (:directional-flame-length output-layers))
-                             :get-aspect                                       (grid-getter inputs rand-gen :aspect i)
-                             :get-canopy-base-height                           (grid-getter inputs rand-gen :canopy-base-height i)
-                             :get-canopy-cover                                 (grid-getter inputs rand-gen :canopy-cover i)
-                             :get-canopy-height                                (grid-getter inputs rand-gen :canopy-height i)
-                             :get-crown-bulk-density                           (grid-getter inputs rand-gen :crown-bulk-density i)
-                             :get-elevation                                    (grid-getter inputs rand-gen :elevation i)
-                             :get-foliar-moisture                              (grid-getter inputs rand-gen :foliar-moisture i)
-                             :get-fuel-model                                   (grid-getter inputs rand-gen :fuel-model i)
-                             :get-fuel-moisture-dead-100hr                     (grid-getter inputs rand-gen :fuel-moisture-dead-100hr i)
-                             :get-fuel-moisture-dead-10hr                      (grid-getter inputs rand-gen :fuel-moisture-dead-10hr i)
-                             :get-fuel-moisture-dead-1hr                       (grid-getter inputs rand-gen :fuel-moisture-dead-1hr i)
-                             :get-fuel-moisture-live-herbaceous                (grid-getter inputs rand-gen :fuel-moisture-live-herbaceous i)
-                             :get-fuel-moisture-live-woody                     (grid-getter inputs rand-gen :fuel-moisture-live-woody i)
-                             :get-relative-humidity                            (grid-getter inputs rand-gen :relative-humidity i)
-                             :get-slope                                        (grid-getter inputs rand-gen :slope i)
-                             :get-suppression-difficulty-index                 (grid-getter inputs rand-gen :suppression-difficulty-index i)
-                             :get-temperature                                  (grid-getter inputs rand-gen :temperature i)
-                             :get-wind-from-direction                          (grid-getter inputs rand-gen :wind-from-direction i)
-                             :get-wind-speed-20ft                              (grid-getter inputs rand-gen :wind-speed-20ft i)
-                             :crowning-disabled?                               (true? crowning-disabled?) ; NOTE not using samples yet. Might never be needed.
-                             :ellipse-adjustment-factor                        (ellipse-adjustment-factor-samples i)
-                             :grass-suppression?                               (true? grass-suppression?)
-                             :sdi-containment-overwhelming-area-growth-rate    (some-> sdi-containment-overwhelming-area-growth-rate-samples (get i))
-                             :sdi-reference-suppression-speed                  (some-> sdi-reference-suppression-speed-samples (get i))
-                             :sdi-sensitivity-to-difficulty                    (some-> sdi-sensitivity-to-difficulty-samples (get i))
-                             :spotting                                         spotting
-                             :fuel-number->spread-rate-adjustment-array-lookup (some-> fuel-number->spread-rate-adjustment-array-lookup-array-lookup-samples (get i))
-                             :suppression-coefficient                          (some-> suppression-coefficient-samples (get i))
-                             :suppression-dt                                   (some-> suppression-dt-samples (get i))}
+   (let [simulation-inputs  (prepare-simulation-inputs i inputs)
          simulation-results (tufte/p :run-fire-spread
-                                     (run-fire-spread (map->SimulationInputs simulation-inputs)))]
-     (when simulation-results
-       (-> (mfd/zip
-            (process-output-layers! inputs simulation-results envelope i)
-            (process-aggregate-output-layers! inputs simulation-results)
-            (process-binary-output! inputs simulation-results i))
-           (gf-async/nil-when-completed)
-           (deref)))
-     (when output-csvs?
-       (-> simulation-inputs
-           (dissoc :get-aspect
-                   :get-canopy-height
-                   :get-canopy-base-height
-                   :get-canopy-cover
-                   :get-crown-bulk-density
-                   :get-fuel-model
-                   :get-slope
-                   :get-elevation
-                   :get-temperature
-                   :get-relative-humidity
-                   :get-wind-speed-20ft
-                   :get-wind-from-direction
-                   :get-fuel-moisture-dead-1hr
-                   :get-fuel-moisture-dead-10hr
-                   :get-fuel-moisture-dead-100hr
-                   :get-fuel-moisture-live-herbaceous
-                   :get-fuel-moisture-live-woody
-                   :get-foliar-moisture)
-           (merge {:simulation         (inc i)
-                   :ignition-row       (get ignition-rows i)
-                   :ignition-col       (get ignition-cols i)
-                   :global-clock       (:global-clock simulation-results)
-                   :exit-condition     (:exit-condition simulation-results :no-fire-spread)
-                   :surface-fire-count (:surface-fire-count simulation-results)
-                   :crown-fire-count   (:crown-fire-count simulation-results)
-                   :spot-count         (:spot-count simulation-results)})
-           (merge
-            (if simulation-results
-              (tufte/p
-               :summarize-fire-spread-results
-               (summarize-fire-spread-results simulation-results cell-size))
-              {:fire-size                  0.0
-               :flame-length-mean          0.0
-               :flame-length-stddev        0.0
-               :fire-line-intensity-mean   0.0
-               :fire-line-intensity-stddev 0.0})))))))
+                                     (run-fire-spread simulation-inputs))]
+     (process-simulation-results! i inputs simulation-inputs simulation-results))))
