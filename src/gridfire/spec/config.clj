@@ -54,7 +54,7 @@
 ;; Optional Keys
 ;;=============================================================================
 
-(s/def ::random-seed                    (s/or :nil nil? :long integer?))
+(s/def ::random-seed                     (s/or :nil nil? :long integer?))
 (s/def ::crowning-disabled?              boolean?)
 (s/def ::ellipse-adjustment-factor       ::common/number-sample)
 (s/def ::fractional-distance-combination #{:sum}) ; FIXME This is currently unused.
