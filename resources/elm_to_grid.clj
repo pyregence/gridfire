@@ -291,6 +291,10 @@
 ;; File access functions
 ;;=============================================================================
 
+(defn file->path
+  ^String [f]
+  (.getPath (io/file f)))
+
 (defn relative-path?
   [path]
   (re-matches #"^((\.){1,2}\/)+.*" path))
@@ -309,7 +313,8 @@
   (let [output-file-path (.toString (io/file output-dir "gridfire.edn"))]
     (println "Creating config file:" output-file-path)
     (with-open [writer (io/writer output-file-path)]
-      (pprint output-edn writer))))
+      (pprint (into (sorted-map) output-edn) ; sorting the top-level keys for readability and stability.
+              writer))))
 
 ;;=============================================================================
 ;; Merge Override Config
@@ -358,14 +363,16 @@
                                    (let [elm-x (inc grid-j)
                                          elm-y (inc (- 2 grid-i))]
                                      {:type   :gridfire-envi-bsq
-                                      :source (build-file-path (str folder-name "/" (format "%s_%d_%d.bsq" file-name elm-x elm-y)))})))})
+                                      :source (build-file-path (file->path (io/file folder-name
+                                                                                    (format "%s_%d_%d.bsq" file-name elm-x elm-y))))})))})
 
 (defn resolve-layer-spec [{:strs [USE_TILED_IO] :as elmfire-config} folder-name layer-key]
   (let [file-name (get elmfire-config layer-key)]
     (cond-> (if (true? USE_TILED_IO)
               (build-grid-of-rasters folder-name file-name)
               {:type   :geotiff
-               :source (build-file-path (str folder-name "/" file-name ".tif"))})
+               :source (build-file-path (file->path (io/file folder-name
+                                                             (str file-name ".tif"))))})
       (contains? layer-key->unit layer-key)       (assoc :units (get layer-key->unit layer-key))
       (contains? layer-key->multiplier layer-key) (assoc :multiplier (get layer-key->multiplier layer-key)))))
 
@@ -696,40 +703,31 @@
      (->> data-rows
           (map (fn to-map [[pyrome-id & double-params]]
                  [(Long/parseLong pyrome-id 10)
-                  (zipmap rest-colname-parsed
-                          (mapv (fn [s] (Double/parseDouble s)) double-params))]))
+                  (->> (zipmap rest-colname-parsed
+                               (mapv (fn [s] (Double/parseDouble s)) double-params))
+                       (into (sorted-map)))]))
           (into {})))))
 
 (defn- process-pyrome-calibration-csv
-  [{:keys [pyrome-samples] :as output-edn } {:keys [pyrome-calibration-csv] :as _options}]
+  [{:keys [pyrome-samples] :as output-edn} {:keys [pyrome-calibration-csv] :as _options}]
   (let [[header & _ :as csv-rows]     (with-open [reader (io/reader pyrome-calibration-csv)]
                                         (-> reader
                                             csv/read-csv
                                             doall))
-        pyrome->calibration-constants (pyrome-csv-rows->lookup-map csv-rows keyword)
+        pyrome->calibration-constants (pyrome-csv-rows->lookup-map csv-rows)
         header-set                    (set header)]
-    (cond-> output-edn
-
-      (contains? header-set "sdi-sensitivity-to-difficulty")
-      (assoc :sdi-sensitivity-to-difficulty-samples
-             (mapv (fn [pyrome-sample]
-                     (get-in pyrome->calibration-constants
-                             [pyrome-sample :sdi-sensitivity-to-difficulty]))
-                   pyrome-samples))
-
-      (contains? header-set "sdi-reference-suppression-speed")
-      (assoc :sdi-reference-suppression-speed-samples
-             (mapv (fn [pyrome-sample]
-                     (get-in pyrome->calibration-constants
-                             [pyrome-sample :sdi-reference-suppression-speed]))
-                   pyrome-samples))
-
-      (contains? header-set "sdi-containment-overwhelming-area-growth-rate")
-      (assoc :sdi-containment-overwhelming-area-growth-rate-samples
-             (mapv (fn [pyrome-sample]
-                     (get-in pyrome->calibration-constants
-                             [pyrome-sample :sdi-containment-overwhelming-area-growth-rate]))
-                   pyrome-samples)))))
+    (letfn [(assoc-from-csv [gfr-config elm-header-name gf-samples-key]
+              (cond-> gfr-config
+                (contains? header-set elm-header-name)
+                (assoc gf-samples-key
+                       (mapv (fn [pyrome-sample]
+                               (get-in pyrome->calibration-constants
+                                       [pyrome-sample elm-header-name]))
+                               pyrome-samples))))]
+      (-> output-edn
+          (assoc-from-csv "b_sdi"                      :sdi-sensitivity-to-difficulty-samples)
+          (assoc-from-csv "max_containment_per_day"    :sdi-reference-suppression-speed-samples)
+          (assoc-from-csv "area_no_containment_change" :sdi-containment-overwhelming-area-growth-rate-samples)))))
 
 (defn- process-pyrome-spread-rate-adjustment-csv
   [{:keys [pyrome-samples] :as output-edn } {:keys [pyrome-spread-rate-adjustment-csv] :as _options}]
@@ -740,7 +738,8 @@
                                              (pyrome-csv-rows->lookup-map (fn [s] (Long/parseLong s 10)))))]
     (assoc output-edn
            :fuel-number->spread-rate-adjustment-samples
-           (tagged-literal 'gridfire.config/abbreviating [pyrome->spread-rate-adjustment (vec pyrome-samples)]))))
+           (tagged-literal 'gridfire.config/abbreviating [(into (sorted-map) pyrome->spread-rate-adjustment)
+                                                          (vec pyrome-samples)]))))
 
 (defn process-pyrome-specific-calibration
   [output-edn {:keys [pyrome-spread-rate-adjustment-csv pyrome-calibration-csv] :as options}]
