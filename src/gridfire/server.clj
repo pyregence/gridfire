@@ -180,7 +180,7 @@
 
   WARNING: because each simulation requires exclusive access to various resources (e.g all the processors),
   do not make several parallel calls to this function."
-  [request {:keys [software-dir override-config] :as config}]
+  [request {:keys [software-dir override-config backup-dir] :as config}]
   (try
     (let [input-deck-path     (unzip-tar! request config)
           elmfire-data-file   (.getPath (io/file input-deck-path "elmfire.data"))
@@ -199,6 +199,11 @@
       (if (gridfire/process-config-file! gridfire-edn-file) ; Returns true on success
         (do (copy-post-process-scripts! software-dir gridfire-output-dir)
             (run-post-process-scripts! request config gridfire-output-dir)
+            (when backup-dir
+              (sh/sh "tar" "-czf"
+                     (str backup-dir "/" (.getName (io/file input-deck-path)) ".tar.gz")
+                     (.getAbsolutePath (io/file input-deck-path))
+                     (str (.getName (io/file input-deck-path)) ".tar.gz") ))
             (sh/sh "rm" "-rf" (.getAbsolutePath (io/file input-deck-path)))
             [0 "Successful run! Results uploaded to GeoServer!"])
         (throw-message "Simulation failed. No results uploaded to GeoServer.")))
@@ -297,5 +302,6 @@
  :data-dir                   "/home/kcheung/work/servers/chickadee/data"
  :override-config            "/home/kcheung/work/servers/chickadee/gridfire-base.edn"
  :log-dir                    "/home/kcheung/work/servers/chickadee/log"
+ :backup-dir                 "/home/kcheung/work/servers/chickadee/backup-to-ftp"
  :suppression-white-list     "/home/kcheung/work/servers/chickadee/suppression-white-list.edn"
- :also-simulate-suppression? true}
+   :also-simulate-suppression? true}
