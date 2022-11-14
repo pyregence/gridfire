@@ -24,7 +24,7 @@
                                               equilibrium-moisture lw-moisture eaf fire-size flame-length-mean
                                               ;; flame-length-stddev fire-volume fire-shape]}]
                                               fire-volume fire-shape]}]
-                                   (let [local-site     (mop/- ignition-site cell-offset-in-neighborhood)
+                                   (let [local-site     (dfn/- ignition-site cell-offset-in-neighborhood)
                                          wrf-percentile (- 100.0 (/ weather-sample 36.0))]
                                      [wrf-cell-id
                                       lon
@@ -234,7 +234,7 @@
          (r/map (fn [{:keys [wrf_cell_id lon lat lw_moisture]}]
                   (try (let [ignition-sites   (into []
                                                     (comp (distinct) (take num-ignitions))
-                                                    (repeatedly #(mop/+ cell-offset-in-neighborhood (random-cell 84 83))))
+                                                    (repeatedly #(dfn/+ cell-offset-in-neighborhood (random-cell 84 83))))
                              weather-readings (fetch-midrange-weather-readings db-spec wrf_cell_id)]
                          (when-let [landfire-data (fetch-landfire-data db-spec wrf_cell_id)]
                            (->> (run-monte-carlo-fire-spread landfire-data landfire-cell-size ignition-sites weather-readings lw_moisture
