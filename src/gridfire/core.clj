@@ -29,10 +29,12 @@
   `(do (tufte/remove-handler! :accumulating)
        (let [stats-accumulator# (tufte/add-accumulating-handler! {:handler-id :accumulating})
              result#            (do ~@body)]
-         (Thread/sleep 1000)
+         (when simulations/*log-performance-metrics*
+           (Thread/sleep 1000))
          (as-> {:format-pstats-opts {:columns [:n-calls :min :max :mean :mad :clock :total]}} $#
            (tufte/format-grouped-pstats @stats-accumulator# $#)
-           (log $# :truncate? false))
+           (when simulations/*log-performance-metrics*
+             (log $# :truncate? false)))
          result#)))
 
 (defn run-simulations!
