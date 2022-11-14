@@ -22,23 +22,25 @@
 (defn indices-to-matrix [indices ttype]
   (let [^ints rows   (indices :y)
         ^ints cols   (indices :x)
-        ^int max-row (reduce max rows)
-        ^int max-col (reduce max cols)]
-    (if (= ttype :int)
-      (let [^ints values (indices :v)
-            matrix       (make-array Integer/TYPE max-row max-col)]
-        (dotimes [i (count values)]
-          (let [true-row (- max-row (aget rows i))
-                true-col (dec (aget cols i))]
-            (aset matrix true-row true-col (aget values i))))
-        (t/->tensor matrix))
-      (let [^floats values (indices :v)
-            matrix         (make-array Float/TYPE max-row max-col)]
-        (dotimes [i (count values)]
-          (let [true-row (- max-row (aget rows i))
-                true-col (dec (aget cols i))]
-            (aset matrix true-row true-col (aget values i))))
-        (t/->tensor matrix)))))
+        ^int max-row (reduce max 0 rows)
+        ^int max-col (reduce max 0 cols)]
+    (-> (if (= ttype :int)
+          (let [^ints values (indices :v)
+                matrix       (make-array Integer/TYPE max-row max-col)]
+            (dotimes [i (count values)]
+              (let [true-row (- max-row (aget rows i))
+                    true-col (dec (aget cols i))]
+                (aset matrix true-row true-col (aget values i))))
+            (t/->tensor matrix))
+          (let [^floats values (indices :v)
+                matrix         (make-array Float/TYPE max-row max-col)]
+            (dotimes [i (count values)]
+              (let [true-row (- max-row (aget rows i))
+                    true-col (dec (aget cols i))]
+                (aset matrix true-row true-col (aget values i))))
+            (t/->tensor matrix)))
+        ;; Useful in case there is no data.
+        (t/reshape [max-row max-col]))))
 
 ;;FIXME optimize
 (defn write-matrix-as-binary [matrix file-name]

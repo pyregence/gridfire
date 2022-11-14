@@ -1,0 +1,4 @@
+{:output-binary?          false
+ :output-burn-probability :final
+ :random-seed             1991
+ :crowning-disabled?      true}
