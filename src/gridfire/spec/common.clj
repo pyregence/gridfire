@@ -125,9 +125,12 @@
 
 (s/def ::multiplier number?)
 
+(s/def :gridfire.input/add-correction-angle360 number?)
+
 (s/def ::layer-coords-map
   (s/and (s/nonconforming ::raw-layer-coords-map)
-         (s/keys :opt-un [::cell-size ::unit ::multiplier])))
+         (s/keys :opt-un [::cell-size ::unit ::multiplier]
+                 :opt    [:gridfire.input/add-correction-angle360])))
 
 (s/def ::layer-coords (s/or :sql ::spec-sql/sql
                             :map ::layer-coords-map))

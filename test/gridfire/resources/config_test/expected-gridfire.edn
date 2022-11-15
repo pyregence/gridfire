@@ -100,6 +100,7 @@
  :temperature 80,
  :wind-from-direction
  {:type :geotiff,
+  :gridfire.input/add-correction-angle360 -7.45293754
   :source #gridfire.utils.files/from-this-file "./weather/wd.tif"},
  :wind-speed-20ft
  {:type :geotiff,

@@ -32,13 +32,32 @@
                  (* width scalex)
                  (* -1.0 height scaley)))
 
+(defn- comp-convert-fns
+  "Like clojure.core/comp but for convert-fns, which can be nil and return ^double."
+  ([cf0] cf0)
+  ([cf1 cf0]
+   (fn ^double [^double v]
+     (-> v
+         (cond-> (some? cf0) (cf0))
+         (double)
+         (cf1)))))
+
+(defn- add-angle360
+  ^double [^double v ^double angle360]
+  (-> v (+ angle360) (mod 360.0)))
+
 (defn get-convert-fn
   ([layer-name layer-spec fallback-unit]
    (get-convert-fn layer-name layer-spec fallback-unit 1.0))
   ([layer-name layer-spec fallback-unit fallback-multiplier]
-   (convert/get-units-converter layer-name
-                                (or (:units layer-spec) fallback-unit)
-                                (or (:multiplier layer-spec) fallback-multiplier))))
+   (-> (convert/get-units-converter layer-name
+                                    (or (:units layer-spec) fallback-unit)
+                                    (or (:multiplier layer-spec) fallback-multiplier))
+       (as-> convert-fn
+             (if-some [angle360 (:gridfire.input/add-correction-angle360 layer-spec)]
+               (comp-convert-fns (fn add-angular-correction [^double v] (add-angle360 v angle360))
+                                 convert-fn)
+               convert-fn)))))
 
 ;;-----------------------------------------------------------------------------
 ;; Data sources
