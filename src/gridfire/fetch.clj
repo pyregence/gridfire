@@ -32,9 +32,9 @@
                  (* width scalex)
                  (* -1.0 height scaley)))
 
-(defn get-units-convert-fn
+(defn get-convert-fn
   ([layer-name layer-spec fallback-unit]
-   (get-units-convert-fn layer-name layer-spec fallback-unit 1.0))
+   (get-convert-fn layer-name layer-spec fallback-unit 1.0))
   ([layer-name layer-spec fallback-unit fallback-multiplier]
    (convert/get-units-converter layer-name
                                 (or (:units layer-spec) fallback-unit)
@@ -112,7 +112,7 @@
                      {:type   :postgis
                       :source layer-spec
                       :units  :metric})
-        convert-fn (get-units-convert-fn layer-name layer-spec nil 1.0)
+        convert-fn (get-convert-fn layer-name layer-spec nil 1.0)
         datatype   (if (= layer-name :fuel-model)
                      ;; TODO investigate why postgis fuel-model is not converted to int32
                      ;; NOTE: might have been fixed by refactoring to use get-wrapped-tensor. (Val, 25 Oct 2022)
@@ -163,7 +163,7 @@
     (when (map? weather-spec)
       (get-wrapped-tensor config
                           weather-spec
-                          (get-units-convert-fn weather-name weather-spec nil)
+                          (get-convert-fn weather-name weather-spec nil)
                           :float32))))
 
 ;;-----------------------------------------------------------------------------
@@ -180,7 +180,7 @@
                                                     ;; WARNING we rely on keyword structure:
                                                     ;; renaming those keywords would break the program.
                                                     (s/join "-" ["fuel-moisture" (name category) (name size)]))]
-                            (get-units-convert-fn fuel-moisture-name spec :percent 1.0))
+                            (get-convert-fn fuel-moisture-name spec :percent 1.0))
                           :float32))))
 
 
@@ -193,6 +193,6 @@
   (when-let [layer-spec (:sdi-layer suppression)]
     (get-wrapped-tensor config
                         layer-spec
-                        (get-units-convert-fn :suppression layer-spec nil)
+                        (get-convert-fn :suppression layer-spec nil)
                         :float32)))
 ;; fetch.clj ends here
