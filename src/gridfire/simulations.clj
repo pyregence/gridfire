@@ -323,15 +323,13 @@
         ppsc-b             (double pb)
         ppsc-i             (double pi)
         ppsc-j             (double pj)
-        gen-sampled-grid   (reduce
-                            (fn [g s]
-                              (fn gen-tensor []
-                                (vec (repeatedly s g))))
-                            #(gen-perturbation nil)
-                            (reverse
-                             (map
-                              (fn [s] (+ (long s) 2))
-                              [sb si sj])))
+        gen-sampled-grid   (reduce (fn [g s]
+                                     (fn gen-tensor []
+                                       (vec (repeatedly s g))))
+                                   #(gen-perturbation nil)
+                                   (->> [sb si sj]
+                                        (map (fn [s] (+ (long s) 2)))
+                                        (reverse)))
         sampled-grid       (t/->tensor (gen-sampled-grid))
         ;; Why offset the supergrid? Pixels in the interior of supergrid cells
         ;; tend to have different distributions (less variance, smoother local variation)
@@ -379,10 +377,8 @@
                                                              (lin-terpolate j-posf p100 p101)
                                                              (lin-terpolate j-posf p110 p111)))))]
     (fn get-pixel-perturbation
-      (^double [i j]
-       (get-pert-at-coords 0 i j))
-      (^double [b i j]
-       (get-pert-at-coords b i j)))))
+      (^double [i j] (get-pert-at-coords 0 i j))
+      (^double [b i j] (get-pert-at-coords b i j)))))
 
 (defn- grid-getter
   "Pre-computes a 'getter' for resolving perturbed input values in the GridFire space-time grid.
