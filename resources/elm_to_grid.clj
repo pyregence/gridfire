@@ -320,17 +320,20 @@
 ;; Merge Override Config
 ;;=============================================================================
 
-(defn merge-override-config [override-config-file-path config-params]
-  (if override-config-file-path
-    (->> (slurp override-config-file-path)
-         (edn/read-string)
-         (reduce-kv (fn [acc k v]
-                      (if (nil? v)
-                        (dissoc! acc k)
-                        (assoc! acc k v)))
-                    (transient config-params))
-         (persistent!))
-    config-params))
+(defn merge-override-config [override-config-file-path options]
+  (update options
+          :output-edn
+          (fn [config-params]
+            (if override-config-file-path
+              (->> (slurp override-config-file-path)
+                   (edn/read-string)
+                   (reduce-kv (fn [acc k v]
+                                (if (nil? v)
+                                  (dissoc! acc k)
+                                  (assoc! acc k v)))
+                              (transient config-params))
+                   (persistent!))
+              config-params))))
 
 ;;=============================================================================
 ;; Resolve Layer spec Helper
