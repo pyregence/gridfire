@@ -303,7 +303,11 @@
                                 length-width-ratio)]
     (assoc spread-properties :eccentricity eccentricity)))
 
-(defn smallest-angle-between ^double [^double theta1 ^double theta2]
+(defn smallest-angle-between
+  "Computes the absolute difference between two angles as an angle between 0° and 180°.
+
+  The return angle has the same cosine as (- theta1 theta2), but may have an opposite sine."
+  ^double [^double theta1 ^double theta2]
   (let [angle (Math/abs (- theta1 theta2))]
     (if (> angle 180.0)
       (- 360.0 angle)
@@ -417,7 +421,7 @@
 (defn anderson-flame-depth
   "Returns the depth, or front-to-back distance, of the actively flaming zone
    of a free-spreading fire in ft given:
-   - spread-rate (ft/min)
+   - spread-rate (ft/min) orthogonal to the fire line.
    - residence-time (min)"
   ^double
   [^double spread-rate ^double residence-time]
