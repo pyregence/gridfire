@@ -107,11 +107,20 @@
 (defn non-zero-count [tensor]
   (-> tensor dfn/pos? dfn/sum (d/unchecked-cast :int64)))
 
+(defn burnable-cell?-partialed
+  [get-fuel-model fire-spread-matrix num-rows num-cols]
+  (let [num-rows (long num-rows)
+        num-cols (long num-cols)]
+    (fn [i j ^double burn-probability]
+      (and (in-bounds-optimal? num-rows num-cols i j)
+           (burnable-fuel-model? (grid-lookup/double-at get-fuel-model i j))
+           (> burn-probability (double (t/mget fire-spread-matrix i j)))))))
+
 (defn burnable-cell?
   [get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i j]
   (and (in-bounds-optimal? num-rows num-cols i j)
        (burnable-fuel-model? (grid-lookup/double-at get-fuel-model i j))
-       (> (double burn-probability) ^double (t/mget fire-spread-matrix i j))))
+       (> (double burn-probability) (double (t/mget fire-spread-matrix i j)))))
 
 (defn compute-terrain-distance
   [cell-size get-elevation num-rows num-cols i j new-i new-j]

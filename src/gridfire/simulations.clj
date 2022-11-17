@@ -25,6 +25,7 @@
   (= "true"
      ;; TIP: to re-def this Var as true in your REPL,
      ;; comment out the following expr and reload the code, using #_
+     #_
      (System/getProperty "gridfire.simulations.log-performance-metrics")))
 
 (defn layer-snapshot [burn-time-matrix layer-matrix ^double t]

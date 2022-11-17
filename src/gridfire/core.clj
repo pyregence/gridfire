@@ -48,7 +48,8 @@
           summary-stats     (with-redefs [rothermel-fast-wrapper-optimal (memoize rothermel-fast-wrapper-optimal)]
                               (->> (range simulations)
                                    (vec)
-                                   (r/map #(simulations/run-simulation! % inputs))
+                                   (r/map #(do (dotimes [_ 49] (simulations/run-simulation! % inputs))
+                                               (simulations/run-simulation! % inputs)))
                                    (r/remove nil?)
                                    (reducer-fn)))]
       (assoc inputs :summary-stats summary-stats))))
@@ -91,3 +92,18 @@
     (catch Exception e
       (log-str (ex-message e)))))
 ;; gridfire-core ends here
+
+(comment
+  (require '[clj-async-profiler.core :as prof])
+
+  (prof/serve-files 8080)
+
+  (def done
+    (prof/profile
+     (process-config-file! "resources/my-gridfire-benchmark-FIXME.edn")))
+
+  (def done
+    (future
+     (process-config-file! "../ff_aws_input_data/gridfire.edn")))
+
+  *e)

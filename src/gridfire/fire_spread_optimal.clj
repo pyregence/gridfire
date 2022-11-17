@@ -1,6 +1,7 @@
 (ns gridfire.fire-spread-optimal
   (:require [clojure.string                :as s]
             [gridfire.common               :refer [burnable-cell?
+                                                   burnable-cell?-partialed
                                                    burnable-fuel-model?
                                                    calc-fuel-moisture
                                                    compute-terrain-distance
@@ -507,7 +508,164 @@
                                                 (* spread-rate))))
     (t/mset! spread-rate-sum-matrix i j (+ cur-spread-rate spread-rate))))
 
+(defn- bv-i
+  ^long [bv]
+  (.-i ^BurnVector bv))
+
+(defn- bv-j
+  ^long [bv]
+  (.-j ^BurnVector bv))
+
+(defn- bv-burn-probability
+  ^double [bv]
+  (.-burn-probability ^BurnVector bv))
+
+(defn- bv-direction
+  ^double [bv]
+  (.-direction ^BurnVector bv))
+
+(defn- bv-spread-rate
+  ^double [bv]
+  (.-spread-rate ^BurnVector bv))
+
+(defn- bv-terrain-distance
+  ^double [bv]
+  (.-terrain-distance ^BurnVector bv))
+(require 'sc.api)
+
+(defn mget-double-partialed
+  [matrix]
+  (let [^doubles arr (d/->double-array matrix)
+        [_ n-cols]   (d/shape matrix)
+        n-cols       (int n-cols)]
+    (fn lookup2d ^double [^long i ^long j]
+      (aget arr (unchecked-add-int (unchecked-multiply-int n-cols (int i))
+                                   (int j))))))
+
+(defn mget-double
+  ^double [mget-partialed ^long i ^long j]
+  (.invokePrim ^clojure.lang.IFn$LLD mget-partialed i j))
+
 (defn- promote-burn-vectors
+  [inputs matrices global-clock new-clock max-fractional-distance burn-vectors]
+  (let [num-rows                    (:num-rows inputs)
+        num-cols                    (:num-cols inputs)
+        get-fuel-model              (:get-fuel-model inputs)
+        compute-directional-values? (:compute-directional-values? inputs)
+        fire-spread-matrix          (mget-double-partialed (:fire-spread-matrix matrices))
+        burn-time-matrix            (mget-double-partialed (:burn-time-matrix matrices))
+        travel-lines-matrix         (:travel-lines-matrix matrices)
+        global-clock                (double global-clock)
+        new-clock                   (double new-clock)
+        max-fractional-distance     (double max-fractional-distance)
+        cell-burnable?              (burnable-cell?-partialed get-fuel-model (:fire-spread-matrix matrices) num-rows num-cols)]
+    ;(sc.api/brk)
+    (comment
+      (sc.api/defsc 5)
+      (sc.api/disable! -1)
+      (sc.api/loose)
+      (sc.api/disable! -1)
+      (sc.api/dispose-all!)
+
+      (identical? (d/->double-array fire-spread-matrix)
+                  (d/->double-array fire-spread-matrix))
+      ;;true
+
+      (require '[clj-async-profiler.core :as prof])
+
+      (require '[criterium.core :as bench])
+      (let [{:keys [i j]} (first burn-vectors)
+            ;i (long 792)
+            ;j (long 800)
+            ;i (long i)
+            ;j (long j)
+            mget-fire-spread-matrix     (let [^doubles arr (d/->double-array fire-spread-matrix)
+                                              [n-rows n-cols] (d/shape fire-spread-matrix)
+                                              n-rows (int n-rows)
+                                              n-cols (int n-cols)]
+                                          (fn ^double [^long i ^long j]
+                                            (aget arr (unchecked-add-int (unchecked-multiply-int n-cols (int i))
+                                                                         (int j)))))]
+        (bench/quick-bench (dotimes [_ 1e3] (pos? (double (t/mget fire-spread-matrix i j)))))
+        ;Evaluation count : 100194 in 6 samples of 16699 calls.
+        ;             Execution time mean : 6.035277 µs
+        ;    Execution time std-deviation : 129.746793 ns
+        ;   Execution time lower quantile : 5.968026 µs ( 2.5%)
+        ;   Execution time upper quantile : 6.259654 µs (97.5%)
+        ;                   Overhead used : 8.814821 ns
+        ;
+
+        (bench/quick-bench (dotimes [_ 1e3] (pos? (.invokePrim ^clojure.lang.IFn$LLD mget-fire-spread-matrix i j)))))
+      ;Evaluation count : 12266430 in 6 samples of 2044405 calls.
+      ;             Execution time mean : 40.156598 ns
+      ;    Execution time std-deviation : 0.401348 ns
+      ;   Execution time lower quantile : 39.856165 ns ( 2.5%)
+      ;   Execution time upper quantile : 40.619994 ns (97.5%)
+      ;                   Overhead used : 8.814821 ns
+      *e)
+    (persistent!
+     (reduce
+      (fn [acc burn-vector]
+        (let [i                      (bv-i burn-vector)
+              j                      (bv-j burn-vector)
+              burn-probability       (bv-burn-probability burn-vector)
+              local-burn-probability (double (mget-double #_t/mget fire-spread-matrix i j))
+              local-burn-time        (double (mget-double #_t/mget burn-time-matrix i j))]
+          (if (and (> local-burn-time global-clock) ; cell was ignited this timestep
+                   (<= burn-probability local-burn-probability))
+            (let [direction   (bv-direction burn-vector)
+                  spread-rate (bv-spread-rate burn-vector)
+                  new-i       (case direction
+                                0.0   (- i 1)
+                                45.0  (- i 1)
+                                90.0  i
+                                135.0 (+ i 1)
+                                180.0 (+ i 1)
+                                225.0 (+ i 1)
+                                270.0 i
+                                315.0 (- i 1))
+                  new-j       (case direction
+                                0.0   j
+                                45.0  (+ j 1)
+                                90.0  (+ j 1)
+                                135.0 (+ j 1)
+                                180.0 j
+                                225.0 (- j 1)
+                                270.0 (- j 1)
+                                315.0 (- j 1))]
+              (when compute-directional-values?
+                (update-directional-magnitude-values! matrices direction spread-rate i j))
+              (if (and (.invokePrim ^clojure.lang.IFn$OODO cell-burnable? new-i new-j burn-probability)
+                       (or (not (diagonal? direction))
+                           (burnable-fuel-model? (grid-lookup/double-at get-fuel-model new-i j))
+                           (burnable-fuel-model? (grid-lookup/double-at get-fuel-model i new-j))))
+                (let [spread-rate             (double (bv-spread-rate burn-vector))
+                      terrain-distance        (double (bv-terrain-distance burn-vector))
+                      dt-after-ignition       (- new-clock local-burn-time)
+                      new-fractional-distance (min max-fractional-distance
+                                                   (+ 0.5 (/ (* spread-rate dt-after-ignition) terrain-distance)))
+                      new-spread-rate         (if (< new-fractional-distance max-fractional-distance)
+                                                spread-rate
+                                                (/ (* (- new-fractional-distance 0.5) terrain-distance) dt-after-ignition))]
+                  (conj! acc (->BurnVector i j direction new-fractional-distance new-spread-rate terrain-distance local-burn-probability)))
+                (do
+                  (t/mset! travel-lines-matrix i j ; TODO make into function
+                           (bit-clear (long (t/mget travel-lines-matrix i j))
+                                      (long (case direction
+                                              0.0 0
+                                              45.0 1
+                                              90.0 2
+                                              135.0 3
+                                              180.0 4
+                                              225.0 5
+                                              270.0 6
+                                              315.0 7))))
+                  acc)))
+            (conj! acc burn-vector))))
+      (transient [])
+      burn-vectors))))
+
+(defn- _promote-burn-vectors
   [inputs matrices global-clock new-clock max-fractional-distance burn-vectors]
   (let [num-rows                    (:num-rows inputs)
         num-cols                    (:num-cols inputs)
