@@ -312,6 +312,10 @@
              {:perturbations {:temperature {:spatial-type :global
                                             :range        [-1.0 1.0]}}})
       (merge test-config-base
+             {:perturbations {:temperature {:spatial-type :smoothed-supergrid
+                                            :gridfire.perturbation.smoothed-supergrid/supergrid-size [3 2 2]
+                                            :range        [-1.0 1.0]}}})
+      (merge test-config-base
              {:perturbations {:temperature {:spatial-type :pixel
                                             :range        [-1.0 1.0]}}})
       (merge test-config-base
@@ -319,6 +323,10 @@
                                               :range        [-1.0 1.0]}}
               :landfire-layers landfire-layers-weather-test
               :temperature     (:temperature weather-layers)})
+      (merge test-config-base
+             {:perturbations {:temperature {:spatial-type :smoothed-supergrid
+                                            :gridfire.perturbation.smoothed-supergrid/supergrid-size [1 1 1]
+                                            :range        [-1.0 1.0]}}})
       (merge test-config-base
              {:perturbations   {:temperature {:spatial-type :pixel
                                               :range        [-1.0 1.0]}}

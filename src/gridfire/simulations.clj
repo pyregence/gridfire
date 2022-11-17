@@ -277,7 +277,7 @@
 
 (def n-buckets 1024)
 
-(defmulti perturbation-getter (fn [perturb-config _rand-gen] (:spatial-type perturb-config)))
+(defmulti perturbation-getter (fn [_inputs perturb-config _rand-gen] (:spatial-type perturb-config)))
 
 (defn- sample-h->perturb
   [perturb-config rand-gen]
@@ -288,7 +288,7 @@
     h->perturb))
 
 (defmethod perturbation-getter :global
-  [perturb-config rand-gen]
+  [_inputs perturb-config rand-gen]
   (let [h->perturb (sample-h->perturb perturb-config rand-gen)]
     (fn get-global-perturbation
       (^double [_i _j]
@@ -303,13 +303,91 @@
        (pixel-hdp/resolve-perturbation-for-coords h->perturb b -1 -1)))))
 
 (defmethod perturbation-getter :pixel
-  [perturb-config rand-gen]
+  [_inputs perturb-config rand-gen]
   (let [h->perturb (sample-h->perturb perturb-config rand-gen)]
     (fn get-pixel-perturbation
       (^double [i j]
        (pixel-hdp/resolve-perturbation-for-coords h->perturb i j))
       (^double [b i j]
        (pixel-hdp/resolve-perturbation-for-coords h->perturb b i j)))))
+
+(defn- ppsc-tuple
+  "Computes a tuple of pixels per supergrid cell."
+  [{:keys [num-rows num-cols max-runtime] :as _inputs} pert]
+  (let [max-b                  (/ (double max-runtime) 60.)
+        [sb si sj]             (:gridfire.perturbation.smoothed-supergrid/supergrid-size pert)
+        [ppsc-b ppsc-i ppsc-j] (mapv (fn pixels-per-supergrid-cell [s m] (/ (double m) (long s)))
+                                     [sb si sj]
+                                     [max-b num-rows num-cols])]
+    [ppsc-b ppsc-i ppsc-j]))
+
+(defmethod perturbation-getter :smoothed-supergrid
+  [inputs perturb-config rand-gen]
+  (let [{:keys [range]} perturb-config
+        [rng-min rng-max] range
+        gen-perturbation   (fn gen-in-range [_h]
+                             (my-rand-range rand-gen rng-min rng-max))
+        [sb si sj]         (:gridfire.perturbation.smoothed-supergrid/supergrid-size perturb-config)
+        [pb pi pj]         (ppsc-tuple inputs perturb-config)
+        ppsc-b             (double pb)
+        ppsc-i             (double pi)
+        ppsc-j             (double pj)
+        gen-sampled-grid   (reduce (fn [g s]
+                                     (fn gen-tensor []
+                                       (vec (repeatedly s g))))
+                                   #(gen-perturbation nil)
+                                   (->> [sb si sj]
+                                        (map (fn [s] (+ (long s) 2)))
+                                        (reverse)))
+        sampled-grid       (t/->tensor (gen-sampled-grid))
+        ;; Why offset the supergrid? Pixels in the interior of supergrid cells
+        ;; tend to have different distributions (less variance, smoother local variation)
+        ;; than those near the boundaries.
+        ;; Randomly offsetting ensures that all cells have an equal change
+        ;; of being near the supergrid cell boundaries.
+        offsets            (repeatedly 3 #(my-rand-range rand-gen 0. 1.))
+        [o-b o-i o-j]      offsets
+        o-b                (double o-b)
+        o-i                (double o-i)
+        o-j                (double o-j)
+        lin-terpolate      (fn lin-terpolate ^double [^double frac ^double v0 ^double v1]
+                             (+
+                              (* (- 1. frac) v0)
+                              (* frac v1)))
+        get-pert-at-coords (fn average-cube-corners ^double [^long b ^long i ^long j]
+                             ;; Implements a linear spline smoothing algorithm.
+                             (let [b-pos  (-> b (/ ppsc-b) (+ o-b))
+                                   i-pos  (-> i (/ ppsc-i) (+ o-i))
+                                   j-pos  (-> j (/ ppsc-j) (+ o-j))
+
+                                   b-pos- (-> b-pos (Math/floor) (long))
+                                   b-pos+ (inc b-pos-)
+                                   b-posf (- b-pos b-pos-)
+                                   i-pos- (-> i-pos (Math/floor) (long))
+                                   i-pos+ (inc i-pos-)
+                                   i-posf (- i-pos i-pos-)
+                                   j-pos- (-> j-pos (Math/floor) (long))
+                                   j-pos+ (inc j-pos-)
+                                   j-posf (- j-pos j-pos-)
+
+                                   p000   (t/mget sampled-grid b-pos- i-pos- j-pos-)
+                                   p001   (t/mget sampled-grid b-pos- i-pos- j-pos+)
+                                   p010   (t/mget sampled-grid b-pos- i-pos+ j-pos-)
+                                   p011   (t/mget sampled-grid b-pos- i-pos+ j-pos+)
+                                   p100   (t/mget sampled-grid b-pos+ i-pos- j-pos-)
+                                   p101   (t/mget sampled-grid b-pos+ i-pos- j-pos+)
+                                   p110   (t/mget sampled-grid b-pos+ i-pos+ j-pos-)
+                                   p111   (t/mget sampled-grid b-pos+ i-pos+ j-pos+)]
+                               (lin-terpolate b-posf
+                                              (lin-terpolate i-posf
+                                                             (lin-terpolate j-posf p000 p001)
+                                                             (lin-terpolate j-posf p010 p011))
+                                              (lin-terpolate i-posf
+                                                             (lin-terpolate j-posf p100 p101)
+                                                             (lin-terpolate j-posf p110 p111)))))]
+    (fn get-pixel-perturbation
+      (^double [i j] (get-pert-at-coords 0 i j))
+      (^double [b i j] (get-pert-at-coords b i j)))))
 
 (defn- grid-getter
   "Pre-computes a 'getter' for resolving perturbed input values in the GridFire space-time grid.
@@ -346,7 +424,7 @@
                                           col (long (* j index-multiplier))]
                                       (grid-lookup/double-at tensor-lookup b row col)))))))
           get-perturbation (if-some [perturb-config (get perturbations layer-name)]
-                             (perturbation-getter perturb-config rand-gen)
+                             (perturbation-getter inputs perturb-config rand-gen)
                              nil)]
       (fn grid-getter
         (^double [i j]

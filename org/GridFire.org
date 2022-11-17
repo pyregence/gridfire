@@ -4683,7 +4683,31 @@ The above config specify that a randomly selected value between -1.0
 and 1.0 should be added to the canopy height value. This perturbation
 will be applied globally to all cells. We could also, instead, specify
 that each individual cell should be perturbed independently
-by setting *:spatial-type* to *:pixel*.
+by setting *:spatial-type* to *:pixel*. Finally, we can specify a non-constant
+but smoother perturbation by setting *:spatial-type* to *:smoothed-supergrid*
+along with some more configuration:
+
+#+begin_src clojure
+{:perturbations {:canopy-height {:spatial-type :smoothed-supergrid
+                                 ;; Supergrid size param: number of subdivisions along each of the (b, i, j) axes
+                                 ;; For a value of [sb si sj], the number of supergrid points will be (sb + 2)(si + 2)(sj + 2).
+                                 ;; Recommendation: stick to small integers to avoid making the perturbation too wiggly.
+                                 :gridfire.perturbation.smoothed-supergrid/supergrid-size [2 3 3]
+                                 :range [-1. 1.]}}}
+#+end_src
+
+The above will behave similarly to a `:pixel` perturbation,
+except that the i.i.d 'white noise' is sampled not on each
+individual pixel of the space-time grid,
+but on a small-cardinality coarser-grained 'supergrid';
+values for each individual pixel will then be resolved by linear
+smoothing (i.e. averaging) between the 8 corners of the supergrid
+cell containing it. *Limitations:* smoothed-supergrid perturbations
+are not isotropic in space, nor are they spatially homogeneous
+(generated perturbations will be smoother near the center of supergrid cells
+than near their edges) - a potential direction to address these
+shortcomings would be to generate the supergrid by sampling an RBF Gaussian Process
+rather than i.i.d uniform distributions.
 
 Gridfire expects perturbations to be in imperial units. If these perturbations
 are meant to be in metric, you must include an entry for the units:
