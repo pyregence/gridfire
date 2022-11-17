@@ -190,10 +190,13 @@
 (deftest ^:unit add-correction-angle360-test
   (binding [*check-files-exist?* false]
     (testing (pr-str :gridfire.input/add-correction-angle360)
-      (testing (str "can be used to correct " :wind-from-direction " (grid declination)")
+      (testing (str "can be used to correct " :wind-from-direction " or " :aspect " for Grid Declination (divergence between grid North and true North)")
         (let [config    (-> (load-config! "test/gridfire/resources/canonical_test/base-config.edn")
                             (assoc :wind-from-direction {:type                                   :geotiff
                                                          :source                                 "test/gridfire/resources/canonical_test/zero-raster.tif"
+                                                         ;; NOTE why not correct for Grid Declination at the top-level rather than nested inside each input? Several reasons:
+                                                         ;; 1) Sometimes not all inputs need the correction.
+                                                         ;; 2) That would hardly be compatible with tiled inputs (:grid-of-rasters).
                                                          :gridfire.input/add-correction-angle360 12.0}))
               wd-layer  (fetch/weather-layer config :wind-from-direction)
               wd-matrix (:matrix wd-layer)]
