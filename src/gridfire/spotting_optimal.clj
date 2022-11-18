@@ -297,7 +297,9 @@
   [[141 149] 1.0]
   [[150 256] 1.0]]"
   [inputs [i j] ^double fire-line-intensity]
-  (let [rand-gen                     (:rand-gen inputs)
+  (let [i                            (long i)
+        j                            (long j)
+        rand-gen                     (:rand-gen inputs)
         get-fuel-model               (:get-fuel-model inputs)
         fuel-model-number            (long (grid-lookup/double-at get-fuel-model i j))
         surface-fire-spotting        (:surface-fire-spotting (:spotting inputs))
@@ -373,36 +375,38 @@
             source-burn-probability (double (t/mget fire-spread-matrix i j))]
         (update-firebrand-counts! inputs firebrand-count-matrix fire-spread-matrix cell firebrands)
         (->> (for [[x y] firebrands]
-               (when (and
-                      (in-bounds-optimal? num-rows num-cols x y)
-                      (burnable-fuel-model? (grid-lookup/double-at get-fuel-model x y)))
-                 (let [temperature          (grid-lookup/double-at get-temperature band x y)
-                       fine-fuel-moisture   (if get-fuel-moisture-dead-1hr
-                                              (grid-lookup/double-at get-fuel-moisture-dead-1hr band x y)
-                                              (calc-fuel-moisture
-                                                (grid-lookup/double-at get-relative-humidity band i j)
-                                                temperature :dead :1hr))
-                       ignition-probability (schroeder-ign-prob (convert/F->C (double temperature)) fine-fuel-moisture)
-                       decay-constant       (double (:decay-constant spotting))
-                       spotting-distance    (convert/ft->m
-                                             (compute-terrain-distance cell-size
-                                                                       get-elevation
-                                                                       num-rows
-                                                                       num-cols
-                                                                       i
-                                                                       j
-                                                                       x
-                                                                       y))
-                       firebrand-count      (t/mget firebrand-count-matrix x y)
-                       spot-ignition-p      (spot-ignition-probability ignition-probability
-                                                                       decay-constant
-                                                                       spotting-distance
-                                                                       firebrand-count)
-                       burn-probability     (* spot-ignition-p source-burn-probability)]
-                   (when (and (>= burn-probability 0.1) ; TODO parametrize 0.1 in gridfire.edn
-                              (> (double burn-probability) ^double (t/mget fire-spread-matrix x y))
-                              (spot-ignition? rand-gen spot-ignition-p))
-                     (let [t (spot-ignition-time burn-time
-                                                 (convert/ft->m (t/mget flame-length-matrix i j)))]
-                       [[x y] [t burn-probability]])))))
+               (let [x (long x)
+                     y (long y)]
+                 (when (and
+                        (in-bounds-optimal? num-rows num-cols x y)
+                        (burnable-fuel-model? (grid-lookup/double-at get-fuel-model x y)))
+                   (let [temperature          (grid-lookup/double-at get-temperature band x y)
+                         fine-fuel-moisture   (if get-fuel-moisture-dead-1hr
+                                                (grid-lookup/double-at get-fuel-moisture-dead-1hr band x y)
+                                                (calc-fuel-moisture
+                                                 (grid-lookup/double-at get-relative-humidity band i j)
+                                                 temperature :dead :1hr))
+                         ignition-probability (schroeder-ign-prob (convert/F->C (double temperature)) fine-fuel-moisture)
+                         decay-constant       (double (:decay-constant spotting))
+                         spotting-distance    (convert/ft->m
+                                               (compute-terrain-distance cell-size
+                                                                         get-elevation
+                                                                         num-rows
+                                                                         num-cols
+                                                                         i
+                                                                         j
+                                                                         x
+                                                                         y))
+                         firebrand-count      (t/mget firebrand-count-matrix x y)
+                         spot-ignition-p      (spot-ignition-probability ignition-probability
+                                                                         decay-constant
+                                                                         spotting-distance
+                                                                         firebrand-count)
+                         burn-probability     (* spot-ignition-p source-burn-probability)]
+                     (when (and (>= burn-probability 0.1)   ; TODO parametrize 0.1 in gridfire.edn
+                                (> (double burn-probability) ^double (t/mget fire-spread-matrix x y))
+                                (spot-ignition? rand-gen spot-ignition-p))
+                       (let [t (spot-ignition-time burn-time
+                                                   (convert/ft->m (t/mget flame-length-matrix i j)))]
+                         [[x y] [t burn-probability]]))))))
              (remove nil?))))))

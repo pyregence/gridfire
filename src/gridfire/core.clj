@@ -2,7 +2,7 @@
 (ns gridfire.core
   (:require [clojure.core.reducers        :as r]
             [clojure.spec.alpha           :as spec]
-            [gridfire.fire-spread-optimal :refer [rothermel-fast-wrapper-optimal]]
+            [gridfire.fire-spread-optimal :refer [memoize-1arg rothermel-fast-wrapper-optimal2]]
             [gridfire.inputs              :as inputs]
             [gridfire.outputs             :as outputs]
             [gridfire.simulations         :as simulations]
@@ -45,7 +45,7 @@
           reducer-fn        (if (= parallel-strategy :between-fires)
                               #(into [] (r/fold parallel-bin-size r/cat r/append! %))
                               #(into [] %))
-          summary-stats     (with-redefs [rothermel-fast-wrapper-optimal (memoize rothermel-fast-wrapper-optimal)]
+          summary-stats     (with-redefs [rothermel-fast-wrapper-optimal2 (memoize-1arg rothermel-fast-wrapper-optimal2)]
                               (->> (range simulations)
                                    (vec)
                                    (r/map #(do (dotimes [_ 49] (simulations/run-simulation! % inputs))
@@ -90,6 +90,7 @@
             (run-simulations!)
             (write-outputs!))
     (catch Exception e
+      ;(sc.api/spy e)
       (log-str (ex-message e)))))
 ;; gridfire-core ends here
 

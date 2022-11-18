@@ -320,6 +320,8 @@
   (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
     (let [band              (long (/ global-clock 60.0))
           [i j]             cell
+          i                 (long i)
+          j                 (long j)
           tmp               (grid-lookup/double-at get-temperature band i j)
           rh                (grid-lookup/double-at get-relative-humidity band i j)
           ws                (grid-lookup/double-at get-wind-speed-20ft band i j)

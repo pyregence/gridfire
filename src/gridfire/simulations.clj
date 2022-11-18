@@ -4,7 +4,7 @@
             [gridfire.common                              :refer [get-neighbors in-bounds?]]
             [gridfire.conversion                          :refer [min->hour kebab->snake snake->kebab]]
             [gridfire.fire-spread-optimal                 :refer [run-fire-spread]]
-            [gridfire.grid-lookup                         :as grid-lookup]
+            [gridfire.grid-lookup                         :as grid-lookup :refer [tensor-cell-getter]]
             [gridfire.outputs                             :as outputs]
             [gridfire.perturbations.pixel.hash-determined :as pixel-hdp]
             [gridfire.utils.async                         :as gf-async]
@@ -25,7 +25,6 @@
   (= "true"
      ;; TIP: to re-def this Var as true in your REPL,
      ;; comment out the following expr and reload the code, using #_
-     #_
      (System/getProperty "gridfire.simulations.log-performance-metrics")))
 
 (defn layer-snapshot [burn-time-matrix layer-matrix ^double t]
@@ -253,29 +252,6 @@
                   (str "-index-multiplier")
                   keyword)))
 
-(defn tensor-cell-getter
-  "Returns a function roughly similar to (partial t/mget m),
-  but is more tolerant of both m (may be a number)
-  the subsequently passed indices (the band index will be ignored
-  if m is 2D.)"
-  [m]
-  {:post [(grid-lookup/suitable-for-primitive-lookup? %)]}
-  (if (number? m)
-    (let [v (double m)]
-      (fn get0d
-        (^double [_b] v)
-        (^double [_i _j] v)
-        (^double [_b _i _j] v)))
-    (case (count (d/shape m))
-      2 (fn get2d
-          (^double [i j] (t/mget m i j))
-          ;; This case is important, because some input tensors (Val, 03 Nov 2022)
-          ;; like moisture will be provided sometimes in 2d, sometimes in 3d.
-          (^double [_b i j] (t/mget m i j)))
-      3 (fn get3d
-          (^double [i j] (t/mget m 0 i j))
-          (^double [b i j] (t/mget m b i j))))))
-
 (def n-buckets 1024)
 
 (defmulti perturbation-getter (fn [perturb-config _rand-gen] (:spatial-type perturb-config)))
@@ -292,7 +268,7 @@
   [perturb-config rand-gen]
   (let [h->perturb (sample-h->perturb perturb-config rand-gen)]
     (fn get-global-perturbation
-      (^double [_i _j]
+      (^double [^long _i ^long _j]
        ;; NOTE we used to resolve {:spatial-type :global} perturbations using an atom-held cache,
        ;; which is not a problem performance-wise,
        ;; but even in this case a Hash-Determined strategy is better,
@@ -300,16 +276,16 @@
        ;; as it won't be affected by other uses of the random generator
        ;; during the simulation loop.
        (pixel-hdp/resolve-perturbation-for-coords h->perturb -1 -1 -1))
-      (^double [b _i _j]
+      (^double [^long b ^long _i ^long _j]
        (pixel-hdp/resolve-perturbation-for-coords h->perturb b -1 -1)))))
 
 (defmethod perturbation-getter :pixel
   [perturb-config rand-gen]
   (let [h->perturb (sample-h->perturb perturb-config rand-gen)]
     (fn get-pixel-perturbation
-      (^double [i j]
+      (^double [^long i ^long j]
        (pixel-hdp/resolve-perturbation-for-coords h->perturb i j))
-      (^double [b i j]
+      (^double [^long b ^long i ^long j]
        (pixel-hdp/resolve-perturbation-for-coords h->perturb b i j)))))
 
 (defn- grid-getter
@@ -350,12 +326,12 @@
                              (perturbation-getter perturb-config rand-gen)
                              nil)]
       (fn grid-getter
-        (^double [i j]
+        (^double [^long i ^long j]
          (cond-> (grid-lookup/double-at get-unperturbed i j)
            (some? get-perturbation)
            (-> (+ (grid-lookup/double-at get-perturbation i j))
                (max 0.))))
-        (^double [b i j]
+        (^double [^long b ^long i ^long j]
          (cond-> (grid-lookup/double-at get-unperturbed b i j)
            (some? get-perturbation)
            (-> (+ (grid-lookup/double-at get-perturbation b i j))

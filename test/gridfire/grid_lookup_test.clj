@@ -1,14 +1,14 @@
 (ns gridfire.grid-lookup-test
   (:require [gridfire.grid-lookup :as grid-lookup]
             [clojure.test :refer :all])
-  (:import (clojure.lang IFn$OD IFn$OOD IFn$OOOD IFn$OOOOD)))
+  (:import (clojure.lang IFn$OD IFn$LLD IFn$LLLD IFn$OOOOD IFn$OLD IFn$OLLD IFn$OLLLD)))
 
 (deftest ^:unit double-at-primitiveness-test
   (testing "(double-at getter & coords)"
     (testing "accepts primitive long-typed coordinates, and returns a primitive double."
-      (is (instance? IFn$OOD grid-lookup/double-at))
-      (is (instance? IFn$OOOD grid-lookup/double-at))
-      (is (instance? IFn$OOOOD grid-lookup/double-at)))))
+      (is (instance? IFn$OLD grid-lookup/double-at))
+      (is (instance? IFn$OLLD grid-lookup/double-at))
+      (is (instance? IFn$OLLLD grid-lookup/double-at)))))
 
 (deftest ^:unit clojure-primitive-functions-test
   (testing "this example primitive-signature function"
@@ -20,7 +20,9 @@
                       (^double [b i j]
                        (* 2. (long b) (long i) (long j))))]
       (testing "does indeed accept and return primitive values:"
-        (let [implemented-types (-> my-getter (type) (ancestors))]
+        (let [implemented-types (-> my-getter (type)
+                                    (ancestors))]
+          ;; FIXME
           (is (contains? implemented-types IFn$OD))
           (is (contains? implemented-types IFn$OOD))
           (is (contains? implemented-types IFn$OOOD))))

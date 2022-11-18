@@ -5,7 +5,8 @@
   - b: 'hourly Band', a 1h-resolution temporal-grid coordinate;
   - i: matrix row, a spatial-grid coordinate, discretizing the y axis (yes, you read that right);
   - j: matrix column, a spatial-grid coordinate, discretizing the x axis;"
-  (:import (clojure.lang IFn$LD IFn$LLD IFn$LLLD IFn$OD IFn$OOD IFn$OOOD)))
+  (:require [tech.v3.datatype :as d])
+  (:import (clojure.lang IFn$LD IFn$LLD IFn$LLLD IFn$OD IFn$LLD IFn$LLLD)))
 
 (defn suitable-for-primitive-lookup?
   "Whether the given value can be used as the 1st argument to (double-at v & coords)"
@@ -14,9 +15,9 @@
   ;; that's convenient, but strictly speaking these are implementation details
   ;; of Clojure execution.
   (or
-   (instance? IFn$OD v)
-   (instance? IFn$OOD v)
-   (instance? IFn$OOOD v)))
+   (instance? IFn$LD v)
+   (instance? IFn$LLD v)
+   (instance? IFn$LLLD v)))
 
 (definline double-at-B*
   "See double-at-BIJ*."
@@ -35,7 +36,7 @@
 (definline double-at-IJ*
   "See double-at-BIJ*."
   [f i j]
-  (let [fsym (-> (gensym 'f) (vary-meta assoc :tag `IFn$OOD))]
+  (let [fsym (-> (gensym 'f) (vary-meta assoc :tag `IFn$LLD))]
     `(let [~fsym ~f]
        (.invokePrim ~fsym ~i ~j))))
 
@@ -49,7 +50,7 @@
 (definline double-at-BIJ*
   "Like (double-at ...), but will emit directly-inlined code, which can improve efficiency."
   [f b i j]
-  (let [fsym (-> (gensym 'f) (vary-meta assoc :tag `IFn$OOOD))]
+  (let [fsym (-> (gensym 'f) (vary-meta assoc :tag `IFn$LLLD))]
     `(let [~fsym ~f]
        (.invokePrim ~fsym ~b ~i ~j))))
 
@@ -110,12 +111,12 @@
   ;; coordinates to (t/mget ...) anyway. Un-boxing to primitive long,
   ;; then re-boxing to new Long objects, would actually create much more work
   ;; than passing the same Long objects all along.
-  (^double [getter b]
-   (double-at-B* getter b))
-  (^double [getter i j]
-   (double-at-IJ* getter i j))
-  (^double [getter b i j]
-   (double-at-BIJ* getter b i j)))
+  (^double [getter ^long b]
+   (double-at-b* getter b))
+  (^double [getter ^long i ^long j]
+   (double-at-ij* getter i j))
+  (^double [getter ^long b ^long i ^long j]
+   (double-at-bij* getter b i j)))
 
 (comment
  ;; (double-at ...) does allow lookup without primitive boxing:
@@ -168,3 +169,81 @@
                                      :flags           #{:public :abstract}}}}
  ;; Therefore, unfortunately, we have to use some other mechanism.
  *e)
+
+(defn- unwrap-short-tensor
+  ^shorts [m]
+  ;; HACK relying on an implementation detail of d/. Because d/->short-array will tend to copy for some reason.
+  ;; FIXME add the test case showing that this is correct.
+  (.ary_data (d/as-array-buffer m)))
+
+(comment
+
+  *e)
+
+(defn- tensor-wrapped-array
+  [unwrap-fn m]
+  (def unwrap-fn unwrap-short-tensor)
+  (let [arr (unwrap-fn m)]
+    (assert (identical? arr (unwrap-fn m)))
+    arr))
+
+(defn tensor-cell-getter
+  "Returns a function roughly similar to (partial t/mget m),
+  but is more tolerant of both m (may be a number)
+  and the subsequently passed indices (the band index will be ignored
+  if m is 2D.)
+
+  The returned function can be called using grid-lookup/double-at."
+  [m]
+  {:post [(suitable-for-primitive-lookup? %)]}
+  (if (number? m)
+    (let [v (double m)]
+      (fn get0d
+        (^double [^long _b] v)
+        (^double [^long _i ^long _j] v)
+        (^double [^long _b ^long _i ^long _j] v)))
+    (or (-> m (meta) ::double-getter)
+        (let [shape                        (d/shape m)
+              ;; FIXME other datatypes, like :float32 or :int32
+              ^clojure.lang.IFn$LD aget-fn (case (d/elemwise-datatype m)
+                                             (:double :float64)
+                                             (let [arr (doubles (tensor-wrapped-array d/->double-array m))]
+                                               (fn aget-double ^double [^long k]
+                                                 (aget arr k)))
+                                             :float32 (let [arr (floats (tensor-wrapped-array d/->float-array m))]
+                                                        (fn aget-float ^double [^long k]
+                                                          (double (aget arr k))))
+                                             :int32 (let [arr (ints (tensor-wrapped-array d/->int-array m))]
+                                                      (fn aget-int ^double [^long k]
+                                                        (double (aget arr k))))
+                                             :short (let [arr (shorts (tensor-wrapped-array unwrap-short-tensor #_d/->short-array m))]
+                                                      (fn aget-short ^double [^long k]
+                                                        (double (aget arr k)))))]
+          (case (count shape)
+            2 (let [[_nrows ncols] (d/shape m)
+                    ncols (int ncols)]
+                (fn get2d
+                  (^double [^long i ^long j]
+                   (.invokePrim aget-fn
+                                (unchecked-add-int (unchecked-multiply-int ncols (int i))
+                                                   (int j))))
+                  ;; This case is important, because some input tensors (Val, 03 Nov 2022)
+                  ;; like moisture will be provided sometimes in 2d, sometimes in 3d.
+                  (^double [^long _b ^long i ^long j] (get2d i j))))
+            3 (let [[_nbands nrows ncols] (d/shape m)
+                    n-per-row  (int ncols)
+                    n-per-band (int (* (long nrows) (long ncols)))]
+                (fn get3d
+                  (^double [^long i ^long j] (get3d 0 i j))
+                  (^double [^long b ^long i ^long j]
+                   (.invokePrim aget-fn
+                                ;; FIXME compare with/wo long->int casting.
+                                (-> (int j)
+                                    (unchecked-add-int (unchecked-multiply-int n-per-row (int i)))
+                                    (unchecked-add-int (unchecked-multiply-int n-per-band (int b)))))))))))))
+
+(defn add-double-getter
+  "Attaches to tensor m (in its metadata) a cached return value of (tensor-cell-getter),
+  so that we don't need to recompute-it each time."
+  [m]
+  (vary-meta m assoc ::double-getter (tensor-cell-getter m)))

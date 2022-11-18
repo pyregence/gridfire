@@ -111,7 +111,7 @@
   [get-fuel-model fire-spread-matrix num-rows num-cols]
   (let [num-rows (long num-rows)
         num-cols (long num-cols)]
-    (fn [i j ^double burn-probability]
+    (fn [^long i ^long j ^double burn-probability]
       (and (in-bounds-optimal? num-rows num-cols i j)
            (burnable-fuel-model? (grid-lookup/double-at get-fuel-model i j))
            (> burn-probability (double (t/mget fire-spread-matrix i j)))))))
