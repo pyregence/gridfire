@@ -5,7 +5,9 @@
   - b: 'hourly Band', a 1h-resolution temporal-grid coordinate;
   - i: matrix row, a spatial-grid coordinate, discretizing the y axis (yes, you read that right);
   - j: matrix column, a spatial-grid coordinate, discretizing the x axis;"
-  (:require [tech.v3.datatype :as d])
+  (:require [tech.v3.datatype :as d]
+            [tech.v3.tensor :as t]
+            [criterium.core :as bench])
   (:import (clojure.lang IFn$LD IFn$LLD IFn$LLLD IFn$OD IFn$LLD IFn$LLLD)))
 
 (defn suitable-for-primitive-lookup?
@@ -187,6 +189,24 @@
     (assert (identical? arr (unwrap-fn m)))
     arr))
 
+(defn- tensor-array-getter-fn
+  ^IFn$LD [m]
+  (case (d/elemwise-datatype m)
+    ;; FIXME I'm not sure :double works, it might need a similar treatment to :short. (Val, 18 Nov 2022)
+    (:double :float64)
+    (let [arr (doubles (tensor-wrapped-array d/->double-array m))]
+      (fn aget-double ^double [^long k]
+        (aget arr k)))
+    :float32 (let [arr (floats (tensor-wrapped-array d/->float-array m))]
+               (fn aget-float ^double [^long k]
+                 (double (aget arr k))))
+    :int32 (let [arr (ints (tensor-wrapped-array d/->int-array m))]
+             (fn aget-int ^double [^long k]
+               (double (aget arr k))))
+    :short (let [arr (shorts (tensor-wrapped-array unwrap-short-tensor #_d/->short-array m))]
+             (fn aget-short ^double [^long k]
+               (double (aget arr k))))))
+
 (defn tensor-cell-getter
   "Returns a function roughly similar to (partial t/mget m),
   but is more tolerant of both m (may be a number)
@@ -202,23 +222,10 @@
         (^double [^long _b] v)
         (^double [^long _i ^long _j] v)
         (^double [^long _b ^long _i ^long _j] v)))
-    (or (-> m (meta) ::double-getter)
+    (or (-> m (meta) :grid-lookup-double-getter)
         (let [shape                        (d/shape m)
               ;; FIXME other datatypes, like :float32 or :int32
-              ^clojure.lang.IFn$LD aget-fn (case (d/elemwise-datatype m)
-                                             (:double :float64)
-                                             (let [arr (doubles (tensor-wrapped-array d/->double-array m))]
-                                               (fn aget-double ^double [^long k]
-                                                 (aget arr k)))
-                                             :float32 (let [arr (floats (tensor-wrapped-array d/->float-array m))]
-                                                        (fn aget-float ^double [^long k]
-                                                          (double (aget arr k))))
-                                             :int32 (let [arr (ints (tensor-wrapped-array d/->int-array m))]
-                                                      (fn aget-int ^double [^long k]
-                                                        (double (aget arr k))))
-                                             :short (let [arr (shorts (tensor-wrapped-array unwrap-short-tensor #_d/->short-array m))]
-                                                      (fn aget-short ^double [^long k]
-                                                        (double (aget arr k)))))]
+              aget-fn (tensor-array-getter-fn m)]
           (case (count shape)
             2 (let [[_nrows ncols] (d/shape m)
                     ncols (int ncols)]
@@ -242,8 +249,115 @@
                                     (unchecked-add-int (unchecked-multiply-int n-per-row (int i)))
                                     (unchecked-add-int (unchecked-multiply-int n-per-band (int b)))))))))))))
 
+(defn tensor-cell-getter2
+  [m]
+  {:post [(suitable-for-primitive-lookup? %)]}
+  (if (number? m)
+    (let [v (double m)]
+      (fn get0d
+        (^double [^long _b] v)
+        (^double [^long _i ^long _j] v)
+        (^double [^long _b ^long _i ^long _j] v)))
+    (or (-> m (meta) :grid-lookup-double-getter)
+        (let [shape   (d/shape m)
+              ;; FIXME other datatypes, like :float32 or :int32
+              aget-fn (tensor-array-getter-fn m)]
+          (case (count shape)
+            2 (let [[_nrows ncols] (d/shape m)
+                    ncols (long ncols)]
+                (fn get2d
+                  (^double [^long i ^long j]
+                   (.invokePrim aget-fn
+                                (unchecked-add (unchecked-multiply ncols i)
+                                               j)))
+                  ;; This case is important, because some input tensors (Val, 03 Nov 2022)
+                  ;; like moisture will be provided sometimes in 2d, sometimes in 3d.
+                  (^double [^long _b ^long i ^long j] (get2d i j))))
+            3 (let [[_nbands nrows ncols] (d/shape m)
+                    n-per-row  (long ncols)
+                    n-per-band (long (* (long nrows) (long ncols)))]
+                (fn get3d
+                  (^double [^long i ^long j] (get3d 0 i j))
+                  (^double [^long b ^long i ^long j]
+                   (.invokePrim aget-fn
+                                ;; FIXME compare with/wo long->int casting.
+                                (-> (int j)
+                                    (unchecked-add (unchecked-multiply n-per-row i))
+                                    (unchecked-add (unchecked-multiply n-per-band b))))))))))))
+
+(comment
+
+  (def m
+    (t/->tensor (->> (rand)
+                     (for [_j (range 1000)])
+                     (for [_i (range 1000)])
+                     (for [_b (range 10)]))
+                :datatype :float32))
+
+  (def n-lookups 10000)
+  (def bs (into-array Long/TYPE (repeatedly n-lookups #(rand-int 10))))
+  (def is (into-array Long/TYPE (repeatedly n-lookups #(rand-int 1000))))
+  (def js (into-array Long/TYPE (repeatedly n-lookups #(rand-int 1000))))
+
+  (require '[criterium.core :as bench])
+  (let [bs (longs bs)
+        is (longs is)
+        js (longs js)
+        get-ints (tensor-cell-getter m)]
+    (bench/bench
+     (areduce bs k sum (double 0.0)
+              (let [b (aget bs k)
+                    i (aget is k)
+                    j (aget js k)]
+                (+ sum (double-at get-ints b i j))))))
+
+  (let [bs (longs bs)
+        is (longs is)
+        js (longs js)
+        get-longs (tensor-cell-getter2 m)]
+    (bench/bench
+     (areduce bs k sum (double 0.0)
+              (let [b (aget bs k)
+                    i (aget is k)
+                    j (aget js k)]
+                (+ sum (double-at get-longs b i j))))))
+
+  *e)
+
+(defprotocol IDoubleGetter
+  (double-getter [this]))
+
+(defrecord GettersMeta
+  [grid-lookup-double-getter]
+  IDoubleGetter
+  (double-getter [_this] grid-lookup-double-getter))
+
 (defn add-double-getter
   "Attaches to tensor m (in its metadata) a cached return value of (tensor-cell-getter),
   so that we don't need to recompute-it each time."
   [m]
-  (vary-meta m assoc ::double-getter (tensor-cell-getter m)))
+  (vary-meta m (fn [met] (map->GettersMeta (merge {:grid-lookup-double-getter (tensor-cell-getter m)}
+                                                  met)))))
+
+(defn mgetter-double
+  "Given a tensor which has been accelerated through (add-double-getter),
+  return a getter object g which can be looked up via (double-at g ...)."
+  [m]
+  (-> m
+      (meta)
+      (double-getter)
+      (or (throw (ex-info (format "This tensor has not been accelerated by going through %s." (pr-str `add-double-getter))
+                          {::tensor m})))))
+
+(defn mget-double-at
+  "Like tech.v3.tensor/mget, but faster.
+  The tensor m must have been accelerated by going through #'add-double-getter.
+
+  (mget-double-at m i j) is equivalent to (let [my-getter (mgetter-double m)] (double-at my-getter i j));
+  the latter form improve the performance of repeated invocations."
+  (^double [m ^long b]
+   (double-at (mgetter-double m) b))
+  (^double [m ^long i ^long j]
+   (double-at (mgetter-double m) i j))
+  (^double [m ^long b ^long i ^long j]
+   (double-at (mgetter-double m) b i j)))

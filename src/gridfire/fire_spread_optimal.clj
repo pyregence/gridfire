@@ -257,8 +257,8 @@
           v)))))
 
 (defn- store-if-max!
-  [matrix i j ^double new-value]
-  (let [^double old-value (t/mget matrix i j)]
+  [matrix ^long i ^long j ^double new-value]
+  (let [old-value (grid-lookup/mget-double-at matrix i j)]
     (when (> new-value old-value)
       (t/mset! matrix i j new-value))))
 
@@ -426,9 +426,9 @@
   (let [i                    (long i)
         j                    (long j)
         burn-probability     (double burn-probability)
-        max-spread-rate      (t/mget max-spread-rate-matrix i j)
-        max-spread-direction (t/mget max-spread-direction-matrix i j)
-        eccentricity         (t/mget eccentricity-matrix i j)]
+        max-spread-rate      (grid-lookup/mget-double-at max-spread-rate-matrix i j)
+        max-spread-direction (grid-lookup/mget-double-at max-spread-direction-matrix i j)
+        eccentricity         (grid-lookup/mget-double-at eccentricity-matrix i j)]
     (fn [direction]
       (let [new-i (case direction
                     0.0   (- i 1)
@@ -449,7 +449,7 @@
                     270.0 (- j 1)
                     315.0 (- j 1))]
         (when (and (in-bounds-optimal? num-rows num-cols new-i new-j)
-                   (> burn-probability ^double (t/mget fire-spread-matrix new-i new-j)))
+                   (> burn-probability (grid-lookup/mget-double-at fire-spread-matrix new-i new-j)))
           (let [spread-rate      (compute-spread-rate max-spread-rate
                                                       max-spread-direction
                                                       eccentricity
@@ -554,7 +554,7 @@
         ignited?                    (fn [[k v]]
                                       (let [[i j] k
                                             [_ p] v]
-                                        (>= ^double (t/mget fire-spread-matrix i j) ^double p)))
+                                        (>= (grid-lookup/mget-double-at fire-spread-matrix i j) ^double p)))
         pruned-spot-ignite-later    (into {} (remove ignited? spot-ignite-later)) ; TODO move to identify-spot-ignition
         pruned-spot-ignite-now      (filterv #(not (ignited? %)) spot-ignite-now) ; TODO move to identify-spot-ignition
         spot-burn-vectors           (persistent!
@@ -577,9 +577,9 @@
 (defn- grow-burn-vectors!
   [matrices global-clock timestep burn-vectors]
   (let [fire-spread-matrix (:fire-spread-matrix matrices)
-        fire-spread-getter (grid-lookup/tensor-cell-getter fire-spread-matrix)
+        fire-spread-getter (grid-lookup/mgetter-double fire-spread-matrix)
         burn-time-matrix   (:burn-time-matrix matrices)
-        burn-time-getter   (grid-lookup/tensor-cell-getter burn-time-matrix)
+        burn-time-getter   (grid-lookup/mgetter-double burn-time-matrix)
         global-clock       (double global-clock)
         timestep           (double timestep)
         ignited-cells-list (ArrayList.)]
@@ -650,9 +650,9 @@
         spread-rate-sum-matrix (:spread-rate-sum-matrix matrices)
         direction              (double direction)
         spread-rate            (double spread-rate)
-        cur-x                  (double (t/mget x-magnitude-sum-matrix i j))
-        cur-y                  (double (t/mget y-magnitude-sum-matrix i j))
-        cur-spread-rate        (double (t/mget spread-rate-sum-matrix i j))]
+        cur-x                  (grid-lookup/mget-double-at x-magnitude-sum-matrix i j)
+        cur-y                  (grid-lookup/mget-double-at y-magnitude-sum-matrix i j)
+        cur-spread-rate        (grid-lookup/mget-double-at spread-rate-sum-matrix i j)]
     (t/mset! x-magnitude-sum-matrix i j (+ cur-x
                                            (-> direction
                                                (Math/toRadians)
@@ -671,8 +671,8 @@
         num-cols                    (:num-cols inputs)
         get-fuel-model              (:get-fuel-model inputs)
         compute-directional-values? (:compute-directional-values? inputs)
-        fire-spread-matrix          (grid-lookup/tensor-cell-getter (:fire-spread-matrix matrices))
-        burn-time-matrix            (grid-lookup/tensor-cell-getter (:burn-time-matrix matrices))
+        fire-spread-matrix          (grid-lookup/mgetter-double (:fire-spread-matrix matrices))
+        burn-time-matrix            (grid-lookup/mgetter-double (:burn-time-matrix matrices))
         travel-lines-matrix         (:travel-lines-matrix matrices)
         global-clock                (double global-clock)
         new-clock                   (double new-clock)
@@ -793,17 +793,17 @@
         get-fuel-model              (:get-fuel-model inputs)
         travel-lines-matrix         (:travel-lines-matrix matrices)
         fire-spread-matrix          (:fire-spread-matrix matrices)
-        fire-spread-getter          (grid-lookup/tensor-cell-getter fire-spread-matrix)
+        fire-spread-getter          (grid-lookup/mgetter-double fire-spread-matrix)
         modified-time-matrix        (:modified-time-matrix matrices)
-        modified-time-getter        (grid-lookup/tensor-cell-getter modified-time-matrix)
+        modified-time-getter        (grid-lookup/mgetter-double modified-time-matrix)
         max-spread-rate-matrix      (:max-spread-rate-matrix matrices)
-        max-spread-rate-getter      (grid-lookup/tensor-cell-getter max-spread-rate-matrix)
+        max-spread-rate-getter      (grid-lookup/mgetter-double max-spread-rate-matrix)
         max-spread-direction-matrix (:max-spread-direction-matrix matrices)
-        max-spread-direction-getter (grid-lookup/tensor-cell-getter max-spread-direction-matrix)
+        max-spread-direction-getter (grid-lookup/mgetter-double max-spread-direction-matrix)
         eccentricity-matrix         (:eccentricity-matrix matrices)
-        eccentricity-getter         (grid-lookup/tensor-cell-getter eccentricity-matrix)
+        eccentricity-getter         (grid-lookup/mgetter-double eccentricity-matrix)
         burn-time-matrix            (:burn-time-matrix matrices)
-        burn-time-getter            (grid-lookup/tensor-cell-getter burn-time-matrix)
+        burn-time-getter            (grid-lookup/mgetter-double burn-time-matrix)
         band                        (long band)
         global-clock                (double global-clock)
         new-clock                   (double new-clock)
@@ -945,14 +945,14 @@
         max-spread-direction-matrix (:max-spread-direction-matrix matrices)
         eccentricity-matrix         (:eccentricity-matrix matrices)]
     (mapv (fn [burn-vector]
-            (let [i (:i burn-vector)
-                  j (:j burn-vector)]
+            (let [i (bv-i burn-vector)
+                  j (bv-j burn-vector)]
               (when (> band (dec ^long (t/mget modified-time-matrix i j)))
                 (compute-max-in-situ-values! inputs matrices band i j))
               (let [direction            (double (:direction burn-vector))
-                    max-spread-rate      (double (t/mget max-spread-rate-matrix i j))
-                    max-spread-direction (double (t/mget max-spread-direction-matrix i j))
-                    eccentricity         (double (t/mget eccentricity-matrix i j))
+                    max-spread-rate      (grid-lookup/mget-double-at max-spread-rate-matrix i j)
+                    max-spread-direction (grid-lookup/mget-double-at max-spread-direction-matrix i j)
+                    eccentricity         (grid-lookup/mget-double-at eccentricity-matrix i j)
                     new-spread-rate      (compute-spread-rate max-spread-rate
                                                               max-spread-direction
                                                               eccentricity
@@ -965,9 +965,9 @@
   (let [x-magnitude-sum-matrix (:x-magnitude-sum-matrix matrices)
         y-magnitude-sum-matrix (:y-magnitude-sum-matrix matrices)
         spread-rate-sum-matrix (:spread-rate-sum-matrix matrices)
-        x-magnitude-sum        (double (t/mget x-magnitude-sum-matrix i j))
-        y-magnitude-sum        (double (t/mget y-magnitude-sum-matrix i j))
-        spread-rate-sum        (double (t/mget spread-rate-sum-matrix i j))]
+        x-magnitude-sum        (grid-lookup/mget-double-at x-magnitude-sum-matrix i j)
+        y-magnitude-sum        (grid-lookup/mget-double-at y-magnitude-sum-matrix i j)
+        spread-rate-sum        (grid-lookup/mget-double-at spread-rate-sum-matrix i j)]
     (t/mset! x-magnitude-sum-matrix i j 0.0)
     (t/mset! y-magnitude-sum-matrix i j 0.0)
     (t/mset! spread-rate-sum-matrix i j 0.0)
@@ -987,15 +987,15 @@
           directional-flame-length-matrix (:directional-flame-length-matrix matrices)]
       (doseq [[i j] ignited-cells]
         (let [direction            (compute-fire-front-direction! matrices i j)
-              max-spread-rate      (t/mget max-spread-rate-matrix i j)
-              max-spread-direction (t/mget max-spread-direction-matrix i j)
-              eccentricity         (t/mget eccentricity-matrix i j)
+              max-spread-rate      (grid-lookup/mget-double-at max-spread-rate-matrix i j)
+              max-spread-direction (grid-lookup/mget-double-at max-spread-direction-matrix i j)
+              eccentricity         (grid-lookup/mget-double-at eccentricity-matrix i j)
               spread-rate          (compute-spread-rate max-spread-rate
                                                         max-spread-direction
                                                         eccentricity
                                                         direction)
-              residence-time       (t/mget residence-time-matrix i j)
-              reaction-intensity   (t/mget reaction-intensity-matrix i j)
+              residence-time       (grid-lookup/mget-double-at residence-time-matrix i j)
+              reaction-intensity   (grid-lookup/mget-double-at reaction-intensity-matrix i j)
               fire-line-intensity  (->> (anderson-flame-depth spread-rate residence-time)
                                         (byram-fire-line-intensity reaction-intensity))
               flame-length         (byram-flame-length fire-line-intensity)]
@@ -1009,7 +1009,7 @@
     (doseq [[i j] ignited-cells]
       (compute-max-in-situ-values! inputs matrices band i j)
       (when compute-directional-values?
-        (t/mset! directional-flame-length-matrix i j (t/mget flame-length-matrix i j))))))
+        (t/mset! directional-flame-length-matrix i j (grid-lookup/mget-double-at flame-length-matrix i j))))))
 
 (def ^:const ^:private minutes-per-24h 1440.0)
 
