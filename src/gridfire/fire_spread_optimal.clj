@@ -24,6 +24,7 @@
                                                    byram-fire-line-intensity
                                                    byram-flame-length
                                                    wind-adjustment-factor]]
+            [gridfire.utils.flow           :refer [case-double]]
             [tech.v3.datatype              :as d]
             [tech.v3.datatype.functional   :as dfn]
             [tech.v3.tensor                :as t])
@@ -124,16 +125,31 @@
 ;; Fire spread
 ;;-----------------------------------------------------------------------------
 
-(defn- diagonal? [direction]
-  (case direction
-    0.0   false
-    45.0  true
-    90.0  false
-    135.0 true
-    180.0 false
-    225.0 true
-    270.0 false
-    315.0 true))
+(defn diagonal? [^double direction]
+  (case-double direction
+               {0.0   false
+                45.0  true
+                90.0  false
+                135.0 true
+                180.0 false
+                225.0 true
+                270.0 false
+                315.0 true}))
+
+(comment
+  ;; FIXME to deftest
+  (every? (fn [[direction expected]]
+            (= (diagonal? direction) expected))
+          {0.0   false
+           45.0  true
+           90.0  false
+           135.0 true
+           180.0 false
+           225.0 true
+           270.0 false
+           315.0 true})
+
+  *e)
 
 (defn- find-max-spread-rate ^double
   [^double max-spread-rate burn-vector]
@@ -419,6 +435,42 @@
         (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i+ j)
         (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i+ j+))))
 
+(defn dir->i-incr
+  ^long [^double direction]
+  (case-double direction
+               {0.0   -1
+                45.0  -1
+                90.0  0
+                135.0 1
+                180.0 1
+                225.0 1
+                270.0 0
+                315.0 -1}))
+
+(defn dir->j-incr
+  ^long [^double direction]
+  (case-double direction
+               {0.0   0
+                45.0  1
+                90.0  1
+                135.0 1
+                180.0 0
+                225.0 -1
+                270.0 -1
+                315.0 -1}))
+
+(defn dir->bit
+  ^long [^double direction]
+  (case-double direction
+               {0.0   0
+                45.0  1
+                90.0  2
+                135.0 3
+                180.0 4
+                225.0 5
+                270.0 6
+                315.0 7}))
+
 (defn make-burn-vector-constructor
   [num-rows num-cols burn-probability max-spread-rate-matrix
    max-spread-direction-matrix eccentricity-matrix fire-spread-matrix
@@ -430,24 +482,8 @@
         max-spread-direction (grid-lookup/mget-double-at max-spread-direction-matrix i j)
         eccentricity         (grid-lookup/mget-double-at eccentricity-matrix i j)]
     (fn [direction]
-      (let [new-i (case direction
-                    0.0   (- i 1)
-                    45.0  (- i 1)
-                    90.0  i
-                    135.0 (+ i 1)
-                    180.0 (+ i 1)
-                    225.0 (+ i 1)
-                    270.0 i
-                    315.0 (- i 1))
-            new-j (case direction
-                    0.0   j
-                    45.0  (+ j 1)
-                    90.0  (+ j 1)
-                    135.0 (+ j 1)
-                    180.0 j
-                    225.0 (- j 1)
-                    270.0 (- j 1)
-                    315.0 (- j 1))]
+      (let [new-i (+ i (dir->i-incr direction))
+            new-j (+ j (dir->j-incr direction))]
         (when (and (in-bounds-optimal? num-rows num-cols new-i new-j)
                    (> burn-probability (grid-lookup/mget-double-at fire-spread-matrix new-i new-j)))
           (let [spread-rate      (compute-spread-rate max-spread-rate
@@ -727,24 +763,8 @@
                    (<= burn-probability local-burn-probability))
             (let [direction   (bv-direction burn-vector)
                   spread-rate (bv-spread-rate burn-vector)
-                  new-i       (case direction
-                                0.0   (- i 1)
-                                45.0  (- i 1)
-                                90.0  i
-                                135.0 (+ i 1)
-                                180.0 (+ i 1)
-                                225.0 (+ i 1)
-                                270.0 i
-                                315.0 (- i 1))
-                  new-j       (case direction
-                                0.0   j
-                                45.0  (+ j 1)
-                                90.0  (+ j 1)
-                                135.0 (+ j 1)
-                                180.0 j
-                                225.0 (- j 1)
-                                270.0 (- j 1)
-                                315.0 (- j 1))]
+                  new-i       (+ i (dir->i-incr direction))
+                  new-j       (+ j (dir->j-incr direction))]
               (when compute-directional-values?
                 (update-directional-magnitude-values! matrices direction spread-rate i j))
               (if (and (.invokePrim ^clojure.lang.IFn$LLDO cell-burnable? new-i new-j burn-probability)
@@ -763,15 +783,7 @@
                 (do
                   (t/mset! travel-lines-matrix i j ; TODO make into function
                            (bit-clear (long (t/mget travel-lines-matrix i j))
-                                      (long (case direction
-                                              0.0 0
-                                              45.0 1
-                                              90.0 2
-                                              135.0 3
-                                              180.0 4
-                                              225.0 5
-                                              270.0 6
-                                              315.0 7))))
+                                      (dir->bit direction)))
                   acc)))
             (conj! acc burn-vector))))
       (transient [])
@@ -783,6 +795,7 @@
     (-> fractional-distance
         (* terrain-distance)
         (/ spread-rate)))
+
 
 (defn- transition-burn-vectors
   [inputs matrices band global-clock new-clock max-fractional-distance burn-vectors]
@@ -819,37 +832,13 @@
                    j                (long (:j burn-vector))
                    direction        (double (:direction burn-vector))
                    burn-probability (double (:burn-probability burn-vector))
-                   direction-bit    (case direction
-                                      0.0 0
-                                      45.0 1
-                                      90.0 2
-                                      135.0 3
-                                      180.0 4
-                                      225.0 5
-                                      270.0 6
-                                      315.0 7)]
+                   direction-bit    (dir->bit direction)]
                ;; TODO make into function
                (as-> (t/mget travel-lines-matrix i j) $
                      (bit-clear $ direction-bit)
                      (t/mset! travel-lines-matrix i j $))
-               (let [new-i (long (case direction
-                                   0.0 (- i 1)
-                                   45.0 (- i 1)
-                                   90.0 i
-                                   135.0 (+ i 1)
-                                   180.0 (+ i 1)
-                                   225.0 (+ i 1)
-                                   270.0 i
-                                   315.0 (- i 1)))
-                     new-j (long (case direction
-                                   0.0 j
-                                   45.0 (+ j 1)
-                                   90.0 (+ j 1)
-                                   135.0 (+ j 1)
-                                   180.0 j
-                                   225.0 (- j 1)
-                                   270.0 (- j 1)
-                                   315.0 (- j 1)))]
+               (let [new-i (+ i (dir->i-incr direction))
+                     new-j (+ j (dir->j-incr direction))]
                  (if (and (burnable-cell? get-fuel-model fire-spread-matrix burn-probability
                                           num-rows num-cols new-i new-j)
                           (or (not (diagonal? direction))
