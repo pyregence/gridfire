@@ -821,17 +821,18 @@
         global-clock                (double global-clock)
         new-clock                   (double new-clock)
         max-fractional-distance     (double max-fractional-distance)
-        ignited-cells-list          (ArrayList.)]
+        ignited-cells-list          (ArrayList.)
+        cell-burnable?              (burnable-cell?-partialed get-fuel-model fire-spread-matrix num-rows num-cols)]
     [(persistent!
       (reduce
        (fn [burn-vectors burn-vector]
-         (let [fractional-distance (double (:fractional-distance burn-vector))]
+         (let [fractional-distance (bv-fractional-distance burn-vector)]
            (if (< fractional-distance 1.0)
              (conj! burn-vectors burn-vector)
-             (let [i                (long (:i burn-vector))
-                   j                (long (:j burn-vector))
-                   direction        (double (:direction burn-vector))
-                   burn-probability (double (:burn-probability burn-vector))
+             (let [i                (bv-i burn-vector)
+                   j                (bv-j burn-vector)
+                   direction        (double (bv-direction burn-vector))
+                   burn-probability (bv-burn-probability burn-vector)
                    direction-bit    (dir->bit direction)]
                ;; TODO make into function
                (as-> (t/mget travel-lines-matrix i j) $
@@ -839,8 +840,7 @@
                      (t/mset! travel-lines-matrix i j $))
                (let [new-i (+ i (dir->i-incr direction))
                      new-j (+ j (dir->j-incr direction))]
-                 (if (and (burnable-cell? get-fuel-model fire-spread-matrix burn-probability
-                                          num-rows num-cols new-i new-j)
+                 (if (and (.invokePrim ^clojure.lang.IFn$LLDO cell-burnable? new-i new-j burn-probability)
                           (or (not (diagonal? direction))
                               (burnable-fuel-model? (grid-lookup/double-at get-fuel-model new-i j))
                               (burnable-fuel-model? (grid-lookup/double-at get-fuel-model i new-j))))
@@ -863,24 +863,8 @@
                                                                         direction)
                            ;; TODO move case form to functions
                            new-terrain-distance    (double (compute-terrain-distance cell-size get-elevation num-rows num-cols new-i new-j
-                                                                                     (case direction
-                                                                                       0.0 (- new-i 1)
-                                                                                       45.0 (- new-i 1)
-                                                                                       90.0 new-i
-                                                                                       135.0 (+ new-i 1)
-                                                                                       180.0 (+ new-i 1)
-                                                                                       225.0 (+ new-i 1)
-                                                                                       270.0 new-i
-                                                                                       315.0 (- new-i 1))
-                                                                                     (case direction
-                                                                                       0.0 new-j
-                                                                                       45.0 (+ new-j 1)
-                                                                                       90.0 (+ new-j 1)
-                                                                                       135.0 (+ new-j 1)
-                                                                                       180.0 new-j
-                                                                                       225.0 (- new-j 1)
-                                                                                       270.0 (- new-j 1)
-                                                                                       315.0 (- new-j 1))))
+                                                                                     (+ new-i (dir->i-incr direction))
+                                                                                     (+ new-j (dir->j-incr direction))))
                            dt-in-neighbor          (-> fractional-distance (- 1.0) (* terrain-distance) (/ spread-rate))
                            new-fractional-distance (min max-fractional-distance
                                                         (/ (* new-spread-rate dt-in-neighbor) new-terrain-distance))
@@ -938,7 +922,7 @@
                   j (bv-j burn-vector)]
               (when (> band (dec ^long (t/mget modified-time-matrix i j)))
                 (compute-max-in-situ-values! inputs matrices band i j))
-              (let [direction            (double (:direction burn-vector))
+              (let [direction            (bv-direction burn-vector)
                     max-spread-rate      (grid-lookup/mget-double-at max-spread-rate-matrix i j)
                     max-spread-direction (grid-lookup/mget-double-at max-spread-direction-matrix i j)
                     eccentricity         (grid-lookup/mget-double-at eccentricity-matrix i j)
