@@ -33,6 +33,7 @@
 
   (b/compile-clj {:src-dirs     ["src"]
                   :class-dir    jar-content
+                  :bindings     {#'clojure.core/*assert* false}
                   :compile-opts {:direct-linking true}
                   :basis        basis})
 
