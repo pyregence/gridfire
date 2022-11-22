@@ -5,7 +5,8 @@
                                                    calc-fuel-moisture
                                                    compute-terrain-distance
                                                    in-bounds-optimal?
-                                                   non-zero-indices]]
+                                                   non-zero-indices
+                                                   overtakes-lower-probability-fire?]]
             [gridfire.conversion           :refer [mph->fpm hour->min min->hour]]
             [gridfire.crown-fire           :refer [crown-fire-eccentricity
                                                    crown-fire-line-intensity
@@ -27,8 +28,7 @@
             [tech.v3.datatype.functional   :as dfn]
             [tech.v3.tensor                :as t])
   (:import java.time.ZoneId
-           java.util.Date
-           (clojure.lang IFn$LLDDO)))
+           java.util.Date))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -291,15 +291,14 @@
                     270.0 (- j 1)
                     315.0 (- j 1))]
         (when (and (in-bounds-optimal? num-rows num-cols new-i new-j)
-                   ;; FIXME what does this mean???
-                   (> burn-probability ^double (t/mget fire-spread-matrix new-i new-j)))
+                   (overtakes-lower-probability-fire? burn-probability (t/mget fire-spread-matrix new-i new-j)))
           (let [spread-rate      (compute-spread-rate max-spread-rate
                                                       max-spread-direction
                                                       eccentricity
                                                       direction)
                 terrain-distance (compute-terrain-distance cell-size get-elevation
                                                            num-rows num-cols i j new-i new-j)]
-            ;; FIXME why do we start at fractional-distance = 0.5 ? Does this represent the center of the cell or something? (Val, 16 Nov 2022)
+            ;; NOTE we start at fractional-distance = 0.5, which represents the center of the cell. (Val, 16 Nov 2022)
             (->BurnVector i j direction 0.5 spread-rate terrain-distance burn-probability)))))))
 
 (def ^:private burnvec-dir-bits [0 1 2 3 4 5 6 7])
@@ -329,6 +328,7 @@
     315.0 7))
 
 (defn- create-new-burn-vectors!
+  "Adds new burn vectors starting from cell [i j] with the given :burn-probability."
   [bvs-acc num-rows num-cols cell-size get-elevation travel-lines-matrix
    max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix
    fire-spread-matrix i j burn-probability]
@@ -339,6 +339,7 @@
     ;; IMPROVEMENT this method of looping over burnvec-dir-bits is under-optimized. Use something like (loop) or (areduce), or repetitive code. (Val, 16 Nov 2022)
     (reduce (fn [bvs-acc ^long dir-bit]
               (if (bit-test travel-lines dir-bit)
+                ;; INVARIANT: at most 1 Burn Vector at a time per travel line.
                 bvs-acc
                 (let [direction       (direction-bit->angle dir-bit)
                       new-burn-vector (create-burn-vector direction)]
@@ -439,11 +440,11 @@
   [^double global-clock-before-timestep ^double burn-time-matrix-ij]
   (< global-clock-before-timestep burn-time-matrix-ij))
 
-;; FIXME what is the logical difference between this function and transition-burn-vectors??? There seems to be a lot of duplicated logic.
-;; I am vaguely guessing that for some reasons burn vectors cannot cross to other cells in this function, (Val, 16 Nov 2022)
-;; but that it detects center-crossing.
 (defn- grow-burn-vectors!
-  "Like transition-burn-vectors but also different in subtle and mysterious ways." ;; FIXME
+  "Updates the progress of the Burn Vectors along their travel lines, detecting which cells get ignited.
+
+  Returns a [new-burn-vectors ignited-cells] tuples,
+  and mutates :burn-time-matrix and :fire-spread-matrix."
   [matrices global-clock timestep burn-vectors]
   (let [fire-spread-matrix (:fire-spread-matrix matrices)
         burn-time-matrix   (:burn-time-matrix matrices)
@@ -465,6 +466,8 @@
                                                     (>= new-fractional-distance 0.5))
                      ^double local-burn-time   (t/mget burn-time-matrix i j)]
                  (when crossed-center?
+                   ;; INVARIANT a cell is ignited when a burn vector traverses its center,
+                   ;; which corresponds to a :fractional-distance of 0.5.
                    (let [^double local-burn-probability (t/mget fire-spread-matrix i j)]
                      (when (>= burn-probability local-burn-probability)
                        (let [burn-time (-> 0.5
@@ -473,10 +476,12 @@
                                            (* timestep)
                                            (+ global-clock))]
                          (if (> burn-probability local-burn-probability)
+                           ;; INVARIANT :burn-time-matrix and :fire-spread-matrix record the fire of highest :burn-probability.
                            (do
                              (t/mset! fire-spread-matrix i j burn-probability)
                              (t/mset! burn-time-matrix i j burn-time))
                            (when (< burn-time local-burn-time)
+                             (comment (assert (= burn-probability local-burn-probability)))
                              ;; Invariant: burn-time-matrix records the time of the earliest event causing the cell to burn.
                              (t/mset! burn-time-matrix i j burn-time)))))))
                  [(conj! burn-vectors (->BurnVector i j direction new-fractional-distance
@@ -492,6 +497,12 @@
              burn-vectors))))
 
 (defn- ignited-cells->burn-vectors
+  "Adds new Burn Vectors from the list of newly ignited cells.
+
+  Returns a bigger burn-vectors vector,
+  and mutates :travel-lines-matrix.
+
+  IMPORTANT: this function must be followed by #'promote-burn-vectors."
   [inputs matrices ignited-cells burn-vectors]
   (let [num-rows                    (:num-rows inputs)
         num-cols                    (:num-cols inputs)
@@ -533,48 +544,47 @@
                                                 (* spread-rate))))
     (t/mset! spread-rate-sum-matrix i j (+ cur-spread-rate spread-rate))))
 
-(defn- burn-vector-spreadability-fn
-  "Prepares a partial'd function to be invoked via #'bv-can-spread-fire-to-target-cell?."
-  [get-fuel-model fire-spread-matrix num-rows num-cols]
-  ;; Note curried for performance, so that we can make a primitive invocation.
-  (fn can-spread?
-    [^long i ^long j ^double direction ^double burn-probability]
-    (let [new-i (case direction
-                  0.0 (- i 1)
-                  45.0 (- i 1)
-                  90.0 i
-                  135.0 (+ i 1)
-                  180.0 (+ i 1)
-                  225.0 (+ i 1)
-                  270.0 i
-                  315.0 (- i 1))
-          new-j (case direction
-                  0.0 j
-                  45.0 (+ j 1)
-                  90.0 (+ j 1)
-                  135.0 (+ j 1)
-                  180.0 j
-                  225.0 (- j 1)
-                  270.0 (- j 1)
-                  315.0 (- j 1))]
-      ;; IMPROVEMENT currify burnable-cell? for performance. (Val, 16 Nov 2022)
-      (and (burnable-cell? get-fuel-model fire-spread-matrix burn-probability
-                           num-rows num-cols new-i new-j)
-           (or (not (diagonal? direction))
-               ;; We block spread across any "diagonal barrier" of non-burnable cells. FIXME is that the idea???
-               ;; FIXME if so, clarify with name.
-               (burnable-fuel-model? (grid-lookup/double-at get-fuel-model new-i j))
-               (burnable-fuel-model? (grid-lookup/double-at get-fuel-model i new-j)))))))
-
 (defn- bv-can-spread-fire-to-target-cell?
-  "Whether this burn vector still has potential to ignite its target cell.
-
-  `spreadability-fn` must be the value returned by #'burn-vector-spreadability-fn."
-  [spreadability-fn ^long i ^long j ^double direction ^double burn-probability]
+  "Whether this burn vector still has potential to ignite its target cell."
+  [get-fuel-model fire-spread-matrix num-rows num-cols
+   i j direction burn-probability]
   ;; HACK relying on an implementation detail of Clojure for performance; we could also make a custom Java interface.
-  (.invokePrim ^IFn$LLDDO spreadability-fn i j direction burn-probability))
+  (let [i         (long i)
+        j         (long j)
+        direction (double direction)
+        new-i     (case direction
+                    0.0   (- i 1)
+                    45.0  (- i 1)
+                    90.0  i
+                    135.0 (+ i 1)
+                    180.0 (+ i 1)
+                    225.0 (+ i 1)
+                    270.0 i
+                    315.0 (- i 1))
+        new-j     (case direction
+                    0.0    j
+                    45.0  (+ j 1)
+                    90.0  (+ j 1)
+                    135.0 (+ j 1)
+                    180.0 j
+                    225.0 (- j 1)
+                    270.0 (- j 1)
+                    315.0 (- j 1))]
+    ;; IMPROVEMENT currify burnable-cell? for performance. (Val, 16 Nov 2022)
+    (and (burnable-cell? get-fuel-model fire-spread-matrix burn-probability
+                         num-rows num-cols new-i new-j)
+         (not (and (diagonal? direction)
+                   ;; NOTE we use a named local for clarity; we avoid using a function for performance. (Val, 22 Nov 2022)
+                   (let [crossing-diagonal-barrier? (and (not (burnable-fuel-model? (grid-lookup/double-at get-fuel-model new-i j)))
+                                                         (not (burnable-fuel-model? (grid-lookup/double-at get-fuel-model i new-j))))]
+                     crossing-diagonal-barrier?))))))
 
 (defn- promote-burn-vectors
+  "Replaces or removes the burn vector which have become obsolete because of an ignition.
+
+  In particular, if the cell just got ignited at :burn-probability p,
+  the burn vectors with :burn-probability < p get replaced by a Burn Vector
+  starting from the center of the cell."
   [inputs matrices global-clock new-clock max-fractional-distance burn-vectors]
   (let [num-rows                    (:num-rows inputs)
         num-cols                    (:num-cols inputs)
@@ -585,8 +595,7 @@
         travel-lines-matrix         (:travel-lines-matrix matrices)
         global-clock                (double global-clock)
         new-clock                   (double new-clock)
-        max-fractional-distance     (double max-fractional-distance)
-        spreadability-fn            (burn-vector-spreadability-fn get-fuel-model fire-spread-matrix num-rows num-cols)]
+        max-fractional-distance     (double max-fractional-distance)]
     (persistent!
      (reduce
       (fn [bvs-acc burn-vector]
@@ -596,14 +605,18 @@
               local-burn-probability (double (t/mget fire-spread-matrix i j))
               local-burn-time        (double (t/mget burn-time-matrix i j))]
           (if-not (and (ignited-in-this-timestep? global-clock local-burn-time)
-                       ;; FIXME what is the meaning of this check???
-                       (<= burn-probability local-burn-probability))
-            (conj! bvs-acc burn-vector) ; the burn vector remains as is. FIXME how come??? Has it not progressed?
+                       ;; A burn vector of higher :burn-probability than the ignition remains unaffected by that ignition.
+                       ;; WARNING: when (> 0.5 (:fractional-distance burn-vector)),
+                       ;; this causes the low-probability spread in that direction to be delayed until the higher-probability
+                       ;; burn vector reaches the center. This is something of a modeling inconsistency.
+                       (not (overtakes-lower-probability-fire? burn-probability local-burn-probability)))
+            (conj! bvs-acc burn-vector) ; the burn vector remains as is.
             (let [direction   (double (:direction burn-vector))
                   spread-rate (double (:spread-rate burn-vector))]
               (when compute-directional-values?
                 (update-directional-magnitude-values! matrices direction spread-rate i j))
-              (if (bv-can-spread-fire-to-target-cell? spreadability-fn i j direction burn-probability)
+              (if (bv-can-spread-fire-to-target-cell? get-fuel-model fire-spread-matrix num-rows num-cols
+                                                      i j direction burn-probability)
                 (let [spread-rate             (double (:spread-rate burn-vector))
                       terrain-distance        (double (:terrain-distance burn-vector))
                       dt-after-ignition       (- new-clock local-burn-time)
@@ -611,13 +624,18 @@
                                                    (+ 0.5 (/ (* spread-rate dt-after-ignition) terrain-distance)))
                       new-spread-rate         (if (< new-fractional-distance max-fractional-distance)
                                                 spread-rate
-                                                ;; re-computing an empirical spread rate. FIXME why???
-                                                (/ (* (- new-fractional-distance 0.5) terrain-distance) dt-after-ignition))]
+                                                ;; Re-computing an empirical spread rate,
+                                                ;; because we have artificially reduced the spread rate of the burn vector
+                                                ;; using max-fractional-distance.
+                                                ;; NOTE that we'll have (<= new-spread-rate spread-rate).
+                                                (/ (* (- new-fractional-distance 0.5) terrain-distance) dt-after-ignition))
+                      ;; The new BV's :burn-probability is inherited from the ignition.
+                      new-burn-probability    local-burn-probability]
                   (conj! bvs-acc
                          ;; This burn vector got its progress updated.
-                         (->BurnVector i j direction new-fractional-distance new-spread-rate terrain-distance local-burn-probability)))
+                         (->BurnVector i j direction new-fractional-distance new-spread-rate terrain-distance new-burn-probability)))
                 (do
-                  ;; The burn vector is dropped, because it can no longer burn anything.
+                  ;; This travel line gets cleared of its Burn Vector because there is no longer a target cell to burn.
                   (t/mset! travel-lines-matrix i j ; TODO make into function
                            (bit-clear (t/mget travel-lines-matrix i j)
                                       (direction-angle->bit direction)))
@@ -655,18 +673,14 @@
         band                        (long band)
         global-clock                (double global-clock)
         new-clock                   (double new-clock)
-        max-fractional-distance     (double max-fractional-distance)
-        spreadability-fn            (burn-vector-spreadability-fn get-fuel-model fire-spread-matrix num-rows num-cols)]
+        max-fractional-distance     (double max-fractional-distance)]
     (mapv ;; HACK transforming a 2-elements tuple which happens to contain only transients. (Val, 16 Nov 2022)
      persistent!
-     ;; IMPROVEMENT this loop is inefficient because it keeps re-creating its accumulator tuple,
-     ;; yielding lots of allocations.
-     ;; It's probably more efficient to accumulate the ignited cells in an ArrayList.
      (reduce
       (fn [[new-bvs-acc ignited-cells] burn-vector]
-        (let [fractional-distance      (double (:fractional-distance burn-vector))
-              has-entered-target-cell? (< fractional-distance 1.0)]
-          (if has-entered-target-cell?
+        (let [fractional-distance        (double (:fractional-distance burn-vector))
+              hasnt-entered-target-cell? (< fractional-distance 1.0)]
+          (if hasnt-entered-target-cell?
             [(conj! new-bvs-acc burn-vector) ignited-cells]
             ;; The burn vector has entered the target cell.
             (let [i                (long (:i burn-vector))
@@ -697,8 +711,11 @@
                             225.0 (- j 1)
                             270.0 (- j 1)
                             315.0 (- j 1))]
-                (if-not (bv-can-spread-fire-to-target-cell? spreadability-fn i j direction burn-probability)
-                  [new-bvs-acc ignited-cells] ; Dropping this burn vector. ;; FIXME don't we need to clear it from the travel-lines-matrix???
+                (if-not (bv-can-spread-fire-to-target-cell? get-fuel-model fire-spread-matrix num-rows num-cols
+                                                            i j direction burn-probability)
+                  ;; Dropping this burn vector - more exactly, not creating a new BV in the target cell.
+                  ;; Note that we cleared the original BV's travel line above.
+                  [new-bvs-acc ignited-cells]
                   (do
                     (when (> band (dec (long (t/mget modified-time-matrix new-i new-j))))
                       ;; vector is first in this timestep to compute
@@ -756,25 +773,23 @@
                               failed-to-ignite-new-cell?     (< burn-probability local-burn-probability)]
                           (if failed-to-ignite-new-cell?
                             [new-burn-vectors ignited-cells]
-                            (let [relative-burn-time      (-> (/ dt-in-neighbor new-fractional-distance)
-                                                              (* 0.5))
-                                  burn-time               (-> new-clock
-                                                              (- dt-in-neighbor)
-                                                              (+ relative-burn-time))
-                                  ^double recorded-burn-time (t/mget burn-time-matrix new-i new-j)]
-                              (if (> burn-probability local-burn-probability)
+                            (let [relative-burn-time (-> (/ dt-in-neighbor new-fractional-distance)
+                                                         (* 0.5))
+                                  burn-time          (-> new-clock
+                                                         (- dt-in-neighbor)
+                                                         (+ relative-burn-time))
+                                  recorded-burn-time (double (t/mget burn-time-matrix new-i new-j))]
+                              (if (overtakes-lower-probability-fire? burn-probability local-burn-probability)
                                 (do
                                   (t/mset! fire-spread-matrix new-i new-j burn-probability) ;; logically a max update
                                   (t/mset! burn-time-matrix new-i new-j burn-time)
                                   [new-burn-vectors
-                                   ;; FIXME What is the logic of this check???
-                                   ;; Why do we create an ignited cell only in this case?
-                                   (if (<= recorded-burn-time global-clock)
-                                     (conj! ignited-cells [new-i new-j])
-                                     ignited-cells)])
+                                   (cond-> ignited-cells
+                                     ;; For performance, avoiding redundant additions to ignited-cells.
+                                     (not (ignited-in-this-timestep? global-clock recorded-burn-time)) (conj! [new-i new-j]))])
                                 ;; [new-burn-vectors (conj! ignited-cells [new-i new-j])]) ; TODO check set vs vectors
                                 ;; This conditional branch corresponds to: (= burn-probability local-burn-probability)
-                                ;; FIXME why are we not adding an ignited cell in this case?
+                                ;; this is why we don't add to ignited cells (it's already ignited).
                                 (do
                                   (when (< burn-time recorded-burn-time)
                                     ;; We have just realized that the cell actually ignited earlier than recorded until now,
@@ -1014,12 +1029,22 @@
                   [transitioned-bvs
                    transition-ignited-cells]     (->> grown-bvs
                                                       (ignited-cells->burn-vectors inputs matrices ignited-cells)
+                                                      ;; Why this 1.99 max-fractional-distance values? To enforce the
+                                                      ;; INVARIANT that any Burn Vector in the current timestep cannot travel more than a single cell-size
+                                                      ;; (does not account elevation just horizontal). See compute-dt. There is one
+                                                      ;; EDGE CASE in which bvs can burn pass one cell size given the spread rate and
+                                                      ;; the computed timestep. It is when a bv gets created from ignited-cells->burn-vectors phase.
+                                                      ;; The spread rate of this bv was not included in the compute-dt step and so if it has a
+                                                      ;; higher spread rate than any other bv used in compute-dt then it will burn more than a
+                                                      ;; single cell size.
                                                       (promote-burn-vectors inputs matrices global-clock new-clock 1.99)
+                                                      ;; (= 0.99 max-fractional-distance) to make sure that
+                                                      ;; transitioning Burn Vectors will not double-transition.
                                                       (transition-burn-vectors inputs matrices band global-clock new-clock 0.99))
                   promoted-transitioned-bvs      (->> transitioned-bvs
                                                       (ignited-cells->burn-vectors inputs matrices transition-ignited-cells)
                                                       (promote-burn-vectors inputs matrices global-clock new-clock 0.99)) ;TODO optimize, promoting twice
-                  ;; FIXME why are we promoting twice??? Why stop at 2? Why not even more times?
+                  ;; NOTE why are we promoting exactly twice in the above? Because there are 2 ignition-causing phases: grow-burn-vectors! and transition-burn-vectors.
                   [spot-bvs
                    spot-ignite-now-count
                    spot-ignite-later
@@ -1037,7 +1062,7 @@
                                                      (into transition-ignited-cells)
                                                      (into spot-ignited-cells))]
               ;; TODO if spot ignitions is updated to have varying burn probability make sure there are no duplicates
-              ;; of ignited cells in this list of ignited cells passed to compute-directional-in-stiu-values!
+              ;; of ignited cells in this list of ignited cells passed to compute-directional-in-situ-values!
               (when compute-directional-values?
                 (compute-directional-in-situ-values! matrices all-ignited-cells))
               (recur new-clock
@@ -1091,9 +1116,23 @@
      spot-matrix
      spread-rate-matrix
      spread-rate-sum-matrix
-     travel-lines-matrix                                    ; the set of burn vector directions existing in each cell, encoded as 8 bit flags.
+     travel-lines-matrix                   ; INTRO the set of burn vector directions currently blocked in each cell, encoded as 8 bit flags.
      x-magnitude-sum-matrix
      y-magnitude-sum-matrix])
+
+(comment
+
+  :fire-spread-matrix ; INTRO keeps track of which cells have burned, as a probability between 0 and 1.
+  :burn-probability   ; INTRO holds the same probability values in Burn Vectors.
+  ;; The idea is that the simulation simulates not a single fire line,
+  ;; but a superposition of fire lines corresponding to a spectrum of 'parallel worlds' with different fire spread.
+  ;; A burn probability of 0.84 means that this cell burns in 84% of these parallel worlds.
+  ;; INVARIANT: a burn vector with a :burn-probability of P can only ignite cells that have not been reached
+  ;; by BVs of :burn-probability higher than P, and will then update :fire-spread-matrix to P.
+  ;; If the generated :burn-probability values are only allowed to be 0 or 1,
+  ;; we retrieve the more classical and less sophisticated model of a single fire spread.
+  ;; Why probabilistic values? The motivation comes from the random nature of spotting.
+  *e)
 
 ;;-----------------------------------------------------------------------------
 ;; Main Simulation Entry Point - Dispatches to Point/Perimeter Ignition
