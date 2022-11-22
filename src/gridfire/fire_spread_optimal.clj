@@ -486,7 +486,7 @@
                              (t/mset! burn-time-matrix i j burn-time)))))))
                  [(conj! burn-vectors (->BurnVector i j direction new-fractional-distance
                                                     spread-rate terrain-distance burn-probability))
-                  (if (and crossed-center? (ignited-in-this-timestep? global-clock local-burn-time)) ; first to cross center of the cell this timestep
+                  (if (and crossed-center? (not (ignited-in-this-timestep? global-clock local-burn-time))) ; first to cross center of the cell this timestep
                     (conj! ignited-cells [i j])
                     ignited-cells)]))
              [(transient []) (transient [])]
