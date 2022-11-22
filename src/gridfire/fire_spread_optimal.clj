@@ -99,6 +99,12 @@
       (moisturize fuel-moisture)
       (rothermel-surface-fire-spread-no-wind-no-slope grass-suppression?)))
 
+(defn memoize-rfwo
+  "Memoization function specialized for rothermel-fast-wrapper-optimal."
+  [f]
+  ;; NOTE currently implemented using clojure.core/memoize, but that will change.
+  (memoize f))
+
 (defn- store-if-max!
   [matrix i j ^double new-value]
   (let [^double old-value (t/mget matrix i j)]
