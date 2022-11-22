@@ -24,6 +24,7 @@
                                                    byram-fire-line-intensity
                                                    byram-flame-length
                                                    wind-adjustment-factor]]
+            [gridfire.utils.flow           :refer [case-double]]
             [tech.v3.datatype              :as d]
             [tech.v3.datatype.functional   :as dfn]
             [tech.v3.tensor                :as t])
@@ -43,12 +44,52 @@
      ^double terrain-distance
      ^double burn-probability])
 
+(def ^:private burnvec-dir-bits [0 1 2 3 4 5 6 7])
+
+(defn- direction-bit->angle
+  ^double [^long dir-bit]
+  (case dir-bit
+    0 0.0
+    1 45.0
+    2 90.0
+    3 135.0
+    4 180.0
+    5 225.0
+    6 270.0
+    7 315.0))
+
+(defn direction-angle->bit
+  ^long [^double dir-angle]
+  (case-double dir-angle
+    0.0   0
+    45.0  1
+    90.0  2
+    135.0 3
+    180.0 4
+    225.0 5
+    270.0 6
+    315.0 7))
+
+(defn direction-angle->i-incr
+  ^long [^double dir-angle]
+  (case-double dir-angle
+    (0.0 45.0 315.0)   -1
+    (135.0 180.0 225.0) 1
+    (90.0 270.0)        0))
+
+(defn direction-angle->j-incr
+  ^long [^double dir-angle]
+  (case-double dir-angle
+    (45.0 90.0 135.0)   1
+    (0.0 180.0)         0
+    (225.0 270.0 315.0) -1))
+
 ;;-----------------------------------------------------------------------------
 ;; Fire spread
 ;;-----------------------------------------------------------------------------
 
-(defn- diagonal? [direction-angle]
-  (case direction-angle
+(defn diagonal? [^double direction-angle]
+  (case-double direction-angle
     (0.0  90.0  180.0 270.0) false
     (45.0 135.0 225.0 315.0) true))
 
@@ -278,24 +319,8 @@
         max-spread-direction (t/mget max-spread-direction-matrix i j)
         eccentricity         (t/mget eccentricity-matrix i j)]
     (fn [direction]
-      (let [new-i (case direction
-                    0.0   (- i 1)
-                    45.0  (- i 1)
-                    90.0  i
-                    135.0 (+ i 1)
-                    180.0 (+ i 1)
-                    225.0 (+ i 1)
-                    270.0 i
-                    315.0 (- i 1))
-            new-j (case direction
-                    0.0   j
-                    45.0  (+ j 1)
-                    90.0  (+ j 1)
-                    135.0 (+ j 1)
-                    180.0 j
-                    225.0 (- j 1)
-                    270.0 (- j 1)
-                    315.0 (- j 1))]
+      (let [new-i (+ i (direction-angle->i-incr direction))
+            new-j (+ j (direction-angle->j-incr direction))]
         (when (and (in-bounds-optimal? num-rows num-cols new-i new-j)
                    (overtakes-lower-probability-fire? burn-probability (t/mget fire-spread-matrix new-i new-j)))
           (let [spread-rate      (compute-spread-rate max-spread-rate
@@ -306,32 +331,6 @@
                                                            num-rows num-cols i j new-i new-j)]
             ;; NOTE we start at fractional-distance = 0.5, which represents the center of the cell. (Val, 16 Nov 2022)
             (->BurnVector i j direction 0.5 spread-rate terrain-distance burn-probability)))))))
-
-(def ^:private burnvec-dir-bits [0 1 2 3 4 5 6 7])
-
-(defn- direction-bit->angle
-  ^double [^long dir-bit]
-  (case dir-bit
-    0 0.0
-    1 45.0
-    2 90.0
-    3 135.0
-    4 180.0
-    5 225.0
-    6 270.0
-    7 315.0))
-
-(defn- direction-angle->bit
-  ^long [^double dir-angle]
-  (case dir-angle
-    0.0   0
-    45.0  1
-    90.0  2
-    135.0 3
-    180.0 4
-    225.0 5
-    270.0 6
-    315.0 7))
 
 (defn- create-new-burn-vectors!
   "Adds new burn vectors starting from cell [i j] with the given :burn-probability."
@@ -558,24 +557,8 @@
   (let [i         (long i)
         j         (long j)
         direction (double direction)
-        new-i     (case direction
-                    0.0   (- i 1)
-                    45.0  (- i 1)
-                    90.0  i
-                    135.0 (+ i 1)
-                    180.0 (+ i 1)
-                    225.0 (+ i 1)
-                    270.0 i
-                    315.0 (- i 1))
-        new-j     (case direction
-                    0.0    j
-                    45.0  (+ j 1)
-                    90.0  (+ j 1)
-                    135.0 (+ j 1)
-                    180.0 j
-                    225.0 (- j 1)
-                    270.0 (- j 1)
-                    315.0 (- j 1))]
+        new-i     (+ i (direction-angle->i-incr direction))
+        new-j     (+ j (direction-angle->j-incr direction))]
     ;; IMPROVEMENT currify burnable-cell? for performance. (Val, 16 Nov 2022)
     (and (burnable-cell? get-fuel-model fire-spread-matrix burn-probability
                          num-rows num-cols new-i new-j)
@@ -699,24 +682,8 @@
               (as-> (t/mget travel-lines-matrix i j) $
                 (bit-clear $ direction-bit)
                 (t/mset! travel-lines-matrix i j $))
-              (let [new-i (case direction
-                            0.0   (- i 1)
-                            45.0  (- i 1)
-                            90.0  i
-                            135.0 (+ i 1)
-                            180.0 (+ i 1)
-                            225.0 (+ i 1)
-                            270.0 i
-                            315.0 (- i 1))
-                    new-j (case direction
-                            0.0   j
-                            45.0  (+ j 1)
-                            90.0  (+ j 1)
-                            135.0 (+ j 1)
-                            180.0 j
-                            225.0 (- j 1)
-                            270.0 (- j 1)
-                            315.0 (- j 1))]
+              (let [new-i (+ i (direction-angle->i-incr direction))
+                    new-j (+ j (direction-angle->j-incr direction))]
                 (if-not (bv-can-spread-fire-to-target-cell? get-fuel-model fire-spread-matrix num-rows num-cols
                                                             i j direction burn-probability)
                   ;; Dropping this burn vector - more exactly, not creating a new BV in the target cell.
@@ -741,24 +708,8 @@
                                                                        direction)
                           ;; TODO move case form to functions
                           new-terrain-distance    (double (compute-terrain-distance cell-size get-elevation num-rows num-cols new-i new-j
-                                                                                    (case direction
-                                                                                      0.0   (- new-i 1)
-                                                                                      45.0  (- new-i 1)
-                                                                                      90.0  new-i
-                                                                                      135.0 (+ new-i 1)
-                                                                                      180.0 (+ new-i 1)
-                                                                                      225.0 (+ new-i 1)
-                                                                                      270.0 new-i
-                                                                                      315.0 (- new-i 1))
-                                                                                    (case direction
-                                                                                      0.0   new-j
-                                                                                      45.0  (+ new-j 1)
-                                                                                      90.0  (+ new-j 1)
-                                                                                      135.0 (+ new-j 1)
-                                                                                      180.0 new-j
-                                                                                      225.0 (- new-j 1)
-                                                                                      270.0 (- new-j 1)
-                                                                                      315.0 (- new-j 1))))
+                                                                                    (+ new-i (direction-angle->i-incr direction))
+                                                                                    (+ new-j (direction-angle->j-incr direction))))
                           ;; time since entering new cell
                           dt-in-neighbor          (-> fractional-distance (- 1.0)
                                                       (* terrain-distance) ; the length spent in the new cell

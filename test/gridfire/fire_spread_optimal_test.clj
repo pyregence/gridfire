@@ -1,9 +1,60 @@
 (ns gridfire.fire-spread-optimal-test
-  (:require [clojure.test                 :refer [deftest are]]
-            [gridfire.fire-spread-optimal]
+  (:require [clojure.test                 :refer [deftest are is testing]]
+            [gridfire.fire-spread-optimal :refer [diagonal?
+                                                  direction-angle->bit
+                                                  direction-angle->i-incr
+                                                  direction-angle->j-incr]]
             [gridfire.simulations         :as simulations]
             [tech.v3.datatype             :as d]
             [tech.v3.tensor               :as t]))
+
+(defn- is-this-fn-equivalent-to-that-double-map?
+  [f d->v]
+  (->> d->v
+       (every? (fn [[d v]]
+                 (is (= v (f d)))))))
+
+(deftest ^:unit case-double-examples-test
+  (testing (pr-str `diagonal?)
+    (is-this-fn-equivalent-to-that-double-map? diagonal?
+                                               {0.0   false
+                                                90.0  false
+                                                180.0 false
+                                                270.0 false
+                                                45.0  true
+                                                135.0 true
+                                                225.0 true
+                                                315.0 true}))
+  (testing (pr-str `direction-angle->bit)
+    (is-this-fn-equivalent-to-that-double-map? direction-angle->bit
+                                               {0.0   0
+                                                45.0  1
+                                                90.0  2
+                                                135.0 3
+                                                180.0 4
+                                                225.0 5
+                                                270.0 6
+                                                315.0 7}))
+  (testing (pr-str `direction-angle->i-incr)
+    (is-this-fn-equivalent-to-that-double-map? direction-angle->i-incr
+                                               {0.0   -1
+                                                45.0  -1
+                                                315.0 -1
+                                                135.0 1
+                                                180.0 1
+                                                225.0 1
+                                                90.0  0
+                                                270.0 0}))
+  (testing (pr-str `direction-angle->j-incr)
+    (is-this-fn-equivalent-to-that-double-map? direction-angle->j-incr
+                                               {45.0  1
+                                                90.0  1
+                                                135.0 1
+                                                0.0   0
+                                                180.0 0
+                                                225.0 -1
+                                                270.0 -1
+                                                315.0 -1})))
 
 (deftest ^:unit create-new-burn-vectors_test
   (let [num-rows                    10
