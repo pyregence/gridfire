@@ -52,6 +52,11 @@
   [^double fm-number]
   (f-opt/is-burnable-fuel-model-number? fm-number))
 
+(defn overtakes-lower-probability-fire?
+  "True when the cell [i j] has never burned at a :burn-probability level >= bv-burn-probability."
+  [^double bv-burn-probability ^double fire-spread-matrix_ij]
+  (> bv-burn-probability fire-spread-matrix_ij))
+
 ;; FIXME: This logic doesn't look right.
 (defn burnable?
   "Returns true if cell [x y] has not yet been ignited (but could be)."
@@ -111,7 +116,7 @@
   [get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i j]
   (and (in-bounds-optimal? num-rows num-cols i j)
        (burnable-fuel-model? (grid-lookup/double-at get-fuel-model i j))
-       (> (double burn-probability) ^double (t/mget fire-spread-matrix i j))))
+       (overtakes-lower-probability-fire? (double burn-probability) (double (t/mget fire-spread-matrix i j)))))
 
 (defn compute-terrain-distance
   [cell-size get-elevation num-rows num-cols i j new-i new-j]
