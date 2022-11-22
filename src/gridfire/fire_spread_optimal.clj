@@ -1132,6 +1132,17 @@
   ;; If the generated :burn-probability values are only allowed to be 0 or 1,
   ;; we retrieve the more classical and less sophisticated model of a single fire spread.
   ;; Why probabilistic values? The motivation comes from the random nature of spotting.
+  ;; WARNING: it is tricky to reason about the probability model underlying this logic.
+  ;; In particular, it is NOT equivalent to drawing i.i.d spot ignitions, since burn vectors
+  ;; of independent origins can block one another.
+  ;; It is an error to think of this probabilistic-updating logic as one would think of, say,
+  ;; the diffusion equation associated with a random walk.
+  ;; One way to think about this is that there is a 1D latent random variable,
+  ;; the 'luck level' of the fire evolution, ranging from 0 to 1;
+  ;; A burn vector with :burn-probability 0.23 is present in 23% of the parallel universes,
+  ;; those with luck level no greater than 0.23.
+  ;; TODO turn this into a proper analysis in the Org article.
+
   *e)
 
 ;;-----------------------------------------------------------------------------
