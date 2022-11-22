@@ -1037,6 +1037,14 @@
                                                       ;; The spread rate of this bv was not included in the compute-dt step and so if it has a
                                                       ;; higher spread rate than any other bv used in compute-dt then it will burn more than a
                                                       ;; single cell size.
+                                                      ;; An alternative to capping the fractional-distance would be to adjust the time steps
+                                                      ;; to be an upper bound of the time required for the burn vectors to cross.
+                                                      ;; We tried that based on max-spread-rate calculations, but found it to be extremely
+                                                      ;; inefficient because it made the time steps unreasonably small.
+                                                      ;; Capping the fractional distance caused only small changes in prediction accuracy,
+                                                      ;; so we went with that.
+                                                      ;; More background on this approach and how it relates to the Morais 2001 paper can be found here:
+                                                      ;; https://github.com/pyregence/gridfire/pull/125#issuecomment-1322861034
                                                       (promote-burn-vectors inputs matrices global-clock new-clock 1.99)
                                                       ;; (= 0.99 max-fractional-distance) to make sure that
                                                       ;; transitioning Burn Vectors will not double-transition.
