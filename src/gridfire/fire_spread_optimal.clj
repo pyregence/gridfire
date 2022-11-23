@@ -16,6 +16,7 @@
                                                    moisturize]]
             [gridfire.grid-lookup          :as grid-lookup]
             [gridfire.spotting-optimal     :as spot-optimal]
+            [gridfire.structs.rfwo         :as rfwo-struct]
             [gridfire.suppression          :as suppression]
             [gridfire.surface-fire-optimal :refer [rothermel-surface-fire-spread-no-wind-no-slope
                                                    rothermel-surface-fire-spread-max
@@ -133,18 +134,38 @@
           rise               (* run slope slope-factor)]
       (Math/sqrt (+ (* run run) (* rise rise)))))
 
-(defn ^:redef rothermel-fast-wrapper-optimal
-  [fuel-model-number fuel-moisture grass-suppression?]
+(defn rothermel-surface-fire-wrapped
+  [^double fuel-model-number fuel-moisture grass-suppression?]
   (-> (long fuel-model-number)
       (fuel-models-precomputed)
       (moisturize fuel-moisture)
       (rothermel-surface-fire-spread-no-wind-no-slope grass-suppression?)))
 
+(defn ^:redef rothermel-fast-wrapper-optimal
+  [rfwo-args]
+  (rothermel-surface-fire-wrapped (rfwo-struct/get-fuel-model-number rfwo-args)
+                                  (rfwo-struct/get-fuel-moisture-vec rfwo-args)
+                                  (rfwo-struct/get-grass-suppression? rfwo-args)))
+
+(defn- memoize-1arg
+  "Like clojure.core/memoize, but optimized for 1-argument functions,
+  avoiding varargs overhead."
+  [f]
+  (let [mem       (atom {})
+        not-found (Object.)]
+    (fn mem-wrapper [arg]
+      (let [v (get @mem arg not-found)]
+        (if (identical? v not-found)
+          (let [v (f arg)]
+            (swap! mem assoc arg v)
+            v)
+          v)))))
+
 (defn memoize-rfwo
   "Memoization function specialized for rothermel-fast-wrapper-optimal."
   [f]
   ;; NOTE currently implemented using clojure.core/memoize, but that will change.
-  (memoize f))
+  (memoize-1arg f))
 
 (defn- store-if-max!
   [matrix i j ^double new-value]
@@ -218,14 +239,14 @@
                                                            (grid-lookup/double-at get-fuel-moisture-live-woody band i j)
                                                            (calc-fuel-moisture relative-humidity temperature :live :woody))
         foliar-moisture                                  (grid-lookup/double-at get-foliar-moisture band i j)
-        surface-fire-min                                 (rothermel-fast-wrapper-optimal fuel-model
-                                                                                         [fuel-moisture-dead-1hr
-                                                                                          fuel-moisture-dead-10hr
-                                                                                          fuel-moisture-dead-100hr
-                                                                                          0.0 ; fuel-moisture-dead-herbaceous
-                                                                                          fuel-moisture-live-herbaceous
-                                                                                          fuel-moisture-live-woody]
-                                                                                         grass-suppression?)
+        surface-fire-min                                 (rothermel-fast-wrapper-optimal (rfwo-struct/make-RothFWOArgs fuel-model
+                                                                                                                       fuel-moisture-dead-1hr
+                                                                                                                       fuel-moisture-dead-10hr
+                                                                                                                       fuel-moisture-dead-100hr
+                                                                                                                       0.0 ; fuel-moisture-dead-herbaceous
+                                                                                                                       fuel-moisture-live-herbaceous
+                                                                                                                       fuel-moisture-live-woody
+                                                                                                                       (boolean grass-suppression?)))
         midflame-wind-speed                              (mph->fpm
                                                           (* wind-speed-20ft
                                                              (wind-adjustment-factor ^double (:fuel-bed-depth surface-fire-min)
