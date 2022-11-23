@@ -30,7 +30,7 @@
             [tech.v3.datatype.functional   :as dfn]
             [tech.v3.tensor                :as t])
   (:import java.time.ZoneId
-           java.util.Date))
+           (java.util ArrayList Date)))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -475,52 +475,52 @@
   (let [fire-spread-matrix (:fire-spread-matrix matrices)
         burn-time-matrix   (:burn-time-matrix matrices)
         global-clock       (double global-clock)
-        timestep           (double timestep)]
-    (mapv
-     persistent!
-     (reduce (fn [[burn-vectors ignited-cells] burn-vector]
-               (let [i                         (long (:i burn-vector))
-                     j                         (long (:j burn-vector))
-                     direction                 (double (:direction burn-vector))
-                     fractional-distance       (double (:fractional-distance burn-vector))
-                     spread-rate               (double (:spread-rate burn-vector))
-                     terrain-distance          (double (:terrain-distance burn-vector))
-                     burn-probability          (double (:burn-probability burn-vector))
-                     fractional-distance-delta (/ (* spread-rate timestep) terrain-distance)
-                     new-fractional-distance   (+ fractional-distance fractional-distance-delta)
-                     crossed-center?           (and (< fractional-distance 0.5)
-                                                    (>= new-fractional-distance 0.5))
-                     ^double local-burn-time   (t/mget burn-time-matrix i j)]
-                 (when crossed-center?
-                   ;; INVARIANT a cell is ignited when a burn vector traverses its center,
-                   ;; which corresponds to a :fractional-distance of 0.5.
-                   (let [^double local-burn-probability (t/mget fire-spread-matrix i j)]
-                     (when (>= burn-probability local-burn-probability)
-                       (let [burn-time (-> 0.5
-                                           (- fractional-distance)
-                                           (/ fractional-distance-delta)
-                                           (* timestep)
-                                           (+ global-clock))]
-                         (if (> burn-probability local-burn-probability)
-                           ;; INVARIANT :burn-time-matrix and :fire-spread-matrix record the fire of highest :burn-probability.
-                           (do
-                             (t/mset! fire-spread-matrix i j burn-probability)
-                             (t/mset! burn-time-matrix i j burn-time))
-                           (when (< burn-time local-burn-time)
-                             (comment (assert (= burn-probability local-burn-probability)))
-                             ;; Invariant: burn-time-matrix records the time of the earliest event causing the cell to burn.
-                             (t/mset! burn-time-matrix i j burn-time)))))))
-                 [(conj! burn-vectors (->BurnVector i j direction new-fractional-distance
-                                                    spread-rate terrain-distance burn-probability))
-                  (if (and crossed-center? (not (ignited-in-this-timestep? global-clock local-burn-time))) ; first to cross center of the cell this timestep
-                    (conj! ignited-cells [i j])
-                    ignited-cells)]))
-             [(transient []) (transient [])]
-             ;;      (if crossed-center? ; first to cross center of the cell this timestep
-             ;;        (conj! ignited-cells [i j])
-             ;;        ignited-cells)]))
-             ;; [(transient []) (transient #{})]
-             burn-vectors))))
+        timestep           (double timestep)
+        ignited-cells-list (ArrayList.)]
+    [(persistent!
+      (reduce (fn [bvs-acc burn-vector]
+                (let [i                         (long (:i burn-vector))
+                      j                         (long (:j burn-vector))
+                      direction                 (double (:direction burn-vector))
+                      fractional-distance       (double (:fractional-distance burn-vector))
+                      spread-rate               (double (:spread-rate burn-vector))
+                      terrain-distance          (double (:terrain-distance burn-vector))
+                      burn-probability          (double (:burn-probability burn-vector))
+                      fractional-distance-delta (/ (* spread-rate timestep) terrain-distance)
+                      new-fractional-distance   (+ fractional-distance fractional-distance-delta)
+                      crossed-center?           (and (< fractional-distance 0.5)
+                                                     (>= new-fractional-distance 0.5))
+                      ^double local-burn-time   (t/mget burn-time-matrix i j)]
+                  (when crossed-center?
+                    ;; INVARIANT a cell is ignited when a burn vector traverses its center,
+                    ;; which corresponds to a :fractional-distance of 0.5.
+                    (let [^double local-burn-probability (t/mget fire-spread-matrix i j)]
+                      (when (>= burn-probability local-burn-probability)
+                        (let [burn-time (-> 0.5
+                                            (- fractional-distance)
+                                            (/ fractional-distance-delta)
+                                            (* timestep)
+                                            (+ global-clock))]
+                          (if (> burn-probability local-burn-probability)
+                            ;; INVARIANT :burn-time-matrix and :fire-spread-matrix record the fire of highest :burn-probability.
+                            (do
+                              (t/mset! fire-spread-matrix i j burn-probability)
+                              (t/mset! burn-time-matrix i j burn-time))
+                            (when (< burn-time local-burn-time)
+                              (comment (assert (= burn-probability local-burn-probability)))
+                              ;; Invariant: burn-time-matrix records the time of the earliest event causing the cell to burn.
+                              (t/mset! burn-time-matrix i j burn-time)))))))
+                  (when (and crossed-center? (not (ignited-in-this-timestep? global-clock local-burn-time))) ; first to cross center of the cell this timestep
+                    (.add ignited-cells-list [i j]))
+                  (conj! bvs-acc (->BurnVector i j direction new-fractional-distance
+                                               spread-rate terrain-distance burn-probability))))
+              (transient [])
+              ;;      (if crossed-center? ; first to cross center of the cell this timestep
+              ;;        (conj! ignited-cells [i j])
+              ;;        ignited-cells)]))
+              ;; [(transient []) (transient #{})]
+              burn-vectors))
+     (vec ignited-cells-list)]))
 
 (defn- ignited-cells->burn-vectors
   "Adds new Burn Vectors from the list of newly ignited cells.
@@ -683,101 +683,95 @@
         band                        (long band)
         global-clock                (double global-clock)
         new-clock                   (double new-clock)
-        max-fractional-distance     (double max-fractional-distance)]
-    (mapv ;; HACK transforming a 2-elements tuple which happens to contain only transients. (Val, 16 Nov 2022)
-     persistent!
-     (reduce
-      (fn [[new-bvs-acc ignited-cells] burn-vector]
-        (let [fractional-distance        (double (:fractional-distance burn-vector))
-              hasnt-entered-target-cell? (< fractional-distance 1.0)]
-          (if hasnt-entered-target-cell?
-            [(conj! new-bvs-acc burn-vector) ignited-cells]
-            ;; The burn vector has entered the target cell.
-            (let [i                (long (:i burn-vector))
-                  j                (long (:j burn-vector))
-                  direction        (double (:direction burn-vector))
-                  burn-probability (double (:burn-probability burn-vector))
-                  direction-bit    (direction-angle->bit direction)]
-              ;; TODO make into function
-              ;; Clearing the corresponding travel line in the origin cell. (Val, 16 Nov 2022)
-              (as-> (t/mget travel-lines-matrix i j) $
-                (bit-clear $ direction-bit)
-                (t/mset! travel-lines-matrix i j $))
-              (let [new-i (+ i (direction-angle->i-incr direction))
-                    new-j (+ j (direction-angle->j-incr direction))]
-                (if-not (bv-can-spread-fire-to-target-cell? get-fuel-model fire-spread-matrix num-rows num-cols
-                                                            i j direction burn-probability)
-                  ;; Dropping this burn vector - more exactly, not creating a new BV in the target cell.
-                  ;; Note that we cleared the original BV's travel line above.
-                  [new-bvs-acc ignited-cells]
-                  (do
-                    (when (> band (dec (long (t/mget modified-time-matrix new-i new-j))))
-                      ;; vector is first in this timestep to compute
-                      (compute-max-in-situ-values! inputs matrices band new-i new-j))
-                    ;; TODO move to function
-                    (as-> (t/mget travel-lines-matrix new-i new-j) $
-                      (bit-set $ direction-bit)
-                      (t/mset! travel-lines-matrix new-i new-j $))
-                    (let [spread-rate             (double (:spread-rate burn-vector))
-                          terrain-distance        (double (:terrain-distance burn-vector))
-                          max-spread-rate         (double (t/mget max-spread-rate-matrix new-i new-j))
-                          max-spread-direction    (double (t/mget max-spread-direction-matrix new-i new-j))
-                          eccentricity            (double (t/mget eccentricity-matrix new-i new-j))
-                          new-spread-rate         (compute-spread-rate max-spread-rate
-                                                                       max-spread-direction
-                                                                       eccentricity
-                                                                       direction)
-                          ;; TODO move case form to functions
-                          new-terrain-distance    (double (compute-terrain-distance cell-size get-elevation num-rows num-cols new-i new-j
-                                                                                    (+ new-i (direction-angle->i-incr direction))
-                                                                                    (+ new-j (direction-angle->j-incr direction))))
-                          ;; time since entering new cell
-                          dt-in-neighbor          (-> fractional-distance (- 1.0)
-                                                      (* terrain-distance) ; the length spent in the new cell
-                                                      (/ spread-rate))
-                          new-fractional-distance (min max-fractional-distance
-                                                       (/ (* new-spread-rate dt-in-neighbor) new-terrain-distance))
-                          new-spread-rate         (if (< new-fractional-distance max-fractional-distance)
-                                                    new-spread-rate
-                                                    (/ (* new-fractional-distance new-terrain-distance) dt-in-neighbor))
-                          new-burn-vectors        (conj! new-bvs-acc
-                                                         ;; This new Burn Vector is the result of moving ('transitioning') the old Burn Vector to the new cell.
-                                                         (->BurnVector new-i new-j direction new-fractional-distance new-spread-rate
-                                                                       new-terrain-distance burn-probability))
-                          bv-has-reached-center?  (>= new-fractional-distance 0.5)]
-                      (if-not bv-has-reached-center?
-                        [new-burn-vectors ignited-cells]
-                        (let [^double local-burn-probability (t/mget fire-spread-matrix new-i new-j)
-                              failed-to-ignite-new-cell?     (< burn-probability local-burn-probability)]
-                          (if failed-to-ignite-new-cell?
-                            [new-burn-vectors ignited-cells]
-                            (let [relative-burn-time (-> (/ dt-in-neighbor new-fractional-distance)
-                                                         (* 0.5))
-                                  burn-time          (-> new-clock
-                                                         (- dt-in-neighbor)
-                                                         (+ relative-burn-time))
-                                  recorded-burn-time (double (t/mget burn-time-matrix new-i new-j))]
-                              (if (overtakes-lower-probability-fire? burn-probability local-burn-probability)
-                                (do
-                                  (t/mset! fire-spread-matrix new-i new-j burn-probability) ;; logically a max update
-                                  (t/mset! burn-time-matrix new-i new-j burn-time)
-                                  [new-burn-vectors
-                                   (cond-> ignited-cells
-                                     ;; For performance, avoiding redundant additions to ignited-cells.
-                                     (not (ignited-in-this-timestep? global-clock recorded-burn-time)) (conj! [new-i new-j]))])
-                                ;; [new-burn-vectors (conj! ignited-cells [new-i new-j])]) ; TODO check set vs vectors
-                                ;; This conditional branch corresponds to: (= burn-probability local-burn-probability)
-                                ;; this is why we don't add to ignited cells (it's already ignited).
-                                (do
-                                  (when (< burn-time recorded-burn-time)
-                                    ;; We have just realized that the cell actually ignited earlier than recorded until now,
-                                    ;; so we correct the recorded-burn-time.
-                                    ;; Invariant: burn-time-matrix holds the earliest time a burn vector ignited it.
-                                    (t/mset! burn-time-matrix new-i new-j burn-time))
-                                  [new-burn-vectors ignited-cells]))))))))))))))
-      [(transient []) (transient [])]
-      ;; [(transient []) (transient #{})]
-      burn-vectors))))
+        max-fractional-distance     (double max-fractional-distance)
+        ignited-cells-list          (ArrayList.)]
+    [(persistent!
+      (reduce
+       (fn [new-bvs-acc burn-vector]
+         (let [fractional-distance        (double (:fractional-distance burn-vector))
+               hasnt-entered-target-cell? (< fractional-distance 1.0)]
+           (if hasnt-entered-target-cell?
+             (conj! new-bvs-acc burn-vector)
+             ;; The burn vector has entered the target cell.
+             (let [i                (long (:i burn-vector))
+                   j                (long (:j burn-vector))
+                   direction        (double (:direction burn-vector))
+                   burn-probability (double (:burn-probability burn-vector))
+                   direction-bit    (direction-angle->bit direction)]
+               ;; TODO make into function
+               ;; Clearing the corresponding travel line in the origin cell. (Val, 16 Nov 2022)
+               (as-> (t/mget travel-lines-matrix i j) $
+                     (bit-clear $ direction-bit)
+                     (t/mset! travel-lines-matrix i j $))
+               (let [new-i (+ i (direction-angle->i-incr direction))
+                     new-j (+ j (direction-angle->j-incr direction))]
+                 (if-not (bv-can-spread-fire-to-target-cell? get-fuel-model fire-spread-matrix num-rows num-cols
+                                                             i j direction burn-probability)
+                   ;; Dropping this burn vector - more exactly, not creating a new BV in the target cell.
+                   ;; Note that we cleared the original BV's travel line above.
+                   new-bvs-acc
+                   (do
+                     (when (> band (dec (long (t/mget modified-time-matrix new-i new-j))))
+                       ;; vector is first in this timestep to compute
+                       (compute-max-in-situ-values! inputs matrices band new-i new-j))
+                     ;; TODO move to function
+                     (as-> (t/mget travel-lines-matrix new-i new-j) $
+                           (bit-set $ direction-bit)
+                           (t/mset! travel-lines-matrix new-i new-j $))
+                     (let [spread-rate             (double (:spread-rate burn-vector))
+                           terrain-distance        (double (:terrain-distance burn-vector))
+                           max-spread-rate         (double (t/mget max-spread-rate-matrix new-i new-j))
+                           max-spread-direction    (double (t/mget max-spread-direction-matrix new-i new-j))
+                           eccentricity            (double (t/mget eccentricity-matrix new-i new-j))
+                           new-spread-rate         (compute-spread-rate max-spread-rate
+                                                                        max-spread-direction
+                                                                        eccentricity
+                                                                        direction)
+                           new-terrain-distance    (double (compute-terrain-distance cell-size get-elevation num-rows num-cols new-i new-j
+                                                                                     (+ new-i (direction-angle->i-incr direction))
+                                                                                     (+ new-j (direction-angle->j-incr direction))))
+                           ;; time since entering new cell
+                           dt-in-neighbor          (-> fractional-distance (- 1.0)
+                                                       (* terrain-distance) ; the length spent in the new cell
+                                                       (/ spread-rate))
+                           new-fractional-distance (min max-fractional-distance
+                                                        (/ (* new-spread-rate dt-in-neighbor) new-terrain-distance))
+                           new-spread-rate         (if (< new-fractional-distance max-fractional-distance)
+                                                     new-spread-rate
+                                                     (/ (* new-fractional-distance new-terrain-distance) dt-in-neighbor))
+                           new-bvs-acc+1           (conj! new-bvs-acc
+                                                          ;; This new Burn Vector is the result of moving ('transitioning') the old Burn Vector to the new cell.
+                                                          (->BurnVector new-i new-j direction new-fractional-distance new-spread-rate
+                                                                        new-terrain-distance burn-probability))
+                           bv-has-reached-center?  (>= new-fractional-distance 0.5)]
+                       (when bv-has-reached-center?
+                         (let [^double local-burn-probability (t/mget fire-spread-matrix new-i new-j)
+                               failed-to-ignite-new-cell?     (< burn-probability local-burn-probability)]
+                           (when-not failed-to-ignite-new-cell?
+                             (let [relative-burn-time (-> (/ dt-in-neighbor new-fractional-distance)
+                                                          (* 0.5))
+                                   burn-time          (-> new-clock
+                                                          (- dt-in-neighbor)
+                                                          (+ relative-burn-time))
+                                   recorded-burn-time (double (t/mget burn-time-matrix new-i new-j))]
+                               (if (overtakes-lower-probability-fire? burn-probability local-burn-probability)
+                                 (do
+                                   (t/mset! fire-spread-matrix new-i new-j burn-probability) ;; logically a max update
+                                   (t/mset! burn-time-matrix new-i new-j burn-time)
+                                   ;; For performance, avoiding redundant additions to ignited-cells.
+                                   (when-not (ignited-in-this-timestep? global-clock recorded-burn-time)
+                                     (.add ignited-cells-list [new-i new-j])))
+                                 ;; This conditional branch corresponds to: (= burn-probability local-burn-probability)
+                                 ;; this is why we don't add to ignited cells (it's already ignited).
+                                 (when (< burn-time recorded-burn-time)
+                                   ;; We have just realized that the cell actually ignited earlier than recorded until now,
+                                   ;; so we correct the recorded-burn-time.
+                                   ;; Invariant: burn-time-matrix holds the earliest time a burn vector ignited it.
+                                   (t/mset! burn-time-matrix new-i new-j burn-time)))))))
+                       new-bvs-acc+1))))))))
+       (transient [])
+       burn-vectors))
+     (vec ignited-cells-list)]))
 
 (defn- parse-burn-period
   "Return the number of minutes into the day given HH:MM"
