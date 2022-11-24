@@ -61,9 +61,9 @@
 (defn burnable?
   "Returns true if cell [x y] has not yet been ignited (but could be)."
   [fire-spread-matrix fuel-model-matrix [i j] [x y]]
-  (and (burnable-fuel-model? (t/mget fuel-model-matrix x y))
-       (let [^double ignition-probability-here   (t/mget fire-spread-matrix x y)
-             ^double source-ignition-probability (t/mget fire-spread-matrix i j)]
+  (and (burnable-fuel-model? (grid-lookup/mget-double-at fuel-model-matrix x y))
+       (let [ignition-probability-here   (grid-lookup/mget-double-at fire-spread-matrix x y)
+             source-ignition-probability (grid-lookup/mget-double-at fire-spread-matrix i j)]
          (< ignition-probability-here (if (= source-ignition-probability 0.0)
                                         1.0
                                         source-ignition-probability)))))
@@ -87,7 +87,7 @@
               (burnable? fire-spread-matrix fuel-model-matrix cell %))
         (get-neighbors cell)))
 
-(defn distance-3d
+(defn distance-3d ; FIXME partialize
   "Returns the terrain distance between two points in feet."
   ^double
   [elevation-matrix ^double cell-size [i1 j1] [i2 j2]]
@@ -97,8 +97,8 @@
         j2 (long j2)
         di (* cell-size (- i1 i2))
         dj (* cell-size (- j1 j2))
-        dz (- ^double (t/mget elevation-matrix i1 j1)
-              ^double (t/mget elevation-matrix i2 j2))]
+        dz (- (grid-lookup/mget-double-at elevation-matrix i1 j1)
+              (grid-lookup/mget-double-at elevation-matrix i2 j2))]
     (Math/sqrt (+ (* di di) (* dj dj) (* dz dz)))))
 
 (defn non-zero-indices [tensor]
@@ -112,11 +112,14 @@
 (defn non-zero-count [tensor]
   (-> tensor dfn/pos? dfn/sum (d/unchecked-cast :int64)))
 
+;; FIXME partialize
 (defn burnable-cell?
   [get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i j]
-  (and (in-bounds-optimal? num-rows num-cols i j)
-       (burnable-fuel-model? (grid-lookup/double-at get-fuel-model i j))
-       (overtakes-lower-probability-fire? (double burn-probability) (double (t/mget fire-spread-matrix i j)))))
+  (let [i (long i)
+        j (long j)]
+    (and (in-bounds-optimal? num-rows num-cols i j)
+         (burnable-fuel-model? (grid-lookup/double-at get-fuel-model i j))
+         (overtakes-lower-probability-fire? (double burn-probability) (grid-lookup/mget-double-at fire-spread-matrix i j)))))
 
 (defn compute-terrain-distance
   [cell-size get-elevation num-rows num-cols i j new-i new-j]

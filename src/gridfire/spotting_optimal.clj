@@ -241,7 +241,7 @@
         num-cols                (:num-cols inputs)
         get-fuel-model          (:get-fuel-model inputs)
         [i j]                   source
-        source-burn-probability (t/mget fire-spread-matrix i j)]
+        source-burn-probability (grid-lookup/mget-double-at fire-spread-matrix (long i) (long j))]
     (doseq [[y x] firebrands]
       (when (burnable-cell? get-fuel-model
                             fire-spread-matrix
@@ -250,7 +250,7 @@
                             num-cols
                             y
                             x)
-        (->> (t/mget firebrand-count-matrix y x)
+        (->> (grid-lookup/mget-double-at firebrand-count-matrix y x)
              (long)
              (inc)
              (t/mset! firebrand-count-matrix y x))))))
@@ -356,10 +356,12 @@
         flame-length-matrix        (:flame-length-matrix matrices)
         fire-type-matrix           (:fire-type-matrix matrices)
         burn-time-matrix           (:burn-time-matrix matrices)
-        burn-time                  (double (t/mget burn-time-matrix i j))
+        burn-time                  (grid-lookup/mget-double-at burn-time-matrix i j)
+        i                          (long i)
+        j                          (long j)
         cell                       [i j]
-        fire-line-intensity        (t/mget fire-line-intensity-matrix i j)
-        crown-fire?                (-> fire-type-matrix (t/mget i j) (double) (> 1.0))]
+        fire-line-intensity        (grid-lookup/mget-double-at fire-line-intensity-matrix i j)
+        crown-fire?                (-> fire-type-matrix (grid-lookup/mget-double-at i j) (double) (> 1.0))]
     (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
       (let [band                    (long (/ burn-time 60.0))
             ws                      (grid-lookup/double-at get-wind-speed-20ft band i j)
@@ -370,7 +372,7 @@
                                                             cell)
             wind-to-direction       (mod (+ 180 wd) 360)
             firebrands              (firebrands deltas wind-to-direction cell cell-size)
-            source-burn-probability (double (t/mget fire-spread-matrix i j))]
+            source-burn-probability (grid-lookup/mget-double-at fire-spread-matrix i j)]
         (update-firebrand-counts! inputs firebrand-count-matrix fire-spread-matrix cell firebrands)
         (->> (for [[x y] firebrands]
                (when (and
@@ -400,9 +402,9 @@
                                                                        firebrand-count)
                        burn-probability     (* spot-ignition-p source-burn-probability)]
                    (when (and (>= burn-probability 0.1) ; TODO parametrize 0.1 in gridfire.edn
-                              (> (double burn-probability) ^double (t/mget fire-spread-matrix x y))
+                              (> (double burn-probability) (grid-lookup/mget-double-at fire-spread-matrix x y))
                               (spot-ignition? rand-gen spot-ignition-p))
                      (let [t (spot-ignition-time burn-time
-                                                 (convert/ft->m (t/mget flame-length-matrix i j)))]
+                                                 (convert/ft->m (grid-lookup/mget-double-at flame-length-matrix i j)))]
                        [[x y] [t burn-probability]])))))
              (remove nil?))))))

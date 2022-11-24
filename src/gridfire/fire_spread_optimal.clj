@@ -158,8 +158,8 @@
   (memoize-1arg f))
 
 (defn- store-if-max!
-  [matrix i j ^double new-value]
-  (let [^double old-value (t/mget matrix i j)]
+  [matrix ^long i ^long j ^double new-value]
+  (let [old-value (grid-lookup/mget-double-at matrix i j)]
     (when (> new-value old-value)
       (t/mset! matrix i j new-value))))
 
@@ -201,6 +201,8 @@
         eccentricity-matrix                              (:eccentricity-matrix matrices)
         residence-time-matrix                            (:residence-time-matrix matrices)
         reaction-intensity-matrix                        (:reaction-intensity-matrix matrices)
+        i                                                (long i)
+        j                                                (long j)
         band                                             (long band)
         slope                                            (grid-lookup/double-at get-slope i j)
         aspect                                           (grid-lookup/double-at get-aspect i j)
@@ -326,18 +328,20 @@
   (let [i                    (long i)
         j                    (long j)
         burn-probability     (double burn-probability)
-        max-spread-rate      (t/mget max-spread-rate-matrix i j)
-        max-spread-direction (t/mget max-spread-direction-matrix i j)
-        eccentricity         (t/mget eccentricity-matrix i j)]
-    (fn [direction]
+        max-spread-rate      (grid-lookup/mget-double-at max-spread-rate-matrix i j)
+        max-spread-direction (grid-lookup/mget-double-at max-spread-direction-matrix i j)
+        eccentricity         (grid-lookup/mget-double-at eccentricity-matrix i j)]
+    (fn [direction]                                         ;; FIXME primitive invocation
       (let [new-i (+ i (direction-angle->i-incr direction))
             new-j (+ j (direction-angle->j-incr direction))]
         (when (and (in-bounds-optimal? num-rows num-cols new-i new-j)
-                   (overtakes-lower-probability-fire? burn-probability (t/mget fire-spread-matrix new-i new-j)))
+                   (overtakes-lower-probability-fire? burn-probability
+                                                      (grid-lookup/mget-double-at fire-spread-matrix new-i new-j)))
           (let [spread-rate      (compute-spread-rate max-spread-rate
                                                       max-spread-direction
                                                       eccentricity
                                                       direction)
+                ;; FIXME partialize
                 terrain-distance (compute-terrain-distance cell-size get-elevation
                                                            num-rows num-cols i j new-i new-j)]
             ;; NOTE we start at fractional-distance = 0.5, which represents the center of the cell. (Val, 16 Nov 2022)
@@ -348,7 +352,7 @@
   [bvs-acc num-rows num-cols cell-size get-elevation travel-lines-matrix
    max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix
    fire-spread-matrix i j burn-probability]
-  (let [travel-lines       (t/mget travel-lines-matrix i j)
+  (let [travel-lines       (t/mget travel-lines-matrix i j) ;; IMPROVEMENT mget-long-at, or something like it.
         create-burn-vector (make-burn-vector-constructor num-rows num-cols burn-probability
                                                          max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix
                                                          fire-spread-matrix cell-size get-elevation i j)]
@@ -432,7 +436,7 @@
         ignited?                    (fn [[k v]]
                                       (let [[i j] k
                                             [_ p] v]
-                                        (>= ^double (t/mget fire-spread-matrix i j) ^double p)))
+                                        (>= (grid-lookup/mget-double-at fire-spread-matrix i j) ^double p)))
         pruned-spot-ignite-later    (into {} (remove ignited? spot-ignite-later)) ; TODO move to identify-spot-ignition
         pruned-spot-ignite-now      (filterv #(not (ignited? %)) spot-ignite-now) ; TODO move to identify-spot-ignition
         spot-burn-vectors           (persistent!
@@ -440,7 +444,9 @@
                                       (fn [bvs-acc [cell spot-info]]
                                         (let [[i j]         cell
                                               [burn-time _] spot-info]
-                                          (when (> band (dec ^long (t/mget modified-time-matrix i j)))
+                                          (when (> band (dec (long
+                                                              ;; FIXME check if double-typed
+                                                              (grid-lookup/mget-double-at modified-time-matrix i j))))
                                             (compute-max-in-situ-values! inputs matrices band i j))
                                           (t/mset! fire-spread-matrix i j 1.0) ;TODO parameterize burn-probability instead of 1.0
                                           ;; (t/mset! fire-spread-matrix i j burn-probability)
@@ -480,11 +486,11 @@
                       new-fractional-distance   (+ fractional-distance fractional-distance-delta)
                       crossed-center?           (and (< fractional-distance 0.5)
                                                      (>= new-fractional-distance 0.5))
-                      ^double local-burn-time   (t/mget burn-time-matrix i j)]
+                      local-burn-time           (grid-lookup/mget-double-at burn-time-matrix i j)]
                   (when crossed-center?
                     ;; INVARIANT a cell is ignited when a burn vector traverses its center,
                     ;; which corresponds to a :fractional-distance of 0.5.
-                    (let [^double local-burn-probability (t/mget fire-spread-matrix i j)]
+                    (let [local-burn-probability (grid-lookup/mget-double-at fire-spread-matrix i j)]
                       (when (>= burn-probability local-burn-probability)
                         (let [burn-time (-> 0.5
                                             (- fractional-distance)
@@ -532,9 +538,10 @@
     (persistent!
      (reduce
       (fn [bvs-acc [i j]]
+        ;; FIXME partialize
         (create-new-burn-vectors! bvs-acc num-rows num-cols cell-size get-elevation travel-lines-matrix
                                   max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix
-                                  fire-spread-matrix i j (t/mget fire-spread-matrix i j)))
+                                  fire-spread-matrix i j (grid-lookup/mget-double-at fire-spread-matrix i j)))
       (transient burn-vectors)
       ignited-cells))))
 
@@ -545,9 +552,9 @@
         spread-rate-sum-matrix (:spread-rate-sum-matrix matrices)
         direction              (double direction)
         spread-rate            (double spread-rate)
-        cur-x                  (double (t/mget x-magnitude-sum-matrix i j))
-        cur-y                  (double (t/mget y-magnitude-sum-matrix i j))
-        cur-spread-rate        (double (t/mget spread-rate-sum-matrix i j))]
+        cur-x                  (grid-lookup/mget-double-at x-magnitude-sum-matrix i j)
+        cur-y                  (grid-lookup/mget-double-at y-magnitude-sum-matrix i j)
+        cur-spread-rate        (grid-lookup/mget-double-at spread-rate-sum-matrix i j)]
     (t/mset! x-magnitude-sum-matrix i j (+ cur-x
                                            (-> direction
                                                (Math/toRadians)
@@ -602,8 +609,8 @@
         (let [i                      (burn-vec/get-i burn-vector)
               j                      (burn-vec/get-j burn-vector)
               burn-probability       (burn-vec/get-burn-probability burn-vector)
-              local-burn-probability (double (t/mget fire-spread-matrix i j))
-              local-burn-time        (double (t/mget burn-time-matrix i j))]
+              local-burn-probability (grid-lookup/mget-double-at fire-spread-matrix i j)
+              local-burn-time        (grid-lookup/mget-double-at burn-time-matrix i j)]
           (if-not (and (ignited-in-this-timestep? global-clock local-burn-time)
                        ;; A burn vector of higher :burn-probability than the ignition remains unaffected by that ignition.
                        ;; WARNING: when (> 0.5 (:fractional-distance burn-vector)),
@@ -701,7 +708,7 @@
                    ;; Note that we cleared the original BV's travel line above.
                    new-bvs-acc
                    (do
-                     (when (> band (dec (long (t/mget modified-time-matrix new-i new-j))))
+                     (when (> band (dec (long (grid-lookup/mget-double-at modified-time-matrix new-i new-j))))
                        ;; vector is first in this timestep to compute
                        (compute-max-in-situ-values! inputs matrices band new-i new-j))
                      ;; TODO move to function
@@ -710,9 +717,9 @@
                            (t/mset! travel-lines-matrix new-i new-j $))
                      (let [spread-rate             (burn-vec/get-spread-rate burn-vector)
                            terrain-distance        (burn-vec/get-terrain-distance burn-vector)
-                           max-spread-rate         (double (t/mget max-spread-rate-matrix new-i new-j))
-                           max-spread-direction    (double (t/mget max-spread-direction-matrix new-i new-j))
-                           eccentricity            (double (t/mget eccentricity-matrix new-i new-j))
+                           max-spread-rate         (grid-lookup/mget-double-at max-spread-rate-matrix new-i new-j)
+                           max-spread-direction    (grid-lookup/mget-double-at max-spread-direction-matrix new-i new-j)
+                           eccentricity            (grid-lookup/mget-double-at eccentricity-matrix new-i new-j)
                            new-spread-rate         (compute-spread-rate max-spread-rate
                                                                         max-spread-direction
                                                                         eccentricity
@@ -735,15 +742,15 @@
                                                                                      new-terrain-distance burn-probability))
                            bv-has-reached-center?  (>= new-fractional-distance 0.5)]
                        (when bv-has-reached-center?
-                         (let [^double local-burn-probability (t/mget fire-spread-matrix new-i new-j)
-                               failed-to-ignite-new-cell?     (< burn-probability local-burn-probability)]
+                         (let [local-burn-probability     (grid-lookup/mget-double-at fire-spread-matrix new-i new-j)
+                               failed-to-ignite-new-cell? (< burn-probability local-burn-probability)]
                            (when-not failed-to-ignite-new-cell?
                              (let [relative-burn-time (-> (/ dt-in-neighbor new-fractional-distance)
                                                           (* 0.5))
                                    burn-time          (-> new-clock
                                                           (- dt-in-neighbor)
                                                           (+ relative-burn-time))
-                                   recorded-burn-time (double (t/mget burn-time-matrix new-i new-j))]
+                                   recorded-burn-time (grid-lookup/mget-double-at burn-time-matrix new-i new-j)]
                                (if (overtakes-lower-probability-fire? burn-probability local-burn-probability)
                                  (do
                                    (t/mset! fire-spread-matrix new-i new-j burn-probability) ;; logically a max update
@@ -779,12 +786,12 @@
     (mapv (fn [burn-vector]
             (let [i (burn-vec/get-i burn-vector)
                   j (burn-vec/get-j burn-vector)]
-              (when (> band (dec ^long (t/mget modified-time-matrix i j)))
+              (when (> band (dec (long (grid-lookup/mget-double-at modified-time-matrix i j))))
                 (compute-max-in-situ-values! inputs matrices band i j))
               (let [direction            (burn-vec/get-direction burn-vector)
-                    max-spread-rate      (double (t/mget max-spread-rate-matrix i j))
-                    max-spread-direction (double (t/mget max-spread-direction-matrix i j))
-                    eccentricity         (double (t/mget eccentricity-matrix i j))
+                    max-spread-rate      (grid-lookup/mget-double-at max-spread-rate-matrix i j)
+                    max-spread-direction (grid-lookup/mget-double-at max-spread-direction-matrix i j)
+                    eccentricity         (grid-lookup/mget-double-at eccentricity-matrix i j)
                     new-spread-rate      (compute-spread-rate max-spread-rate
                                                               max-spread-direction
                                                               eccentricity
@@ -793,13 +800,13 @@
           burn-vectors)))
 
 (defn- compute-fire-front-direction!
-  [matrices i j]
+  [matrices ^long i ^long j]
   (let [x-magnitude-sum-matrix (:x-magnitude-sum-matrix matrices)
         y-magnitude-sum-matrix (:y-magnitude-sum-matrix matrices)
         spread-rate-sum-matrix (:spread-rate-sum-matrix matrices)
-        x-magnitude-sum        (double (t/mget x-magnitude-sum-matrix i j))
-        y-magnitude-sum        (double (t/mget y-magnitude-sum-matrix i j))
-        spread-rate-sum        (double (t/mget spread-rate-sum-matrix i j))]
+        x-magnitude-sum        (grid-lookup/mget-double-at x-magnitude-sum-matrix i j)
+        y-magnitude-sum        (grid-lookup/mget-double-at y-magnitude-sum-matrix i j)
+        spread-rate-sum        (grid-lookup/mget-double-at spread-rate-sum-matrix i j)]
     (t/mset! x-magnitude-sum-matrix i j 0.0)
     (t/mset! y-magnitude-sum-matrix i j 0.0)
     (t/mset! spread-rate-sum-matrix i j 0.0)
@@ -818,16 +825,18 @@
           reaction-intensity-matrix       (:reaction-intensity-matrix matrices)
           directional-flame-length-matrix (:directional-flame-length-matrix matrices)]
       (doseq [[i j] ignited-cells]
-        (let [direction            (compute-fire-front-direction! matrices i j)
-              max-spread-rate      (t/mget max-spread-rate-matrix i j)
-              max-spread-direction (t/mget max-spread-direction-matrix i j)
-              eccentricity         (t/mget eccentricity-matrix i j)
+        (let [i                    (long i)
+              j                    (long j)
+              direction            (compute-fire-front-direction! matrices i j)
+              max-spread-rate      (grid-lookup/mget-double-at max-spread-rate-matrix i j)
+              max-spread-direction (grid-lookup/mget-double-at max-spread-direction-matrix i j)
+              eccentricity         (grid-lookup/mget-double-at eccentricity-matrix i j)
               spread-rate          (compute-spread-rate max-spread-rate
                                                         max-spread-direction
                                                         eccentricity
                                                         direction)
-              residence-time       (t/mget residence-time-matrix i j)
-              reaction-intensity   (t/mget reaction-intensity-matrix i j)
+              residence-time       (grid-lookup/mget-double-at residence-time-matrix i j)
+              reaction-intensity   (grid-lookup/mget-double-at reaction-intensity-matrix i j)
               fire-line-intensity  (->> (anderson-flame-depth spread-rate residence-time)
                                         (byram-fire-line-intensity reaction-intensity))
               flame-length         (byram-flame-length fire-line-intensity)]
@@ -841,7 +850,7 @@
     (doseq [[i j] ignited-cells]
       (compute-max-in-situ-values! inputs matrices band i j)
       (when compute-directional-values?
-        (t/mset! directional-flame-length-matrix i j (t/mget flame-length-matrix i j))))))
+        (t/mset! directional-flame-length-matrix i j (grid-lookup/mget-double-at flame-length-matrix i j))))))
 
 (def ^:const ^:private minutes-per-24h 1440.0)
 
@@ -1090,6 +1099,14 @@
      x-magnitude-sum-matrix
      y-magnitude-sum-matrix])
 
+(defn make-simulation-matrices
+  [m]
+  (map->SimulationMatrices (->> m
+                                (map (fn [[k m]]
+                                       [k (when (t/tensor? m)
+                                            (grid-lookup/add-double-getter m))]))
+                                (into {}))))
+
 (comment
 
   :fire-spread-matrix ; INTRO keeps track of which cells have burned, as a probability between 0 and 1.
@@ -1211,7 +1228,7 @@
                                         (t/ensure-tensor)
                                         (t/reshape shape)
                                         (t/mset! i j ignition-start-time))]
-    (map->SimulationMatrices
+    (make-simulation-matrices
      {:burn-time-matrix                burn-time-matrix
       :eccentricity-matrix             (t/new-tensor shape)
       :fire-line-intensity-matrix      (t/new-tensor shape)
@@ -1228,7 +1245,7 @@
       :spot-matrix                     (when spotting (t/new-tensor shape))
       :spread-rate-matrix              (t/new-tensor shape)
       :spread-rate-sum-matrix          (when compute-directional-values? (t/new-tensor shape))
-      :travel-lines-matrix             (t/new-tensor shape :datatype :short)
+      :travel-lines-matrix             (t/new-tensor shape :datatype :int16)
       :x-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape))
       :y-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape))})))
 
@@ -1263,7 +1280,7 @@
                                         (t/ensure-tensor)
                                         (t/reshape shape)
                                         (add-ignited-cells! ignited-cells ignition-start-time))]
-    (map->SimulationMatrices
+    (make-simulation-matrices
      {:burn-time-matrix                burn-time-matrix
       :eccentricity-matrix             (d/clone negative-burn-scar)
       :fire-line-intensity-matrix      negative-burn-scar
@@ -1280,7 +1297,7 @@
       :spot-matrix                     (when spotting (t/new-tensor shape))
       :spread-rate-matrix              (d/clone negative-burn-scar)
       :spread-rate-sum-matrix          (when compute-directional-values? (t/new-tensor shape))
-      :travel-lines-matrix             (t/new-tensor shape :datatype :short)
+      :travel-lines-matrix             (t/new-tensor shape :datatype :int16)
       :x-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape))
       :y-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape))})))
 
@@ -1299,7 +1316,7 @@
         (let [i (row-idxs idx)
               j (col-idxs idx)]
           (if (burnable-neighbors? get-fuel-model
-                                   initial-ignition-site
+                                   (grid-lookup/add-double-getter initial-ignition-site)
                                    1.0
                                    num-rows
                                    num-cols
