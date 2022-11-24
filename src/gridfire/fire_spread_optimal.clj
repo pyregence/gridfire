@@ -3,10 +3,12 @@
             [gridfire.common               :refer [burnable-cell?
                                                    burnable-fuel-model?
                                                    calc-fuel-moisture
-                                                   compute-terrain-distance
                                                    in-bounds-optimal?
                                                    non-zero-indices
-                                                   overtakes-lower-probability-fire?]]
+                                                   overtakes-lower-probability-fire?
+                                                   terrain-distance-fn
+                                                   terrain-distance-from-cell-getter
+                                                   terrain-distance-invoke]]
             [gridfire.conversion           :refer [mph->fpm hour->min min->hour]]
             [gridfire.crown-fire           :refer [crown-fire-eccentricity
                                                    crown-fire-line-intensity
@@ -325,7 +327,8 @@
   [num-rows num-cols burn-probability max-spread-rate-matrix
    max-spread-direction-matrix eccentricity-matrix fire-spread-matrix
    cell-size get-elevation i j]
-  (let [i                    (long i)
+  (let [get-ij-terrain-dist  (terrain-distance-from-cell-getter get-elevation num-rows num-cols cell-size i j)
+        i                    (long i)
         j                    (long j)
         burn-probability     (double burn-probability)
         max-spread-rate      (grid-lookup/mget-double-at max-spread-rate-matrix i j)
@@ -341,9 +344,7 @@
                                                       max-spread-direction
                                                       eccentricity
                                                       direction)
-                ;; FIXME partialize
-                terrain-distance (compute-terrain-distance cell-size get-elevation
-                                                           num-rows num-cols i j new-i new-j)]
+                terrain-distance (grid-lookup/double-at get-ij-terrain-dist new-i new-j)]
             ;; NOTE we start at fractional-distance = 0.5, which represents the center of the cell. (Val, 16 Nov 2022)
             (burn-vec/make-burn-vector i j direction 0.5 spread-rate terrain-distance burn-probability)))))))
 
@@ -681,7 +682,8 @@
         global-clock                (double global-clock)
         new-clock                   (double new-clock)
         max-fractional-distance     (double max-fractional-distance)
-        ignited-cells-list          (ArrayList.)]
+        ignited-cells-list          (ArrayList.)
+        terrain-dist-fn             (terrain-distance-fn get-elevation num-rows num-cols cell-size)]
     [(persistent!
       (reduce
        (fn [new-bvs-acc burn-vector]
@@ -724,9 +726,11 @@
                                                                         max-spread-direction
                                                                         eccentricity
                                                                         direction)
-                           new-terrain-distance    (double (compute-terrain-distance cell-size get-elevation num-rows num-cols new-i new-j
-                                                                                     (+ new-i (direction-angle->i-incr direction))
-                                                                                     (+ new-j (direction-angle->j-incr direction))))
+                           new-terrain-distance    (terrain-distance-invoke terrain-dist-fn
+                                                                            new-i
+                                                                            new-j
+                                                                            (+ new-i (direction-angle->i-incr direction))
+                                                                            (+ new-j (direction-angle->j-incr direction)))
                            ;; time since entering new cell
                            dt-in-neighbor          (-> fractional-distance (- 1.0)
                                                        (* terrain-distance) ; the length spent in the new cell
