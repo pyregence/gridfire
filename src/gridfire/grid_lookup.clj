@@ -106,6 +106,7 @@
  *e)
 
 (defn double-at
+  ;; NOTE turning this function into a macro only made simulations barely faster (455ms instead of 465ms) - not worth it IMHO. (Val, 25 Nov 2022)
   "Looks up a double-typed value at the given grid coordinates,
   avoiding boxing of the returned value."
   (^double [getter ^long b]
