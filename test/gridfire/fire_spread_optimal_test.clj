@@ -1,6 +1,8 @@
 (ns gridfire.fire-spread-optimal-test
   (:require [clojure.test                 :refer [deftest are is testing]]
-            [gridfire.fire-spread-optimal :refer [diagonal?
+            [gridfire.fire-spread-optimal :refer [create-new-burn-vectors!-pfn
+                                                  create-new-burn-vectors!-invoke
+                                                  diagonal?
                                                   direction-angle->bit
                                                   direction-angle->i-incr
                                                   direction-angle->j-incr]]
@@ -75,11 +77,10 @@
         eccentricity-matrix         (d/clone zero-tensor)
         i                           5
         j                           5]
-    (are [result travel-lines-matrix] (let [burn-vectors (#'gridfire.fire-spread-optimal/create-new-burn-vectors!
-                                                          (transient [])
-                                                          num-rows num-cols cell-size get-elevation travel-lines-matrix
-                                                          max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix
-                                                          fire-spread-matrix i j burn-probability)]
+    (are [result travel-lines-matrix] (let [create-new-burn-vectors! (create-new-burn-vectors!-pfn num-rows num-cols cell-size get-elevation
+                                                                                                   travel-lines-matrix fire-spread-matrix
+                                                                                                   max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix)
+                                            burn-vectors             (persistent! (create-new-burn-vectors!-invoke create-new-burn-vectors! (transient []) i j burn-probability))]
                                         (= result (count burn-vectors)))
       8 (new-travel-lines-matrix shape)                          ; No burn vectors in cell
       7 (t/mset! (new-travel-lines-matrix shape) i j 2r00000001) ; N burn vector exists

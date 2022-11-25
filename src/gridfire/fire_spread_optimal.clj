@@ -32,7 +32,8 @@
             [tech.v3.datatype              :as d]
             [tech.v3.datatype.functional   :as dfn]
             [tech.v3.tensor                :as t])
-  (:import java.time.ZoneId
+  (:import (clojure.lang IFn$OLLDO)
+           java.time.ZoneId
            (java.util ArrayList Date)))
 
 (set! *unchecked-math* :warn-on-boxed)
@@ -323,57 +324,75 @@
         (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i+ j)
         (burnable-cell? get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i+ j+))))
 
-(defn make-burn-vector-constructor
-  [num-rows num-cols burn-probability max-spread-rate-matrix
-   max-spread-direction-matrix eccentricity-matrix fire-spread-matrix
-   cell-size get-elevation i j]
-  (let [get-ij-terrain-dist  (terrain-distance-from-cell-getter get-elevation num-rows num-cols cell-size i j)
-        i                    (long i)
-        j                    (long j)
-        burn-probability     (double burn-probability)
-        max-spread-rate      (grid-lookup/mget-double-at max-spread-rate-matrix i j)
-        max-spread-direction (grid-lookup/mget-double-at max-spread-direction-matrix i j)
-        eccentricity         (grid-lookup/mget-double-at eccentricity-matrix i j)]
-    (fn [direction]                                         ;; FIXME primitive invocation
-      (let [new-i (+ i (direction-angle->i-incr direction))
-            new-j (+ j (direction-angle->j-incr direction))]
-        (when (and (in-bounds-optimal? num-rows num-cols new-i new-j)
-                   (overtakes-lower-probability-fire? burn-probability
-                                                      (grid-lookup/mget-double-at fire-spread-matrix new-i new-j)))
-          (let [spread-rate      (compute-spread-rate max-spread-rate
-                                                      max-spread-direction
-                                                      eccentricity
-                                                      direction)
-                terrain-distance (grid-lookup/double-at get-ij-terrain-dist new-i new-j)]
-            ;; NOTE we start at fractional-distance = 0.5, which represents the center of the cell. (Val, 16 Nov 2022)
-            (burn-vec/make-burn-vector i j direction 0.5 spread-rate terrain-distance burn-probability)))))))
+(defmacro dir-bits-reduce
+  "Macro for efficiently reducing over the 8 direction bits, similarly to clojure.core/areduce.
 
-(defn- create-new-burn-vectors!
-  "Adds new burn vectors starting from cell [i j] with the given :burn-probability."
-  [bvs-acc num-rows num-cols cell-size get-elevation travel-lines-matrix
-   max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix
-   fire-spread-matrix i j burn-probability]
-  (let [travel-lines       (t/mget travel-lines-matrix i j) ;; IMPROVEMENT mget-long-at, or something like it.
-        create-burn-vector (make-burn-vector-constructor num-rows num-cols burn-probability
-                                                         max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix
-                                                         fire-spread-matrix cell-size get-elevation i j)]
-    ;; IMPROVEMENT this method of looping over burnvec-dir-bits is under-optimized. Use something like (loop) or (areduce), or repetitive code. (Val, 16 Nov 2022)
-    (reduce (fn [bvs-acc ^long dir-bit]
-              (if (bit-test travel-lines dir-bit)
-                ;; INVARIANT: at most 1 Burn Vector at a time per travel line.
-                bvs-acc
-                (let [direction       (direction-bit->angle dir-bit)
-                      new-burn-vector (create-burn-vector direction)]
-                  (if new-burn-vector
-                    (do
-                      ;; TODO move into function
-                      (as-> (t/mget travel-lines-matrix i j) $
+  `dir-bit-sym` will be bound to a primitive long,
+  and `ret-sym` to the reduction accumulator,
+  which will be initialized by evaluating `init`
+  and updated by evaluating `expr`."
+  [[dir-bit-sym ret-sym] init expr]
+  {:pre [(symbol? dir-bit-sym)
+         (symbol? ret-sym)]}
+  `(loop [~dir-bit-sym (long 0)
+          ~ret-sym     ~init]
+     (if (= ~dir-bit-sym 8)
+       ~ret-sym
+       (recur (unchecked-inc ~dir-bit-sym)
+              ~expr))))
+
+;; NAMING CONVENTION the '-pfn' suffix stands for 'Prepared FuNction' or 'Partial'd FuNction'.
+(defn create-new-burn-vectors!-pfn
+  "Prepares a partialed primitive-signature function to be called via `create-new-burn-vectors!-invoke`."
+  [num-rows num-cols cell-size get-elevation
+   travel-lines-matrix fire-spread-matrix
+   max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix]
+  (let [num-rows (long num-rows)
+        num-cols (long num-cols)]
+    (fn launch-from! [bvs-acc ^long i ^long j ^double burn-probability]
+      (let [max-spread-rate      (grid-lookup/mget-double-at max-spread-rate-matrix i j)
+            max-spread-direction (grid-lookup/mget-double-at max-spread-direction-matrix i j)
+            eccentricity         (grid-lookup/mget-double-at eccentricity-matrix i j)
+            travel-lines         (long (t/mget travel-lines-matrix i j)) ;; IMPROVEMENT mget-long-at, or something like it.
+            get-ij-terrain-dist  (terrain-distance-from-cell-getter get-elevation num-rows num-cols cell-size i j)]
+        (dir-bits-reduce [dir-bit bvs-acc]
+          bvs-acc
+          (if (bit-test travel-lines dir-bit)
+            ;; INVARIANT: at most 1 Burn Vector at a time per travel line.
+            bvs-acc
+            (let [direction       (direction-bit->angle dir-bit)
+                  new-i           (+ i (direction-angle->i-incr direction))
+                  new-j           (+ j (direction-angle->j-incr direction))
+                  new-burn-vector (when (and (in-bounds-optimal? num-rows num-cols new-i new-j)
+                                             (overtakes-lower-probability-fire? burn-probability
+                                                                                (grid-lookup/mget-double-at fire-spread-matrix new-i new-j)))
+                                    (let [spread-rate      (compute-spread-rate max-spread-rate
+                                                                                max-spread-direction
+                                                                                eccentricity
+                                                                                direction)
+                                          terrain-distance (grid-lookup/double-at get-ij-terrain-dist new-i new-j)]
+                                      ;; NOTE we start at fractional-distance = 0.5, which represents the center of the cell. (Val, 16 Nov 2022)
+                                      (burn-vec/make-burn-vector i j direction 0.5 spread-rate terrain-distance burn-probability)))]
+              (if new-burn-vector
+                (do
+                  ;; TODO move into function
+                  (as-> (t/mget travel-lines-matrix i j) $
                         (bit-set $ dir-bit)
                         (t/mset! travel-lines-matrix i j $))
-                      (conj! bvs-acc new-burn-vector))
-                    bvs-acc))))
-            bvs-acc
-            burnvec-dir-bits)))
+                  (conj! bvs-acc new-burn-vector))
+                bvs-acc))))))))
+
+(defmacro create-new-burn-vectors!-invoke
+  "Adds the relevant new burn vectors to `bvs-acc` starting from cell `[i j]` with the given `burn-probability`.
+
+  `create-new-burn-vectors!` must be the function prepared by `#'create-new-burn-vectors!-pfn`;
+  the point of this macro is to wrap the Java interop which invokes it efficiently,
+  hiding it from callers."
+  [create-new-burn-vectors! bvs-acc i j burn-probability]
+  (let [cnbv-sym (-> (gensym 'cvbv)
+                     (vary-meta assoc :tag `IFn$OLLDO))]
+    `(let [~cnbv-sym ~create-new-burn-vectors!]
+       (.invokePrim ~cnbv-sym ~bvs-acc ~i ~j ~burn-probability))))
 
 (defn- identify-spot-ignition-events
   [new-clock spot-ignitions]
@@ -440,6 +459,9 @@
                                         (>= (grid-lookup/mget-double-at fire-spread-matrix i j) ^double p)))
         pruned-spot-ignite-later    (into {} (remove ignited? spot-ignite-later)) ; TODO move to identify-spot-ignition
         pruned-spot-ignite-now      (filterv #(not (ignited? %)) spot-ignite-now) ; TODO move to identify-spot-ignition
+        create-new-bvs!             (create-new-burn-vectors!-pfn num-rows num-cols cell-size get-elevation
+                                                                  travel-lines-matrix fire-spread-matrix
+                                                                  max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix)
         spot-burn-vectors           (persistent!
                                      (reduce
                                       (fn [bvs-acc [cell spot-info]]
@@ -452,9 +474,7 @@
                                           (t/mset! fire-spread-matrix i j 1.0) ;TODO parameterize burn-probability instead of 1.0
                                           ;; (t/mset! fire-spread-matrix i j burn-probability)
                                           (t/mset! burn-time-matrix i j burn-time)
-                                          (create-new-burn-vectors! bvs-acc num-rows num-cols cell-size get-elevation
-                                                                    travel-lines-matrix max-spread-rate-matrix max-spread-direction-matrix
-                                                                    eccentricity-matrix fire-spread-matrix i j 1.0))) ; TODO parameterize burn-probability instead of 1.0
+                                          (create-new-burn-vectors!-invoke create-new-bvs! bvs-acc i j 1.0))) ; TODO parameterize burn-probability instead of 1.0
                                       (transient [])
                                       pruned-spot-ignite-now))]
     [spot-burn-vectors (count pruned-spot-ignite-now) pruned-spot-ignite-later (keys pruned-spot-ignite-now)]))
@@ -535,14 +555,17 @@
         travel-lines-matrix         (:travel-lines-matrix matrices)
         max-spread-rate-matrix      (:max-spread-rate-matrix matrices)
         max-spread-direction-matrix (:max-spread-direction-matrix matrices)
-        eccentricity-matrix         (:eccentricity-matrix matrices)]
+        eccentricity-matrix         (:eccentricity-matrix matrices)
+        create-new-bvs!             (create-new-burn-vectors!-pfn num-rows num-cols cell-size get-elevation
+                                                                  travel-lines-matrix fire-spread-matrix
+                                                                  max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix)]
     (persistent!
      (reduce
       (fn [bvs-acc [i j]]
-        ;; FIXME partialize
-        (create-new-burn-vectors! bvs-acc num-rows num-cols cell-size get-elevation travel-lines-matrix
-                                  max-spread-rate-matrix max-spread-direction-matrix eccentricity-matrix
-                                  fire-spread-matrix i j (grid-lookup/mget-double-at fire-spread-matrix i j)))
+        (let [i                (long i)
+              j                (long j)
+              burn-probability (grid-lookup/mget-double-at fire-spread-matrix i j)]
+          (create-new-burn-vectors!-invoke create-new-bvs! bvs-acc i j burn-probability)))
       (transient burn-vectors)
       ignited-cells))))
 

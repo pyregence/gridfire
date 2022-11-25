@@ -113,7 +113,7 @@
 (defn non-zero-count [tensor]
   (-> tensor dfn/pos? dfn/sum (d/unchecked-cast :int64)))
 
-;; FIXME partialize
+;; NOTE I don't see a workable way to primitive-partialize this function given how it's currently used. (Val, 24 Nov 2022)
 (defn burnable-cell?
   [get-fuel-model fire-spread-matrix burn-probability num-rows num-cols i j]
   (let [i (long i)
