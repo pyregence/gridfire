@@ -28,7 +28,7 @@
                    (println "--------------------------------------------------")
                    (println "Benchmarking at code version:" (shell-safe "git" "show" "--no-patch" "--oneline" commit-sha))
                    (git-checkout! commit-sha)
-                   (let [shell-cmd ["clojure" "-J-Dclojure.compiler.direct-linking=true" "-M:mydev:gridfire-my-dev" "-m" "gridfire.lab.benchmarks" "benchmark" config-path]]
+                   (let [shell-cmd ["clojure" "-J-Dclojure.compiler.direct-linking=true" "-M:perf-testing" "-m" "gridfire.lab.benchmarks" "benchmark" config-path]]
                      ;; Applying Babashka recipe to print the child process' output: https://book.babashka.org/#_babashka_process
                      @(babashka.process/process (-> shell-cmd (doto prn))
                                                 {:inherit true :shutdown babashka.process/destroy-tree}))
@@ -45,14 +45,14 @@
        (into [start-sha])))
 
 (comment
-  (commits-range "161f1fc" "4b57a8b")
-  ["161f1fc" "3b2f9bd" "eb3c6f3" "d5bb44e" "2d1ad41" "0104564" "766c57b" "3f8e13f" "4b57a8b"]
+  (commits-range "dafdcaa" "5e1eded")
+  ["dafdcaa" "c88e8c9" "26c6676" "f2eae21" "d5565da" "34e9720" "d79e18d" "91722c4" "5e1eded"]
 
   (benchmark-commits! "test/gridfire/lab/benchmarks/rhino-input-deck/gridfire.edn"
-                      ["161f1fc" "3b2f9bd" "eb3c6f3" "d5bb44e" "2d1ad41" "0104564" "766c57b" "3f8e13f" "4b57a8b"])
+                      ["dafdcaa" "c88e8c9" "26c6676" "f2eae21" "d5565da" "34e9720" "d79e18d" "91722c4" "5e1eded"])
 
   ;; Example:
-  ;; bb unvvv/gridfire/lab/benchmarks/compare_commits.clj "test/gridfire/lab/benchmarks/rhino-input-deck/gridfire.edn" "161f1fc"  "3b2f9bd" "eb3c6f3" "d5bb44e" "2d1ad41" "0104564" "766c57b" "3f8e13f" "4b57a8b"
+  ;; bb test/gridfire/lab/benchmarks/compare_commits.clj "test/gridfire/lab/benchmarks/rhino-input-deck/gridfire.edn" "dafdcaa" "c88e8c9" "26c6676" "f2eae21" "d5565da" "34e9720" "d79e18d" "91722c4" "5e1eded" >> test/gridfire/lab/benchmarks/rhino_dafdcaa-5e1eded.txt
 
   *e)
 
