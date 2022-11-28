@@ -60,6 +60,10 @@
                                              "--include" ":simulation"
                                              "--exclude" ":database"
                                              "--exclude" ":canonical"]}
+           :perf-testing      {:extra-paths ["test"]
+                               :extra-deps  {com.clojure-goes-fast/clj-async-profiler  {:mvn/version "0.5.1"}
+                                             com.clojure-goes-fast/clj-java-decompiler {:mvn/version "0.3.1"}
+                                             criterium/criterium                       {:mvn/version "0.4.5"}}}
            :check-reflections {:extra-paths ["test"]
                                :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
                                              "-e" "(require,'gridfire.cli)"
