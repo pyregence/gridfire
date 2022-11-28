@@ -1,6 +1,6 @@
 (ns gridfire.grid-lookup-test
   (:require [gridfire.grid-lookup :as grid-lookup]
-            [clojure.test :refer :all])
+            [clojure.test         :refer [deftest is testing]])
   (:import (clojure.lang IFn$OLD IFn$OLLD IFn$OLLLD IFn$LD IFn$LLD IFn$LLLD)))
 
 (deftest ^:unit double-at-primitiveness-test

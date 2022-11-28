@@ -38,8 +38,6 @@
 
 (set! *unchecked-math* :warn-on-boxed)
 
-(def ^:private burnvec-dir-bits [0 1 2 3 4 5 6 7])
-
 (defn- direction-bit->angle
   ^double [^long dir-bit]
   (case dir-bit

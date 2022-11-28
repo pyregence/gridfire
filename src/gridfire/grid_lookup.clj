@@ -4,11 +4,22 @@
   Coordinates [b i j] correspond to:
   - b: 'hourly Band', a 1h-resolution temporal-grid coordinate;
   - i: matrix row, a spatial-grid coordinate, discretizing the y axis (yes, you read that right);
-  - j: matrix column, a spatial-grid coordinate, discretizing the x axis;"
+  - j: matrix column, a spatial-grid coordinate, discretizing the x axis."
   (:require [gridfire.structs.tensor-meta :as tensor-meta]
             [tech.v3.datatype             :as d]
             [tech.v3.tensor               :as t])
   (:import (clojure.lang IFn$LD IFn$LLD IFn$LLLD IFn$OD IFn$OOD IFn$OOOD)))
+;; NOTE clj-kondo (2022.11.02) currently reports false-positive linting issues, not sure what to do about it: (Val, 28 Nov 2022)
+;; $ clj-kondo --lint src/gridfire/grid_lookup.clj
+;; src/gridfire/grid_lookup.clj:8:14: warning: namespace gridfire.structs.tensor-meta is required but never used
+;; src/gridfire/grid_lookup.clj:9:14: warning: namespace tech.v3.datatype is required but never used
+;; src/gridfire/grid_lookup.clj:10:14: warning: namespace tech.v3.tensor is required but never used
+;; src/gridfire/grid_lookup.clj:175:12: warning: Unresolved namespace d. Are you missing a require?
+;; src/gridfire/grid_lookup.clj:176:6: warning: Unresolved namespace t. Are you missing a require?
+;; src/gridfire/grid_lookup.clj:202:12: error: Unresolved symbol: suitable-for-primitive-lookup?
+;; src/gridfire/grid_lookup.clj:254:27: warning: Unresolved namespace tensor-meta. Are you missing a require?
+;; src/gridfire/grid_lookup.clj:272:5: error: Unresolved symbol: double-at
+;; linting took 51ms, errors: 2, warnings: 6
 
 (defn suitable-for-primitive-lookup?
   "Whether the given value can be used as the 1st argument to (double-at v & coords)"
@@ -206,87 +217,46 @@
         (^double [^long _b] v)
         (^double [^long _i ^long _j] v)
         (^double [^long _b ^long _i ^long _j] v)))
-    (or (let [shape   (d/shape m)
-              n-dims (count shape)
-              [n-per-band n-per-row] (case n-dims
-                                       2 (let [[_n-rows n-cols] shape]
-                                           ;; NOTE we are treating the 2-dims tensors as a special case of the 3-dims tensors.
-                                           ;; This is because we want to return always the same type (JVM class) of function,
-                                           ;; to limit the creation of polymorphic call sites.
-                                           [0 n-cols])
-                                       3 (let [[_n-bands n-rows n-cols] shape]
-                                           [(* (long n-rows) (long n-cols))
-                                            n-cols]))
-              n-per-band (long n-per-band)
-              n-per-row  (long n-per-row)]
-          (case (d/elemwise-datatype m)
-            (:float64 :double)
-            (let [arr (doubles (tensor-wrapped-array d/->double-array m))]
-              (fn mget-doubles
-                (^double [^long i ^long j] (aget-3dim arr n-per-row n-per-band 0 i j))
-                (^double [^long b ^long i ^long j] (aget-3dim arr n-per-row n-per-band b i j))))
-            :float32
-            (let [arr (floats (tensor-wrapped-array d/->float-array m))]
-              (fn mget-floats
-                (^double [^long i ^long j] (double (aget-3dim arr n-per-row n-per-band 0 i j)))
-                (^double [^long b ^long i ^long j] (double (aget-3dim arr n-per-row n-per-band b i j)))))
-            :int32
-            (let [arr (ints (tensor-wrapped-array d/->int-array m))]
-              (fn mget-ints
-                (^double [^long i ^long j] (double (aget-3dim arr n-per-row n-per-band 0 i j)))
-                (^double [^long b ^long i ^long j] (double (aget-3dim arr n-per-row n-per-band b i j)))))
-            :int16
-            (let [arr (shorts (tensor-wrapped-array d/->short-array m))]
-              (fn mget-shorts-int16
-                (^double [^long i ^long j] (double (aget-3dim arr n-per-row n-per-band 0 i j)))
-                (^double [^long b ^long i ^long j] (double (aget-3dim arr n-per-row n-per-band b i j)))))
+    (let [shape      (d/shape m)
+          n-dims     (count shape)
+          [n-per-band n-per-row] (case n-dims
+                                   2 (let [[_n-rows n-cols] shape]
+                                       ;; NOTE we are treating the 2-dims tensors as a special case of the 3-dims tensors.
+                                       ;; This is because we want to return always the same type (JVM class) of function,
+                                       ;; to limit the creation of polymorphic call sites.
+                                       [0 n-cols])
+                                   3 (let [[_n-bands n-rows n-cols] shape]
+                                       [(* (long n-rows) (long n-cols))
+                                        n-cols]))
+          n-per-band (long n-per-band)
+          n-per-row  (long n-per-row)]
+      (case (d/elemwise-datatype m)
+        (:float64 :double)
+        (let [arr (doubles (tensor-wrapped-array d/->double-array m))]
+          (fn mget-doubles
+            (^double [^long i ^long j] (aget-3dim arr n-per-row n-per-band 0 i j))
+            (^double [^long b ^long i ^long j] (aget-3dim arr n-per-row n-per-band b i j))))
+        :float32
+        (let [arr (floats (tensor-wrapped-array d/->float-array m))]
+          (fn mget-floats
+            (^double [^long i ^long j] (double (aget-3dim arr n-per-row n-per-band 0 i j)))
+            (^double [^long b ^long i ^long j] (double (aget-3dim arr n-per-row n-per-band b i j)))))
+        :int32
+        (let [arr (ints (tensor-wrapped-array d/->int-array m))]
+          (fn mget-ints
+            (^double [^long i ^long j] (double (aget-3dim arr n-per-row n-per-band 0 i j)))
+            (^double [^long b ^long i ^long j] (double (aget-3dim arr n-per-row n-per-band b i j)))))
+        :int16
+        (let [arr (shorts (tensor-wrapped-array d/->short-array m))]
+          (fn mget-shorts-int16
+            (^double [^long i ^long j] (double (aget-3dim arr n-per-row n-per-band 0 i j)))
+            (^double [^long b ^long i ^long j] (double (aget-3dim arr n-per-row n-per-band b i j)))))
 
-            :short
-            (let [arr (shorts (tensor-wrapped-array unwrap-short-tensor m))]
-              (fn mget-shorts-short
-                (^double [^long i ^long j] (double (aget-3dim arr n-per-row n-per-band 0 i j)))
-                (^double [^long b ^long i ^long j] (double (aget-3dim arr n-per-row n-per-band b i j))))))))))
-
-(comment
-
-  (require '[tech.v3.tensor :as t])
-  (def m
-    (t/->tensor (->> (rand)
-                     (for [_j (range 1000)])
-                     (for [_i (range 1000)])
-                     (for [_b (range 10)]))
-                :datatype :float32))
-  (d/->float-array m)
-
-  (def n-lookups 10000)
-  (def bs (into-array Long/TYPE (repeatedly n-lookups #(rand-int 10))))
-  (def is (into-array Long/TYPE (repeatedly n-lookups #(rand-int 1000))))
-  (def js (into-array Long/TYPE (repeatedly n-lookups #(rand-int 1000))))
-
-  (require '[criterium.core :as bench])
-  (let [bs (longs bs)
-        is (longs is)
-        js (longs js)
-        get-ints (tensor-cell-getter m)]
-    (bench/bench
-     (areduce bs k sum (double 0.0)
-              (let [b (aget bs k)
-                    i (aget is k)
-                    j (aget js k)]
-                (+ sum (double-at get-ints b i j))))))
-
-  (let [bs (longs bs)
-        is (longs is)
-        js (longs js)
-        get-longs (tensor-cell-getter2 m)]
-    (bench/bench
-     (areduce bs k sum (double 0.0)
-              (let [b (aget bs k)
-                    i (aget is k)
-                    j (aget js k)]
-                (+ sum (double-at get-longs b i j))))))
-
-  *e)
+        :short
+        (let [arr (shorts (tensor-wrapped-array unwrap-short-tensor m))]
+          (fn mget-shorts-short
+            (^double [^long i ^long j] (double (aget-3dim arr n-per-row n-per-band 0 i j)))
+            (^double [^long b ^long i ^long j] (double (aget-3dim arr n-per-row n-per-band b i j)))))))))
 
 (defn add-double-getter
   "Attaches to tensor m (in its metadata) a cached return value of (tensor-cell-getter),
