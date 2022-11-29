@@ -4,8 +4,22 @@
   Coordinates [b i j] correspond to:
   - b: 'hourly Band', a 1h-resolution temporal-grid coordinate;
   - i: matrix row, a spatial-grid coordinate, discretizing the y axis (yes, you read that right);
-  - j: matrix column, a spatial-grid coordinate, discretizing the x axis;"
+  - j: matrix column, a spatial-grid coordinate, discretizing the x axis."
+  (:require [gridfire.structs.tensor-meta :as tensor-meta]
+            [tech.v3.datatype             :as d]
+            [tech.v3.tensor               :as t])
   (:import (clojure.lang IFn$LD IFn$LLD IFn$LLLD IFn$OD IFn$OOD IFn$OOOD)))
+;; NOTE clj-kondo (2022.11.02) currently reports false-positive linting issues, not sure what to do about it: (Val, 28 Nov 2022)
+;; $ clj-kondo --lint src/gridfire/grid_lookup.clj
+;; src/gridfire/grid_lookup.clj:8:14: warning: namespace gridfire.structs.tensor-meta is required but never used
+;; src/gridfire/grid_lookup.clj:9:14: warning: namespace tech.v3.datatype is required but never used
+;; src/gridfire/grid_lookup.clj:10:14: warning: namespace tech.v3.tensor is required but never used
+;; src/gridfire/grid_lookup.clj:175:12: warning: Unresolved namespace d. Are you missing a require?
+;; src/gridfire/grid_lookup.clj:176:6: warning: Unresolved namespace t. Are you missing a require?
+;; src/gridfire/grid_lookup.clj:202:12: error: Unresolved symbol: suitable-for-primitive-lookup?
+;; src/gridfire/grid_lookup.clj:254:27: warning: Unresolved namespace tensor-meta. Are you missing a require?
+;; src/gridfire/grid_lookup.clj:272:5: error: Unresolved symbol: double-at
+;; linting took 51ms, errors: 2, warnings: 6
 
 (defn suitable-for-primitive-lookup?
   "Whether the given value can be used as the 1st argument to (double-at v & coords)"
@@ -14,9 +28,9 @@
   ;; that's convenient, but strictly speaking these are implementation details
   ;; of Clojure execution.
   (or
-   (instance? IFn$OD v)
-   (instance? IFn$OOD v)
-   (instance? IFn$OOOD v)))
+   (instance? IFn$LD v)
+   (instance? IFn$LLD v)
+   (instance? IFn$LLLD v)))
 
 (definline double-at-B*
   "See double-at-BIJ*."
@@ -103,19 +117,15 @@
  *e)
 
 (defn double-at
+  ;; NOTE turning this function into a macro only made simulations barely faster (455ms instead of 465ms) - not worth it IMHO. (Val, 25 Nov 2022)
   "Looks up a double-typed value at the given grid coordinates,
   avoiding boxing of the returned value."
-  ;; You might wonder why we're not accepting ^long arguments;
-  ;; that's because, in our typical usage, we'll have to pass boxed Long
-  ;; coordinates to (t/mget ...) anyway. Un-boxing to primitive long,
-  ;; then re-boxing to new Long objects, would actually create much more work
-  ;; than passing the same Long objects all along.
-  (^double [getter b]
-   (double-at-B* getter b))
-  (^double [getter i j]
-   (double-at-IJ* getter i j))
-  (^double [getter b i j]
-   (double-at-BIJ* getter b i j)))
+  (^double [getter ^long b]
+   (double-at-b* getter b))
+  (^double [getter ^long i ^long j]
+   (double-at-ij* getter i j))
+  (^double [getter ^long b ^long i ^long j]
+   (double-at-bij* getter b i j)))
 
 (comment
  ;; (double-at ...) does allow lookup without primitive boxing:
@@ -168,3 +178,110 @@
                                      :flags           #{:public :abstract}}}}
  ;; Therefore, unfortunately, we have to use some other mechanism.
  *e)
+
+(defn ensure-flat-jvm-tensor
+  "Given a tensor, returns a tensor which is backed by a flat JVM array, copying if necessary."
+  [m]
+  (cond-> m
+    (nil? (d/as-array-buffer-data m))
+    (t/clone :container-type :jvm-heap)))
+
+(defn- tensor-wrapped-array
+  [unwrap-fn m]
+  (let [arr (unwrap-fn m)]
+    (assert (identical? arr (unwrap-fn m)))
+    arr))
+
+(defmacro aget-3dim
+  [arr n-per-row n-per-band b i j]
+  `(aget ~arr (-> (long ~j)
+                  (unchecked-add (unchecked-multiply ~n-per-row ~i))
+                  ;; NOTE simplifying when b is known to be zero at compile-time. (Val, 24 Nov 2022)
+                  ~@(when-not (= 0 b) [`(unchecked-add (unchecked-multiply ~n-per-band ~b))])
+                  (int))))
+
+(defn- unwrap-short-tensor
+  ^shorts [m]
+  ;; HACK relying on an implementation detail of d/. Because d/->short-array will tend to cause copying for some reason.
+  (.ary_data (d/as-array-buffer m)))
+
+(defn tensor-cell-getter
+  "Given a tensor `m`, returns a value suitable to be called by `double-at`.
+
+  `m` must have gone through `ensure-flat-jvm-tensor`."
+  [m]
+  {:post [(suitable-for-primitive-lookup? %)]}
+  (if (number? m)
+    (let [v (double m)]
+      (fn get0d
+        (^double [^long _b] v)
+        (^double [^long _i ^long _j] v)
+        (^double [^long _b ^long _i ^long _j] v)))
+    (let [shape      (d/shape m)
+          n-dims     (count shape)
+          [n-per-band n-per-row] (case n-dims
+                                   2 (let [[_n-rows n-cols] shape]
+                                       ;; NOTE we are treating the 2-dims tensors as a special case of the 3-dims tensors.
+                                       ;; This is because we want to return always the same type (JVM class) of function,
+                                       ;; to limit the creation of polymorphic call sites.
+                                       [0 n-cols])
+                                   3 (let [[_n-bands n-rows n-cols] shape]
+                                       [(* (long n-rows) (long n-cols))
+                                        n-cols]))
+          n-per-band (long n-per-band)
+          n-per-row  (long n-per-row)]
+      (case (d/elemwise-datatype m)
+        (:float64 :double)
+        (let [arr (doubles (tensor-wrapped-array d/->double-array m))]
+          (fn mget-doubles
+            (^double [^long i ^long j] (aget-3dim arr n-per-row n-per-band 0 i j))
+            (^double [^long b ^long i ^long j] (aget-3dim arr n-per-row n-per-band b i j))))
+        :float32
+        (let [arr (floats (tensor-wrapped-array d/->float-array m))]
+          (fn mget-floats
+            (^double [^long i ^long j] (double (aget-3dim arr n-per-row n-per-band 0 i j)))
+            (^double [^long b ^long i ^long j] (double (aget-3dim arr n-per-row n-per-band b i j)))))
+        :int32
+        (let [arr (ints (tensor-wrapped-array d/->int-array m))]
+          (fn mget-ints
+            (^double [^long i ^long j] (double (aget-3dim arr n-per-row n-per-band 0 i j)))
+            (^double [^long b ^long i ^long j] (double (aget-3dim arr n-per-row n-per-band b i j)))))
+        :int16
+        (let [arr (shorts (tensor-wrapped-array d/->short-array m))]
+          (fn mget-shorts-int16
+            (^double [^long i ^long j] (double (aget-3dim arr n-per-row n-per-band 0 i j)))
+            (^double [^long b ^long i ^long j] (double (aget-3dim arr n-per-row n-per-band b i j)))))
+
+        :short
+        (let [arr (shorts (tensor-wrapped-array unwrap-short-tensor m))]
+          (fn mget-shorts-short
+            (^double [^long i ^long j] (double (aget-3dim arr n-per-row n-per-band 0 i j)))
+            (^double [^long b ^long i ^long j] (double (aget-3dim arr n-per-row n-per-band b i j)))))))))
+
+(defn add-double-getter
+  "Attaches to tensor m (in its metadata) a cached return value of (tensor-cell-getter),
+  so that we don't need to recompute-it each time."
+  [m]
+  (vary-meta m (fn [met] (tensor-meta/map->GettersMeta (assoc met :grid-lookup-double-getter (tensor-cell-getter m))))))
+
+(defn mgetter-double
+  "Given a tensor which has been accelerated through (add-double-getter),
+  return a getter object g which can be looked up via (double-at g ...)."
+  [m]
+  (-> m
+      (meta)
+      (tensor-meta/double-getter)
+      (or (throw (ex-info (format "This tensor has not been accelerated by going through %s." (pr-str `add-double-getter))
+                          {::tensor m})))))
+
+(defn mget-double-at
+  "Like tech.v3.tensor/mget, but faster.
+  The tensor m must have been accelerated by going through #'add-double-getter.
+  (mget-double-at m i j) is equivalent to (let [my-getter (mgetter-double m)] (double-at my-getter i j));
+  the latter form improve the performance of repeated invocations."
+  (^double [m ^long b]
+   (double-at (mgetter-double m) b))
+  (^double [m ^long i ^long j]
+   (double-at (mgetter-double m) i j))
+  (^double [m ^long b ^long i ^long j]
+   (double-at (mgetter-double m) b i j)))

@@ -14,7 +14,7 @@
                                                   crown-fire-line-intensity
                                                   cruz-crown-fire-spread
                                                   van-wagner-crown-fire-initiation?]]
-            [gridfire.fire-spread-optimal :refer [rothermel-fast-wrapper-optimal]]
+            [gridfire.fire-spread-optimal :refer [rothermel-surface-fire-wrapped]]
             [gridfire.fuel-models         :refer [build-fuel-model moisturize]]
             [gridfire.grid-lookup         :as grid-lookup]
             [gridfire.spotting            :as spot]
@@ -177,7 +177,7 @@
                                         (grid-lookup/double-at get-fuel-moisture-live-woody i j)
                                         (calc-fuel-moisture relative-humidity temperature :live :woody))
         foliar-moisture               (grid-lookup/double-at get-foliar-moisture band i j)
-        surface-fire-min              (rothermel-fast-wrapper-optimal
+        surface-fire-min              (rothermel-surface-fire-wrapped
                                         fuel-model
                                         [fuel-moisture-dead-1hr
                                          fuel-moisture-dead-10hr

@@ -1,4 +1,5 @@
-.clj-kondo/
+!.clj-kondo/config.edn
+.clj-kondo/*
 .cpcache/
 .nrepl-history
 .nrepl-port

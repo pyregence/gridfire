@@ -1,5 +1,6 @@
 (ns gridfire.fetch.base
-  (:require [tech.v3.datatype :as d]))
+  (:require [gridfire.grid-lookup :as grid-lookup]
+            [tech.v3.datatype     :as d]))
 
 (defmulti get-wrapped-tensor-multi (fn [_context-map layer-spec _convert-fn _target-dtype] (:type layer-spec)))
 
@@ -10,11 +11,11 @@
          (:type layer-spec)
          (or (nil? target-dtype)
              (keyword? target-dtype))]}
-  ;; Why hide the multimethod call behind this function? (Val, 21 Oct 2022)
-  ;; Because I think the semantics of the multimethod are likely to evolve,
-  ;; and we don't want that to affect callers, hence the indirection.
-  ;; This decouples callers from implementers.
-  (get-wrapped-tensor-multi context-map layer-spec convert-fn target-dtype))
+  (-> (get-wrapped-tensor-multi context-map layer-spec convert-fn target-dtype)
+      ;; NOTE at the time of writing, the tensors returned by Magellan are not backed by a flat JVM array,
+      ;; being assembled via d/concat:
+      ;; https://github.com/sig-gis/magellan/blob/8d72d0484b15c0d26a073684d07d405dae5c715d/src/magellan/raster/inspect.clj#L145
+      (update :matrix grid-lookup/ensure-flat-jvm-tensor)))
 
 (defn convert-tensor-as-requested
   "General utility function for applying conversions and type coercions to tensors,

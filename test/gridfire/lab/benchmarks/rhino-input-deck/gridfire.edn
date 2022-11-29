@@ -1,0 +1,91 @@
+{:landfire-layers           {:aspect
+                             {:type :geotiff
+                              :source
+                              #gridfire.utils.files/from-this-file "fuels_and_topography/asp.tif"}
+                             :canopy-base-height
+                             {:type       :geotiff
+                              :source
+                              #gridfire.utils.files/from-this-file "fuels_and_topography/cbh.tif"
+                              :units      :metric
+                              :multiplier 0.1}
+                             :canopy-cover
+                             {:type :geotiff
+                              :source
+                              #gridfire.utils.files/from-this-file "fuels_and_topography/cc.tif"}
+                             :canopy-height
+                             {:type       :geotiff
+                              :source
+                              #gridfire.utils.files/from-this-file "fuels_and_topography/ch.tif"
+                              :units      :metric
+                              :multiplier 0.1}
+                             :crown-bulk-density
+                             {:type       :geotiff
+                              :source
+                              #gridfire.utils.files/from-this-file "fuels_and_topography/cbd.tif"
+                              :units      :metric
+                              :multiplier 0.01}
+                             :elevation
+                             {:type  :geotiff
+                              :source
+                              #gridfire.utils.files/from-this-file "fuels_and_topography/dem.tif"
+                              :units :metric}
+                             :fuel-model
+                             {:type :geotiff
+                              :source
+                              #gridfire.utils.files/from-this-file "fuels_and_topography/fbfm40.tif"}
+                             :slope
+                             {:type :geotiff
+                              :source
+                              #gridfire.utils.files/from-this-file "fuels_and_topography/slp.tif"}}
+ :srid                      "EPSG:32611"
+ :cell-size                 98.425 ; (feet)
+
+ :ignition-row              792
+
+ :ignition-col              800
+
+ :temperature               85  ; (degrees Fahrenheit)
+ :relative-humidity         17  ; (%)
+ :wind-speed-20ft           10 #_5  ; (miles/hour)
+ :wind-from-direction       270 ; (degrees clockwise from north)
+ :foliar-moisture           80  ; (%)
+ :fuel-moisture             {:dead {:1hr   0.020
+                                    :10hr  0.020
+                                    :100hr 0.020}
+                             :live {:herbaceous 0.3
+                                    :woody      0.6}}
+
+ :random-seed               2021
+ :max-runtime               4320 ; (minutes) 72 hrs
+ :ellipse-adjustment-factor 1.0  ; (< 1.0 = more circular, > 1.0 = more elliptical)
+ :simulations               1
+
+ :outfile-suffix            ""
+ :output-geotiffs?          false #_true
+ :output-pngs?              false
+ :output-csvs?              false
+ :output-directory          #gridfire.utils.files/from-this-file "outputs"
+
+ :output-burn-count?        true
+ :random-ignition           false
+ :output-burn-probability   :final
+ :output-flame-length-max?  true
+ :output-flame-length-sum?  true
+ ;:output-spot-count?       true
+
+ :weather-start-timestamp   #inst "1970-01-01T00:00:00.000-00:00"
+
+ :burn-period-frac   0.4
+ :burn-period-length 8.0
+
+
+ :perturbations             {:temperature {:spatial-type :global
+                                           :range        [-1.0 1.0]}}
+ :temperature-samples       [10]
+
+ ;; Section 9: Optimization
+ :parallel-strategy         :between-fires
+
+ #_#_:suppression {:suppression-dt          720
+                   :suppression-coefficient 2.8}
+ }
