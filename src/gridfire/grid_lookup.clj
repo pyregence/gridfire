@@ -192,13 +192,29 @@
     (assert (identical? arr (unwrap-fn m)))
     arr))
 
+(defn indexes-out-of-bound-ex
+  [max-b max-i max-j b i j]
+  (ex-info (format "ND-array indexes [b i j] out of bounds (must be <= %s and > [0 0 0]): %s"
+                   (pr-str [max-b max-i max-j])
+                   (pr-str [b i j]))
+           {::b+i+j [b i j]
+            ::max-b+i+j [max-b max-i max-j]}))
+
 (defmacro aget-3dim
-  [arr n-per-row n-per-band b i j]
-  `(aget ~arr (-> (long ~j)
-                  (unchecked-add (unchecked-multiply ~n-per-row ~i))
-                  ;; NOTE simplifying when b is known to be zero at compile-time. (Val, 24 Nov 2022)
-                  ~@(when-not (= 0 b) [`(unchecked-add (unchecked-multiply ~n-per-band ~b))])
-                  (int))))
+  [arr n-per-row n-per-band default-v? default-v max-b max-i max-j b i j]
+  ;; FIXME return default-v when b,i or j out of bounds.
+  `(let [out-of-bounds?# (or (< ~b 0) (> ~b ~max-b)
+                             (< ~i 0) (> ~i ~max-i)
+                             (< ~j 0) (> ~j ~max-j))]
+     (if out-of-bounds?#
+       (if ~default-v?
+         ~default-v
+         (throw (indexes-out-of-bound-ex ~max-b ~max-i ~max-j ~b ~i ~j)))
+       (aget ~arr (-> ~j
+                      (unchecked-add (unchecked-multiply ~n-per-row ~i))
+                      ;; NOTE simplifying when b is known to be zero at compile-time. (Val, 24 Nov 2022)
+                      ~@(when-not (= 0 b) [`(unchecked-add (unchecked-multiply ~n-per-band ~b))])
+                      (int))))))
 
 (defn- unwrap-short-tensor
   ^shorts [m]
@@ -208,8 +224,10 @@
 (defn tensor-cell-getter
   "Given a tensor `m`, returns a value suitable to be called by `double-at`.
 
-  `m` must have gone through `ensure-flat-jvm-tensor`."
-  [m]
+  `m` must have gone through `ensure-flat-jvm-tensor`.
+  Optionally, a non-nil `default-value` number may be supplied,
+  which will be returned when indexes fall out of bounds."
+  [m default-value]
   {:post [(suitable-for-primitive-lookup? %)]}
   (if (number? m)
     (let [v (double m)]
@@ -217,52 +235,64 @@
         (^double [^long _b] v)
         (^double [^long _i ^long _j] v)
         (^double [^long _b ^long _i ^long _j] v)))
-    (let [shape      (d/shape m)
-          n-dims     (count shape)
-          [n-per-band n-per-row] (case n-dims
-                                   2 (let [[_n-rows n-cols] shape]
-                                       ;; NOTE we are treating the 2-dims tensors as a special case of the 3-dims tensors.
-                                       ;; This is because we want to return always the same type (JVM class) of function,
-                                       ;; to limit the creation of polymorphic call sites.
-                                       [0 n-cols])
-                                   3 (let [[_n-bands n-rows n-cols] shape]
-                                       [(* (long n-rows) (long n-cols))
-                                        n-cols]))
-          n-per-band (long n-per-band)
-          n-per-row  (long n-per-row)]
+    (let [shape       (d/shape m)
+          n-dims      (count shape)
+          [n-per-band
+           n-per-row
+           ubounds]   (case n-dims
+                         2 (let [[n-rows n-cols] shape]
+                             ;; NOTE we are treating the 2-dims tensors as a special case of the 3-dims tensors.
+                             ;; This is because we want to return always the same type (JVM class) of function,
+                             ;; to limit the creation of polymorphic call sites.
+                             [0
+                              n-cols
+                              [1 n-rows n-cols]])
+                         3 (let [[n-bands n-rows n-cols] shape]
+                             [(* (long n-rows) (long n-cols))
+                              n-cols
+                              [n-bands n-rows n-cols]]))
+          n-per-band  (long n-per-band)
+          n-per-row   (long n-per-row)
+          default-v?  (some? default-value)
+          default-v   (if default-v? (double default-value) Double/NaN)
+          [mb mi mj]  ubounds
+          max-b       (dec (long mb))
+          max-i       (dec (long mi))
+          max-j       (dec (long mj))]
       (case (d/elemwise-datatype m)
         (:float64 :double)
         (let [arr (doubles (tensor-wrapped-array d/->double-array m))]
           (fn mget-doubles
-            (^double [^long i ^long j] (aget-3dim arr n-per-row n-per-band 0 i j))
-            (^double [^long b ^long i ^long j] (aget-3dim arr n-per-row n-per-band b i j))))
+            (^double [^long i ^long j] (aget-3dim arr n-per-row n-per-band default-v? default-v max-b max-i max-j 0 i j))
+            (^double [^long b ^long i ^long j] (aget-3dim arr n-per-row n-per-band default-v? default-v max-b max-i max-j b i j))))
         :float32
         (let [arr (floats (tensor-wrapped-array d/->float-array m))]
           (fn mget-floats
-            (^double [^long i ^long j] (double (aget-3dim arr n-per-row n-per-band 0 i j)))
-            (^double [^long b ^long i ^long j] (double (aget-3dim arr n-per-row n-per-band b i j)))))
+            (^double [^long i ^long j] (double (aget-3dim arr n-per-row n-per-band default-v? default-v max-b max-i max-j 0 i j)))
+            (^double [^long b ^long i ^long j] (double (aget-3dim arr n-per-row n-per-band default-v? default-v max-b max-i max-j b i j)))))
         :int32
         (let [arr (ints (tensor-wrapped-array d/->int-array m))]
           (fn mget-ints
-            (^double [^long i ^long j] (double (aget-3dim arr n-per-row n-per-band 0 i j)))
-            (^double [^long b ^long i ^long j] (double (aget-3dim arr n-per-row n-per-band b i j)))))
+            (^double [^long i ^long j] (double (aget-3dim arr n-per-row n-per-band default-v? default-v max-b max-i max-j 0 i j)))
+            (^double [^long b ^long i ^long j] (double (aget-3dim arr n-per-row n-per-band default-v? default-v max-b max-i max-j b i j)))))
         :int16
         (let [arr (shorts (tensor-wrapped-array d/->short-array m))]
           (fn mget-shorts-int16
-            (^double [^long i ^long j] (double (aget-3dim arr n-per-row n-per-band 0 i j)))
-            (^double [^long b ^long i ^long j] (double (aget-3dim arr n-per-row n-per-band b i j)))))
+            (^double [^long i ^long j] (double (aget-3dim arr n-per-row n-per-band default-v? default-v max-b max-i max-j 0 i j)))
+            (^double [^long b ^long i ^long j] (double (aget-3dim arr n-per-row n-per-band default-v? default-v max-b max-i max-j b i j)))))
 
         :short
         (let [arr (shorts (tensor-wrapped-array unwrap-short-tensor m))]
           (fn mget-shorts-short
-            (^double [^long i ^long j] (double (aget-3dim arr n-per-row n-per-band 0 i j)))
-            (^double [^long b ^long i ^long j] (double (aget-3dim arr n-per-row n-per-band b i j)))))))))
+            (^double [^long i ^long j] (double (aget-3dim arr n-per-row n-per-band default-v? default-v max-b max-i max-j 0 i j)))
+            (^double [^long b ^long i ^long j] (double (aget-3dim arr n-per-row n-per-band default-v? default-v max-b max-i max-j b i j)))))))))
 
 (defn add-double-getter
   "Attaches to tensor m (in its metadata) a cached return value of (tensor-cell-getter),
   so that we don't need to recompute-it each time."
-  [m]
-  (vary-meta m (fn [met] (tensor-meta/map->GettersMeta (assoc met :grid-lookup-double-getter (tensor-cell-getter m))))))
+  ([m] (add-double-getter m nil))
+  ([m default-value]
+   (vary-meta m (fn [met] (tensor-meta/map->GettersMeta (assoc met :grid-lookup-double-getter (tensor-cell-getter m default-value)))))))
 
 (defn mgetter-double
   "Given a tensor which has been accelerated through (add-double-getter),

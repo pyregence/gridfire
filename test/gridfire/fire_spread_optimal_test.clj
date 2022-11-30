@@ -68,7 +68,7 @@
         num-cols                    10
         shape                       [num-rows num-cols]
         cell-size                   98.425
-        get-elevation               (grid-lookup/tensor-cell-getter 1.0)
+        get-elevation               (grid-lookup/tensor-cell-getter 1.0 nil)
         burn-probability            1.0
         zero-tensor                 (grid-lookup/add-double-getter (t/new-tensor shape))
         fire-spread-matrix          (d/clone zero-tensor)
