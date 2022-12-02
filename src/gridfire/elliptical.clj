@@ -7,7 +7,7 @@
   (which assumes wavelets shaped as ellipses growing around their focus point).
 
   Given:
-  - eccentricity (dimensionless, in [0.0, 1.0[): the eccentricity of the elliptical fire-spread wavelet;
+  - eccentricity (dimensionless, in [0.0, 1.0)): the eccentricity of the elliptical fire-spread wavelet;
   - cos-ang (dimensionless, in [-1.0 1.0]): the cosine of the angle
   from the unit vector orthogonal to the fireline (pointing towards the unburned area)
   and the unit vector in the direction of maximum spread (in flat terrain, the wind direction)
