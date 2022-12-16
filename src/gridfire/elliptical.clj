@@ -24,7 +24,9 @@
    ^double cos-ang]
   (let [E         eccentricity
         E*cos-ang (* E cos-ang)]
-    ;; FIXME link to proof
+    ;; NOTE for a mathematical derivation of this formula, see files:
+    ;; org/elliptical/elliptical-wavelet-spread-rate-math.jpg
+    ;; org/elliptical/elliptical-wavelet-spread-rate-math2.jpg
     (/ (+ E*cos-ang
           (Math/sqrt (+ (- 1.0 (* E E))
                         (* E*cos-ang E*cos-ang))))
