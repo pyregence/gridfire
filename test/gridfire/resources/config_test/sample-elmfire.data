@@ -26,6 +26,8 @@ USE_CONSTANT_LW                = .TRUE.
 LW_MOISTURE_CONTENT            = 80.0
 USE_CONSTANT_FMC               = .TRUE.
 FOLIAR_MOISTURE_CONTENT        = 90.0
+ROTATE_WD                      = .TRUE.
+GRID_DECLINATION               = -7.45293754
 /
 
 &OUTPUTS

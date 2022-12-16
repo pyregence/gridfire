@@ -453,13 +453,23 @@
 ;; Weather
 ;;=============================================================================
 
+(defn resolve-wind-from-direction
+  [elmfire-config WEATHER_DIRECTORY]
+  (merge (resolve-layer-spec elmfire-config WEATHER_DIRECTORY "WD_FILENAME")
+         (when (true? (get elmfire-config "ROTATE_WD"))
+           ;; NOTE it so happens that in Elmfire's current context of use,
+           ;; only the Wind Direction needs to correct for Grid Declination;
+           ;; other directional inputs such as Aspect have not needed it.
+           ;; We might in the future need to emit :gridfire.input/add-correction-angle360 for Aspect as well.
+           {:gridfire.input/add-correction-angle360 (get elmfire-config "GRID_DECLINATION")})))
+
 ;; FIXME: Since tmpf.tif and rh.tif aren't provided in elmfire.data, where are these files on disk?
 (defn process-weather
   [output-edn {:keys [elmfire-config] :as _options}]
   (let [{:strs [WEATHER_DIRECTORY]} elmfire-config]
     (assoc output-edn
            :wind-speed-20ft     (resolve-layer-spec elmfire-config WEATHER_DIRECTORY "WS_FILENAME")
-           :wind-from-direction (resolve-layer-spec elmfire-config WEATHER_DIRECTORY "WD_FILENAME"))))
+           :wind-from-direction (resolve-wind-from-direction elmfire-config WEATHER_DIRECTORY))))
 
 ;;=============================================================================
 ;; Output

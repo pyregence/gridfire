@@ -34,6 +34,12 @@
     (is (s/valid? ::common/number-or-range-map {:lo [1.0 2.0] :hi [2.0 3.0]})
         "edge of ranges can overlap"))
 
+  (testing (pr-str :gridfire.input/add-correction-angle360)
+    (is (s/valid? :gridfire.input/add-correction-angle360 1008.0)
+        "may be > 360°")
+    (is (s/valid? :gridfire.input/add-correction-angle360 -56.0)
+        "may be negative"))
+
   (testing "invalid range"
     (let [config {:lo 10.0
                   :hi 1.0 }]
