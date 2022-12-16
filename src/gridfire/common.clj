@@ -154,10 +154,10 @@
 
 (defmacro terrain-distance-invoke
   "Macro hiding the JVM interop for efficiently invoking the return value of `terrain-distance-fn`."
-  [terrain-dist-fn i0 i1 j0 j1]
+  [terrain-dist-fn i0 j0 i1 j1]
   (let [tdf-sym (vary-meta (gensym 'terrain-dist-fn) assoc :tag `IFn$LLLLD)]
     `(let [~tdf-sym ~terrain-dist-fn]
-       (.invokePrim ~tdf-sym ~i0 ~i1 ~j0 ~j1))))
+       (.invokePrim ~tdf-sym ~i0 ~j0 ~i1 ~j1))))
 
 (defn terrain-distance-from-cell-getter
   "Prepares a function for computing the distance from an already-identified cell,
