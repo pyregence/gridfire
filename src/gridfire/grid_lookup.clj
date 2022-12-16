@@ -202,7 +202,6 @@
 
 (defmacro aget-3dim
   [arr n-per-row n-per-band default-v? default-v max-b max-i max-j b i j]
-  ;; FIXME return default-v when b,i or j out of bounds.
   `(let [out-of-bounds?# (or (< ~b 0) (> ~b ~max-b)
                              (< ~i 0) (> ~i ~max-i)
                              (< ~j 0) (> ~j ~max-j))]
