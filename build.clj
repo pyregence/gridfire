@@ -31,9 +31,11 @@
   (b/copy-dir {:src-dirs ["src" "resources"]
                :target-dir jar-content})
 
-  (b/compile-clj {:src-dirs ["src"]
-                  :class-dir jar-content
-                  :basis basis})
+  (b/compile-clj {:src-dirs     ["src"]
+                  :class-dir    jar-content
+                  :bindings     {#'clojure.core/*assert* false}
+                  :compile-opts {:direct-linking true}
+                  :basis        basis})
 
   ;; package jar-content into a jar
   (b/uber {:class-dir jar-content
