@@ -9,11 +9,12 @@
                                                    terrain-distance-fn
                                                    terrain-distance-from-cell-getter
                                                    terrain-distance-invoke]]
-            [gridfire.conversion           :refer [mph->fpm hour->min min->hour]]
+            [gridfire.conversion           :refer [deg->rad mph->fpm hour->min min->hour]]
             [gridfire.crown-fire           :refer [crown-fire-eccentricity
                                                    crown-fire-line-intensity
                                                    cruz-crown-fire-spread
                                                    van-wagner-crown-fire-initiation?]]
+            [gridfire.elliptical           :as ellip]
             [gridfire.fuel-models-optimal  :refer [fuel-models-precomputed
                                                    moisturize]]
             [gridfire.grid-lookup          :as grid-lookup]
@@ -29,6 +30,7 @@
                                                    byram-flame-length
                                                    wind-adjustment-factor]]
             [gridfire.utils.flow           :refer [case-double]]
+            [gridfire.utils.gradient       :as gradient]
             [tech.v3.datatype              :as d]
             [tech.v3.datatype.functional   :as dfn]
             [tech.v3.tensor                :as t])
@@ -168,8 +170,120 @@
   ^double [fuel-number->spread-rate-adjustment-array-lookup fuel-model]
   (aget (doubles fuel-number->spread-rate-adjustment-array-lookup) fuel-model))
 
+(def ^:const default-incidence-cosine
+  "The default guess for the cosine of the fireline-incidence of maximum spread.
+
+  When lacking information to estimate the fireline-normal direction,
+  we conservatively assume that it is orthogonal to the direction of maximum spread (flanking fire),
+  and therefore the cosine is 0."
+  0.0)
+
+(defn estimate-fireline-incidence-cosine
+  "Estimates the fireline-normal direction based on Time-of-Arrival data; more precisely, returns the cosine of
+  the 'incidence' angle between the direction of advancing fire front and
+  some direction supplied as `dir-angle` (in degrees from North).
+
+  Equivalently, returns (a guess of) the dot-product <duv|fln>, in which
+  |duv> is the unit vector in the supplied direction and
+  |fln> is the fireline-normal unit vector.
+
+  The arguments are:
+  - `burn-time-getter`: a getter for the Time of Arrival of the fire,
+    as returned by `(grid-lookup/mgetter-double burn-time-matrix)`
+  - `incoming-burnvec` (optional): the Burn Vector where we want to estimate the fireline-normal spread rate,
+     or nil if not available;
+  - `dir-angle`: angle to the North direction in degrees, representing the direction of interest
+     (typically :max-spread-direction);
+  - `fallback-guess`: a default cosine to return when estimation fails.
+
+  Returns `fallback-guess` when there is not enough information to make a gradient estimate,
+  which happens in particular when `incoming-burnvec` is nil."
+  ;; NOTE why return the cosine to some other direction, (Val, 30 Nov 2022)
+  ;; rather than an angle or vector representing the fireline-normal direction? Several reasons:
+  ;; 1. When the fireline-normal direction cannot be estimated,
+  ;;    it can be difficult to find a sensible "default value" for a direction.
+  ;;    Less so for a cosine.
+  ;; 2. The cosine is what we need downstream, and is easy and fast to compute.
+  ;;    Turning that into an angle would be a useless and costly computation.
+  ^double [burn-time-getter incoming-burnvec ^double dir-angle ^double fallback-guess]
+  (if (nil? incoming-burnvec)
+    fallback-guess
+    ;; NOTE what with gradient geometry and geospatial encoding conventions,
+    ;; this function combines so many confusing part of the code
+    ;; that I felt the need for abundant commenting and naming. (Val, 30 Nov 2022)
+    ;; NOTATION this code will be using the <bra|ket> notation for vectors and dot-products:
+    ;; <a|b> represents the dot-product between vectors |a> and |b>.
+    ;; |i> and |j> represent the unit vectors which respectively increment i and j by 1,
+    ;; such that the i-coordinate of |a> is <i|a> (or equivalently <a|i>),
+    ;; and <a|b> = <a|i><i|b> + <a|j><j|b>.
+    ;; Our dot-product of choice <.|.> is thus defined by #{|i> |j>} forming an orthonormal basis.
+    ;; By definition of the gradient, <grad-F|i> = ∂F/∂i and <grad-F|j> = ∂F/∂j.
+    (let [ignited-this-cell? (>= (burn-vec/get-fractional-distance incoming-burnvec)
+                                 0.5)
+          bv-dir-angle       (burn-vec/get-direction incoming-burnvec)
+          ;; The fireline-normal direction should be given by the gradient of the Time of Arrival (ToA).
+          ;; The problem is that the gradient is not easy to estimate at the fire perimeter,
+          ;; because we might not yet have a gradient for all neighboring cells.
+          ;; For estimating the gradient, we choose the cell of origin of the Burn Vector,
+          ;; because we want this cell to have enough neighbors which can contribute a ToA
+          ;; to the gradient computation.
+          grad-cell-i        (- (burn-vec/get-i incoming-burnvec)
+                                (if ignited-this-cell?
+                                  0
+                                  (direction-angle->i-incr bv-dir-angle)))
+          grad-cell-j        (- (burn-vec/get-j incoming-burnvec)
+                                (if ignited-this-cell?
+                                  0
+                                  (direction-angle->j-incr bv-dir-angle)))
+          ;; Having chosen a nearby cell, we now estimate the ToA-gradient at that cell:
+          toa-ij             (grid-lookup/double-at burn-time-getter grad-cell-i grad-cell-j)
+          ;; IMPROVEMENT it might be interesting to factor out the gradient computation to a function.
+          ;; The problem is avoiding performance regressions: packing 2 primitive values into an object might be significantly less efficient.
+          ;; One (hacky) strategy might be to encode 2 32-bit floats into 1 primitive long.
+          <grad-ToA|i>       (let [toa-i   toa-ij
+                                   toa-i+1 (grid-lookup/double-at burn-time-getter (unchecked-inc grad-cell-i) grad-cell-j)
+                                   toa-i-1 (grid-lookup/double-at burn-time-getter (unchecked-dec grad-cell-i) grad-cell-j)]
+                               (gradient/estimate-dF -1.0 toa-i-1 toa-i toa-i+1))
+          <grad-ToA|j>       (let [toa-j   toa-ij
+                                   toa-j+1 (grid-lookup/double-at burn-time-getter grad-cell-i (unchecked-inc grad-cell-j))
+                                   toa-j-1 (grid-lookup/double-at burn-time-getter grad-cell-i (unchecked-dec grad-cell-j))]
+                               (gradient/estimate-dF -1.0 toa-j-1 toa-j toa-j+1))
+          grad-ToA-norm      (Math/sqrt (+ (* <grad-ToA|i> <grad-ToA|i>)
+                                           (* <grad-ToA|j> <grad-ToA|j>)))]
+      ;; A zero gradient happens in particular when gradient estimation has failed on both axes, for lack of ToA data.
+      ;; IMPROVEMENT: when that happens, we might want to retry with diagonal axes.
+      ;; IMPROVEMENT we might also want to discard a near-zero gradient - probably too chaotic.
+      ;; The problem is that we'd probably need to know the cell size to determine a sensible threshold for 'near-zero'.
+      (if (zero? grad-ToA-norm)
+        fallback-guess
+        (let [;; The fireline-normal unit vector |fln> is estimated by scaling the ToA gradient to unit length:
+              <fln|i>   (/ <grad-ToA|i> grad-ToA-norm)
+              <fln|j>   (/ <grad-ToA|j> grad-ToA-norm)
+              ;; We will now resolve the unit vector |duv> corresponding to the supplied `dir-angle`:
+              dir-rad   (deg->rad dir-angle)
+              ;; These 2 lines reflect our convention for what how we define "angle from North" and the x,y axes:
+              <duv|y>   (Math/cos dir-rad)
+              <duv|x>   (Math/sin dir-rad)
+              ;; These 2 lines reflect our convention relating matrix coordinates to spatial coordinates: |i> = -|y> and |j> = |x>,
+              ;; where |x> is the unit vector in the direction of increasing y, and likewise of |y>.
+              <duv|i>   (- <duv|y>)
+              <duv|j>   <duv|x>
+              ;; Finally computing our dot-product, by applying the coordinates-based formula: <a|b> = <a|i><i|b> + <a|j><j|b>.
+              ;; Note: if you want to reconcile the angular-directions and unit-vectors perspectives,
+              ;; it can be insightful to view the following formula as an application of
+              ;; the trigonometric identity: cos(a-b) = cos(a)*cos(b) + sin(a)*sin(b)
+              <duv|fln> (+ (* <duv|i> <fln|i>)
+                           (* <duv|j> <fln|j>))]
+          <duv|fln>)))))
+
 (defn- compute-max-in-situ-values!
-  [inputs matrices band i j]
+  "Computes and saves fire-spread behavior quantities for a cell-band.
+  This function must be called the first time a burn-vector appears in the given cell
+  during the given hourly band, be because it travelled (transitioned) into it,
+  or because the cell got ignited in some other way (e.g. spotting or initial ignition);
+  in the first case, `incoming-burnvec` must be non-nil, so that it can be used
+  to estimate the fireline-normal direction."
+  [inputs matrices band i j incoming-burnvec]
   (let [compute-directional-values?                      (:compute-directional-values? inputs)
         get-slope                                        (:get-slope inputs)
         get-aspect                                       (:get-aspect inputs)
@@ -255,42 +369,50 @@
                                                                                             ellipse-adjustment-factor
                                                                                             spread-rate-adjustment)
         max-spread-rate                                  (:max-spread-rate surface-fire-max)
-        max-spread-direction                             (:max-spread-direction surface-fire-max)
+        max-spread-direction                             (:max-spread-direction surface-fire-max) ; IMPROVEMENT primitive lookup, for performance.
         eccentricity                                     (:eccentricity surface-fire-max)
         residence-time                                   (:residence-time surface-fire-min)
         reaction-intensity                               (:reaction-intensity surface-fire-min)
-        fireline-normal-spread-rate                      max-spread-rate ;; FIXME apply elliptical correction.
-        max-surface-intensity                            (->> (anderson-flame-depth fireline-normal-spread-rate ^double residence-time)
+        burn-time-getter                                 (grid-lookup/mgetter-double (:burn-time-matrix matrices))
+        fln-incidence-cos                                (estimate-fireline-incidence-cosine burn-time-getter
+                                                                                             incoming-burnvec
+                                                                                             (double max-spread-direction)
+                                                                                             default-incidence-cosine)
+        fln-spread-rate-scalar                           (ellip/fireline-normal-spread-rate-scalar (double eccentricity) fln-incidence-cos)
+        fireline-normal-spread-rate                      (* (double max-spread-rate) fln-spread-rate-scalar)
+        surface-intensity                                (->> (anderson-flame-depth fireline-normal-spread-rate ^double residence-time)
                                                               (byram-fire-line-intensity ^double reaction-intensity))]
     (if (and (not crowning-disabled?)
              (van-wagner-crown-fire-initiation? canopy-cover
                                                 canopy-base-height
                                                 foliar-moisture
-                                                max-surface-intensity))
+                                                surface-intensity))
       (let [crown-spread-max        (cruz-crown-fire-spread wind-speed-20ft
-                                      crown-bulk-density
-                                      fuel-moisture-dead-1hr)
+                                                            crown-bulk-density
+                                                            fuel-moisture-dead-1hr)
             crown-type              (if (neg? crown-spread-max) 2.0 3.0) ; 2=passive, 3=active
             crown-spread-max        (Math/abs crown-spread-max)
-            max-crown-intensity     (crown-fire-line-intensity crown-spread-max
-                                      crown-bulk-density
-                                      (- canopy-height canopy-base-height)
-                                      (:heat-of-combustion surface-fire-min))
-            max-fire-line-intensity (+ max-surface-intensity max-crown-intensity)
-            max-eccentricity        (if (> ^double max-spread-rate crown-spread-max)
-                                      eccentricity
+            crown-eccentricity      (if (> (double max-spread-rate) crown-spread-max)
+                                      (double eccentricity)
                                       (crown-fire-eccentricity wind-speed-20ft ellipse-adjustment-factor))
+            crown-fln-spread-rate   (* crown-spread-max
+                                       (ellip/fireline-normal-spread-rate-scalar crown-eccentricity fln-incidence-cos))
+            crown-intensity         (crown-fire-line-intensity crown-fln-spread-rate
+                                                               crown-bulk-density
+                                                               (- canopy-height canopy-base-height)
+                                                               (:heat-of-combustion surface-fire-min))
+            tot-fire-line-intensity (+ surface-intensity crown-intensity)
             max-spread-rate         (max ^double max-spread-rate crown-spread-max)]
         (t/mset! max-spread-rate-matrix i j max-spread-rate)
         (t/mset! max-spread-direction-matrix i j max-spread-direction)
-        (t/mset! eccentricity-matrix i j max-eccentricity)
+        (t/mset! eccentricity-matrix i j crown-eccentricity)
         (t/mset! modified-time-matrix i j (inc band))
         (when compute-directional-values?
           (t/mset! residence-time-matrix i j residence-time)
           (t/mset! reaction-intensity-matrix i j reaction-intensity))
-        (store-if-max! spread-rate-matrix i j max-spread-rate)
-        (store-if-max! flame-length-matrix i j (byram-flame-length max-fire-line-intensity))
-        (store-if-max! fire-line-intensity-matrix i j max-fire-line-intensity)
+        (store-if-max! spread-rate-matrix i j crown-fln-spread-rate)
+        (store-if-max! flame-length-matrix i j (byram-flame-length tot-fire-line-intensity))
+        (store-if-max! fire-line-intensity-matrix i j tot-fire-line-intensity)
         (store-if-max! fire-type-matrix i j crown-type))
       (do
         (t/mset! max-spread-rate-matrix i j max-spread-rate)
@@ -300,9 +422,9 @@
         (when compute-directional-values?
           (t/mset! residence-time-matrix i j residence-time)
           (t/mset! reaction-intensity-matrix i j reaction-intensity))
-        (store-if-max! spread-rate-matrix i j max-spread-rate)
-        (store-if-max! flame-length-matrix i j (byram-flame-length max-surface-intensity))
-        (store-if-max! fire-line-intensity-matrix i j max-surface-intensity)
+        (store-if-max! spread-rate-matrix i j fireline-normal-spread-rate)
+        (store-if-max! flame-length-matrix i j (byram-flame-length surface-intensity))
+        (store-if-max! fire-line-intensity-matrix i j surface-intensity)
         (store-if-max! fire-type-matrix i j 1.0)))))
 
 (defn- burnable-neighbors?
@@ -473,7 +595,7 @@
                                           (when (> band (dec (long
                                                               ;; FIXME check if double-typed
                                                               (grid-lookup/double-at modified-time-getter i j))))
-                                            (compute-max-in-situ-values! inputs matrices band i j))
+                                            (compute-max-in-situ-values! inputs matrices band i j nil))
                                           (t/mset! fire-spread-matrix i j 1.0) ;TODO parameterize burn-probability instead of 1.0
                                           ;; (t/mset! fire-spread-matrix i j burn-probability)
                                           (t/mset! burn-time-matrix i j burn-time)
@@ -749,7 +871,10 @@
                    (do
                      (when (> band (dec (long (grid-lookup/double-at modified-time-getter new-i new-j))))
                        ;; vector is first in this timestep to compute
-                       (compute-max-in-situ-values! inputs matrices band new-i new-j))
+                       ;; NOTE using the old burn-vector here is helpful:
+                       ;; it increases the chance that we'll use the cell of origin
+                       ;; for ToA gradient estimation.
+                       (compute-max-in-situ-values! inputs matrices band new-i new-j burn-vector))
                      ;; TODO move to function
                      (as-> (t/mget travel-lines-matrix new-i new-j) $
                            (bit-set $ direction-bit)
@@ -832,7 +957,7 @@
             (let [i (burn-vec/get-i burn-vector)
                   j (burn-vec/get-j burn-vector)]
               (when (> band (dec (long (grid-lookup/double-at modified-time-getter i j))))
-                (compute-max-in-situ-values! inputs matrices band i j))
+                (compute-max-in-situ-values! inputs matrices band i j burn-vector))
               (let [direction            (burn-vec/get-direction burn-vector)
                     max-spread-rate      (grid-lookup/double-at max-spread-rate-getter i j)
                     max-spread-direction (grid-lookup/double-at max-spread-direction-getter i j)
@@ -898,7 +1023,7 @@
         flame-length-matrix             (:flame-length-matrix matrices)
         directional-flame-length-matrix (:directional-flame-length-matrix matrices)]
     (doseq [[i j] ignited-cells]
-      (compute-max-in-situ-values! inputs matrices band i j)
+      (compute-max-in-situ-values! inputs matrices band i j nil)
       (when compute-directional-values?
         (t/mset! directional-flame-length-matrix i j (grid-lookup/mget-double-at flame-length-matrix i j))))))
 
@@ -1149,12 +1274,16 @@
      x-magnitude-sum-matrix
      y-magnitude-sum-matrix])
 
+(def matrix-k->out-of-bounds-value
+  {:burn-time-matrix -1.0})
+
 (defn make-simulation-matrices
   [m]
   (map->SimulationMatrices (->> m
                                 (map (fn [[k m]]
                                        [k (when (t/tensor? m)
-                                            (grid-lookup/add-double-getter m))]))
+                                            (grid-lookup/add-double-getter m
+                                                                           (get matrix-k->out-of-bounds-value k)))]))
                                 (into {}))))
 
 (comment

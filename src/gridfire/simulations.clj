@@ -382,7 +382,7 @@
   {:post [(or (nil? %) (grid-lookup/suitable-for-primitive-lookup? %))]}
   (when-let [matrix-or-num (matrix-or-i inputs layer-name i)]
     (let [index-multiplier (get-index-multiplier inputs layer-name)
-          tensor-lookup    (grid-lookup/tensor-cell-getter matrix-or-num)
+          tensor-lookup    (grid-lookup/tensor-cell-getter matrix-or-num nil)
           get-unperturbed  (if (number? matrix-or-num)
                              tensor-lookup
                              (if (nil? index-multiplier)
