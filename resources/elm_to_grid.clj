@@ -877,9 +877,9 @@
         (str/join "-" (str/split s-trimmed #"[\(\)]"))
         s-trimmed))))
 
-(defn convert-val [s]
-  (when (string? s)
-    (let [s-trimmed  (str/trim s)
+(defn convert-val [v k]
+  (when (string? v)
+    (let [s-trimmed  (str/trim v)
           char-count (count s-trimmed)]
       (cond
         (re-matches #"^-?[0-9]\d*\.(\d+)?$" s-trimmed) (Double/parseDouble s-trimmed)
@@ -889,25 +889,53 @@
         (re-matches #"'[0-9a-zA-Z_.//]*'" s-trimmed)   (subs s-trimmed 1 (dec char-count))
         (str/includes? s-trimmed "proj")               (get-srid (subs s-trimmed 1 (dec char-count)))
         (str/includes? s-trimmed ",")                  (mapv (fn [x] (Double/parseDouble x)) (str/split s-trimmed #","))
-        :else                                          nil))))
+        :else                                          (throw (ex-info (format "Don't know how to parse %s in elmfire.data: %s"
+                                                                               (pr-str k)
+                                                                               (pr-str v))
+                                                                       {'v v
+                                                                        'k k}))))))
 
 (test/deftest convert-val-test
   (test/testing "value is comma seperated values"
     (let [to-convert "1., 1., 1.,"]
-      (test/is (= [1.0 1.0 1.0] (convert-val to-convert) )))
+      (test/is (= [1.0 1.0 1.0] (convert-val to-convert "MY_KEY"))))
 
     (let [to-convert "1.0, 1.0, 1.0,"]
-      (test/is (= [1.0 1.0 1.0] (convert-val to-convert))))))
+      (test/is (= [1.0 1.0 1.0] (convert-val to-convert "MY_KEY"))))))
+
+(defn fix-elmfire-syntax-errors
+  "Transforms an elmfire.data contents string to fix some syntactic irregularities."
+  [elmfire-config-str]
+  (-> elmfire-config-str
+      (str/replace #"(.*) +(\/)\n" "$1\n/\n")))
+
+(test/deftest fix-elmfire-syntax-errors-examples-test
+  (test/is (= "
+&SUPPRESSION
+ENABLE_INITIAL_ATTACK      = .FALSE.
+AREA_NO_CONTAINMENT_CHANGE = 6000.0
+/
+
+&SMOKE"
+              (fix-elmfire-syntax-errors "
+&SUPPRESSION
+ENABLE_INITIAL_ATTACK      = .FALSE.
+AREA_NO_CONTAINMENT_CHANGE = 6000.0 /
+
+&SMOKE"))
+           "Fixes trailing slash after some KV pairs."))
 
 (defn parse-elmfire-config [{:keys [elmfire-config] :as options}]
-  (let [content (slurp elmfire-config)]
+  (let [content (-> elmfire-config
+                    (slurp)
+                    (fix-elmfire-syntax-errors))]
     (assoc options
            :elmfire-config (transduce (comp (filter #(str/includes? % " = "))
                                             (map #(str/split % #" = ")))
                                       (completing (fn [acc [k v]]
                                                     (assoc acc
                                                            (convert-key k)
-                                                           (convert-val v))))
+                                                           (convert-val v k))))
                                       (sorted-map)
                                       (str/split content #"\n"))
            :output-dir (.getParent (io/file elmfire-config)))))
