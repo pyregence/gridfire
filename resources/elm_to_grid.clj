@@ -846,11 +846,12 @@
    :max-runtime         (* (Float/parseFloat (str/trim tstop)) 60.0)
    :pyrome              (* (Long/parseLong (str/trim (nth remaining-columns 8)) 10))})
 
-(defn parse-elmfire-summary-csv [{:keys [elmfire-config elmfire-summary-csv] :as options}]
+(defn parse-elmfire-summary-csv [{:keys [elmfire-config elmfire-summary-csv every-nth-elmfire] :as options}]
   (if elmfire-summary-csv
     (with-open [reader (io/reader elmfire-summary-csv)]
       (let [[_header-row & data-rows] (doall (csv/read-csv reader))]
         (->> data-rows
+             (take-nth every-nth-elmfire)
              (map #(parse-fire-stats-line elmfire-config %))
              (assoc options :elmfire-summary-maps))))
     options))
@@ -977,7 +978,10 @@ AREA_NO_CONTAINMENT_CHANGE = 6000.0 /
    [nil "--pyrome-calibration-csv PATH" "Optinal PATH to pyrome specific calibration constants."
     :id :pyrome-calibration-csv
     :validate [#(.exists  (io/file %)) "The provided --pyrome-calibration-csv does not exist."
-               #(.canRead (io/file %)) "The provided --pyrome-calibration-csv is not readable."]]])
+               #(.canRead (io/file %)) "The provided --pyrome-calibration-csv is not readable."]]
+
+   [nil "--every-nth-elmfire NUM" "Optinally take every NUM th row in elmfire-summary-csv"
+    :id :every-nth-elmfire]])
 
 (def program-banner
   (str "elm_to_grid.clj: Generate a gridfire.edn file from an elmfire.data file.\n"
