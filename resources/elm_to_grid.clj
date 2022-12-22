@@ -960,7 +960,7 @@ AREA_NO_CONTAINMENT_CHANGE = 6000.0 /
     :validate [#(.exists  (io/file %)) "The provided --elmfire-config does not exist."
                #(.canRead (io/file %)) "The provided --elmfire-config--override-config is not readable."]]
 
-   [nil "--elmfire-summary-csv PATH" "Optinal PATH to summary csv file for a completed elmfire run. Determines the ignition locations and pyrome-specific parameters."
+   [nil "--elmfire-summary-csv PATH" "Optional PATH to summary csv file for a completed elmfire run. Determines the ignition locations and pyrome-specific parameters."
     :id :elmfire-summary-csv
     :validate [#(.exists  (io/file %)) "The provided --elmfire-summary-csv does not exist."
                #(.canRead (io/file %)) "The provided --elmfire-summary-csv is not readable."]]
@@ -975,13 +975,14 @@ AREA_NO_CONTAINMENT_CHANGE = 6000.0 /
     :validate [#(.exists  (io/file %)) "The provided --pyrome-spread-rate-adjustment-csv does not exist."
                #(.canRead (io/file %)) "The provided --pyrome-spread-rate-adjustment-csv is not readable."]]
 
-   [nil "--pyrome-calibration-csv PATH" "Optinal PATH to pyrome specific calibration constants."
+   [nil "--pyrome-calibration-csv PATH" "Optional PATH to pyrome specific calibration constants."
     :id :pyrome-calibration-csv
     :validate [#(.exists  (io/file %)) "The provided --pyrome-calibration-csv does not exist."
                #(.canRead (io/file %)) "The provided --pyrome-calibration-csv is not readable."]]
 
-   [nil "--every-nth-elmfire NUM" "Optinally take every NUM th row in elmfire-summary-csv"
-    :id :every-nth-elmfire]])
+   [nil "--every-nth-elmfire NUM" "Optionally take every NUM th row in elmfire-summary-csv"
+    :id :every-nth-elmfire
+    :parse-fn #(Long/parseLong %)]])
 
 (def program-banner
   (str "elm_to_grid.clj: Generate a gridfire.edn file from an elmfire.data file.\n"
