@@ -851,7 +851,7 @@
     (with-open [reader (io/reader elmfire-summary-csv)]
       (let [[_header-row & data-rows] (doall (csv/read-csv reader))]
         (->> data-rows
-             (take-nth every-nth-elmfire)
+             (take-nth (or every-nth-elmfire 1))
              (map #(parse-fire-stats-line elmfire-config %))
              (assoc options :elmfire-summary-maps))))
     options))
