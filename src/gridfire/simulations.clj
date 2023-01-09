@@ -450,6 +450,7 @@
      sdi-containment-overwhelming-area-growth-rate
      sdi-reference-suppression-speed
      sdi-sensitivity-to-difficulty
+     sfmin-memoization
      spotting
      suppression-coefficient
      suppression-dt])
@@ -503,6 +504,7 @@
                             :sdi-containment-overwhelming-area-growth-rate    (some-> (:sdi-containment-overwhelming-area-growth-rate-samples inputs) (get i))
                             :sdi-reference-suppression-speed                  (some-> (:sdi-reference-suppression-speed-samples inputs) (get i))
                             :sdi-sensitivity-to-difficulty                    (some-> (:sdi-sensitivity-to-difficulty-samples inputs) (get i))
+                            :sfmin-memoization                                (:sfmin-memoization inputs)
                             :spotting                                         spotting
                             :fuel-number->spread-rate-adjustment-array-lookup (some-> (:fuel-number->spread-rate-adjustment-array-lookup-array-lookup-samples inputs) (get i))
                             :suppression-coefficient                          (some-> (:suppression-coefficient-samples inputs) (get i))
