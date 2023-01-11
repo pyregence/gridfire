@@ -3885,12 +3885,10 @@ or false:
 
 (defn load-config!
   [config-file-path]
-  (let [config (edn/read-string (slurp config-file-path))]
-    (if (spec/valid? ::config-spec/config config)
-      (assoc config :config-file-path config-file-path)
-      (log-str (format "Invalid config file [%s]:\n%s"
-                       config-file-path
-                       (spec/explain-str ::config-spec/config config))))))
+  (try
+    (load-config-or-throw! config-file-path)
+    (catch Exception err
+      (log-str (ex-message err)))))
 
 (defn process-config-file!
   [config-file-path]
