@@ -71,14 +71,23 @@
       (inputs/add-suppression)
       (inputs/add-fuel-number->spread-rate-adjustment-array-lookup-samples)))
 
-(defn load-config!
+(defn load-config-or-throw!
   [config-file-path]
   (let [config (files/read-situated-edn-file config-file-path)]
     (if (spec/valid? ::config-spec/config config)
       (assoc config :config-file-path config-file-path)
-      (log-str (format "Invalid config file [%s]:\n%s"
-                       config-file-path
-                       (spec/explain-str ::config-spec/config config))))))
+      (throw (ex-info (format "Invalid config file [%s]:\n%s"
+                              config-file-path
+                              (spec/explain-str ::config-spec/config config))
+                      {::config config
+                       ::spec-explanation (spec/explain-data ::config-spec/config config)})))))
+
+(defn load-config!
+  [config-file-path]
+  (try
+    (load-config-or-throw! config-file-path)
+    (catch Exception err
+      (log-str (ex-message err)))))
 
 (defn process-config-file!
   [config-file-path]

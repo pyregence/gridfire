@@ -3872,6 +3872,17 @@ or false:
       (inputs/add-suppression)
       (inputs/add-spread-rate-adjustment-factors)))
 
+(defn load-config-or-throw!
+  [config-file-path]
+  (let [config (files/read-situated-edn-file config-file-path)]
+    (if (spec/valid? ::config-spec/config config)
+      (assoc config :config-file-path config-file-path)
+      (throw (ex-info (format "Invalid config file [%s]:\n%s"
+                              config-file-path
+                              (spec/explain-str ::config-spec/config config))
+                      {::config config
+                       ::spec-explanation (spec/explain-data ::config-spec/config config)})))))
+
 (defn load-config!
   [config-file-path]
   (let [config (edn/read-string (slurp config-file-path))]
