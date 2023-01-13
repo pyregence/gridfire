@@ -36,11 +36,11 @@
           config  (gridfire/load-config-or-throw! config-path)
           _       (async/>!! =notifications-channel= "Parsed and validated the config. Loading inputs...")
           inputs  (gridfire/load-inputs! config)
-          _       (async/>!! =notifications-channel= "... done loading inputs. Running simulations...")
+          _       (async/>!! =notifications-channel= "Running simulations...")
           outputs (gridfire/run-simulations! inputs)]
-      (async/>!! =notifications-channel= "... done running simulations. Writing outputs...")
+      (async/>!! =notifications-channel= "Writing outputs...")
       (gridfire/write-outputs! outputs)
-      (async/>!! =notifications-channel= "... done writing outputs.")
+      (async/>!! =notifications-channel= "... done.")
       (mfd/success! completion-dfr
                     ;; This map might get enriched in the future. (Val, 11 Jan 2023)
                     {}))
