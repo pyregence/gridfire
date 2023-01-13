@@ -1,10 +1,10 @@
-(ns gridfire.server2.run-config
+(ns gridfire.server.run-config
   "Sequential processing of run-config requests through an in-memory job queue."
-  (:require [clojure.core.async         :as async]
-            [gridfire.core              :as gridfire]
-            [gridfire.magellan-bridge   :refer [register-custom-projections!]]
-            [gridfire.server2.protocols :as server2-protocols]
-            [manifold.deferred          :as mfd])
+  (:require [clojure.core.async        :as async]
+            [gridfire.core             :as gridfire]
+            [gridfire.magellan-bridge  :refer [register-custom-projections!]]
+            [gridfire.server.protocols :as server-protocols]
+            [manifold.deferred         :as mfd])
   (:import (java.util.concurrent BlockingQueue LinkedBlockingDeque)))
 
 ;; NOTE why make this async job handler, when currently the only calling code is a synchronous server? Several reasons:
@@ -23,7 +23,7 @@
 
 (defrecord RunConfigHandler
   [queue halt-callback]
-  server2-protocols/JobHandler
+  server-protocols/JobHandler
   (schedule-command [_this command =notifications-channel=]
    (schedule-command queue command =notifications-channel=))
   (n-queued [_this]
@@ -51,7 +51,7 @@
 (defn start-run-config-handler!
   "Starts a logical process which will process run-config commands sequentially.
 
-  Returns a `gridfire.server2.protocols/RunConfigHandler`, for which:
+  Returns a `gridfire.server.protocols/RunConfigHandler`, for which:
   - a `command` is a GridFire config path (a String);
   - =notifications-channel= will receive human-readable String messages."
   []

@@ -1,15 +1,15 @@
 ;; [[file:../../org/GridFire.org::command-line-interface][command-line-interface]]
 (ns gridfire.cli
   (:gen-class)
-  (:require [clojure.core.async       :refer [<!!]]
-            [clojure.edn              :as edn]
-            [clojure.java.io          :as io]
-            [clojure.tools.cli        :refer [parse-opts]]
-            [gridfire.core            :as gridfire]
-            [gridfire.magellan-bridge :refer [register-custom-projections!]]
-            [gridfire.server          :as server]
-            [gridfire.server2.socket  :refer [start-with-cli-args!]]
-            [gridfire.utils.server    :refer [hostname? nil-on-error]]))
+  (:require [clojure.core.async             :refer [<!!]]
+            [clojure.edn                    :as edn]
+            [clojure.java.io                :as io]
+            [clojure.tools.cli              :refer [parse-opts]]
+            [gridfire.core                  :as gridfire]
+            [gridfire.magellan-bridge       :refer [register-custom-projections!]]
+            [gridfire.server.pyrecast-async :as server]
+            [gridfire.server.sync           :refer [start-with-cli-args!]]
+            [gridfire.utils.server          :refer [hostname? nil-on-error]]))
 
 (set! *unchecked-math* :warn-on-boxed)
 

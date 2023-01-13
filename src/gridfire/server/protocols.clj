@@ -1,4 +1,4 @@
-(ns gridfire.server2.protocols)
+(ns gridfire.server.protocols)
 
 (defprotocol JobHandler
   (schedule-command [this command =notifications-channel=] "Schedules the given command to be processed.

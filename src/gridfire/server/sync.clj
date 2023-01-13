@@ -1,12 +1,12 @@
-(ns gridfire.server2.socket
+(ns gridfire.server.sync
   "A very basic, mono-threaded socket-based API into a GridFire server."
-  (:require [clojure.core.async          :as async]
-            [clojure.java.io             :as io]
-            [clojure.string              :as str]
-            [clojure.tools.cli           :as clj-cli]
-            [gridfire.server2.protocols  :as server2-protocols]
-            [gridfire.server2.run-config :refer [start-run-config-handler!]]
-            [triangulum.logging          :refer [log-str]])
+  (:require [clojure.core.async         :as async]
+            [clojure.java.io            :as io]
+            [clojure.string             :as str]
+            [clojure.tools.cli          :as clj-cli]
+            [gridfire.server.protocols  :as server-protocols]
+            [gridfire.server.run-config :refer [start-run-config-handler!]]
+            [triangulum.logging         :refer [log-str]])
   (:import (java.io BufferedReader PrintWriter)
            (java.net ServerSocket Socket)))
 
@@ -50,11 +50,11 @@
 (defn- run-config-file!
   [run-config-handler args =notifications-channel=]
   (let [[gridfire-config-path] args
-        n-queued               (server2-protocols/n-queued run-config-handler)
+        n-queued               (server-protocols/n-queued run-config-handler)
         _                      (async/>!! =notifications-channel= (format "Scheduled for processing (behind %s queued items): %s"
                                                                           (pr-str n-queued)
                                                                           (pr-str gridfire-config-path)))
-        completion-dfr         (server2-protocols/schedule-command run-config-handler gridfire-config-path =notifications-channel=)]
+        completion-dfr         (server-protocols/schedule-command run-config-handler gridfire-config-path =notifications-channel=)]
     (try
       (let [success-data @completion-dfr]
         (into {:gridfire.run-config/succeeded true} success-data))
@@ -80,7 +80,7 @@
          (try
            (pr-str res)
            (catch Exception err
-             (pr-str (tagged-literal 'gridfire.server2.socket/failed-printing-result
+             (pr-str (tagged-literal 'gridfire.server.sync/failed-printing-result
                                      {::ex-class-name (.getName (class err))
                                       ::ex-message    (ex-message err)})))))))
 
@@ -119,7 +119,7 @@
   (let [run-config-handler (start-run-config-handler!)]
     (with-open [server-socket (ServerSocket. (int port))]
       (prn ::ready-to-accept-connections)                   ;; So that calling programs know when to connect.
-      (log-str (str `gridfire.server2.socket ": ready to accept connection on port " port "."))
+      (log-str (str `gridfire.server.sync ": ready to accept connection on port " port "."))
       (loop []
         (let [client-socket (.accept server-socket)]
           (async/thread (listen-to-client! run-config-handler client-socket))
@@ -156,8 +156,8 @@
   (require '[clojure.java.shell :as sh])
   (require '[clojure.edn])
   (sh/sh "clojure" "-M:run" "start-sync-socket-server" "--port" "8085")
-  ;;:gridfire.server2.socket/ready-to-accept-connections
-  ;;01/10 16:47:06 gridfire.server2.socket: ready to accept connection on port 8085.
+  ;;:gridfire.server.sync/ready-to-accept-connections
+  ;;01/10 16:47:06 gridfire.server.sync: ready to accept connection on port 8085.
 
   (def in
     (let [client-socket (java.net.Socket. "localhost" (int 8085))

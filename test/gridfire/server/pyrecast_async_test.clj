@@ -1,9 +1,9 @@
-(ns gridfire.server-test
-  (:require [clojure.java.io     :as io]
-            [clojure.java.shell  :refer [sh]]
-            [clojure.test        :refer [deftest is use-fixtures testing]]
-            [gridfire.server     :as server]
-            [gridfire.utils.test :refer [with-temp-directories]]))
+(ns gridfire.server.pyrecast-async-test
+  (:require [clojure.java.io                :as io]
+            [clojure.java.shell             :refer [sh]]
+            [clojure.test                   :refer [deftest is use-fixtures testing]]
+            [gridfire.server.pyrecast-async :as server]
+            [gridfire.utils.test            :refer [with-temp-directories]]))
 
 ;;-----------------------------------------------------------------------------
 ;; Paths
