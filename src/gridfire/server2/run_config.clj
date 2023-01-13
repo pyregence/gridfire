@@ -2,6 +2,7 @@
   "Sequential processing of run-gridfire-config requests through an in-memory job queue."
   (:require [clojure.core.async         :as async]
             [gridfire.core              :as gridfire]
+            [gridfire.magellan-bridge   :refer [register-custom-projections!]]
             [gridfire.server2.protocols :as server2-protocols]
             [manifold.deferred          :as mfd])
   (:import (java.util.concurrent BlockingQueue LinkedBlockingDeque)))
@@ -54,6 +55,7 @@
   - a `command` is a GridFire config path (a String);
   - =notifications-channel= will receive human-readable String messages."
   []
+  (register-custom-projections!)
   (let [queue (LinkedBlockingDeque.)                        ; Using LinkedBlockingDeque as a BlockingQueue implementation because it has no size limit.
         ;; NOTE why use a queue instead of a core.async channel? Because we want to be able
         ;; to query the number of elements awaiting processing.
