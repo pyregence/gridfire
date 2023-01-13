@@ -3,6 +3,7 @@
   (:require [clojure.core.async          :as async]
             [clojure.java.io             :as io]
             [clojure.string              :as str]
+            [clojure.tools.cli           :as clj-cli]
             [gridfire.server2.protocols  :as server2-protocols]
             [gridfire.server2.run-config :refer [start-run-config-handler!]]
             [triangulum.logging          :refer [log-str]])
@@ -130,15 +131,31 @@
 
   *e)
 
-(defn -main [port]
-  (listen! (Long/parseLong port 10)))
+(def cli-options
+  [["-p" "--port PORT" "Port number"
+    :parse-fn #(if (int? %) % (Long/parseLong % 10))
+    :validate [#(< 0 % 0x10000) "The provided --port is not a number between 0 and 65536."]]])
+
+(defn start-with-cli-args! [args]
+  (let [parsed-opts (clj-cli/parse-opts args cli-options :strict true)
+        errors      (concat (:errors parsed-opts)
+                            (->> {:port "--port"}
+                                 (keep (fn error-missing-required-option [[k opt-name]]
+                                         (when-not (get (:options parsed-opts) k)
+                                           (format "Missing required option: %s" opt-name))))))]
+    (if (seq errors)
+      (do
+        (run! println errors)
+        (println (str "\nUsage: " "start-sync-socket-server" "\n" (:summary parsed-opts)))
+        (System/exit 1))
+      (listen! (:port (:options parsed-opts))))))
 
 (comment
   ;; Example client code in JVM Clojure:
 
   (require '[clojure.java.shell :as sh])
   (require '[clojure.edn])
-  (sh/sh "clojure" "-J-XX:MaxRAMPercentage=90" "-M" "-m" "gridfire.server2.socket" "8085")
+  (sh/sh "clojure" "-M:run" "start-sync-socket-server" "--port" "8085")
   ;;:gridfire.server2.socket/ready-to-accept-connections
   ;;01/10 16:47:06 gridfire.server2.socket: ready to accept connection on port 8085.
 
