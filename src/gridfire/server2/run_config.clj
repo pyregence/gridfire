@@ -1,5 +1,5 @@
 (ns gridfire.server2.run-config
-  "Sequential processing of run-gridfire-config requests through an in-memory job queue."
+  "Sequential processing of run-config requests through an in-memory job queue."
   (:require [clojure.core.async         :as async]
             [gridfire.core              :as gridfire]
             [gridfire.magellan-bridge   :refer [register-custom-projections!]]
@@ -33,7 +33,7 @@
 (defn- run-gridfire-config!
   [config-path =notifications-channel= completion-dfr]
   (try
-    (let [_       (async/>!! =notifications-channel= (format "Starting to run-gridfire-config: %s" (pr-str config-path)))
+    (let [_       (async/>!! =notifications-channel= (format "Starting to run-config: %s" (pr-str config-path)))
           config  (gridfire/load-config-or-throw! config-path)
           _       (async/>!! =notifications-channel= "Parsed and validated the config. Loading inputs...")
           inputs  (gridfire/load-inputs! config)
@@ -49,7 +49,7 @@
       (mfd/error! completion-dfr err))))
 
 (defn start-run-config-handler!
-  "Starts a logical process which will process run-gridfire-config commands sequentially.
+  "Starts a logical process which will process run-config commands sequentially.
 
   Returns a `gridfire.server2.protocols/RunConfigHandler`, for which:
   - a `command` is a GridFire config path (a String);

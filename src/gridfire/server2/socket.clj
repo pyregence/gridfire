@@ -13,7 +13,7 @@
 (def help-message-lines
   ["This socket server lets you call an already-running GridFire program, thus avoiding the slowness of cold starts."
    "Usage: send a line formatted as one of"
-   "(1) run-gridfire-config PATH_TO_MY_GRIDFIRE_CONFIG_FILE"
+   "(1) run-config PATH_TO_MY_GRIDFIRE_CONFIG_FILE"
    "Runs simulations from a GridFire config file."
    "Upon success, you will see below a result like #:gridfire.run-config{:succeeded true}."
    "(2) help"
@@ -47,7 +47,7 @@
        (str/join "\n")
        (async/>!! =notifications-channel=)))
 
-(defn- run-gridfire-config!
+(defn- run-config-file!
   [run-config-handler args =notifications-channel=]
   (let [[gridfire-config-path] args
         n-queued               (server2-protocols/n-queued run-config-handler)
@@ -70,8 +70,8 @@
   [run-config-handler ^String input-line =results-channel= =notifications-channel=]
   (let [[cmd & args] (str/split input-line #"\s+")]
     (case cmd
-      "run-gridfire-config" (async/>!! =results-channel=
-                                       (run-gridfire-config! run-config-handler args =notifications-channel=))
+      "run-config" (async/>!! =results-channel=
+                              (run-config-file! run-config-handler args =notifications-channel=))
       (print-help-message! =notifications-channel=))))
 
 (def xform-results->edn
@@ -164,7 +164,7 @@
           in            (io/reader (.getInputStream client-socket))
           out           (PrintWriter. (io/writer (.getOutputStream client-socket)) true)]
       (.println out "help")
-      (.println out "run-gridfire-config test/gridfire/lab/benchmarks/rhino-input-deck/gridfire.edn")
+      (.println out "run-config test/gridfire/lab/benchmarks/rhino-input-deck/gridfire.edn")
       in))
 
   (.readLine in)
