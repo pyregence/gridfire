@@ -5,7 +5,6 @@
             [clojure.string              :as str]
             [gridfire.server2.protocols  :as server2-protocols]
             [gridfire.server2.run-config :refer [start-run-config-handler!]]
-            [manifold.deferred           :as mfd]
             [triangulum.logging          :refer [log-str]])
   (:import (java.io BufferedReader PrintWriter)
            (java.net ServerSocket Socket)))
@@ -48,29 +47,30 @@
        (async/>!! =notifications-channel=)))
 
 (defn- run-gridfire-config!
-  [run-config-handler args =results-channel= =notifications-channel=]
+  [run-config-handler args =notifications-channel=]
   (let [[gridfire-config-path] args
         n-queued               (server2-protocols/n-queued run-config-handler)
         _                      (async/>!! =notifications-channel= (format "Scheduled for processing (behind %s queued items): %s"
                                                                           (pr-str n-queued)
                                                                           (pr-str gridfire-config-path)))
         completion-dfr         (server2-protocols/schedule-command run-config-handler gridfire-config-path =notifications-channel=)]
-    (-> completion-dfr
-        (mfd/chain (fn [success-data]
-                     (async/put! =results-channel= (into {:gridfire.run-config/succeeded true} success-data))))
-        (mfd/catch (fn [err]
-                     (let [err-map (or (try
-                                         (Throwable->map err)
-                                         (catch Exception _parsing-err nil))
-                                       {:message (str "(FAILED Throwable->map) " (ex-message err))})]
-                       (async/put! =results-channel= {:gridfire.run-config/succeeded  false
-                                                      :gridfire.run-config/error-data err-map})))))))
+    (try
+      (let [success-data @completion-dfr]
+        (into {:gridfire.run-config/succeeded true} success-data))
+      (catch Exception err
+        (let [err-map (or (try
+                            (Throwable->map err)
+                            (catch Exception _parsing-err nil))
+                          {:message (str "(FAILED Throwable->map) " (ex-message err))})]
+          {:gridfire.run-config/succeeded  false
+           :gridfire.run-config/error-data err-map})))))
 
 (defn- handle-input-line!
   [run-config-handler ^String input-line =results-channel= =notifications-channel=]
   (let [[cmd & args] (str/split input-line #"\s+")]
     (case cmd
-      "run-gridfire-config" (run-gridfire-config! run-config-handler args =results-channel= =notifications-channel=)
+      "run-gridfire-config" (async/>!! =results-channel=
+                                       (run-gridfire-config! run-config-handler args =notifications-channel=))
       (print-help-message! =notifications-channel=))))
 
 (def xform-results->edn
@@ -90,9 +90,6 @@
         (map (fn to-edn-comment [^String notif-line]
                (str ";; " notif-line)))))
 
-;; WARNING: the results of run-gridfire-config will produced sequentially and printed in the order of submission; however,
-;; the client can still run other commands while a config is being processed,
-;; which can result in notifications and results from different commands getting interleaved.
 (defn- listen-to-client!
   [run-config-handler ^Socket client-socket]
   (with-open [client-socket client-socket

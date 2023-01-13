@@ -6,6 +6,10 @@
             [manifold.deferred          :as mfd])
   (:import (java.util.concurrent BlockingQueue LinkedBlockingDeque)))
 
+;; NOTE why make this async job handler, when currently the only calling code is a synchronous server? Several reasons:
+;; 1. even with several clients connected to the sync server, this ensures that only 1 config is run at a time;
+;; 2. we might evolve to provide new access points into a running GridFire server, for example an async HTTP server.
+
 (defn- schedule-command
   [^BlockingQueue queue config-path =notifications-channel=]
   (let [completion-dfr (mfd/deferred)]
