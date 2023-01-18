@@ -1,7 +1,7 @@
 #!/usr/bin/env bb
 
 ;; FIXME: document babashka (bb) and gdalsrsinfo as installation dependencies for running this script
-;; FIXME: use babashka's pod protocol to integrate this script with gridfire.server
+;; FIXME: use babashka's pod protocol to integrate this script with gridfire.server.pyrecast-async
 
 (require '[clojure.data.csv   :as csv]
          '[clojure.edn        :as edn]

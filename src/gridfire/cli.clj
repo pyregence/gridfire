@@ -1,18 +1,19 @@
 ;; [[file:../../org/GridFire.org::command-line-interface][command-line-interface]]
 (ns gridfire.cli
   (:gen-class)
-  (:require [clojure.core.async       :refer [<!!]]
-            [clojure.edn              :as edn]
-            [clojure.java.io          :as io]
-            [clojure.tools.cli        :refer [parse-opts]]
-            [gridfire.core            :as gridfire]
-            [gridfire.magellan-bridge :refer [register-custom-projections!]]
-            [gridfire.server          :as server]
-            [gridfire.utils.server    :refer [hostname? nil-on-error]]))
+  (:require [clojure.core.async             :refer [<!!]]
+            [clojure.edn                    :as edn]
+            [clojure.java.io                :as io]
+            [clojure.tools.cli              :refer [parse-opts]]
+            [gridfire.core                  :as gridfire]
+            [gridfire.magellan-bridge       :refer [register-custom-projections!]]
+            [gridfire.server.pyrecast-async :as server]
+            [gridfire.server.sync           :refer [start-with-cli-args!]]
+            [gridfire.utils.server          :refer [hostname? nil-on-error]]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
-(def cli-options
+(def pyrecast-server-cli-options
   [["-c" "--server-config CONFIG" "Server config file"
     :validate [#(.exists  (io/file %)) "The provided --server-config does not exist."
                #(.canRead (io/file %)) "The provided --server-config is not readable."]]
@@ -28,9 +29,16 @@
   (str "gridfire: Launch fire spread simulations via config files or in server mode.\n"
        "Copyright © 2014-2022 Spatial Informatics Group, LLC.\n"))
 
-(defn -main [& args]
-  (println program-banner)
-  (let [{:keys [options arguments summary errors]} (parse-opts args cli-options)]
+(defn run-config-files!
+  [args]
+  (register-custom-projections!)
+  (doseq [config-file args]
+    (gridfire/process-config-file! config-file)))
+
+(defn run-default!
+  "CLI execution when no verb is provided. Much of this is here for backwards-compatibility."
+  [args]
+  (let [{:keys [options arguments summary errors]} (parse-opts args pyrecast-server-cli-options)]
     ;; {:options   The options map, keyed by :id, mapped to the parsed value
     ;;  :arguments A vector of unprocessed arguments
     ;;  :summary   A string containing a minimal options summary
@@ -56,18 +64,22 @@
 
       ;; CLI mode invoked
       (seq arguments)
-      (do
-        (register-custom-projections!)
-        (doseq [config-file arguments]
-          (gridfire/process-config-file! config-file)))
+      (run-config-files! args)
 
       ;; Incorrect CLI invocation
       :else
       (do
         (println "For gridfire cli mode, include one or more gridfire.edn files.")
         (println "For gridfire server mode, include these args: --server-config --host --port")
-        (println (str "\nUsage:\n" summary))))
+        (println (str "\nUsage:\n" summary))
+        (System/exit 1)))))
 
-    ;; Exit cleanly
-    (System/exit 0)))
+(defn -main [& args]
+  (println program-banner)
+  (case (first args)
+    "start-sync-socket-server" (start-with-cli-args! (rest args))
+    "run-config-files"         (run-config-files! (rest args))
+    (run-default! args))
+  ;; Exit cleanly
+  (System/exit 0))
 ;; command-line-interface ends here
