@@ -45,10 +45,10 @@
           reducer-fn        (if (= parallel-strategy :between-fires)
                               #(into [] (r/fold parallel-bin-size r/cat r/append! %))
                               #(into [] %))
-          summary-stats     (with-redefs [rothermel-fast-wrapper-optimal (if (= :sfmin-memoize-across-sims (:sfmin-memoization inputs :sfmin-memoize-across-sims)) ; NOTE :sfmin-memoize-across-sims is useful to share the memo across simulations. Pointless when there are perturbations.
+          summary-stats     (with-redefs [rothermel-fast-wrapper-optimal (if (-> inputs :memoization (:surface-fire-min :across-sims) (= :across-sims)) ; NOTE :across-sims is useful to share the memo across simulations, with a risk of running out of memory. Pointless when there are perturbations.
                                                                            (memoize-rfwo rothermel-fast-wrapper-optimal)
                                                                            rothermel-fast-wrapper-optimal)]
-                              ;; WARNING: omitting :sfmin-memoization is not equivalent to {:sfmin-memoization nil}, but {:sfmin-memoization :sfmin-memoize-across-sims}, for backward compatibility. (Val, 09 Jan 2023)
+                              ;; WARNING: omitting :memoization {} is not equivalent to :memoization {:surface-fire-min nil}, but to :memoization {:surface-fire-min :across-sims}, for backward compatibility. (Val, 09 Jan 2023)
                               (->> (range simulations)
                                    (vec)
                                    (r/map #(simulations/run-simulation! % inputs))

@@ -1391,7 +1391,7 @@
   | :sdi-sensitivity-to-difficulty                    | double             | none                                                      |
   |---------------------------------------------------+--------------------+-----------------------------------------------------------|"
   [inputs]
-  (binding [rothermel-fast-wrapper-optimal (if (= :sfmin-memoize-within-sims (:sfmin-memoization inputs)) ; NOTE :sfmin-memoize-within-sims to avoid the memory leaks caused by :sfmin-memoize-across-sims.
+  (binding [rothermel-fast-wrapper-optimal (if (-> inputs :memoization :surface-fire-min (= :within-sims)) ; NOTE :within-sims to avoid the memory leaks caused by :across-sims.
                                              (memoize-rfwo rothermel-fast-wrapper-optimal)
                                              rothermel-fast-wrapper-optimal)]
     (run-fire-spread* inputs)))

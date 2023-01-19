@@ -584,25 +584,25 @@
 
       (is (valid-exits? (run-test-simulation! config))))))
 
-(deftest ^:simulation sfmin-memoization-test
+(deftest ^:simulation surface-fire-min-memoization-test
   (let [default-res (run-test-simulation! test-config-base)]
-    (testing (str :sfmin-memoization " changes how surface-fire-min cacheing happens, with possible values:")
-      (testing (str (pr-str :sfmin-memoize-across-sims) "(default): one cache per simulation.")
-        (let [config (merge test-config-base {:sfmin-memoization :sfmin-memoize-across-sims})
+    (testing (str (pr-str '{:memoization {:surface-fire-min XXX}}) " changes how surface-fire-min cacheing happens, with possible values:")
+      (testing (str (pr-str :across-sims) "(default): one cache per simulation.")
+        (let [config (assoc test-config-base :memoization {:surface-fire-min :across-sims})
               res    (run-test-simulation! config)]
           (is (valid-exits? res))
           (is (= (results-signature default-res)
                  (results-signature res))
               "the logical behavior of the simulation is unchanged.")))
-      (testing (str (pr-str :sfmin-memoize-within-sims) ": one cache per simulation.")
-        (let [config (merge test-config-base {:sfmin-memoization :sfmin-memoize-within-sims})
+      (testing (str (pr-str :within-sims) ": one cache per simulation.")
+        (let [config (assoc test-config-base :memoization {:surface-fire-min :within-sims})
               res    (run-test-simulation! config)]
           (is (valid-exits? res))
           (is (= (results-signature default-res)
                  (results-signature res))
               "the logical behavior of the simulation is unchanged.")))
       (testing (str (pr-str nil) ": no memoization.")
-        (let [config (merge test-config-base {:sfmin-memoization nil})
+        (let [config (assoc test-config-base :memoization {:surface-fire-min nil})
               res    (run-test-simulation! config)]
           (is (valid-exits? res))
           (is (= (results-signature default-res)
