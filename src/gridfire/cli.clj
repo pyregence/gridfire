@@ -69,9 +69,14 @@
       ;; Incorrect CLI invocation
       :else
       (do
-        (println "For gridfire cli mode, include one or more gridfire.edn files.")
-        (println "For gridfire server mode, include these args: --server-config --host --port")
-        (println (str "\nUsage:\n" summary))
+        (->> ["Usage:"
+              "1) For running one or more GridFire config files, use sub-command:"
+              "run-config-files /path/to/first/config.edn [/path/to/second/config.edn ...]"
+              "2) For starting a synchronous socket server, use sub-command:"
+              "start-sync-socket-server --port MY-PORT-NUMBER"
+              (format "%s will be printed to standard out once the server is ready."
+                      (pr-str :gridfire.server.sync/ready-to-accept-connections))]
+             (run! println))
         (System/exit 1)))))
 
 (defn -main [& args]
