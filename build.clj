@@ -4,16 +4,12 @@
 
 (defn get-calendar-branch-version []
   (let [today  (Date.)
-        branch (b/git-process {:git-args "branch --show-current"})
-        label  (case branch
-                 "main"        "stable"
-                 "development" "dev"
-                 branch)]
+        commit (b/git-process {:git-args "rev-parse --short HEAD"})]
     (format "%d.%d.%d-%s"
             (+ 1900 (.getYear today))
             (+ 1 (.getMonth today))
             (.getDate today)
-            label)))
+            commit)))
 
 (def build-folder "target")
 (def jar-content (str build-folder "/classes"))
@@ -35,9 +31,11 @@
   (b/copy-dir {:src-dirs ["src" "resources"]
                :target-dir jar-content})
 
-  (b/compile-clj {:src-dirs ["src"]
-                  :class-dir jar-content
-                  :basis basis})
+  (b/compile-clj {:src-dirs     ["src"]
+                  :class-dir    jar-content
+                  :bindings     {#'clojure.core/*assert* false}
+                  :compile-opts {:direct-linking true}
+                  :basis        basis})
 
   ;; package jar-content into a jar
   (b/uber {:class-dir jar-content

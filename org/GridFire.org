@@ -26,6 +26,10 @@
 #+LATEX_HEADER:     citecolor=black,
 #+LATEX_HEADER:     linkbordercolor=black,
 #+LATEX_HEADER:     linkcolor=black}
+#+LATEX_HEADER: \usepackage{graphicx}
+#+LATEX_HEADER: \graphicspath{{../resources/}}
+#+LATEX_HEADER: \DeclareUnicodeCharacter{394}{$\Delta$}
+#+LATEX_HEADER: \DeclareUnicodeCharacter{3C7}{$\chi$}
 
 * Preface
 
@@ -102,6 +106,7 @@ deps.edn for the current GridFire version is shown below.
 {:paths ["src" "resources"]
 
  :deps {cnuernber/dtype-next                {:mvn/version "9.000"}
+        commons-codec/commons-codec         {:mvn/version "1.15"}
         com.nextjournal/beholder            {:mvn/version "1.0.0"}
         com.taoensso/tufte                  {:mvn/version "2.2.0"}
         hikari-cp/hikari-cp                 {:mvn/version "2.13.0"}
@@ -488,18 +493,21 @@ custom fuel models desired by the user.
 
 #+name: fuel-model-definitions
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj :padline no :no-expand :comments link
-(ns gridfire.fuel-models)
+(ns gridfire.fuel-models-optimal)
+
+(set! *unchecked-math* :warn-on-boxed)
 
 (def fuel-models
   "Lookup table including one entry for each of the Anderson 13 and
    Scott & Burgan 40 fuel models. The fields have the following
    meanings:
-   {number
+   {fuel-model-number
     [name delta M_x-dead h
      [w_o-dead-1hr w_o-dead-10hr w_o-dead-100hr w_o-live-herbaceous w_o-live-woody]
      [sigma-dead-1hr sigma-dead-10hr sigma-dead-100hr sigma-live-herbaceous sigma-live-woody]]
    }"
   {
+   ;; Anderson 13:
    ;; Grass and Grass-dominated (short-grass,timber-grass-and-understory,tall-grass)
    1   [:R01 1.0 12 8 [0.0340 0.0000 0.0000 0.0000 0.0000] [3500.0   0.0  0.0    0.0    0.0]]
    2   [:R02 1.0 15 8 [0.0920 0.0460 0.0230 0.0230 0.0000] [3000.0 109.0 30.0 1500.0    0.0]]
@@ -523,6 +531,7 @@ custom fuel models desired by the user.
    93  [:NB3 0.0  0 0 [0.0000 0.0000 0.0000 0.0000 0.0000] [   0.0   0.0  0.0    0.0    0.0]]
    98  [:NB4 0.0  0 0 [0.0000 0.0000 0.0000 0.0000 0.0000] [   0.0   0.0  0.0    0.0    0.0]]
    99  [:NB5 0.0  0 0 [0.0000 0.0000 0.0000 0.0000 0.0000] [   0.0   0.0  0.0    0.0    0.0]]
+   ;; Scott & Burgan 40:
    ;; Grass (GR)
    101 [:GR1 0.4 15 8 [0.0046 0.0000 0.0000 0.0138 0.0000] [2200.0 109.0 30.0 2000.0    0.0]]
    102 [:GR2 1.0 15 8 [0.0046 0.0000 0.0000 0.0459 0.0000] [2000.0 109.0 30.0 1800.0    0.0]]
@@ -570,6 +579,126 @@ custom fuel models desired by the user.
    203 [:SB3 1.2 25 8 [0.2525 0.1263 0.1377 0.0000 0.0000] [2000.0 109.0 30.0    0.0    0.0]]
    204 [:SB4 2.7 25 8 [0.2410 0.1607 0.2410 0.0000 0.0000] [2000.0 109.0 30.0    0.0    0.0]]
    })
+
+(def WUI-model-number->original
+  "Some variants of the above fuel models,
+  with a different fuel model number to distinguish them as
+  belonging to the Wildland Urban Interface (WUI).
+
+  Each of these WUI fuel models has the same physical characteristics
+  as one of the fuel models in the above table,
+  but having a different model number enables a different behavior
+  for other aspects, such as spread-rate adjustment or spotting.
+
+  This table provides the mapping from variant model number -> original model number.
+  Notice how the difference of model numbers is usually 100 or 110."
+  {;; Grass (GR)
+   211 101
+   212 102
+   213 103
+   214 104
+   215 105
+   216 106
+   217 107
+   218 108
+   ;; Grass-Shrub (GS)
+   221 121
+   222 122
+   223 123
+   224 124
+   ;; Shrub (SH)
+   241 141
+   242 142
+   243 143
+   244 144
+   245 145
+   246 146
+   247 147
+   248 148
+   249 149
+   ;; Timber-Understory (TU)
+   261 161
+   262 162
+   263 163
+   265 165
+   ;; Timber Litter (TL)
+   281 181
+   282 182
+   283 183
+   284 184
+   285 185
+   286 186
+   287 187
+   288 188
+   289 189
+   ;; Slash-Blowdown (SB)
+   301 201
+   302 202
+   303 203})
+
+(defrecord FuelModel
+    [name
+     ^long number
+     ^double delta
+     M_x
+     w_o
+     sigma
+     h
+     rho_p
+     S_T
+     S_e
+     M_f
+     f_ij
+     f_i
+     g_ij])
+
+(defn is-dynamic-fuel-model-number?
+  [^long fuel-model-number]
+  (> fuel-model-number 100))
+
+(defn compute-fuel-model
+  [^long fuel-model-number]
+  (let [[name delta M_x-dead h
+         [w_o-dead-1hr w_o-dead-10hr w_o-dead-100hr
+          w_o-live-herbaceous w_o-live-woody]
+         [sigma-dead-1hr sigma-dead-10hr sigma-dead-100hr
+          sigma-live-herbaceous sigma-live-woody]]
+        (fuel-models fuel-model-number)
+        M_x-dead   (* ^long M_x-dead 0.01)
+        h          (* ^long h 1000.0)
+        fuel-model {:name   name
+                    :number fuel-model-number
+                    :delta  delta
+                    :M_x    [M_x-dead M_x-dead M_x-dead 0.0 0.0 0.0]
+                    :w_o    [w_o-dead-1hr w_o-dead-10hr w_o-dead-100hr 0.0 w_o-live-herbaceous w_o-live-woody]
+                    :sigma  [sigma-dead-1hr sigma-dead-10hr sigma-dead-100hr 0.0 sigma-live-herbaceous sigma-live-woody]
+                    :h      [h h h h h h]
+                    :rho_p  [32.0 32.0 32.0 32.0 32.0 32.0]
+                    :S_T    [0.0555 0.0555 0.0555 0.0555 0.0555 0.0555]
+                    :S_e    [0.01 0.01 0.01 0.01 0.01 0.01]}]
+    (if (and (is-dynamic-fuel-model-number? fuel-model-number)
+             (pos? ^double w_o-live-herbaceous))
+      ;; Set dead-herbaceous values
+      (-> fuel-model
+          (assoc-in [:M_x   3] M_x-dead)
+          (assoc-in [:sigma 3] sigma-live-herbaceous))
+      ;; No dead-herbaceous values
+      fuel-model)))
+
+(defn- add-synonym-models
+  [variant->original-model-number number->model-data]
+  (reduce-kv (fn [ret v-num o-num]
+               (assoc ret v-num (or (get number->model-data o-num)
+                                    (throw (ex-info (format "Cannot find synonym fuel model number: %s" (pr-str o-num))
+                                                    {::variant-fuel-model-number  v-num
+                                                     ::original-fuel-model-number o-num})))))
+             number->model-data
+             variant->original-model-number))
+
+(def fuel-models-precomputed (->> fuel-models
+                                  (keys)
+                                  (into {} (map #(vector % (map->FuelModel (compute-fuel-model %)))))
+                                  (add-synonym-models WUI-model-number->original)))
 #+end_src
 
 Once fuel moisture is added to the base fuel model definitions, they
@@ -2921,7 +3050,483 @@ ignition probability.
                                                (convert/ft->m (t/mget flame-length-matrix i j)))]
                  [[x y] [t spot-ignition-p]])))
            (remove nil?)))))
+  #+end_src
+
+** Suppression Model Formulas
+
+GridFire supports two ways to compute the fraction of the fire
+perimeter that should be contained during a suppression event.
+
+*** Suppression Curve
+
+Fraction Contained (FC) is computed by
+
+\begin{align*}
+FC = (\frac{2x}{1 + x^2})^a
+\end{align*}
+
+Where symbols are defined as follows:
+
+- $a$ :: alpha (a.k.a *:suppression-coefficient* in the config file) a
+  positive number, As alpha approaches infinity, most of the
+  suppression happens sharply near the end; as it approaches 0, most
+  of the suppression happens sharply near the beginning. Values above
+  0 make the curve sigmoid-shaped.
+
+- $x$ :: The runtime-fraction (ratio) x at which a fraction y of the perimeter got
+  suppressed is an increasing function of y^(1/alpha); in particular,
+  it's an increasing function of both y and alpha.
+
+Here are two example plots of the above equation. For most of the
+regressions, the value of alpha has been between 2.0 and 3.0 as for
+California and Oregon respectively.
+
+\begin{center}
+\noindent\makebox[\textwidth]{\includegraphics[width=\paperwidth]{suppression-curve-plots}}
+\end{center}
+
+*** Suppression Difficulty Index (SDI)
+
+The SDI approach computes change in fraction contained $\Delta{C}$ during
+time interval $\Delta{t}$ (in days) between suppression events.
+
+\begin{align*}
+\frac{\Delta{C}}{\Delta{t}} = \chi \times f \left( 1 - \frac{\ln(A_d / A_\chi)}{\ln(A_{d0} / A_\chi)}, B \times \text{SDI}_{\Delta{t}} \right)
+\end{align*}
+
+\begin{align*}
+f(U, V) :=
+\begin{cases}
+U \exp(-V),& U \geq 0\\
+U \exp(V),& U < 0
+\end{cases}
+\end{align*}
+
+Where symbols are defined as follows:
+
+- $A_d$ :: (ac/day) Areal growth on a daily basis.
+
+- $A_\chi$ :: (ac/day, a.k.a *sdi-reference-areal-growth-rate* in source code)
+  *reference areal-growth-rate* parameter, currently hardcoded to 1 ac/day. The
+  areal-growth-rate $A_d$ at which $\frac{\Delta{C}}{\Delta{t}} = C \times \chi$
+  in 0-SDI settings.
+
+- $\chi$ :: (%/day) "Chi" (a.k.a, *:sdi-reference-suppression-speed*
+  in the config file) a positive number.
+  Higher means faster evolution of the fraction contained.
+  $\chi^{-1}$ is a characteristic time of containment-variation.
+  This calibration parameter is
+  similar to the suppression curve calibration coefficient in that it
+  varies regionally based on available resources.
+  In a reference situation where $A_d = A_\chi$ and SDI = 0,
+  a value of 100 means the fire can be 100% contained in 24 hours,
+  and a value of 800 means the fire can be 100% contained in 3 hours.
+
+- $A_{d0}$ :: (ac/day, a.k.a *:sdi-containment-overwhelming-area-growth-rate* in
+  config file) *containment-overwhelming areal growth rate* parameter. For $A_d >
+  A_{d0}$, the variation in containment $\Delta{C} / \Delta{t}$ becomes
+  negative.
+
+- $B$ :: ($\text{SDI}^{-1}$, a.k.a *:sdi-sensitivity-to-difficulty* in config file)
+  *sensitivity to difficulty* parameter. Higher means that suppression behavior is
+  more sensitive to changes in SDI. Changing the terrain's SDI by $B^{-1}$
+  causes an e-folding of the containment-variation $\Delta{C} / \Delta{t}$,
+  all else being equal.
+
+$\text{SDI}_{\Delta{t}}$  is calculated as the mean suppression
+difficulty index during interval $\Delta{t}$.
+
+\begin{align*}
+\overline{SDI_{\Delta{t}}} = \frac{1}{n}\times\sum_{i=1}^{n}SDI_i
+\end{align*}
+
+Where symbols are defined as follows:
+
+- $n$ :: Number of burned pixels during time interval $\Delta{t}$.
+
+- $i$ :: Pixel index.
+
+- $SDI_i$ :: Suppression difficulty index of pixel i. The value of this will
+  come from a SDI raster layer.
+
+The $\left( 1 - \frac{\ln(A_d / A_\chi)}{\ln(A_{d0} / A_\chi)} \right)$ factor accounts for
+the effect of fire-growth-rate on containment: fast-growing fires are harder to contain,
+and very fast-growing fires ($A_d > A_{d0}$) make containment a losing battle.
+
+The $\exp(\pm B \times \text{SDI}_{\Delta{t}})$ factor
+captures the effect of the terrain's suppression-difficulty
+on containment: it is a factor by which the containement-variation-speed
+$\Delta{C} / \Delta{t}$ is penalized or amplified due to suppression-difficulty.
+
+The suppression algorithm was built using the method described in
+"resources/suppression_curve_algorithm.pdf".
+
+#+name: suppression
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/suppression.clj :padline no :no-expand :comments link
+(ns gridfire.suppression
+  "An algorithm emulating human interventions reacting to fire spread
+  by suppressing ('putting out') chosen contiguous segments of the
+  fire front, typically backing and flanking fires."
+  (:require [gridfire.conversion :refer [cells->acres
+                                         min->day
+                                         percent->dec
+                                         rad->deg]]))
+
+(set! *unchecked-math* :warn-on-boxed)
+
+(defn- combine-average ^double
+  [^double avg-old ^long count-old ^double avg-new ^long count-new]
+  (if (zero? (+ count-old count-new))
+    0.0
+    (/ (+ (* avg-old count-old)
+          (* avg-new count-new))
+       (+ count-old count-new))))
+
+(defn- remove-average ^double
+  [^double avg-old ^long count-old ^double avg-to-remove ^long count-of-avg-to-remove]
+  (if (zero? (- count-old count-of-avg-to-remove))
+    0.0
+    (/ (- (* avg-old count-old) (* avg-to-remove count-of-avg-to-remove))
+       (- count-old count-of-avg-to-remove))))
+
+(defn- compute-contiguous-slices
+  "Given number of cells to suppress and a map of average directional spread
+  rate data with the form: angular-slice -> [average-dsr cell-count] return a
+  sorted map where each map entry:
+
+  [[`list-of-slices` `avg-dsr`] `cell-count`]
+
+  represents a contiguous segment of the fire front, which we locate
+  by `list-of-slices`, the list of successive degree slices covering
+  it; `cell-count` represents the number of active perimeter cells in
+  that segment, with `cell-count` no smaller than
+  `num-cells-to-suppress`, but possibly bigger.
+
+  NOTE: This constraint may be violated if a segment is adjacent to an
+  already suppressed slice, in which case the segment will be included
+  in the returned map even if its `cell-count` is smaller than
+  `num-cells-to-suppress`.
+
+  Note that the returned segments will tend to overlap - think of a
+  sliding window of (up to `num-cells-to-suppress`) contiguous active
+  cells, rotating around the centroid: the segments returned by this
+  function are regular snapshots of this window."
+  [^long num-cells-to-suppress angular-slice->avg-dsr+num-cells]
+  (loop [sorted-contiguous-slices (sorted-map-by (fn [[_ x1] [_ x2]]
+                                                   (compare x1 x2)))
+         slice-data               (into [] (seq angular-slice->avg-dsr+num-cells))
+         cur-contiguous-slices    []
+         cur-dsr                  0.0
+         cur-count                0
+         left-idx                 -1
+         right-idx                0]
+    (cond
+
+      (= left-idx 0)
+      sorted-contiguous-slices
+
+      ;; Do not include already suppressed regions in the longest
+      ;; contiguous slice calculation.
+      (let [[_ [_ cell-count]] (nth slice-data right-idx)
+            cell-count         (long cell-count)]
+        (and (< cur-count num-cells-to-suppress) (zero? cell-count)))
+      (let [next-right-idx (if (= right-idx (dec (count slice-data)))
+                             0
+                             (+ right-idx 1))]
+        (recur (if (seq cur-contiguous-slices)
+                 (assoc sorted-contiguous-slices [cur-contiguous-slices cur-dsr] cur-count)
+                 sorted-contiguous-slices)
+               slice-data
+               []
+               0.0
+               0
+               (if (< right-idx left-idx) 0 next-right-idx)
+               next-right-idx))
+
+      (< cur-count num-cells-to-suppress)
+      ;; expand right
+      (let [[slice [avg-dsr cell-count]] (nth slice-data right-idx)
+            cell-count                   (long cell-count)]
+        (recur sorted-contiguous-slices
+               slice-data
+               (conj cur-contiguous-slices slice)
+               (combine-average cur-dsr cur-count avg-dsr cell-count)
+               (+ cur-count cell-count)
+               left-idx
+               (if (= right-idx (dec (count slice-data)))
+                 0
+                 (+ right-idx 1))))
+
+      :else
+      ;; shrink left
+      (let [[_ [avg-dsr cell-count]] (nth slice-data (if (= -1 left-idx) 0 left-idx))
+            cell-count               (long cell-count)]
+        (recur (assoc sorted-contiguous-slices [cur-contiguous-slices cur-dsr] cur-count)
+               slice-data
+               (subvec cur-contiguous-slices 1)
+               (remove-average cur-dsr cur-count avg-dsr cell-count)
+               (- cur-count cell-count)
+               (long
+                (cond
+                  (= left-idx (dec (count slice-data))) 0
+                  (= -1 left-idx)                       1
+                  :else                                 (+ left-idx 1)))
+               right-idx)))))
+
+(defn- compute-sub-segment
+  [angular-slice->avg-dsr+num-cells slices cells-needed]
+  (let [slices                           (set slices)
+        angular-slice->avg-dsr+num-cells (reduce (fn [acc [slice avg-dsr+num-cells]]
+                                                   (if (contains? slices slice)
+                                                     (assoc acc slice avg-dsr+num-cells)
+                                                     (assoc acc slice [0.0 0.0]))) ;; Needed because the segment should not be treated as circular list
+                                                 (sorted-map)
+                                                 angular-slice->avg-dsr+num-cells) ;; FIXME: This seems inefficient
+        contiguous-slices                (compute-contiguous-slices cells-needed angular-slice->avg-dsr+num-cells)
+        [[slices _] cell-count]          (first contiguous-slices)]
+    [slices cell-count]))
+
+(defn- compute-slices-to-suppress
+  "Chooses slices to be suppressed, and reports the number of suppressed cells.
+
+  Given:
+  - num-cells-to-suppress: a number of cells, the suppression objective,
+  - angular-slice->avg-dsr+num-cells: a map of statistics over all angular slices,
+
+  returns a tuple [slices-to-suppress suppressed-count], in which:
+  - slices-to-suppress is the set of angular slices to suppress, chosen as a tradeoff
+  between contiguity, closeness to the num-cells-to-suppress objective,
+  and low average spread rate.
+  - suppressed-count is the number of cells in slices-to-suppress,
+  which is returned to save callers the work of re-computing it.
+  Warning: it may well be that suppressed-count > num-cells-to-suppress.
+
+  This algorithm will convert `angular-slice->avg-dsr+num-cells` to a sorted map of
+  `angular-slices+avg-dsr->num-cells`, representing candidate segments for suppression.
+  Using this map the algorithm will collect the sequence of angular-slices
+  until we have a cell-count of at least `num-cells-to-suppress`, if possible."
+  [^long num-cells-to-suppress angular-slice->avg-dsr+num-cells]
+  ;; NOTE this algorithm is most likely under-optimized;
+  ;; having said that, it's probably not a performance bottleneck
+  ;; (suppression events are typically few and far between)
+  ;; and experience has shown that we'd better make this right
+  ;; before making it fast.
+  ;; TODO enhance performance or rethink the overall suppression algorithm.
+  (letfn [(n-cells-in-slices ^long [slices]
+            (transduce (map (fn n-cells-in-slice [slice]
+                              (let [[_ num-cells] (get angular-slice->avg-dsr+num-cells slice)]
+                                num-cells)))
+                       (completing +)
+                       0
+                       slices))]
+    (let [angular-slices+avg-dsr->num-cells (compute-contiguous-slices num-cells-to-suppress angular-slice->avg-dsr+num-cells)]
+      (loop [remaining-segments angular-slices+avg-dsr->num-cells
+             n-cells-needed     num-cells-to-suppress
+             slices-to-suppress #{}]
+        (if-some [segment (when (pos? n-cells-needed)
+                            (first remaining-segments))]
+          (let [[[slices _]]            segment
+                yet-unsuppressed-slices (remove slices-to-suppress slices)
+                n-would-be-suppressed   (long (n-cells-in-slices yet-unsuppressed-slices))]
+            (if (<= n-would-be-suppressed n-cells-needed)
+              (let [new-n-cells-needed     (- n-cells-needed n-would-be-suppressed)
+                    new-slices-to-suppress (into slices-to-suppress yet-unsuppressed-slices)]
+                (recur (rest remaining-segments)
+                       new-n-cells-needed
+                       new-slices-to-suppress))
+              ;; this segment has more than we need, compute subsegment:
+              (let [[sub-segment-slices _] (compute-sub-segment angular-slice->avg-dsr+num-cells slices n-cells-needed)
+                    n-more-suppressed      (long (n-cells-in-slices (remove slices-to-suppress sub-segment-slices)))
+                    new-n-cells-needed     (- n-cells-needed n-more-suppressed)
+                    new-slices-to-suppress (into slices-to-suppress sub-segment-slices)]
+                (recur (rest remaining-segments)
+                       new-n-cells-needed
+                       new-slices-to-suppress))))
+          ;; no more segments needed or available, so we return:
+          (let [n-suppressed (- num-cells-to-suppress n-cells-needed)]
+            [slices-to-suppress n-suppressed]))))))
+
+(defn- average
+  [coll]
+  (/ (double (reduce + coll)) (long (count coll))))
+
+(defn- compute-avg-dsr
+  [burn-vectors]
+  (-> (reduce (fn ^double [^double acc burn-vector]
+                (+ acc (double (:spread-rate burn-vector))))
+              0.0
+              burn-vectors)
+      double
+      (/ (count burn-vectors))))
+
+(defn- compute-cell-count
+  [burn-vectors]
+  (count
+   (into #{}
+         (map (juxt :i :j))
+         burn-vectors)))
+
+(defn- compute-avg-dsr-data
+  "Returns a sorted map where each map entry:
+
+  [`angular-slice` [`directional-spread-rate` `cell-count`]]
+
+  represents a collection of stats computed for an `angular-slice`. The
+  `directional-spread-rate` is the average value among the active
+  perimeter cells that fall within that slice. The `cell-count` is the
+  count of those perimeter cells."
+  [^double angular-slice-size slice->BurnVectors]
+  (reduce (fn [acc slice]
+            (let [burn-vectors (get slice->BurnVectors slice)]
+              (if (seq burn-vectors)
+                (assoc acc slice [(compute-avg-dsr burn-vectors) (compute-cell-count burn-vectors)])
+                (assoc acc slice [0.0 0.0]))))
+          (sorted-map)
+          (range 0.0 (/ 360.0 angular-slice-size))))
+
+(defn- angle-cw-from-east ^double
+  [^long i1 ^long j1 ^long i0 ^long j0]
+  (let [di    (- i1 i0)
+        dj    (- j1 j0)
+        theta (rad->deg (Math/atan2 di dj))]
+    (if (neg? di)
+      (+ theta 360.0)
+      theta)))
+
+(defn- nearest-angular-slice ^double
+  [^double theta ^double angular-slice-size]
+  (Math/floor (/ theta angular-slice-size)))
+
+(defn- group-burn-vectors
+  "Returns a map where each entry:
+
+  [`angular-slice` [BurnVector BurnVector ...]]
+
+  represents a collection of BurnVectors that fall within an `angular-slice`.
+  The `angular-slice` is defined as the degree clockwise from EAST of the
+  `centroid` cell. angular-slice 0 = East = 0.0 degrees."
+  [centroid ^double angular-slice-size burn-vectors]
+  (let [[i0 j0] centroid]
+    (group-by (fn [burn-vector] (-> (angle-cw-from-east (:i burn-vector) (:j burn-vector) i0 j0)
+                                    (nearest-angular-slice angular-slice-size)))
+              burn-vectors)))
+
+(defn- compute-centroid-cell
+  "Returns [i j] that is the centroid of a given list of [i j] cells"
+  [cells]
+  (let [row (average (mapv #(nth % 0) cells))
+        col (average (mapv #(nth % 1) cells))]
+    [(long row) (long col)]))
+
+(defn- compute-suppression-difficulty-factor ^double
+  [^double sdi-sensitivity-to-difficulty ^double change-in-fraction-contained-sign-multiplier ^double mean-sdi]
+  (double
+   (if (>= change-in-fraction-contained-sign-multiplier 0.0)
+     (Math/exp (* -1.0 sdi-sensitivity-to-difficulty mean-sdi))
+     (Math/exp (* sdi-sensitivity-to-difficulty mean-sdi)))))
+
+(defn- compute-mean-sdi ^double
+  [get-suppression-difficulty-index ignited-cells]
+  (/ (double
+      (reduce (fn ^double [^double acc [i j]]
+                (+ acc (double (get-suppression-difficulty-index i j))))
+              0.0
+              ignited-cells))
+     (count ignited-cells)))
+
+(defn- compute-area-growth-rate ^double
+  [^double cell-size ^double suppression-dt ignited-cells-since-last-suppression]
+  (/ (cells->acres cell-size (count ignited-cells-since-last-suppression))
+     (min->day suppression-dt)))
+
+(def ^:const sdi-reference-areal-growth-rate
+  "[ac/day] a shape parameter for the suppression curve, the area-growth-rate A_d at which ΔC/Δt=χ in 0-SDI settings,
+  in which χ is the :sdi-reference-suppression-speed parameter."
+  1.0)
+
+(defn- compute-change-in-fraction-contained-sign-multiplier ^double
+  [^double sdi-containment-overwhelming-area-growth-rate ^double area-growth-rate]
+  (- 1.0
+     ;; Note that the following ratio is insensitive to the choice of logarithm base.
+     (/ (Math/log (/ area-growth-rate
+                     sdi-reference-areal-growth-rate))
+        (Math/log (/ sdi-containment-overwhelming-area-growth-rate
+                     sdi-reference-areal-growth-rate)))))
+
+(defn- compute-fraction-contained-sdi
+  "Compute the updated fraction contained using suppression difficulty index algorithm"
+  [inputs ignited-cells-since-last-suppression ^double previous-fraction-contained]
+  (let [cell-size                                     (double (:cell-size inputs))
+        get-suppression-difficulty-index              (:get-suppression-difficulty-index inputs)
+        suppression-dt                                (double (:suppression-dt inputs))
+        sdi-containment-overwhelming-area-growth-rate (double (:sdi-containment-overwhelming-area-growth-rate inputs))
+        sdi-sensitivity-to-difficulty                 (double (:sdi-sensitivity-to-difficulty inputs))
+        sdi-reference-suppression-speed               (double (:sdi-reference-suppression-speed inputs))
+        area-growth-rate                              (compute-area-growth-rate cell-size suppression-dt ignited-cells-since-last-suppression)
+        change-in-fraction-contained-sign-multiplier  (compute-change-in-fraction-contained-sign-multiplier sdi-containment-overwhelming-area-growth-rate
+                                                                                                            area-growth-rate)
+        mean-sdi                                      (compute-mean-sdi get-suppression-difficulty-index ignited-cells-since-last-suppression)
+        suppression-difficulty-factor                 (compute-suppression-difficulty-factor sdi-sensitivity-to-difficulty
+                                                                                             change-in-fraction-contained-sign-multiplier
+                                                                                             mean-sdi)
+        change-in-fraction-contained                  (-> (* sdi-reference-suppression-speed
+                                                             change-in-fraction-contained-sign-multiplier
+                                                             suppression-difficulty-factor)
+                                                          (percent->dec)
+                                                          (* (min->day suppression-dt)))]
+    (+ previous-fraction-contained change-in-fraction-contained)))
+
+(defn- compute-fraction-contained-sc
+  "Compute fraction contained using suppression curve algorithm"
+  ^double
+  [^double max-runtime-fraction ^double suppression-coefficient]
+  (Math/pow (/ (* 2.0 max-runtime-fraction)
+               (+ 1.0 (Math/pow max-runtime-fraction 2.0)))
+            suppression-coefficient))
+
+(defn suppress-burn-vectors
+  [inputs
+   max-runtime-fraction
+   previous-num-perimeter-cells
+   previous-suppressed-count
+   burn-vectors
+   ignited-cells-since-last-suppression
+   previous-fraction-contained]
+  (let [max-runtime-fraction         (double max-runtime-fraction)
+        suppression-coefficient      (:suppression-coefficient inputs)
+        previous-num-perimeter-cells (long previous-num-perimeter-cells)
+        previous-suppressed-count    (long previous-suppressed-count)
+        active-perimeter-cells       (into #{}
+                                           (map (juxt :i :j))
+                                           burn-vectors)
+        fraction-contained           (if suppression-coefficient
+                                       (compute-fraction-contained-sc max-runtime-fraction
+                                                                      (double suppression-coefficient))
+                                       (compute-fraction-contained-sdi inputs
+                                                                       ignited-cells-since-last-suppression
+                                                                       previous-fraction-contained))
+        num-tracked-perimeter-cells  (+ (long (count active-perimeter-cells)) previous-suppressed-count)
+        num-fizzled-perimeter-cells  (max 0 (- previous-num-perimeter-cells num-tracked-perimeter-cells))
+        num-perimeter-cells          (max previous-num-perimeter-cells num-tracked-perimeter-cells)
+        current-suppressed-count     (+ previous-suppressed-count num-fizzled-perimeter-cells)
+        next-suppressed-count        (long (* ^double fraction-contained num-perimeter-cells))
+        num-cells-to-suppress        (- next-suppressed-count current-suppressed-count)]
+    (if (> num-cells-to-suppress 0)
+      (let [centroid-cell          (compute-centroid-cell active-perimeter-cells)
+            angular-slice-size     5.0
+            slice->BurnVectors     (group-burn-vectors centroid-cell angular-slice-size burn-vectors)
+            [slices-to-suppress
+             suppressed-count]     (->> (compute-avg-dsr-data angular-slice-size slice->BurnVectors)
+                                        (compute-slices-to-suppress num-cells-to-suppress))
+            slices-to-suppress-set (set slices-to-suppress)
+            slices-to-keep         (remove #(contains? slices-to-suppress-set %) (keys slice->BurnVectors))
+            burn-vectors-to-keep   (into []
+                                         (mapcat #(get slice->BurnVectors %))
+                                         slices-to-keep)]
+        [burn-vectors-to-keep (+ current-suppressed-count ^long suppressed-count) num-perimeter-cells fraction-contained])
+      [burn-vectors current-suppressed-count num-perimeter-cells fraction-contained])))
 #+end_src
+
 * User Interface
 
 The GridFire model described in the previous section may be called
@@ -3090,7 +3695,7 @@ command line interface.
 ** Magellan
 
 Reading raster layers from disk is performed by a single function,
-called *geotiff-raster-to-matrix*. Given the location of a GeoTIFF
+called *geotiff-raster-to-tensor*. Given the location of a GeoTIFF
 file, this function will read the raster into memory and return the
 same map of information as the *postgis-raster-to-matrix* function,
 described in the previous section.
@@ -3108,42 +3713,6 @@ described in the previous section.
 
 (defn register-custom-projections! []
   (register-new-crs-definitions-from-properties-file! "CUSTOM" (io/resource "custom_projections.properties")))
-
-(defn geotiff-raster-to-matrix
-  "Reads a raster from a file using the magellan.core library. Returns the
-   post-processed raster values as a Clojure tensor using the dtype-next/tech.v3.tensor API
-   along with all of the georeferencing information associated with this tile in a
-   hash-map with the following form:
-  {:srid 900916,
-   :upperleftx -321043.875,
-   :upperlefty -1917341.5,
-   :width 486,
-   :height 534,
-   :scalex 2000.0,
-   :scaley -2000.0,
-   :skewx 0.0,
-   :skewy 0.0,
-   :numbands 10,
-   :matrix #tech.v3.tensor<datatype>[10 534 486]}"
-  [file-path]
-  (let [raster   (read-raster file-path)
-        grid     ^GridGeometry2D (:grid raster)
-        r-info   (inspect/describe-raster raster)
-        matrix   (inspect/extract-matrix raster)
-        image    (:image r-info)
-        envelope (:envelope r-info)
-        crs2d    ^AffineTransform2D (.getGridToCRS2D grid)]
-    {:srid       (:srid r-info)
-     :upperleftx (get-in envelope [:x :min])
-     :upperlefty (get-in envelope [:y :max])
-     :width      (:width image)
-     :height     (:height image)
-     :scalex     (.getScaleX crs2d)
-     :scaley     (.getScaleY crs2d)
-     :skewx      0.0 ; FIXME not used?
-     :skewy      0.0 ; FIXME not used?
-     :numbands   (:bands image)
-     :matrix     (t/->tensor matrix)}))
 
 (defn geotiff-raster-to-tensor
   "Reads a raster from a file using the magellan.core library. Returns the
@@ -3242,6 +3811,7 @@ or false:
             [gridfire.outputs             :as outputs]
             [gridfire.simulations         :as simulations]
             [gridfire.spec.config         :as config-spec]
+            [manifold.deferred            :as mfd]
             [taoensso.tufte               :as tufte]
             [triangulum.logging           :refer [log log-str]]))
 
@@ -3249,9 +3819,12 @@ or false:
 
 (defn write-outputs!
   [outputs]
-  (outputs/write-landfire-layers! outputs)
-  (outputs/write-aggregate-layers! outputs)
-  (outputs/write-csv-outputs! outputs)
+  (->
+    (mfd/zip
+      (outputs/write-landfire-layers! outputs)
+      (outputs/write-aggregate-layers! outputs)
+      (outputs/write-csv-outputs! outputs))
+    (deref))
   :success)
 
 (defmacro with-multithread-profiling
@@ -3293,16 +3866,29 @@ or false:
       (inputs/add-fuel-moisture-params)
       (inputs/add-random-ignition-sites)
       (inputs/add-aggregate-matrices)
-      (inputs/add-burn-period-params)))
+      (inputs/add-burn-period-params)
+      (inputs/add-ignition-start-times)
+      (inputs/add-ignition-start-timestamps)
+      (inputs/add-suppression)
+      (inputs/add-spread-rate-adjustment-factors)))
+
+(defn load-config-or-throw!
+  [config-file-path]
+  (let [config (files/read-situated-edn-file config-file-path)]
+    (if (spec/valid? ::config-spec/config config)
+      (assoc config :config-file-path config-file-path)
+      (throw (ex-info (format "Invalid config file [%s]:\n%s"
+                              config-file-path
+                              (spec/explain-str ::config-spec/config config))
+                      {::config config
+                       ::spec-explanation (spec/explain-data ::config-spec/config config)})))))
 
 (defn load-config!
   [config-file-path]
-  (let [config (edn/read-string (slurp config-file-path))]
-    (if (spec/valid? ::config-spec/config config)
-      (assoc config :config-file-path config-file-path)
-      (log-str (format "Invalid config file [%s]:\n%s"
-                       config-file-path
-                       (spec/explain-str ::config-spec/config config))))))
+  (try
+    (load-config-or-throw! config-file-path)
+    (catch Exception err
+      (log-str (ex-message err)))))
 
 (defn process-config-file!
   [config-file-path]
@@ -3450,13 +4036,13 @@ processing scripts will run to process binary outputs into a directory
 structure containing geoTIFF files and then packed into a tarball.
 This tarball is sent over scp into another server for processing.
 
-*** Preprocessing dependencies
+*** Preprocessing Dependencies
 
 The processing of active fire and match drop runs require the following package to work:
 
 - babashka
 
-*** Postprocessing dependencies
+*** Postprocessing Dependencies
 
 The Post processing scripts require the following packages to work:
 
@@ -3571,7 +4157,29 @@ Here's an example of fetching LANDFIRE layers from a Postgresql database.
                                            :source "landfire.dem WHERE rid=100"}}}
 #+end_src
 
-Here's an example of fetching LANDFIRE layers from files on disk.
+Here's an example of fetching LANDFIRE layers from files on disk using
+relative paths to where the gridfire.edn resides.
+#+begin_src clojure
+{:landfire-layers {:aspect             {:type   :geotiff
+                                        :source #gridfire.utils.files/from-this-file "./asp.tif"}
+                   :canopy-base-height {:type   :geotiff
+                                        :source #gridfire.utils.files/fromj-this-file "./cbh.tif"}
+                   :canopy-cover       {:type   :geotiff
+                                        :source #gridfire.utils.files/fromj-this-file "./cc.tif"}
+                   :canopy-height      {:type   :geotiff
+                                        :source #gridfire.utils.files/fromj-this-file "./ch.tif"}
+                   :crown-bulk-density {:type   :geotiff
+                                        :source #gridfire.utils.files/fromj-this-file "./cbd.tif"}
+                   :elevation          {:type   :geotiff
+                                        :source #gridfire.utils.files/fromj-this-file "./dem.tif"}
+                   :fuel-model         {:type   :geotiff
+                                        :source #gridfire.utils.files/fromj-this-file "./fbfm40.tif"}
+                   :slope              {:type   :geotiff
+                                        :source #gridfire.utils.files/fromj-this-file "./slp.tif"}}}
+#+end_src
+
+Here's an example of fetching LANDFIRE layers from files on disk using
+full file paths.
 #+begin_src clojure
 {:landfire-layers {:aspect             {:type   :geotiff
                                         :source "test/gridfire/resources/asp.tif"}
@@ -3713,6 +4321,7 @@ this functionality.
 
 #+name: fetch.clj
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fetch.clj :padline no :no-expand :comments link
+;; FIXME update when PR approved
 (ns gridfire.fetch
   (:require [clojure.string           :as s]
             [gridfire.conversion      :as convert]
@@ -3756,9 +4365,9 @@ this functionality.
         convert-fn                             (convert/get-units-converter layer-name
                                                                             units
                                                                             (or multiplier 1.0))
-        datatype                               (if (= layer-name :fuel-model)
-                                                 :int32
-                                                 :float32)]
+        datatype                               (if (= layer-name :fuel-model) ;TODO investigate why postgis
+                                                 :int32                       ;     fuel-model is not converted
+                                                 :float32)]                   ;     to int32
     (if (= type :postgis)
       (cond-> (postgis-raster-to-matrix db-spec source)
         convert-fn (update :matrix #(d/copy! (d/emap convert-fn datatype %) %)))
@@ -3811,7 +4420,7 @@ this functionality.
   (let [weather-spec (get config weather-name)]
     (when (map? weather-spec)
       (let [{:keys [type source units multiplier]} weather-spec
-            convert-fn (convert/get-units-converter weather-name units (or multiplier 1.0))]
+            convert-fn                             (convert/get-units-converter weather-name units (or multiplier 1.0))]
         (if (= type :postgis)
           (cond-> (postgis-raster-to-matrix db-spec source)
             convert-fn (update :matrix #(d/copy! (d/emap convert-fn :float32 %) %)))
@@ -3834,6 +4443,21 @@ this functionality.
           (cond-> (postgis-raster-to-matrix db-spec source)
             convert-fn (update :matrix #(d/copy! (d/emap convert-fn :float32 %) %)))
           (geotiff-raster-to-tensor source :float32 convert-fn))))))
+
+;;-----------------------------------------------------------------------------
+;; Suppression Difficulty Index Layer
+;;-----------------------------------------------------------------------------
+
+(defn sdi-layer
+  [{:keys [db-spec suppression]}]
+  (when-let [{:keys [type source units multiplier] :as _spec} (:sdi-layer suppression)]
+    (let [convert-fn (convert/get-units-converter :suppression
+                                                  units
+                                                  (or multiplier 1.0))]
+      (if (= type :postgis)
+        (cond-> (postgis-raster-to-matrix db-spec source)
+          convert-fn (update :matrix #(d/copy! (d/emap convert-fn :float32 %) %)))
+        (geotiff-raster-to-tensor source :float32 convert-fn)))))
 #+end_src
 
 ** Section 3: Weather data from which to build simulation inputs
@@ -4014,7 +4638,7 @@ Other output mappings:
 
 ** Section 6: Perturbations
 
-Gridfire supports puturbations of input rasters during simulations in
+Gridfire supports perturbations of input rasters during simulations in
 order to account for inherent uncertainty in the data. A uniform
 random sampling of values within a given range is used to address
 these uncertanties.
@@ -4031,8 +4655,32 @@ To specify this in the config file include the following mappings:
 The above config specify that a randomly selected value between -1.0
 and 1.0 should be added to the canopy height value. This perturbation
 will be applied globally to all cells. We could also, instead, specify
-that each cell should be perturbed individually by setting *:spatial-type*
-to *:pixel*.
+that each individual cell should be perturbed independently
+by setting *:spatial-type* to *:pixel*. Finally, we can specify a non-constant
+but smoother perturbation by setting *:spatial-type* to *:smoothed-supergrid*
+along with some more configuration:
+
+#+begin_src clojure
+{:perturbations {:canopy-height {:spatial-type :smoothed-supergrid
+                                 ;; Supergrid size param: number of subdivisions along each of the (b, i, j) axes
+                                 ;; For a value of [sb si sj], the number of supergrid points will be (sb + 2)(si + 2)(sj + 2).
+                                 ;; Recommendation: stick to small integers to avoid making the perturbation too wiggly.
+                                 :gridfire.perturbation.smoothed-supergrid/supergrid-size [2 3 3]
+                                 :range [-1. 1.]}}}
+#+end_src
+
+The above will behave similarly to a `:pixel` perturbation,
+except that the i.i.d 'white noise' is sampled not on each
+individual pixel of the space-time grid,
+but on a small-cardinality coarser-grained 'supergrid';
+values for each individual pixel will then be resolved by linear
+smoothing (i.e. averaging) between the 8 corners of the supergrid
+cell containing it. *Limitations:* smoothed-supergrid perturbations
+are not isotropic in space, nor are they spatially homogeneous
+(generated perturbations will be smoother near the center of supergrid cells
+than near their edges) - a potential direction to address these
+shortcomings would be to generate the supergrid by sampling an RBF Gaussian Process
+rather than i.i.d uniform distributions.
 
 Gridfire expects perturbations to be in imperial units. If these perturbations
 are meant to be in metric, you must include an entry for the units:
@@ -4042,6 +4690,141 @@ are meant to be in metric, you must include an entry for the units:
                                  :range        [-1.0 1.0]
                                  :units        :metric}}}
 #+end_src
+
+For efficient execution, a custom pseudo-random generation algorithm
+has been designed for ~{:spatial-type :pixel}~ perturbations,
+which we call Hash-Determined Pixel Perturbations. The tradeoff of this
+algorithm is efficient execution (very low cost in both time and memory usage)
+at the expense of a potentially slightly degraded pseudo-randomness.
+
+*** Hash-Determined Pixel Perturbations
+
+Logically, ~{:spatial-type :pixel}~ perturbations consist of filling a discrete grid
+with "white noise", by sampling one independent random variable per grid cell ('pixel').
+Computationally, however, exhaustively realizing the whole grid of random perturbations
+would be prohibitively expensive, and also wasteful, since oftentimes only a small
+fraction of the perturbations are ever read by the simulation program - this is the case
+when the perturbations must happen on Hour-band × X × Y grid (~[b i j]~ in code),
+which can contain billions of cells, of which only a few millions will actually use their perturbation
+during simulation.
+
+One strategy we previously used is laziness: sampling the per-pixel random variables
+as they are requested by the simulation, while maintaining a cache of the sampled values,
+such that subsequent reads all see the same results.
+
+We have found a more efficient strategy, however, which we dubbed /Hash-Determined Pixel Perturbations/:
+HDPP approximates the \text{p}: \text{cell} \mapsto \text{perturbation} random function
+by a composition of:
+
+1. a deterministic hashing function \text{h}: \text{cell} \mapsto \text{hash-bucket},
+   where \text{hash-bucket} is an integer between 0 and 2^d (say, 1024)
+2. a random function \pi: \text{hash-bucket} \mapsto \text{perturbation}
+
+Concretely, the computation of perturbations goes as follows:
+
+1. Eagerly generate and store a 2^d-length array `h->perturb` of randomly-sampled pertubation values.
+2. When the perturbation for cell ~[b i j]~ is requested, compute it as:
+
+#+begin_src clojure
+(fn resolve-perturbation [h->perturb b i j]
+  (let [coords-hash (hash-pixel-coordinates b i j)]
+    (nth h->perturb coords-hash)))
+#+end_src
+
+The above pseudo-code is very close to Gridfire's actual implementation code for HDPP,
+which differs only to leverage more efficient JVM-primitive operations:
+
+#+name: hdpp-implementation
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/perturbations/pixel/hash_determined.clj :no-expand :comments link
+(ns gridfire.perturbations.pixel.hash-determined
+  "Implements 'Hash-Determined Pixel Perturbations' (a name chosen by the GridFire team),
+  an algorithm for efficiently emulating a 'white noise' random process on a large discrete grid,
+  without having to generate a random perturbation for each cell of the entire grid,
+  nor even for each requested cell."
+  (:import (org.apache.commons.codec.digest MurmurHash3)))
+
+(defn- is-power-of-2?
+  [^long n]
+  (if-not (pos-int? n)
+    false
+    (cond
+      (= n 1) true
+      (odd? n) false
+      :else (recur (quot n 2)))))
+
+(comment
+
+  (def n 2r1000)
+  (is-power-of-2? 2r1000)
+  (is-power-of-2? 2r1010)
+
+  *e)
+
+(defn gen-hash->perturbation
+  "Randomly populates an array mapping hash buckets to perturbations.
+
+  Given:
+  - n-buckets: a power of 2, the number of hash buckets,
+  - gen-perturbation: a 1-arg function, accepting a hash bucket h (an integer < n-buckets)
+    and returning a double, presumably sampled from the desired distribution of perturbations
+    (Typically, the argument h will not be used, but it might serve to implement a form of reproducible
+    pseudo-randomness.),
+
+  returns an array of length n-buckets."
+  ^doubles
+  [n-buckets gen-perturbation]
+  {:pre [(is-power-of-2? n-buckets)]}
+  (into-array
+    Double/TYPE
+    (map
+      gen-perturbation
+      (range n-buckets))))
+
+(defn resolve-perturbation-for-coords
+  "Resolves the random perturbation for the grid cell ('pixel') of the supplied coordinates,
+  using the h->perturb returned by #'gen-hash->perturbation.
+
+  This function is deterministic: all the randomness happened when h->perturb was created."
+  (^double [^doubles h->perturb ^long i ^long j]
+   (let [n-buckets   (alength h->perturb)
+         coords-hash (->
+                       (->> (int 36791)
+                            (MurmurHash3/hash32 i j))
+                       (bit-and (dec n-buckets)))]
+     (aget h->perturb coords-hash)))
+  (^double [^doubles h->perturb ^long b ^long i ^long j]
+   (let [n-buckets   (alength h->perturb)
+         coords-hash (->
+                       (->> (int 6053696) ;; randomly chosen seed.
+                            ;; Compared to clojure.core's (hash) or (hash-combine) functions, MurmurHash3 buys us 2 things:
+                            ;; 1. a guarantee of stable behaviour - the hashing functions will still return
+                            ;; the same results after upgrading. That's not guaranteed with (hash).
+                            ;; 2. Better performance, since those methods have primitive signatures.
+                            ;; (this performance gain was empirically observed).
+                            (MurmurHash3/hash32 i j)
+                            (MurmurHash3/hash32 b))
+                       (bit-and ;; fast modulo op - that's why we require n-buckets to be a power of 2.
+                         ;; NOTE there is no significant efficiency gain to replacing this expr with a hardcoded int like 2r111111111.
+                         (dec n-buckets)))]
+     (aget h->perturb coords-hash))))
+#+end_src
+
+This approach is very efficient because we only generate and store 1024 random values
+instead of one per requested pixel, and both Murmur3 hashing and small-constant-array lookup are very fast
+operations.
+
+Fundamentally, we are leveraging the fact that hashing functions like Murmur3 have been designed
+to efficiently emulate a form of randomness.
+
+With respect to simulation behaviour, such a perturbation process is effectively equivalent to
+"truly random" perturbations. The use of a hashing function might slightly degrade the quality of the randomness,
+creating more correlations than true IID randomness, but we have already accepted a similar tradeoff
+by adopting pseudo-random generators like ~java.util.Random~. If our sampling algorithm for individual values
+was truly random, we would indeed be reducing the entropy of our perturbations process
+from billions of bits to a few thousands; but we're basing all this on deterministic pseudo-random generators anyway,
+which means that the entropy is, strictly speaking, 0.
+Visual inspection shows that an HDPP-generated perturbation map exhibits no more perceptible patterns
+than an iid-generated one.
 
 ** Section 7: Spotting
 
@@ -4134,18 +4917,26 @@ value pair at the top level of the config file:
 ** Section 11: Burn period
 
 Gridfire allows you to specify a burn period in the day that fires are
-allowed to burn. By default it is set to burn from "00:00" to "24:00".
-To specify a different period, you must include a few keys at the top
+allowed to burn. The burn period can be specified in two ways:
+
+1. Explicitly setting the start and end clock.
+
+2. Inferring the start and end clock by computing the approximate sunrise and sunset times
+   using the geospatial data in the input landfire layer.
+
+By default the burn-period is set from "00:00" to "24:00".
+
+To explicitly set a burn period, you must include a few keys at the top
 level of the config file.
 
-1. *:burn-period*: map with the following keys:
+1. *:burn-period* :: map with the following keys:
 
-- *:start* : a string with the format HH:MM
-- *:end* : a string with the format HH:MM
+- *:start* :: a string with the format HH:MM
+- *:end* :: a string with the format HH:MM
 
-2. *:weather-start-timestamp* : inst (timezone aware)
+2. *:weather-start-timestamp* :: inst (timezone aware)
 
-3. *:ignition-start-timestamp* : inst (timezone aware)
+3. *:ignition-start-timestamp* :: inst (timezone aware)
 
 #+begin_src clojure
 {:burn-period               {:start "08:00", :end "9:00"}
@@ -4153,7 +4944,73 @@ level of the config file.
  :ignition-start-timestamp  #inst "2022-07-12T09:05:00.000-00:00"}
 #+end_src
 
-* Example Configuration files
+To infer the burn period using the sunrise and sunset of the input
+data, you must include a few keys at the top level of the config file.
+
+1. *:burn-period-frac* :: A number from 0.0 to 1.0, positioning the
+   center of the burn period in the interval between sunrise and
+   sunset
+
+2. *:burn-period-length* :: Length of the burn period, in hours
+
+3. *:weather-start-timestamp* :: inst (timezone aware)
+
+4. *:ignition-start-timestamp* :: inst (timezone aware)
+
+#+begin_src clojure
+{:burn-period-frac          0.6
+ :burn-period-duration      10.0
+ :weather-start-timestamp   #inst "2022-07-12T09:00:00.000+00:00"
+ :ignition-start-timestamp  #inst "2022-07-12T09:05:00.000-00:00"}
+#+end_src
+
+** Section 12: Suppression
+
+GridFire supports suppression of fires. Suppression emulates human
+interventions reacting to fire spread by suppressing ('putting out')
+chosen contiguous segments of the fire front, typically backing and
+flanking fires. There are two suppression algorithms supported. Each
+algorithm is aimed at computing the percentage of the perimeter of the
+fire that should be contained. To enable suppression you must include
+the key *:suppression* at the top level of the config file.
+
+The *:suppression* key value is a map containing a different set of required
+entries depending on which suppression algorithm you want to use.
+
+One approach uses a suppression curve algorithm. To enable this include the
+following:
+
+- *suppression-dt* :: the time (in minutes) betweeen suppression events
+- *suppression-coefficient* :: a constant calibration
+  unit (see section 5.6.1)
+
+#+begin_src clojure
+{:suppression {:suppression-dt          60.0
+               :suppression-coefficient 2.0}}
+#+end_src
+
+Another approach uses the suppression difficulty index raster layer.
+To enable this include the following:
+
+- *suppression-dt* :: the time (in minutes) betweeen suppression events
+- *sdi-layer* :: a map of fetch specifications
+- *sdi-sensitivity-to-difficulty* :: a calibration constant
+- *sdi-reference-suppression-speed* :: a calibration constant
+- *sdi-containment-overwhelming-area-growth-rate* :: a calibration constant
+
+For more information about these parameters see section 5.6.2
+
+#+begin_src clojure
+:suppression {:suppression-dt                                60.0
+              :sdi-layer                                     {:type       :geotiff
+                                                              :source     "path/to/geotiff"
+                                                              :multiplier 0.01}
+              :sdi-sensitivity-to-difficulty                 2.0
+              :sdi-containment-overwhelming-area-growth-rate 5000.0
+              :sdi-reference-suppression-speed               100.0}
+#+end_src
+
+* Example Configuration Files
 
 Here is a complete sample configuration for using landfire layers from our postigs enabled
 database and initializing burn points from a range of values.

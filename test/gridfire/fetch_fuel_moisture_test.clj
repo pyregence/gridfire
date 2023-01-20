@@ -2,7 +2,7 @@
   (:require
    [clojure.test                :refer [deftest are]]
    [gridfire.fetch              :as fetch]
-   [gridfire.magellan-bridge    :refer [geotiff-raster-to-matrix]]
+   [gridfire.magellan-bridge    :refer [geotiff-raster-to-tensor]]
    [gridfire.utils.test         :as utils]
    [gridfire.conversion         :as convert]
    [tech.v3.datatype            :as d]
@@ -13,7 +13,7 @@
 (defn- equal-matrix?
   [inputs category size]
   (let [matrix (-> (get-in inputs [:fuel-moisture category size :source])
-                   geotiff-raster-to-matrix
+                   geotiff-raster-to-tensor
                    :matrix)]
     (dfn/equals (:matrix (fetch/fuel-moisture-layer inputs category size))
                 (d/clone (d/emap convert/percent->dec nil matrix)))))
@@ -37,3 +37,7 @@
       :dead :100hr
       :live :herbaceous
       :live :woody)))
+(comment
+  (clojure.test/test-vars [#'fuel-moisture-test])
+
+  *e)

@@ -1,0 +1,440 @@
+{:cell-size 98.43,
+ :ellipse-adjustment-factor 1.0,
+ :foliar-moisture 90.0,
+ :fractional-distance-combination :sum,
+ :fuel-moisture
+ {:dead
+  {:1hr
+   {:type :grid-of-rasters,
+    :rasters-grid
+    [[{:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m1_1_3.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m1_2_3.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m1_3_3.bsq"}]
+     [{:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m1_1_2.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m1_2_2.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m1_3_2.bsq"}]
+     [{:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m1_1_1.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m1_2_1.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m1_3_1.bsq"}]]},
+   :10hr
+   {:type :grid-of-rasters,
+    :rasters-grid
+    [[{:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m10_1_3.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m10_2_3.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m10_3_3.bsq"}]
+     [{:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m10_1_2.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m10_2_2.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m10_3_2.bsq"}]
+     [{:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m10_1_1.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m10_2_1.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source
+       #gridfire.utils.files/from-this-file "./m10_3_1.bsq"}]]},
+   :100hr
+   {:type :grid-of-rasters,
+    :rasters-grid
+    [[{:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m100_1_3.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m100_2_3.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m100_3_3.bsq"}]
+     [{:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m100_1_2.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m100_2_2.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m100_3_2.bsq"}]
+     [{:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m100_1_1.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./m100_2_1.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source
+       #gridfire.utils.files/from-this-file "./m100_3_1.bsq"}]]}},
+  :live
+  {:woody
+   {:type :grid-of-rasters,
+    :rasters-grid
+    [[{:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./lw_1_3.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./lw_2_3.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./lw_3_3.bsq"}]
+     [{:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./lw_1_2.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./lw_2_2.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./lw_3_2.bsq"}]
+     [{:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./lw_1_1.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./lw_2_1.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./lw_3_1.bsq"}]]},
+   :herbaceous
+   {:type :grid-of-rasters,
+    :rasters-grid
+    [[{:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./lh_1_3.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./lh_2_3.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./lh_3_3.bsq"}]
+     [{:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./lh_1_2.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./lh_2_2.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./lh_3_2.bsq"}]
+     [{:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./lh_1_1.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source #gridfire.utils.files/from-this-file "./lh_2_1.bsq"}
+      {:type :gridfire-envi-bsq,
+       :source
+       #gridfire.utils.files/from-this-file "./lh_3_1.bsq"}]]}}},
+ :landfire-layers
+ {:aspect
+  {:type :grid-of-rasters,
+   :rasters-grid
+   [[{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./asp_1_3.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./asp_2_3.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./asp_3_3.bsq"}]
+    [{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./asp_1_2.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./asp_2_2.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./asp_3_2.bsq"}]
+    [{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./asp_1_1.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./asp_2_1.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./asp_3_1.bsq"}]]},
+  :canopy-base-height
+  {:type :grid-of-rasters,
+   :rasters-grid
+   [[{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cbh_1_3.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cbh_2_3.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cbh_3_3.bsq"}]
+    [{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cbh_1_2.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cbh_2_2.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cbh_3_2.bsq"}]
+    [{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cbh_1_1.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cbh_2_1.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cbh_3_1.bsq"}]],
+   :units :metric,
+   :multiplier 0.1},
+  :canopy-cover
+  {:type :grid-of-rasters,
+   :rasters-grid
+   [[{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cc_1_3.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cc_2_3.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cc_3_3.bsq"}]
+    [{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cc_1_2.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cc_2_2.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cc_3_2.bsq"}]
+    [{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cc_1_1.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cc_2_1.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cc_3_1.bsq"}]]},
+  :canopy-height
+  {:type :grid-of-rasters,
+   :rasters-grid
+   [[{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./ch_1_3.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./ch_2_3.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./ch_3_3.bsq"}]
+    [{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./ch_1_2.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./ch_2_2.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./ch_3_2.bsq"}]
+    [{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./ch_1_1.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./ch_2_1.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./ch_3_1.bsq"}]],
+   :units :metric,
+   :multiplier 0.1},
+  :crown-bulk-density
+  {:type :grid-of-rasters,
+   :rasters-grid
+   [[{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cbd_1_3.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cbd_2_3.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cbd_3_3.bsq"}]
+    [{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cbd_1_2.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cbd_2_2.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cbd_3_2.bsq"}]
+    [{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cbd_1_1.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cbd_2_1.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./cbd_3_1.bsq"}]],
+   :units :metric,
+   :multiplier 0.01},
+  :elevation
+  {:type :grid-of-rasters,
+   :rasters-grid
+   [[{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./dem_1_3.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./dem_2_3.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./dem_3_3.bsq"}]
+    [{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./dem_1_2.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./dem_2_2.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./dem_3_2.bsq"}]
+    [{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./dem_1_1.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./dem_2_1.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./dem_3_1.bsq"}]],
+   :units :metric},
+  :fuel-model
+  {:type :grid-of-rasters,
+   :rasters-grid
+   [[{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./fbfm40_1_3.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./fbfm40_2_3.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./fbfm40_3_3.bsq"}]
+    [{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./fbfm40_1_2.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./fbfm40_2_2.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./fbfm40_3_2.bsq"}]
+    [{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./fbfm40_1_1.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./fbfm40_2_1.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source
+      #gridfire.utils.files/from-this-file "./fbfm40_3_1.bsq"}]]},
+  :slope
+  {:type :grid-of-rasters,
+   :rasters-grid
+   [[{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./slp_1_3.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./slp_2_3.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./slp_3_3.bsq"}]
+    [{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./slp_1_2.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./slp_2_2.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./slp_3_2.bsq"}]
+    [{:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./slp_1_1.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source #gridfire.utils.files/from-this-file "./slp_2_1.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source
+      #gridfire.utils.files/from-this-file "./slp_3_1.bsq"}]]}},
+ :max-runtime 40320.0,
+ :outfile-suffix "",
+ :output-binary? true,
+ :output-csvs? true,
+ :output-directory #gridfire.utils.files/from-this-file "./",
+ :output-geotiffs? false,
+ :output-landfire-inputs? false,
+ :output-pngs? false,
+ :parallel-strategy :between-fires,
+ :perturbations
+ {:wind-speed-20ft {:spatial-type :global, :range [-2.0 2.0]},
+  :wind-from-direction {:spatial-type :global, :range [-7.5 7.5]},
+  :fuel-moisture-dead-1hr
+  {:spatial-type :global, :range [-0.02 0.0], :units :ratio},
+  :fuel-moisture-dead-10hr
+  {:spatial-type :global, :range [-0.02 0.0], :units :ratio},
+  :fuel-moisture-dead-100hr
+  {:spatial-type :global, :range [-0.02 0.0], :units :ratio},
+  :fuel-moisture-live-herbaceous
+  {:spatial-type :global, :range [-0.3 0.3], :units :ratio},
+  :fuel-moisture-live-woody
+  {:spatial-type :global, :range [-0.3 0.3], :units :ratio}},
+ :random-ignition
+ {:ignition-mask
+  {:type :grid-of-rasters,
+   :rasters-grid
+   [[{:type :gridfire-envi-bsq,
+      :source
+      #gridfire.utils.files/from-this-file "./ignition_density_1_3.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source
+      #gridfire.utils.files/from-this-file "./ignition_density_2_3.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source
+      #gridfire.utils.files/from-this-file "./ignition_density_3_3.bsq"}]
+    [{:type :gridfire-envi-bsq,
+      :source
+      #gridfire.utils.files/from-this-file "./ignition_density_1_2.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source
+      #gridfire.utils.files/from-this-file "./ignition_density_2_2.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source
+      #gridfire.utils.files/from-this-file "./ignition_density_3_2.bsq"}]
+    [{:type :gridfire-envi-bsq,
+      :source
+      #gridfire.utils.files/from-this-file "./ignition_density_1_1.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source
+      #gridfire.utils.files/from-this-file "./ignition_density_2_1.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source
+      #gridfire.utils.files/from-this-file "./ignition_density_3_1.bsq"}]]},
+  :edge-buffer 157488.0},
+ :random-seed nil,
+ :relative-humidity 20,
+ :simulations -1,
+ :spotting
+ {:mean-distance {:lo 5.0, :hi 10.0},
+  :ws-exp {:lo 0.4, :hi 0.7},
+  :flin-exp {:lo 0.2, :hi 0.4},
+  :normalized-distance-variance {:lo 250.0, :hi 600.0},
+  :crown-fire-spotting-percent [0.195 0.975],
+  :num-firebrands {:lo 2, :hi 2},
+  :decay-constant 0.005,
+  :surface-fire-spotting
+  {:spotting-percent [[[1 303] [0.13 0.52]]],
+   :critical-fire-line-intensity 346.65531039276726}},
+ :srid "EPSG:5070",
+ :suppression
+ {:suppression-dt 60.0,
+  :sdi-layer
+  {:type :grid-of-rasters,
+   :rasters-grid
+   [[{:type :gridfire-envi-bsq,
+      :source
+      #gridfire.utils.files/from-this-file "./2020_90_SDIx100_1_3.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source
+      #gridfire.utils.files/from-this-file "./2020_90_SDIx100_2_3.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source
+      #gridfire.utils.files/from-this-file "./2020_90_SDIx100_3_3.bsq"}]
+    [{:type :gridfire-envi-bsq,
+      :source
+      #gridfire.utils.files/from-this-file "./2020_90_SDIx100_1_2.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source
+      #gridfire.utils.files/from-this-file "./2020_90_SDIx100_2_2.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source
+      #gridfire.utils.files/from-this-file "./2020_90_SDIx100_3_2.bsq"}]
+    [{:type :gridfire-envi-bsq,
+      :source
+      #gridfire.utils.files/from-this-file "./2020_90_SDIx100_1_1.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source
+      #gridfire.utils.files/from-this-file "./2020_90_SDIx100_2_1.bsq"}
+     {:type :gridfire-envi-bsq,
+      :source
+      #gridfire.utils.files/from-this-file "./2020_90_SDIx100_3_1.bsq"}]]},
+  :sdi-sensitivity-to-difficulty 1.0,
+  :sdi-containment-overwhelming-area-growth-rate 5000.0,
+  :sdi-reference-suppression-speed 60.0},
+ :temperature 80,
+ :wind-from-direction
+ {:type :grid-of-rasters,
+  :rasters-grid
+  [[{:type :gridfire-envi-bsq,
+     :source #gridfire.utils.files/from-this-file "./wd_1_3.bsq"}
+    {:type :gridfire-envi-bsq,
+     :source #gridfire.utils.files/from-this-file "./wd_2_3.bsq"}
+    {:type :gridfire-envi-bsq,
+     :source #gridfire.utils.files/from-this-file "./wd_3_3.bsq"}]
+   [{:type :gridfire-envi-bsq,
+     :source #gridfire.utils.files/from-this-file "./wd_1_2.bsq"}
+    {:type :gridfire-envi-bsq,
+     :source #gridfire.utils.files/from-this-file "./wd_2_2.bsq"}
+    {:type :gridfire-envi-bsq,
+     :source #gridfire.utils.files/from-this-file "./wd_3_2.bsq"}]
+   [{:type :gridfire-envi-bsq,
+     :source #gridfire.utils.files/from-this-file "./wd_1_1.bsq"}
+    {:type :gridfire-envi-bsq,
+     :source #gridfire.utils.files/from-this-file "./wd_2_1.bsq"}
+    {:type :gridfire-envi-bsq,
+     :source #gridfire.utils.files/from-this-file "./wd_3_1.bsq"}]]},
+ :wind-speed-20ft
+ {:type :grid-of-rasters,
+  :rasters-grid
+  [[{:type :gridfire-envi-bsq,
+     :source #gridfire.utils.files/from-this-file "./ws_1_3.bsq"}
+    {:type :gridfire-envi-bsq,
+     :source #gridfire.utils.files/from-this-file "./ws_2_3.bsq"}
+    {:type :gridfire-envi-bsq,
+     :source #gridfire.utils.files/from-this-file "./ws_3_3.bsq"}]
+   [{:type :gridfire-envi-bsq,
+     :source #gridfire.utils.files/from-this-file "./ws_1_2.bsq"}
+    {:type :gridfire-envi-bsq,
+     :source #gridfire.utils.files/from-this-file "./ws_2_2.bsq"}
+    {:type :gridfire-envi-bsq,
+     :source #gridfire.utils.files/from-this-file "./ws_3_2.bsq"}]
+   [{:type :gridfire-envi-bsq,
+     :source #gridfire.utils.files/from-this-file "./ws_1_1.bsq"}
+    {:type :gridfire-envi-bsq,
+     :source #gridfire.utils.files/from-this-file "./ws_2_1.bsq"}
+    {:type :gridfire-envi-bsq,
+     :source #gridfire.utils.files/from-this-file "./ws_3_1.bsq"}]]}}

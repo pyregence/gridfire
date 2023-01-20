@@ -1,0 +1,107 @@
+{:cell-size 98.43,
+ :ellipse-adjustment-factor 1.0,
+ :foliar-moisture 90.0,
+ :fractional-distance-combination :sum,
+ :fuel-moisture
+ {:dead
+  {:1hr
+   {:type :geotiff,
+    :source #gridfire.utils.files/from-this-file "./weather/m1.tif"},
+   :10hr
+   {:type :geotiff,
+    :source #gridfire.utils.files/from-this-file "./weather/m10.tif"},
+   :100hr
+   {:type :geotiff,
+    :source
+    #gridfire.utils.files/from-this-file "./weather/m100.tif"}},
+  :live {:woody 0.8, :herbaceous 0.3}},
+ :landfire-layers
+ {:aspect
+  {:type :geotiff,
+   :source
+   #gridfire.utils.files/from-this-file "./fuels_and_topography/asp.tif"},
+  :canopy-base-height
+  {:type :geotiff,
+   :source
+   #gridfire.utils.files/from-this-file "./fuels_and_topography/cbh.tif",
+   :units :metric,
+   :multiplier 0.1},
+  :canopy-cover
+  {:type :geotiff,
+   :source
+   #gridfire.utils.files/from-this-file "./fuels_and_topography/cc.tif"},
+  :canopy-height
+  {:type :geotiff,
+   :source
+   #gridfire.utils.files/from-this-file "./fuels_and_topography/ch.tif",
+   :units :metric,
+   :multiplier 0.1},
+  :crown-bulk-density
+  {:type :geotiff,
+   :source
+   #gridfire.utils.files/from-this-file "./fuels_and_topography/cbd.tif",
+   :units :metric,
+   :multiplier 0.01},
+  :elevation
+  {:type :geotiff,
+   :source
+   #gridfire.utils.files/from-this-file "./fuels_and_topography/dem.tif",
+   :units :metric},
+  :fuel-model
+  {:type :geotiff,
+   :source
+   #gridfire.utils.files/from-this-file "./fuels_and_topography/fbfm40.tif"},
+  :slope
+  {:type :geotiff,
+   :source
+   #gridfire.utils.files/from-this-file "./fuels_and_topography/slp.tif"}},
+ :max-runtime 4320.0,
+ :outfile-suffix "",
+ :output-binary? true,
+ :output-csvs? true,
+ :output-directory #gridfire.utils.files/from-this-file "./outputs",
+ :output-geotiffs? false,
+ :output-landfire-inputs? false,
+ :output-pngs? false,
+ :parallel-strategy :between-fires,
+ :perturbations
+ {:wind-speed-20ft {:spatial-type :global, :range [-2.0 2.0]},
+  :wind-from-direction {:spatial-type :global, :range [-7.5 7.5]},
+  :fuel-moisture-dead-1hr
+  {:spatial-type :global, :range [-0.01 0.01], :units :ratio},
+  :fuel-moisture-dead-10hr
+  {:spatial-type :global, :range [-0.01 0.01], :units :ratio},
+  :fuel-moisture-dead-100hr
+  {:spatial-type :global, :range [-0.01 0.01], :units :ratio},
+  :canopy-cover {:spatial-type :global, :range [-0.05 0.05]},
+  :canopy-height
+  {:spatial-type :global, :range [-5.0 5.0], :units :metric}},
+ :random-ignition
+ {:ignition-mask
+  {:type :geotiff,
+   :source
+   #gridfire.utils.files/from-this-file "./fuels_and_topography/ignition_mask.tif"},
+  :edge-buffer 98.43},
+ :random-seed 2021,
+ :relative-humidity 20,
+ :simulations 1000,
+ :spotting
+ {:mean-distance {:lo 5.0, :hi 15.0},
+  :ws-exp {:lo 0.4, :hi 0.7},
+  :flin-exp {:lo 0.2, :hi 0.4},
+  :normalized-distance-variance {:lo 250.0, :hi 600.0},
+  :crown-fire-spotting-percent [0.005 0.02],
+  :num-firebrands {:lo 1, :hi [1 2]},
+  :decay-constant 0.005,
+  :surface-fire-spotting
+  {:spotting-percent [[[1 303] [0.001 0.003]]],
+   :critical-fire-line-intensity 288.879425327306}},
+ :srid "EPSG:32610",
+ :temperature 80,
+ :wind-from-direction
+ {:type :geotiff,
+  :gridfire.input/add-correction-angle360 -7.45293754
+  :source #gridfire.utils.files/from-this-file "./weather/wd.tif"},
+ :wind-speed-20ft
+ {:type :geotiff,
+  :source #gridfire.utils.files/from-this-file "./weather/ws.tif"}}

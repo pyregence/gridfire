@@ -1,6 +1,9 @@
 (ns gridfire.spec.common
-  (:require [clojure.java.io    :as io]
-            [clojure.spec.alpha :as s]))
+  (:require [clojure.java.io                      :as io]
+            [clojure.spec.alpha                   :as s]
+            [gridfire.spec.inputs.file-raster     :as spec-file]
+            [gridfire.spec.inputs.grid-of-rasters :as spec-grid]
+            [gridfire.spec.inputs.sql             :as spec-sql]))
 
 ;;=============================================================================
 ;; Numeric Samples
@@ -81,14 +84,21 @@
 (s/def ::file-path      (s/and string? #(re-matches file-path-regex %)))
 (s/def ::directory-path (s/and string? #(re-matches directory-path-regex %)))
 
+(def ^:dynamic *check-files-exist?*
+  "Whether to check for existing files when validating the GridFire config."
+  true)
+
 (defn file-exists? [f]
-  (.exists (io/file f)))
+  (or (not *check-files-exist?*)
+      (.exists (io/file f))))
 
 (defn file-readable? [f]
-  (.canRead (io/file f)))
+  (or (not *check-files-exist?*)
+      (.canRead (io/file f))))
 
 (defn file-writable? [f]
-  (.canWrite (io/file f)))
+  (or (not *check-files-exist?*)
+      (.canWrite (io/file f))))
 
 (s/def ::readable-file (s/and ::file-path file-exists? file-readable?))
 (s/def ::writable-file (s/and ::file-path file-exists? file-writable?))
@@ -100,18 +110,14 @@
 ;; Layer Coords
 ;;=============================================================================
 
-(def postgis-sql-regex #"[a-z0-9]+(\.[a-z0-9]+)? WHERE rid=[0-9]+")
+;; NOTE that this spec is refined in each subtype of inputs.
+(s/def ::type keyword?)
 
-(def geotiff-regex #".*\.tif$")
-
-(s/def ::sql (s/and string? #(re-matches postgis-sql-regex %)))
-
-(s/def ::geotiff (s/and ::readable-file #(re-matches geotiff-regex %)))
-
-(s/def ::source (s/or :sql     ::sql
-                      :geotiff ::geotiff))
-
-(s/def ::type #{:geotiff :postgis})
+(s/def ::raw-layer-coords-map
+  (s/and (s/keys :req-un [::type])
+         (s/or :postgis         ::spec-sql/postgis-coords-map
+               :grid-of-rasters ::spec-grid/raw-layer-coords-map
+               :file-raster     ::spec-file/raw-layer-coords-map)))
 
 (s/def ::cell-size number?)
 
@@ -119,12 +125,15 @@
 
 (s/def ::multiplier number?)
 
-(s/def ::postgis-or-geotiff
-  (s/keys :req-un [::source ::type]
-          :opt-un [::cell-size ::unit ::multiplier]))
+(s/def :gridfire.input/add-correction-angle360 number?)
 
-(s/def ::layer-coords (s/or :sql ::sql
-                            :map ::postgis-or-geotiff))
+(s/def ::layer-coords-map
+  (s/and (s/nonconforming ::raw-layer-coords-map)
+         (s/keys :opt-un [::cell-size ::unit ::multiplier]
+                 :opt    [:gridfire.input/add-correction-angle360])))
+
+(s/def ::layer-coords (s/or :sql ::spec-sql/sql
+                            :map ::layer-coords-map))
 
 (s/def ::ratio-or-layer-coords
   (s/or :ratio  ::ratio

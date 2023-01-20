@@ -1,4 +1,4 @@
-(ns gridfire.server
+(ns gridfire.server.pyrecast-async
   "For exposing GridFire through a socket server, making it act as a worker process behind a job queue,
   which sends notifications to the client as the handling progresses.
 
@@ -79,24 +79,33 @@
 (defn- add-weather-start-timestamp [config ignition-date-time]
   (assoc config :weather-start-timestamp (calc-weather-start-timestamp ignition-date-time)))
 
-(defn- add-suppression [config {:keys [suppression-dt suppression-coefficient] :as _suppression-params}]
-  (assoc config :suppression {:suppression-dt          suppression-dt
-                              :suppression-coefficient suppression-coefficient}))
-
 (defn- write-config! [output-file config]
   (log-str "Writing to config file: " output-file)
   (with-open [writer (io/writer output-file)]
     (pprint config writer)))
 
-(defn- process-override-config! [{:keys [ignition-time suppression] :as _request} file]
+(defn- process-override-config! [{:keys [ignition-time] :as _request} file]
   (let [formatter          (SimpleDateFormat. "yyyy-MM-dd HH:mm zzz")
         ignition-date-time (.parse formatter ignition-time)
         config             (edn/read-string (slurp file))]
     (write-config! file
-                   (cond-> config
-                     :always     (add-ignition-start-timestamp ignition-date-time)
-                     :always     (add-weather-start-timestamp ignition-date-time)
-                     suppression (add-suppression suppression)))))
+                   (-> config
+                       (add-ignition-start-timestamp ignition-date-time)
+                       (add-weather-start-timestamp ignition-date-time)))))
+
+;;=============================================================================
+;; Process suppression-params
+;;=============================================================================
+
+(defn- add-suppression [config {:keys [suppression-dt suppression-coefficient] :as _suppression-params}]
+  (assoc config :suppression {:suppression-dt          suppression-dt
+                              :suppression-coefficient suppression-coefficient}))
+
+(defn- update-suppression-params! [gridfire-edn-path {:keys [suppression] :as _request}]
+  (let [config (edn/read-string (slurp gridfire-edn-path))]
+    (if suppression
+      (write-config! gridfire-edn-path (add-suppression config suppression))
+      config)))
 
 ;;=============================================================================
 ;; Shell Commands
@@ -171,7 +180,7 @@
 
   WARNING: because each simulation requires exclusive access to various resources (e.g all the processors),
   do not make several parallel calls to this function."
-  [request {:keys [software-dir override-config] :as config}]
+  [request {:keys [software-dir override-config backup-dir] :as config}]
   (try
     (let [input-deck-path     (unzip-tar! request config)
           elmfire-data-file   (.getPath (io/file input-deck-path "elmfire.data"))
@@ -180,7 +189,8 @@
           {:keys [err out]}   (if override-config
                                 (do
                                   (process-override-config! request override-config)
-                                  (sh/sh "resources/elm_to_grid.clj" "-e" elmfire-data-file "-o" override-config))
+                                  (sh/sh "resources/elm_to_grid.clj" "-e" elmfire-data-file "-o" override-config)
+                                  (update-suppression-params! gridfire-edn-file request))
                                 (sh/sh "resources/elm_to_grid.clj" "-e" elmfire-data-file))]
       (if err
         (log-str out "\n" err)
@@ -189,6 +199,11 @@
       (if (gridfire/process-config-file! gridfire-edn-file) ; Returns true on success
         (do (copy-post-process-scripts! software-dir gridfire-output-dir)
             (run-post-process-scripts! request config gridfire-output-dir)
+            (when backup-dir
+              (sh/sh "tar" "-czf"
+                     (str backup-dir "/" (.getName (io/file input-deck-path)) ".tar.gz")
+                     (.getAbsolutePath (io/file input-deck-path))
+                     (str (.getName (io/file input-deck-path)) ".tar.gz") ))
             (sh/sh "rm" "-rf" (.getAbsolutePath (io/file input-deck-path)))
             [0 "Successful run! Results uploaded to GeoServer!"])
         (throw-message "Simulation failed. No results uploaded to GeoServer.")))
@@ -287,5 +302,6 @@
  :data-dir                   "/home/kcheung/work/servers/chickadee/data"
  :override-config            "/home/kcheung/work/servers/chickadee/gridfire-base.edn"
  :log-dir                    "/home/kcheung/work/servers/chickadee/log"
+ :backup-dir                 "/home/kcheung/work/servers/chickadee/backup-to-ftp"
  :suppression-white-list     "/home/kcheung/work/servers/chickadee/suppression-white-list.edn"
- :also-simulate-suppression? true}
+   :also-simulate-suppression? true}

@@ -1,0 +1,403 @@
+--------------------------------------------------
+Benchmarking at code version: dafdcaa Added scripts for measuring performance at test/gridfire/lab/benchmarks.
+
+["clojure" "-J-Dclojure.compiler.direct-linking=true" "-M:perf-testing" "-m" "gridfire.lab.benchmarks" "benchmark" "test/gridfire/lab/benchmarks/rhino-input-deck/gridfire.edn"]
+Results digest: -1266373577
+{:arch "x86_64",
+ :available-processors 4,
+ :name "Mac OS X",
+ :version "10.15.6"}
+{:clojure-version
+ {:major 1, :minor 10, :incremental 3, :qualifier nil},
+ :clojure-version-string "1.10.3",
+ :input-arguments
+ ["-XX:ThreadPriorityPolicy=1" "-XX:+UnlockExperimentalVMOptions" "-XX:+EnableJVMCIProduct" "-XX:JVMCIThreadsPerNativeLibraryRuntime=1" "-XX:-UnlockExperimentalVMOptions" "-Dclojure.compiler.direct-linking=true" "-Dclojure.basis=.cpcache/2628294482.basis"],
+ :java-runtime-version "17.0.5+8-jvmci-22.3-b08",
+ :java-version "17.0.5",
+ :name "42397@robo",
+ :spec-name "Java Virtual Machine Specification",
+ :spec-vendor "Oracle Corporation",
+ :spec-version "17",
+ :sun-arch-data-model "64",
+ :vm-name "OpenJDK 64-Bit Server VM",
+ :vm-vendor "GraalVM Community",
+ :vm-version "17.0.5+8-jvmci-22.3-b08"}
+Warming up...
+Measuring...
+WARNING: Final GC required 3.604604910285715 % of runtime
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+Evaluation count : 325 in 25 samples of 13 calls.
+             Execution time mean : 789.927965 ms
+    Execution time std-deviation : 16.682114 ms
+   Execution time lower quantile : 770.705727 ms ( 2.5%)
+   Execution time upper quantile : 826.852673 ms (97.5%)
+                   Overhead used : 8.800482 ns
+--------------------------------------------------
+--------------------------------------------------
+Benchmarking at code version: c88e8c9 Sped up direction lookup by introducing new macro (case-double ...). GRID1-436.
+
+["clojure" "-J-Dclojure.compiler.direct-linking=true" "-M:perf-testing" "-m" "gridfire.lab.benchmarks" "benchmark" "test/gridfire/lab/benchmarks/rhino-input-deck/gridfire.edn"]
+Results digest: -1266373577
+{:arch "x86_64",
+ :available-processors 4,
+ :name "Mac OS X",
+ :version "10.15.6"}
+{:clojure-version
+ {:major 1, :minor 10, :incremental 3, :qualifier nil},
+ :clojure-version-string "1.10.3",
+ :input-arguments
+ ["-XX:ThreadPriorityPolicy=1" "-XX:+UnlockExperimentalVMOptions" "-XX:+EnableJVMCIProduct" "-XX:JVMCIThreadsPerNativeLibraryRuntime=1" "-XX:-UnlockExperimentalVMOptions" "-Dclojure.compiler.direct-linking=true" "-Dclojure.basis=.cpcache/2628294482.basis"],
+ :java-runtime-version "17.0.5+8-jvmci-22.3-b08",
+ :java-version "17.0.5",
+ :name "42761@robo",
+ :spec-name "Java Virtual Machine Specification",
+ :spec-vendor "Oracle Corporation",
+ :spec-version "17",
+ :sun-arch-data-model "64",
+ :vm-name "OpenJDK 64-Bit Server VM",
+ :vm-vendor "GraalVM Community",
+ :vm-version "17.0.5+8-jvmci-22.3-b08"}
+Warming up...
+Measuring...
+WARNING: Final GC required 2.85335097603676 % of runtime
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+Evaluation count : 375 in 25 samples of 15 calls.
+             Execution time mean : 710.858195 ms
+    Execution time std-deviation : 11.819445 ms
+   Execution time lower quantile : 695.775478 ms ( 2.5%)
+   Execution time upper quantile : 734.058934 ms (97.5%)
+                   Overhead used : 11.653447 ns
+
+Found 1 outliers in 25 samples (4.0000 %)
+	low-severe	 1 (4.0000 %)
+ Variance from outliers : 3.8400 % Variance is slightly inflated by outliers
+--------------------------------------------------
+--------------------------------------------------
+Benchmarking at code version: 26c6676 Optimized rothermel-fast-wrapper-optimal's memoization and invocation using custom (deftype RothFWOArgs ...). GRID1-436.
+
+["clojure" "-J-Dclojure.compiler.direct-linking=true" "-M:perf-testing" "-m" "gridfire.lab.benchmarks" "benchmark" "test/gridfire/lab/benchmarks/rhino-input-deck/gridfire.edn"]
+Results digest: -1266373577
+{:arch "x86_64",
+ :available-processors 4,
+ :name "Mac OS X",
+ :version "10.15.6"}
+{:clojure-version
+ {:major 1, :minor 10, :incremental 3, :qualifier nil},
+ :clojure-version-string "1.10.3",
+ :input-arguments
+ ["-XX:ThreadPriorityPolicy=1" "-XX:+UnlockExperimentalVMOptions" "-XX:+EnableJVMCIProduct" "-XX:JVMCIThreadsPerNativeLibraryRuntime=1" "-XX:-UnlockExperimentalVMOptions" "-Dclojure.compiler.direct-linking=true" "-Dclojure.basis=.cpcache/2628294482.basis"],
+ :java-runtime-version "17.0.5+8-jvmci-22.3-b08",
+ :java-version "17.0.5",
+ :name "43077@robo",
+ :spec-name "Java Virtual Machine Specification",
+ :spec-vendor "Oracle Corporation",
+ :spec-version "17",
+ :sun-arch-data-model "64",
+ :vm-name "OpenJDK 64-Bit Server VM",
+ :vm-vendor "GraalVM Community",
+ :vm-version "17.0.5+8-jvmci-22.3-b08"}
+Warming up...
+Measuring...
+WARNING: Final GC required 3.5904357623240832 % of runtime
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+Evaluation count : 400 in 25 samples of 16 calls.
+             Execution time mean : 684.354731 ms
+    Execution time std-deviation : 13.744841 ms
+   Execution time lower quantile : 665.419151 ms ( 2.5%)
+   Execution time upper quantile : 717.441519 ms (97.5%)
+                   Overhead used : 8.816207 ns
+
+Found 4 outliers in 25 samples (16.0000 %)
+	low-severe	 1 (4.0000 %)
+	low-mild	 1 (4.0000 %)
+	high-mild	 2 (8.0000 %)
+ Variance from outliers : 3.8400 % Variance is slightly inflated by outliers
+--------------------------------------------------
+--------------------------------------------------
+Benchmarking at code version: f2eae21 Removed reduce-accumulator overhead using ArrayList. GRID1-436.
+
+["clojure" "-J-Dclojure.compiler.direct-linking=true" "-M:perf-testing" "-m" "gridfire.lab.benchmarks" "benchmark" "test/gridfire/lab/benchmarks/rhino-input-deck/gridfire.edn"]
+Results digest: -1266373577
+{:arch "x86_64",
+ :available-processors 4,
+ :name "Mac OS X",
+ :version "10.15.6"}
+{:clojure-version
+ {:major 1, :minor 10, :incremental 3, :qualifier nil},
+ :clojure-version-string "1.10.3",
+ :input-arguments
+ ["-XX:ThreadPriorityPolicy=1" "-XX:+UnlockExperimentalVMOptions" "-XX:+EnableJVMCIProduct" "-XX:JVMCIThreadsPerNativeLibraryRuntime=1" "-XX:-UnlockExperimentalVMOptions" "-Dclojure.compiler.direct-linking=true" "-Dclojure.basis=.cpcache/2628294482.basis"],
+ :java-runtime-version "17.0.5+8-jvmci-22.3-b08",
+ :java-version "17.0.5",
+ :name "43420@robo",
+ :spec-name "Java Virtual Machine Specification",
+ :spec-vendor "Oracle Corporation",
+ :spec-version "17",
+ :sun-arch-data-model "64",
+ :vm-name "OpenJDK 64-Bit Server VM",
+ :vm-vendor "GraalVM Community",
+ :vm-version "17.0.5+8-jvmci-22.3-b08"}
+Warming up...
+Measuring...
+WARNING: new compilations in execution estimation phase
+WARNING: Final GC required 3.532389633154583 % of runtime
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+Evaluation count : 400 in 25 samples of 16 calls.
+             Execution time mean : 657.616931 ms
+    Execution time std-deviation : 14.648610 ms
+   Execution time lower quantile : 635.291380 ms ( 2.5%)
+   Execution time upper quantile : 684.604836 ms (97.5%)
+                   Overhead used : 8.821569 ns
+
+Found 1 outliers in 25 samples (4.0000 %)
+	low-severe	 1 (4.0000 %)
+ Variance from outliers : 3.8400 % Variance is slightly inflated by outliers
+--------------------------------------------------
+--------------------------------------------------
+Benchmarking at code version: d5565da Faster BurnVector reads and writes using JVM interop wrappers. GRID1-436.
+
+["clojure" "-J-Dclojure.compiler.direct-linking=true" "-M:perf-testing" "-m" "gridfire.lab.benchmarks" "benchmark" "test/gridfire/lab/benchmarks/rhino-input-deck/gridfire.edn"]
+Results digest: -1266373577
+{:arch "x86_64",
+ :available-processors 4,
+ :name "Mac OS X",
+ :version "10.15.6"}
+{:clojure-version
+ {:major 1, :minor 10, :incremental 3, :qualifier nil},
+ :clojure-version-string "1.10.3",
+ :input-arguments
+ ["-XX:ThreadPriorityPolicy=1" "-XX:+UnlockExperimentalVMOptions" "-XX:+EnableJVMCIProduct" "-XX:JVMCIThreadsPerNativeLibraryRuntime=1" "-XX:-UnlockExperimentalVMOptions" "-Dclojure.compiler.direct-linking=true" "-Dclojure.basis=.cpcache/2628294482.basis"],
+ :java-runtime-version "17.0.5+8-jvmci-22.3-b08",
+ :java-version "17.0.5",
+ :name "43719@robo",
+ :spec-name "Java Virtual Machine Specification",
+ :spec-vendor "Oracle Corporation",
+ :spec-version "17",
+ :sun-arch-data-model "64",
+ :vm-name "OpenJDK 64-Bit Server VM",
+ :vm-vendor "GraalVM Community",
+ :vm-version "17.0.5+8-jvmci-22.3-b08"}
+Warming up...
+Measuring...
+WARNING: new compilations in execution estimation phase
+WARNING: Final GC required 3.475197115607273 % of runtime
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+Evaluation count : 500 in 25 samples of 20 calls.
+             Execution time mean : 543.627240 ms
+    Execution time std-deviation : 13.134349 ms
+   Execution time lower quantile : 524.487744 ms ( 2.5%)
+   Execution time upper quantile : 570.650056 ms (97.5%)
+                   Overhead used : 8.814789 ns
+
+Found 3 outliers in 25 samples (12.0000 %)
+	low-severe	 1 (4.0000 %)
+	low-mild	 1 (4.0000 %)
+	high-mild	 1 (4.0000 %)
+ Variance from outliers : 3.8400 % Variance is slightly inflated by outliers
+--------------------------------------------------
+--------------------------------------------------
+Benchmarking at code version: 34e9720 grid-lookup/mget-double-at for removing boxing overhead of t/mget. GRID1-436.
+
+["clojure" "-J-Dclojure.compiler.direct-linking=true" "-M:perf-testing" "-m" "gridfire.lab.benchmarks" "benchmark" "test/gridfire/lab/benchmarks/rhino-input-deck/gridfire.edn"]
+Results digest: -1266373577
+{:arch "x86_64",
+ :available-processors 4,
+ :name "Mac OS X",
+ :version "10.15.6"}
+{:clojure-version
+ {:major 1, :minor 10, :incremental 3, :qualifier nil},
+ :clojure-version-string "1.10.3",
+ :input-arguments
+ ["-XX:ThreadPriorityPolicy=1" "-XX:+UnlockExperimentalVMOptions" "-XX:+EnableJVMCIProduct" "-XX:JVMCIThreadsPerNativeLibraryRuntime=1" "-XX:-UnlockExperimentalVMOptions" "-Dclojure.compiler.direct-linking=true" "-Dclojure.basis=.cpcache/2628294482.basis"],
+ :java-runtime-version "17.0.5+8-jvmci-22.3-b08",
+ :java-version "17.0.5",
+ :name "44033@robo",
+ :spec-name "Java Virtual Machine Specification",
+ :spec-vendor "Oracle Corporation",
+ :spec-version "17",
+ :sun-arch-data-model "64",
+ :vm-name "OpenJDK 64-Bit Server VM",
+ :vm-vendor "GraalVM Community",
+ :vm-version "17.0.5+8-jvmci-22.3-b08"}
+Warming up...
+Measuring...
+WARNING: new compilations in execution estimation phase
+WARNING: Final GC required 3.542803799641951 % of runtime
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+Evaluation count : 500 in 25 samples of 20 calls.
+             Execution time mean : 513.617426 ms
+    Execution time std-deviation : 8.526362 ms
+   Execution time lower quantile : 501.591795 ms ( 2.5%)
+   Execution time upper quantile : 529.022635 ms (97.5%)
+                   Overhead used : 8.804583 ns
+--------------------------------------------------
+--------------------------------------------------
+Benchmarking at code version: d79e18d Partialized terrain-distance computations. GRID1-436.
+
+["clojure" "-J-Dclojure.compiler.direct-linking=true" "-M:perf-testing" "-m" "gridfire.lab.benchmarks" "benchmark" "test/gridfire/lab/benchmarks/rhino-input-deck/gridfire.edn"]
+Results digest: -1266373577
+{:arch "x86_64",
+ :available-processors 4,
+ :name "Mac OS X",
+ :version "10.15.6"}
+{:clojure-version
+ {:major 1, :minor 10, :incremental 3, :qualifier nil},
+ :clojure-version-string "1.10.3",
+ :input-arguments
+ ["-XX:ThreadPriorityPolicy=1" "-XX:+UnlockExperimentalVMOptions" "-XX:+EnableJVMCIProduct" "-XX:JVMCIThreadsPerNativeLibraryRuntime=1" "-XX:-UnlockExperimentalVMOptions" "-Dclojure.compiler.direct-linking=true" "-Dclojure.basis=.cpcache/2628294482.basis"],
+ :java-runtime-version "17.0.5+8-jvmci-22.3-b08",
+ :java-version "17.0.5",
+ :name "44316@robo",
+ :spec-name "Java Virtual Machine Specification",
+ :spec-vendor "Oracle Corporation",
+ :spec-version "17",
+ :sun-arch-data-model "64",
+ :vm-name "OpenJDK 64-Bit Server VM",
+ :vm-vendor "GraalVM Community",
+ :vm-version "17.0.5+8-jvmci-22.3-b08"}
+Warming up...
+Measuring...
+WARNING: Final GC required 3.748639129055517 % of runtime
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+Evaluation count : 500 in 25 samples of 20 calls.
+             Execution time mean : 530.402063 ms
+    Execution time std-deviation : 10.740845 ms
+   Execution time lower quantile : 517.788347 ms ( 2.5%)
+   Execution time upper quantile : 552.661465 ms (97.5%)
+                   Overhead used : 8.807334 ns
+
+Found 2 outliers in 25 samples (8.0000 %)
+	low-severe	 1 (4.0000 %)
+	low-mild	 1 (4.0000 %)
+ Variance from outliers : 3.8400 % Variance is slightly inflated by outliers
+--------------------------------------------------
+--------------------------------------------------
+Benchmarking at code version: 91722c4 Partialized create-new-burn-vectors! for performance. GRID1-436.
+
+["clojure" "-J-Dclojure.compiler.direct-linking=true" "-M:perf-testing" "-m" "gridfire.lab.benchmarks" "benchmark" "test/gridfire/lab/benchmarks/rhino-input-deck/gridfire.edn"]
+Results digest: -1266373577
+{:arch "x86_64",
+ :available-processors 4,
+ :name "Mac OS X",
+ :version "10.15.6"}
+{:clojure-version
+ {:major 1, :minor 10, :incremental 3, :qualifier nil},
+ :clojure-version-string "1.10.3",
+ :input-arguments
+ ["-XX:ThreadPriorityPolicy=1" "-XX:+UnlockExperimentalVMOptions" "-XX:+EnableJVMCIProduct" "-XX:JVMCIThreadsPerNativeLibraryRuntime=1" "-XX:-UnlockExperimentalVMOptions" "-Dclojure.compiler.direct-linking=true" "-Dclojure.basis=.cpcache/2628294482.basis"],
+ :java-runtime-version "17.0.5+8-jvmci-22.3-b08",
+ :java-version "17.0.5",
+ :name "44598@robo",
+ :spec-name "Java Virtual Machine Specification",
+ :spec-vendor "Oracle Corporation",
+ :spec-version "17",
+ :sun-arch-data-model "64",
+ :vm-name "OpenJDK 64-Bit Server VM",
+ :vm-vendor "GraalVM Community",
+ :vm-version "17.0.5+8-jvmci-22.3-b08"}
+Warming up...
+Measuring...
+WARNING: new compilations in execution estimation phase
+WARNING: Final GC required 3.730015858227779 % of runtime
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+Evaluation count : 525 in 25 samples of 21 calls.
+             Execution time mean : 511.478231 ms
+    Execution time std-deviation : 7.857060 ms
+   Execution time lower quantile : 504.147771 ms ( 2.5%)
+   Execution time upper quantile : 528.217807 ms (97.5%)
+                   Overhead used : 8.826144 ns
+
+Found 1 outliers in 25 samples (4.0000 %)
+	low-severe	 1 (4.0000 %)
+ Variance from outliers : 3.8400 % Variance is slightly inflated by outliers
+--------------------------------------------------
+--------------------------------------------------
+Benchmarking at code version: 5e1eded Using (grid-lookup/mgetter-double ...) to prepare tight loops. GRID1-436.
+
+["clojure" "-J-Dclojure.compiler.direct-linking=true" "-M:perf-testing" "-m" "gridfire.lab.benchmarks" "benchmark" "test/gridfire/lab/benchmarks/rhino-input-deck/gridfire.edn"]
+Results digest: -1266373577
+{:arch "x86_64",
+ :available-processors 4,
+ :name "Mac OS X",
+ :version "10.15.6"}
+{:clojure-version
+ {:major 1, :minor 10, :incremental 3, :qualifier nil},
+ :clojure-version-string "1.10.3",
+ :input-arguments
+ ["-XX:ThreadPriorityPolicy=1" "-XX:+UnlockExperimentalVMOptions" "-XX:+EnableJVMCIProduct" "-XX:JVMCIThreadsPerNativeLibraryRuntime=1" "-XX:-UnlockExperimentalVMOptions" "-Dclojure.compiler.direct-linking=true" "-Dclojure.basis=.cpcache/2628294482.basis"],
+ :java-runtime-version "17.0.5+8-jvmci-22.3-b08",
+ :java-version "17.0.5",
+ :name "44905@robo",
+ :spec-name "Java Virtual Machine Specification",
+ :spec-vendor "Oracle Corporation",
+ :spec-version "17",
+ :sun-arch-data-model "64",
+ :vm-name "OpenJDK 64-Bit Server VM",
+ :vm-vendor "GraalVM Community",
+ :vm-version "17.0.5+8-jvmci-22.3-b08"}
+Warming up...
+Measuring...
+WARNING: Final GC required 3.6076590168069274 % of runtime
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+WARNING: new compilations in execution estimation phase
+Evaluation count : 550 in 25 samples of 22 calls.
+             Execution time mean : 468.250248 ms
+    Execution time std-deviation : 11.328508 ms
+   Execution time lower quantile : 458.516062 ms ( 2.5%)
+   Execution time upper quantile : 499.620558 ms (97.5%)
+                   Overhead used : 8.815152 ns
+
+Found 3 outliers in 25 samples (12.0000 %)
+	low-severe	 1 (4.0000 %)
+	low-mild	 2 (8.0000 %)
+ Variance from outliers : 3.8400 % Variance is slightly inflated by outliers
+--------------------------------------------------
