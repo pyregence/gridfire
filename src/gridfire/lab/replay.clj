@@ -1,21 +1,20 @@
 (ns gridfire.lab.replay
-  (:require [clojure.java.io :as io]
-            [clojure.java.shell :as sh]
-            [clojure.pprint :as pprint]
-            [clojure.string :as str]
-            [gridfire.core]
+  (:require [clojure.java.io              :as io]
+            [clojure.java.shell           :as sh]
+            [clojure.pprint               :as pprint]
+            [clojure.string               :as str]
+            [gridfire.core                :as gridfire]
             [gridfire.fire-spread-optimal :refer [memoize-rfwo rothermel-fast-wrapper-optimal run-fire-spread]]
-            [gridfire.magellan-bridge :refer [geotiff-raster-to-tensor]]
-            [gridfire.simulations :as simulations]
-            [gridfire.utils.files.tar :as utar]
-            [hiccup.page :as html]
-            [matrix-viz.core :refer [save-matrix-as-png]]
-            [tech.v3.datatype :as d]
-            [tech.v3.datatype.functional :as dfn]
-            [tech.v3.datatype.statistics :as dstats]
-            [gridfire.utils.vsampling :as vsmpl]
-            [clojure.pprint :as pp]
-            [tech.v3.tensor :as t])
+            [gridfire.magellan-bridge     :refer [geotiff-raster-to-tensor]]
+            [gridfire.simulations         :as simulations]
+            [gridfire.utils.files.tar     :as utar]
+            [gridfire.utils.vsampling     :as vsmpl]
+            [hiccup.page                  :as html]
+            [matrix-viz.core              :refer [save-matrix-as-png]]
+            [tech.v3.datatype             :as d]
+            [tech.v3.datatype.functional  :as dfn]
+            [tech.v3.datatype.statistics  :as dstats]
+            [tech.v3.tensor               :as t])
   (:import (java.io File)
            (java.nio.file Files)
            (java.nio.file.attribute FileAttribute)
@@ -246,7 +245,7 @@
   [config stop-inst variation-name->info]
   (some-> config
           (config-max-runtime-until-stop-inst stop-inst)
-          (-> (gridfire.core/load-inputs!))
+          (-> (gridfire/load-inputs!))
           (as-> inputs
                 (->> variation-name->info
                      (partition-all 16)
@@ -325,11 +324,11 @@
 
 (defn fetch-snapshot-config
   [snap]
-  (-> (gridfire.core/load-config! (-> snap
-                                      ::useful-files
-                                      ::gridfire-config-file
-                                      (ensure-file)
-                                      (.getCanonicalPath)))
+  (-> (gridfire/load-config! (-> snap
+                                 ::useful-files
+                                 ::gridfire-config-file
+                                 (ensure-file)
+                                 (.getCanonicalPath)))
       (into (sorted-map))))
 
 (defn replay-snapshot
@@ -1763,7 +1762,7 @@
 
   (def variation-name->summary-maps (index-explored-variations @fut_explore-variations))
 
-  (pp/print-table (aggregate-explored-variations aggregate-explored-variations))
+  (pprint/print-table (aggregate-explored-variations aggregate-explored-variations))
   ;;|                      Variation | n replays | n failed ignitions | real - sim %-w-avg | sim - real %-w-avg |        mixed error |
   ;;|--------------------------------+-----------+--------------------+--------------------+--------------------+--------------------|
   ;;| 01) crowning disabled, EAF=0.5 |       187 |                 58 |  38.43956966815156 |  90.82745015856521 | 1.1644699233103408 |
@@ -1822,7 +1821,7 @@
                                    n-cols (-> (d/shape matrix) (nth 1) (long))]
                                (Math/round (double (/ (double min-desired-width-px) n-cols)))))]
     (io/make-parents ret)
-    (matrix-viz.core/save-matrix-as-png color-ramp pixels-per-cell nodata-value matrix (-> ret (.toPath) (.toString)))
+    (save-matrix-as-png color-ramp pixels-per-cell nodata-value matrix (-> ret (.toPath) (.toString)))
     ret))
 
 
@@ -2013,7 +2012,7 @@
                                   (try
                                     (generate-images-for-replay! img-dir replay-res)
                                     (catch Exception err
-                                      (pp/pprint
+                                      (pprint/pprint
                                        (ex-info
                                         (str "error for replay: " (pr-str (:pyrcst_fire_name replay-res)))
                                         {}
