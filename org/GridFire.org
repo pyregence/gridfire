@@ -3450,13 +3450,13 @@ processing scripts will run to process binary outputs into a directory
 structure containing geoTIFF files and then packed into a tarball.
 This tarball is sent over scp into another server for processing.
 
-*** Preprocessing dependencies
+*** Preprocessing Dependencies
 
 The processing of active fire and match drop runs require the following package to work:
 
 - babashka
 
-*** Postprocessing dependencies
+*** Postprocessing Dependencies
 
 The Post processing scripts require the following packages to work:
 
@@ -4014,10 +4014,10 @@ Other output mappings:
 
 ** Section 6: Perturbations
 
-Gridfire supports puturbations of input rasters during simulations in
-order to account for inherent uncertainty in the data. A uniform
-random sampling of values within a given range is used to address
-these uncertanties.
+Gridfire supports applying perturbations to input rasters during
+simulations in order to account for inherent uncertainty in the input
+data. A uniform random sampling of values within a given range is used
+to address these uncertanties.
 
 To specify this in the config file include the following mappings:
 
@@ -4028,14 +4028,15 @@ To specify this in the config file include the following mappings:
                                  :range        [-1.0 1.0]}}}
 #+end_src
 
-The above config specify that a randomly selected value between -1.0
+The above config specifies that a randomly selected value between -1.0
 and 1.0 should be added to the canopy height value. This perturbation
 will be applied globally to all cells. We could also, instead, specify
-that each cell should be perturbed individually by setting *:spatial-type*
-to *:pixel*.
+that each cell should be perturbed individually by setting
+*:spatial-type* to *:pixel*.
 
-Gridfire expects perturbations to be in imperial units. If these perturbations
-are meant to be in metric, you must include an entry for the units:
+Gridfire expects perturbations to be in imperial units. If these
+perturbations are meant to be in metric, you must include an entry for
+the units:
 
 #+begin_src clojure
 {:perturbations {:canopy-height {:spatial-type :global
@@ -4043,33 +4044,47 @@ are meant to be in metric, you must include an entry for the units:
                                  :units        :metric}}}
 #+end_src
 
-*** What to expect from perturbations
+*** What to Expect from Perturbations
 
-The typical intent of perturbations is to *propagate uncertainty* about the inputs, which can mean:
+The typical intent of perturbations is to *propagate uncertainty*
+about the inputs, which can mean:
 
-1. verifying that simulation outcomes are robust to small changes in the inputs.
-2. in a MCMC mindset, sampling the effects of inputs uncertainty on simulation outcomes.
+1. verifying that simulation outcomes are robust to small changes in
+   the inputs.
+2. in a MCMC mindset, sampling the effects of inputs uncertainty on
+   simulation outcomes.
 
-WARNING: in order to achieve this last goal, *the probability distribution of perturbations must be representative of your beliefs about input uncertainty.*
-It's quite likely that independently-sampled uniform distributions will fall short of this requirement,
-as realistic uncertainty about weather and landscape will involve non-uniform distributions and correlations between inputs;
-that is a limitation of GridFire's *{:spatial-type :global}* perturbations, in which case we recommend
-that you model your uncertainty using a less-trivial sort of probability distribution (such as a multivariate Gaussian, or mixture thereof)
-and sample from it upstream of GridFire.
+WARNING: in order to achieve this last goal, *the probability
+distribution of perturbations must be representative of your beliefs
+about input uncertainty.* It's quite likely that independently-sampled
+uniform distributions will fall short of this requirement, as
+realistic uncertainty about weather and landscape will involve
+non-uniform distributions and correlations between inputs; that is a
+limitation of GridFire's *{:spatial-type :global}* perturbations, in
+which case we recommend that you model your uncertainty using a
+less-trivial sort of probability distribution (such as a multivariate
+Gaussian, or mixture thereof) and sample from it upstream of GridFire.
 
-*Pixel perturbations are also not good at modeling input uncertainty:* while they do provide a form spatial variability,
-that variability is not realistic for modeling inputs uncertainty, as it lacks the spatial correlations which are
-essential to inputs uncertainty. For example, inaccuracies in weather forecasting will never look like random i.i.d noise (a.k.a "static"):
-the actual temperatures will be consistently above or below the forecast on large contiguous regions. In other words,
-Pixel perturbations are not good at exploring the subspace of credible inputs;
-they will mostly move the inputs in directions orthogonal to that subspace.
+*Pixel perturbations are also not good at modeling input uncertainty:*
+while they do provide a form of spatial variability, that variability
+is not realistic for modeling input uncertainty, as it ignores
+potential spatial correlations between grid cells. For example,
+inaccuracies in weather forecasting will never look like random i.i.d
+noise (a.k.a "static"): the actual temperatures will be consistently
+above or below the forecast on large contiguous regions. In other
+words, pixel perturbations are not good at exploring the subspace of
+credible inputs; they will mostly move the inputs in directions
+orthogonal to that subspace.
 
-However, *pixel perturbations can be useful for re-creating small-scale spatial heterogeneity* (for example,
-the fact that canopy height might not be constant even on a small scale). This concern is orthogonal to propagating
-uncertainty: it's likely more relevant to view it as a parameter for tuning the fire-spread algorithm. If Percolation Theory
-and statistical physics are any indication, the fire-spreading behavior might respond with sharp threshold effects
-to varying the amplitude of pixel perturbations: if you are relying on this, tune carefully.
-
+However, *pixel perturbations can be useful for re-creating
+small-scale spatial heterogeneity* (for example, the fact that canopy
+height might not be constant even on a small scale). This concern is
+orthogonal to propagating uncertainty: it's likely more relevant to
+view it as a parameter for tuning the fire-spread algorithm. If
+Percolation Theory and statistical physics are any indication, the
+fire-spreading behavior might respond with sharp threshold effects to
+varying the amplitude of pixel perturbations: if you are relying on
+this, tune carefully.
 
 ** Section 7: Spotting
 
