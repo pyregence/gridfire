@@ -52,7 +52,7 @@
 ;; ------------------------------------------------------------------------------
 ;; File and CLI utilities
 
-;; FIXME move those to generic ns?
+;; IMPROVEMENT move those to generic ns?
 (defn sh-safe
   [& args]
   (let [ret (apply sh/sh args)]
@@ -266,7 +266,7 @@
                              (vec))))
                      (into {})))))
 
-;; FIXME re-implement as t1-active_fire_polygon_utm_posnegbuff-shp - t0-active_fire_polygon_utm_posnegbuff-shp
+;; IMPROVEMENT re-implement as t1-active_fire_polygon_utm_posnegbuff-shp - t0-active_fire_polygon_utm_posnegbuff-shp
 (defn resolve-observed-burned-area
   "Computes the observed burned area between 2 PyreCast snapshots (from t0 to t1),
   as the set difference between active-fire-at-t1 and already-burned-at-t0.
@@ -399,7 +399,7 @@
          ;; in t0-snap will be either missing or inaccurate.
          ms-3days))))
 
-;; FIXME rather than successive pairs
+;; IMPROVEMENT rather than successive pairs
 ;; let's use pairs that achieve a delta-t closest to 24hr,
 ;; or some other optimal time lapse.
 (defn replayable-successive-t0t1-pairs
@@ -1782,7 +1782,7 @@
 ;; ------------------------------------------------------------------------------
 ;; Images
 
-(defn matrix-bounding-box                                   ;; FIXME when support is empty?
+(defn matrix-bounding-box                                   ;; TODO when support is empty?
   [elem-pred m]
   (let [dtype :double
         row-indices (t/compute-tensor (d/shape m)
@@ -1905,7 +1905,7 @@
      [:p "This analysis currently has " [:strong "some weaknesses:"]]
      [:ol
       [:li
-       ;; FIXME some under-predicted areas are far from the ignition-region:
+       ;; IMPROVEMENT some under-predicted areas are far from the ignition-region:
        ;; in this case, under-predicting them is not GridFire's fault,
        ;; so we don't want those in the misprediction metrics.
        ;; Idea: buffering + graph components. Keep only connected components
@@ -1978,7 +1978,7 @@
                    (<html-viz-page> replay-results++)))))
 
 
-  ;; FIXME :burn-time-matrix not starting at zero? (min= 21)
+  ;; TODO :burn-time-matrix not starting at zero? (min= 21)
   (=
    #inst"2022-09-14T21:21:00.000-00:00"
    (-> replay-res ::t0-fire :pyrcst_snapshot_inst)
@@ -1992,7 +1992,7 @@
 (comment
 
 
-  ;; FIXME sometimes it looks like the t1 active-fire fills holes inside the t0 active-fire region
+  ;; IMPROVEMENT sometimes it looks like the t1 active-fire fills holes inside the t0 active-fire region
   ;; (see e.g "wa-mcallister-creek from #inst "2022-09-27T10:49:00.000-00:00" to +22hr").
   ;; This should probably not be counted as under-prediction.
 
