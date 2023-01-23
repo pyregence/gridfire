@@ -463,13 +463,13 @@
                                    :double
                                    (:burn-time-matrix sim-result)
                                    sim-inter-real-matrix)
-            stats-opts            {:nan-strategy :remove}]
-        (let [[p50 p75 p90 p95] (dstats/percentiles [50 75 90 95] stats-opts toa-ratio-matrix)]
-          {::toa-ratio-mean (dstats/mean toa-ratio-matrix stats-opts)
-           ::toa-ratio-p50  p50
-           ::toa-ratio-p75  p75
-           ::toa-ratio-p90  p90
-           ::toa-ratio-p95  p95})))))
+            stats-opts            {:nan-strategy :remove}
+            [p50 p75 p90 p95]     (dstats/percentiles [50 75 90 95] stats-opts toa-ratio-matrix)]
+        {::toa-ratio-mean (dstats/mean toa-ratio-matrix stats-opts)
+         ::toa-ratio-p50  p50
+         ::toa-ratio-p75  p75
+         ::toa-ratio-p90  p90
+         ::toa-ratio-p95  p95}))))
 
 (defn all-stats
   [replay-res sim-output]
@@ -593,12 +593,6 @@
 
 (def rr-stats-85f1467
   (delay
-   (comment
-     ;; How this was computed, at commit 85f1467:
-     (->> (replay-snapshots variation-name->info nil snaps)
-          (replayed-results-stats)
-          (vec)
-          (time)))
    (-> (io/resource "gridfire/lab/replay/rr-stats-85f1467.edn")
        slurp
        read-string)))
@@ -645,6 +639,13 @@
 
   (def replay-results2 (time (replay-snapshots variation-name->info 8 snaps)))
 
+  (def rr-stats-85f1467
+    (future
+      ;; How this was computed, at commit 85f1467:
+      (->> (replay-snapshots variation-name->info nil snaps)
+           (replayed-results-stats)
+           (vec)
+           (time))))
 
   (print-replayed-results-table @rr-stats-85f1467)
   ;; OLD
@@ -778,6 +779,14 @@
   ;;|             id-tenmile | 01) crowning disabled | Tue Sep 27 10:49:00 UTC 2022 | Wed Sep 28 08:50:00 UTC 2022 (+22hr) |                 289.0 |   242 (83.7%) |            0.22 | 0.04 | 0.44 | 0.56 | 0.62 |    538 (186.2%) |    47 (16.3%) |     0 (0.0%) |      0 (0.0%) |
   ;;|            ca-mosquito |          00) original | Wed Sep 14 22:01:00 UTC 2022 | Thu Sep 15 09:34:00 UTC 2022 (+12hr) |              108947.0 | 77291 (70.9%) |            0.21 | 0.14 | 0.33 | 0.57 | 0.71 |   47466 (43.6%) | 31656 (29.1%) | 7786 (10.1%) | 27055 (57.0%) |
   ;;|            ca-mosquito | 01) crowning disabled | Wed Sep 14 22:01:00 UTC 2022 | Thu Sep 15 09:34:00 UTC 2022 (+12hr) |              108947.0 | 72699 (66.7%) |            0.25 | 0.17 | 0.40 | 0.65 | 0.76 |   15640 (14.4%) | 36248 (33.3%) |     0 (0.0%) |      0 (0.0%) |
+
+  (def rr-stats-9d09fa9
+    (future
+     ;; How this was computed, at commit 9d09fa9:
+     (->> (replay-snapshots variation-name->info nil snaps)
+          (replayed-results-stats)
+          (vec)
+          (time))))
 
   (print-replayed-results-table @rr-stats-9d09fa9)
   ;; NEW
@@ -1758,7 +1767,7 @@
                                                                                   (assoc :canopy-base-height-matrix (:canopy-height-matrix inputs))
                                                                                   (update :ellipse-adjustment-factor-samples
                                                                                           (fn [eaf-samples] (mapv (constantly eaf) eaf-samples)))))}]))]
-       (explore-variations snaps))))
+       (explore-variations snaps variation-name->info))))
 
   (def variation-name->summary-maps (index-explored-variations @fut_explore-variations))
 
@@ -1975,7 +1984,7 @@
       (as-> replay-results++
             (spit (io/file img-dir webviz-dir "replay-results2-viz.html")
                   (html/html5
-                   (<html-viz-page> replay-results++)))))
+                   (<html-viz-page> webviz-dir replay-results++)))))
 
 
   ;; TODO :burn-time-matrix not starting at zero? (min= 21)
