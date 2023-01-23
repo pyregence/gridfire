@@ -416,15 +416,18 @@
   [variation-name->info t0+t1-snaps]
   (with-redefs [rothermel-fast-wrapper-optimal (memoize rothermel-fast-wrapper-optimal)]
     (->> t0+t1-snaps
-         (pmap
-          (fn compare-snapshots [[t0-snap t1-snap]]
-            (println (print-str "Replaying" (:pyrcst_fire_name t0-snap) "from" (-> t0-snap :pyrcst_snapshot_inst) "to" (-> t1-snap :pyrcst_snapshot_inst)))
-            (merge
-             (select-keys t0-snap [:pyrcst_fire_name :pyrcst_fire_subnumber])
-             {::t0-fire (select-keys t0-snap [:pyrcst_snapshot_inst ::useful-files])
-              ::t1-fire (select-keys t1-snap [:pyrcst_snapshot_inst ::useful-files])}
-             (replay-snapshot t0-snap t1-snap variation-name->info))))
-         (vec))))
+         (partition-all 4)                                  ; parallelism
+         (mapcat
+          (fn [t0+t1-snaps]
+            (->> t0+t1-snaps
+                 (pmap (fn compare-snapshots [[t0-snap t1-snap]]
+                         (println (print-str "Replaying" (:pyrcst_fire_name t0-snap) "from" (-> t0-snap :pyrcst_snapshot_inst) "to" (-> t1-snap :pyrcst_snapshot_inst)))
+                         (merge
+                          (select-keys t0-snap [:pyrcst_fire_name :pyrcst_fire_subnumber])
+                          {::t0-fire (select-keys t0-snap [:pyrcst_snapshot_inst ::useful-files])
+                           ::t1-fire (select-keys t1-snap [:pyrcst_snapshot_inst ::useful-files])}
+                          (replay-snapshot t0-snap t1-snap variation-name->info))))
+                 (vec)))))))
 
 (defn snapshot-pair-hash
   [[t0-snap t1-snap]]
@@ -469,6 +472,11 @@
            ::toa-ratio-p90  p90
            ::toa-ratio-p95  p95})))))
 
+(defn all-stats
+  [replay-res sim-output]
+  (merge (burn-trace-stats replay-res sim-output)
+         (toa-stats replay-res sim-output)))
+
 (defn pprint-table-from-kv-lists
   ([pairs-vecs]
    (let [pairs0 (first pairs-vecs)
@@ -489,49 +497,60 @@
               (double)
               (Math/round) (long))))
 
-(defn replayed-results-table-entries
+(defn replayed-results-stats
   [replay-results]
   (->> replay-results
        (pmap (fn [replay-res]
-               (->> replay-res ::sim-outputs
-                    (sort-by key)
-                    (mapv
-                     (fn [[variation-name sim-output]]
-                       (let [stats                 (merge (burn-trace-stats replay-res sim-output)
-                                                          (toa-stats replay-res sim-output))
-                             n-cells-really-burned (long (:observed-burn-n-cells stats))]
-                         (letfn [(format-w-pct
-                                   ([^long n-cells] (format-w-pct n-cells n-cells-really-burned))
-                                   ([^long n-cells ^long n-cells-denom]
-                                    (if (zero? n-cells-denom)
-                                      (format "%d (-)" n-cells)
-                                      (format "%d (%2.1f%%)"
-                                              n-cells
-                                              (* 100.0 (/ n-cells n-cells-denom))))))]
-                           [["Fire name" (:pyrcst_fire_name replay-res)]
-                            ["Variation" variation-name]
-                            ["t0" (-> replay-res ::t0-fire :pyrcst_snapshot_inst)]
-                            ["t1" (format "%s (%s)"
-                                          (-> replay-res ::t1-fire :pyrcst_snapshot_inst (str))
-                                          (format-hours-between (-> replay-res ::t0-fire :pyrcst_snapshot_inst)
-                                                                (-> replay-res ::t1-fire :pyrcst_snapshot_inst)))]
-                            ["n cells really burned" (:observed-burn-n-cells stats)]
-                            ["sim ∩ real" (format-w-pct (:sim-inter-obs-n-cells stats))]
-                            ["ToA-ratio: mean" (some->> (::toa-ratio-mean stats) (format "%1.2f"))]
-                            ["p50" (some->> (::toa-ratio-p50 stats) (format "%1.2f"))]
-                            ["p75" (some->> (::toa-ratio-p75 stats) (format "%1.2f"))]
-                            ["p90" (some->> (::toa-ratio-p90 stats) (format "%1.2f"))]
-                            ["p95" (some->> (::toa-ratio-p95 stats) (format "%1.2f"))]
-                            ["sim - real" (format-w-pct (:sim-minus-obs-n-cells stats))]
-                            ["real - sim" (format-w-pct (:obs-minus-sim-n-cells stats))]
-                            ["s∩r crowning" (format-w-pct (:sim-inter-obs-n-crowning stats) (:sim-inter-obs-n-cells stats))]
-                            ["s-r crowning" (format-w-pct (:sim-minus-obs-n-crowning stats) (:sim-minus-obs-n-cells stats))]])))))))
-       (sequence cat)))
+               (merge (select-keys replay-res [:pyrcst_fire_name])
+                      {::t0-fire               (select-keys (::t0-fire replay-res) [:pyrcst_snapshot_inst])
+                       ::t1-fire               (select-keys (::t1-fire replay-res) [:pyrcst_snapshot_inst])
+                       ::variation-name->stats (->> replay-res ::sim-outputs
+                                                    (sort-by key)
+                                                    (map
+                                                     (fn [[variation-name sim-output]]
+                                                       [variation-name (all-stats replay-res sim-output)]))
+                                                    (into (sorted-map)))})))))
+
+(defn replayed-results-table-entries
+  [rr-stats]
+  (->> rr-stats
+       (mapcat (fn [replay-res-stats]
+                 (->> replay-res-stats ::variation-name->stats
+                      (sort-by key)
+                      (mapv
+                       (fn [[variation-name stats]]
+                         (let [n-cells-really-burned (long (:observed-burn-n-cells stats))]
+                           (letfn [(format-w-pct
+                                     ([^long n-cells] (format-w-pct n-cells n-cells-really-burned))
+                                     ([^long n-cells ^long n-cells-denom]
+                                      (if (zero? n-cells-denom)
+                                        (format "%d (-)" n-cells)
+                                        (format "%d (%2.1f%%)"
+                                                n-cells
+                                                (* 100.0 (/ n-cells n-cells-denom))))))]
+                             [["Fire name" (:pyrcst_fire_name replay-res-stats)]
+                              ["Variation" variation-name]
+                              ["t0" (-> replay-res-stats ::t0-fire :pyrcst_snapshot_inst)]
+                              ["t1" (format "%s (%s)"
+                                            (-> replay-res-stats ::t1-fire :pyrcst_snapshot_inst (str))
+                                            (format-hours-between (-> replay-res-stats ::t0-fire :pyrcst_snapshot_inst)
+                                                                  (-> replay-res-stats ::t1-fire :pyrcst_snapshot_inst)))]
+                              ["n cells really burned" (:observed-burn-n-cells stats)]
+                              ["sim ∩ real" (format-w-pct (:sim-inter-obs-n-cells stats))]
+                              ["ToA-ratio: mean" (some->> (::toa-ratio-mean stats) (format "%1.2f"))]
+                              ["p50" (some->> (::toa-ratio-p50 stats) (format "%1.2f"))]
+                              ["p75" (some->> (::toa-ratio-p75 stats) (format "%1.2f"))]
+                              ["p90" (some->> (::toa-ratio-p90 stats) (format "%1.2f"))]
+                              ["p95" (some->> (::toa-ratio-p95 stats) (format "%1.2f"))]
+                              ["sim - real" (format-w-pct (:sim-minus-obs-n-cells stats))]
+                              ["real - sim" (format-w-pct (:obs-minus-sim-n-cells stats))]
+                              ["s∩r crowning" (format-w-pct (:sim-inter-obs-n-crowning stats) (:sim-inter-obs-n-cells stats))]
+                              ["s-r crowning" (format-w-pct (:sim-minus-obs-n-crowning stats) (:sim-minus-obs-n-cells stats))]])))))))))
 
 (defn print-replayed-results-table
-  [replay-results]
+  [rr-stats]
   (pprint-table-from-kv-lists
-   (replayed-results-table-entries replay-results)))
+   (replayed-results-table-entries rr-stats)))
 
 
 (defn tensor-nan-if
@@ -569,6 +588,22 @@
        (sequence cat)
        (pprint/print-table)))
 
+(def variation-name->info
+  {"00) original" {}
+   "01) crowning disabled" {::transform-inputs-fn (fn [inputs] (assoc inputs :canopy-base-height-matrix (:canopy-height-matrix inputs)))}})
+
+(def rr-stats-85f1467
+  (delay
+   (comment
+     ;; How this was computed, at commit 85f1467:
+     (->> (replay-snapshots variation-name->info nil snaps)
+          (replayed-results-stats)
+          (vec)
+          (time)))
+   (-> (io/resource "gridfire/lab/rr-stats-85f1467.edn")
+       slurp
+       read-string)))
+
 (comment
 
   (def snaps (extract-pyrecast-snapshots! "../pyrecast-snapshots-2022-09-30"))
@@ -593,10 +628,6 @@
        (keep :suppression))
   ;;=> ()
 
-  (def variation-name->info
-    {"00) original" {}
-     "01) crowning disabled" {::transform-inputs-fn (fn [inputs] (assoc inputs :canopy-base-height-matrix (:canopy-height-matrix inputs)))}})
-
   (def replay-results (time (replay-snapshots variation-name->info 64 snaps)))
   ;;"Elapsed time: 59593.890425 msecs"
 
@@ -604,7 +635,8 @@
   (def replay-results2 (time (replay-snapshots variation-name->info 8 snaps)))
 
 
-  (print-replayed-results-table replay-results)
+  (print-replayed-results-table (replayed-results-stats replay-results))
+  ;; OLD
   ;;|              Fire name |             Variation |                           t0 |                                   t1 | n cells really burned |    sim ∩ real | ToA-ratio: mean |  p50 |  p75 |  p90 |  p95 |      sim - real |    real - sim | s∩r crowning |  s-r crowning |
   ;;|------------------------+-----------------------+------------------------------+--------------------------------------+-----------------------+---------------+-----------------+------+------+------+------+-----------------+---------------+--------------+---------------|
   ;;|              ca-summit |          00) original | Wed Sep 21 10:15:00 UTC 2022 | Thu Sep 22 09:58:00 UTC 2022 (+24hr) |                   0.0 |         0 (-) |                 |      |      |      |      |           0 (-) |         0 (-) |        0 (-) |         0 (-) |
