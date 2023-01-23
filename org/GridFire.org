@@ -4638,10 +4638,10 @@ Other output mappings:
 
 ** Section 6: Perturbations
 
-Gridfire supports perturbations of input rasters during simulations in
-order to account for inherent uncertainty in the data. A uniform
-random sampling of values within a given range is used to address
-these uncertanties.
+Gridfire supports applying perturbations to input rasters during
+simulations in order to account for inherent uncertainty in the input
+data. A uniform random sampling of values within a given range is used
+to address these uncertanties.
 
 To specify this in the config file include the following mappings:
 
@@ -4652,13 +4652,13 @@ To specify this in the config file include the following mappings:
                                  :range        [-1.0 1.0]}}}
 #+end_src
 
-The above config specify that a randomly selected value between -1.0
+The above config specifies that a randomly selected value between -1.0
 and 1.0 should be added to the canopy height value. This perturbation
 will be applied globally to all cells. We could also, instead, specify
-that each individual cell should be perturbed independently
-by setting *:spatial-type* to *:pixel*. Finally, we can specify a non-constant
-but smoother perturbation by setting *:spatial-type* to *:smoothed-supergrid*
-along with some more configuration:
+that each individual cell should be perturbed independently by setting
+*:spatial-type* to *:pixel*. Finally, we can specify a non-constant
+but smoother perturbation by setting *:spatial-type* to
+*:smoothed-supergrid* along with some more configuration:
 
 #+begin_src clojure
 {:perturbations {:canopy-height {:spatial-type :smoothed-supergrid
@@ -4669,21 +4669,22 @@ along with some more configuration:
                                  :range [-1. 1.]}}}
 #+end_src
 
-The above will behave similarly to a `:pixel` perturbation,
-except that the i.i.d 'white noise' is sampled not on each
-individual pixel of the space-time grid,
-but on a small-cardinality coarser-grained 'supergrid';
-values for each individual pixel will then be resolved by linear
-smoothing (i.e. averaging) between the 8 corners of the supergrid
-cell containing it. *Limitations:* smoothed-supergrid perturbations
-are not isotropic in space, nor are they spatially homogeneous
-(generated perturbations will be smoother near the center of supergrid cells
-than near their edges) - a potential direction to address these
-shortcomings would be to generate the supergrid by sampling an RBF Gaussian Process
-rather than i.i.d uniform distributions.
+The above will behave similarly to a `:pixel` perturbation, except
+that the i.i.d 'white noise' is sampled not on each individual pixel
+of the space-time grid, but on a small-cardinality coarser-grained
+'supergrid'; values for each individual pixel will then be resolved by
+linear smoothing (i.e. averaging) between the 8 corners of the
+supergrid cell containing it. *Limitations:* smoothed-supergrid
+perturbations are not isotropic in space, nor are they spatially
+homogeneous (generated perturbations will be smoother near the center
+of supergrid cells than near their edges) - a potential direction to
+address these shortcomings would be to generate the supergrid by
+sampling an RBF Gaussian Process rather than i.i.d uniform
+distributions.
 
-Gridfire expects perturbations to be in imperial units. If these perturbations
-are meant to be in metric, you must include an entry for the units:
+Gridfire expects perturbations to be in imperial units. If these
+perturbations are meant to be in metric, you must include an entry for
+the units:
 
 #+begin_src clojure
 {:perturbations {:canopy-height {:spatial-type :global
@@ -4825,6 +4826,48 @@ from billions of bits to a few thousands; but we're basing all this on determini
 which means that the entropy is, strictly speaking, 0.
 Visual inspection shows that an HDPP-generated perturbation map exhibits no more perceptible patterns
 than an iid-generated one.
+
+*** What to Expect from Perturbations
+
+The typical intent of perturbations is to *propagate uncertainty*
+about the inputs, which can mean:
+
+1. verifying that simulation outcomes are robust to small changes in
+   the inputs.
+2. in a MCMC mindset, sampling the effects of inputs uncertainty on
+   simulation outcomes.
+
+WARNING: in order to achieve this last goal, *the probability
+distribution of perturbations must be representative of your beliefs
+about input uncertainty.* It's quite likely that independently-sampled
+uniform distributions will fall short of this requirement, as
+realistic uncertainty about weather and landscape will involve
+non-uniform distributions and correlations between inputs; that is a
+limitation of GridFire's *{:spatial-type :global}* perturbations, in
+which case we recommend that you model your uncertainty using a
+less-trivial sort of probability distribution (such as a multivariate
+Gaussian, or mixture thereof) and sample from it upstream of GridFire.
+
+*Pixel perturbations are also not good at modeling input uncertainty:*
+while they do provide a form of spatial variability, that variability
+is not realistic for modeling input uncertainty, as it ignores
+potential spatial correlations between grid cells. For example,
+inaccuracies in weather forecasting will never look like random i.i.d
+noise (a.k.a "static"): the actual temperatures will be consistently
+above or below the forecast on large contiguous regions. In other
+words, pixel perturbations are not good at exploring the subspace of
+credible inputs; they will mostly move the inputs in directions
+orthogonal to that subspace.
+
+However, *pixel perturbations can be useful for re-creating
+small-scale spatial heterogeneity* (for example, the fact that canopy
+height might not be constant even on a small scale). This concern is
+orthogonal to propagating uncertainty: it's likely more relevant to
+view it as a parameter for tuning the fire-spread algorithm. If
+Percolation Theory and statistical physics are any indication, the
+fire-spreading behavior might respond with sharp threshold effects to
+varying the amplitude of pixel perturbations: if you are relying on
+this, tune carefully.
 
 ** Section 7: Spotting
 
