@@ -1,4 +1,4 @@
-(ns gridfire.lab.replay.compare-85f1467-9d09fa9
+(ns gridfire.lab.replay.compare-85f1467-9689124
   "Records a comparison of gridfire.lab.replay results for 2 version of GridFire,
   before and after directional crowning initiation."
   (:require [gridfire.lab.replay :as gflab-replay]))
@@ -29,7 +29,7 @@
 (comment
 
   (->> (merge-rr-stats {"OLD" @gflab-replay/rr-stats-85f1467
-                        "NEW" @gflab-replay/rr-stats-9d09fa9})
+                        "NEW" @gflab-replay/rr-stats-9689124})
        (shuffle)
        (gflab-replay/print-replayed-results-table))
   ;;|               Fire name |                 Variation |                            t0 |                                    t1 | n cells really burned |    sim ∩ real | ToA-ratio: mean |  p50 |  p75 |  p90 |  p95 |      sim - real |    real - sim | s∩r crowning |  s-r crowning |
