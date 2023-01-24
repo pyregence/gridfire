@@ -1391,10 +1391,11 @@
   | :sdi-sensitivity-to-difficulty                    | double             | none                                                      |
   |---------------------------------------------------+--------------------+-----------------------------------------------------------|"
   [inputs]
-  (binding [rothermel-fast-wrapper-optimal (if (-> inputs :memoization :surface-fire-min (= :within-sims)) ; NOTE :within-sims to avoid the memory leaks caused by :across-sims.
-                                             (memoize-rfwo rothermel-fast-wrapper-optimal)
-                                             rothermel-fast-wrapper-optimal)]
-    (run-fire-spread* inputs)))
+  (let [sfmin-memoization (get-in inputs [:memoization :surface-fire-min])]
+    (binding [rothermel-fast-wrapper-optimal (if (= sfmin-memoization :within-sims) ; NOTE :within-sims to avoid the memory leaks caused by :across-sims.
+                                               (memoize-rfwo rothermel-fast-wrapper-optimal)
+                                               rothermel-fast-wrapper-optimal)]
+      (run-fire-spread* inputs))))
 
 ;;-----------------------------------------------------------------------------
 ;; Point Ignition
