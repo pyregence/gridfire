@@ -69,6 +69,24 @@
   (when (seq results)
     (every? #(#{:max-runtime-reached :no-burnable-fuels} (:exit-condition %)) results)))
 
+(defn results-signature
+  "Computes a value representing the logical behavior of the simulation."
+  [results]
+  (mapv (fn [r]
+          (select-keys r [:crown-fire-count
+                          :crown-fire-size
+                          :exit-condition
+                          :fire-line-intensity-mean
+                          :fire-line-intensity-stddev
+                          :fire-size
+                          :flame-length-mean
+                          :flame-length-stddev
+                          :global-clock
+                          :spot-count
+                          :surface-fire-count
+                          :surface-fire-size]))
+        results))
+
 ;;-----------------------------------------------------------------------------
 ;; Fixtures
 ;;-----------------------------------------------------------------------------
@@ -567,3 +585,28 @@
                          :sdi-reference-suppression-speed-samples               [600.0]})]
 
       (is (valid-exits? (run-test-simulation! config))))))
+
+(deftest ^:simulation surface-fire-min-memoization-test
+  (let [default-res (run-test-simulation! test-config-base)]
+    (testing (str (pr-str '{:memoization {:surface-fire-min XXX}}) " changes how surface-fire-min cacheing happens, with possible values:")
+      (testing (str (pr-str :across-sims) "(default): one cache per simulation.")
+        (let [config (assoc test-config-base :memoization {:surface-fire-min :across-sims})
+              res    (run-test-simulation! config)]
+          (is (valid-exits? res))
+          (is (= (results-signature default-res)
+                 (results-signature res))
+              "the logical behavior of the simulation is unchanged.")))
+      (testing (str (pr-str :within-sims) ": one cache per simulation.")
+        (let [config (assoc test-config-base :memoization {:surface-fire-min :within-sims})
+              res    (run-test-simulation! config)]
+          (is (valid-exits? res))
+          (is (= (results-signature default-res)
+                 (results-signature res))
+              "the logical behavior of the simulation is unchanged.")))
+      (testing (str (pr-str nil) ": no memoization.")
+        (let [config (assoc test-config-base :memoization {:surface-fire-min nil})
+              res    (run-test-simulation! config)]
+          (is (valid-exits? res))
+          (is (= (results-signature default-res)
+                 (results-signature res))
+              "the logical behavior of the simulation is unchanged."))))))
