@@ -1411,30 +1411,30 @@
         compute-directional-values? (:compute-directional-values? inputs)
         shape                       [num-rows num-cols]
         burn-time-matrix            (-> (* num-rows num-cols)
-                                        (double-array -1.0)
+                                        (float-array -1.0)
                                         (t/ensure-tensor)
                                         (t/reshape shape)
                                         (t/mset! i j ignition-start-time))]
     (make-simulation-matrices
      {:burn-time-matrix                burn-time-matrix
-      :eccentricity-matrix             (t/new-tensor shape)
-      :fire-line-intensity-matrix      (t/new-tensor shape)
-      :fire-spread-matrix              (-> (t/new-tensor shape) (t/mset! i j 1.0))
-      :fire-type-matrix                (t/new-tensor shape)
+      :eccentricity-matrix             (t/new-tensor shape :datatype :float32)
+      :fire-line-intensity-matrix      (t/new-tensor shape :datatype :float32)
+      :fire-spread-matrix              (-> (t/new-tensor shape :datatype :float32) (t/mset! i j 1.0))
+      :fire-type-matrix                (t/new-tensor shape :datatype :float32)
       :firebrand-count-matrix          (when spotting (t/new-tensor shape :datatype :int32))
-      :flame-length-matrix             (t/new-tensor shape)
-      :directional-flame-length-matrix (when compute-directional-values? (t/new-tensor shape))
-      :max-spread-direction-matrix     (t/new-tensor shape)
-      :max-spread-rate-matrix          (t/new-tensor shape)
+      :flame-length-matrix             (t/new-tensor shape :datatype :float32)
+      :directional-flame-length-matrix (when compute-directional-values? (t/new-tensor shape :datatype :float32))
+      :max-spread-direction-matrix     (t/new-tensor shape :datatype :float32)
+      :max-spread-rate-matrix          (t/new-tensor shape :datatype :float32)
       :modified-time-matrix            (t/new-tensor shape :datatype :int32)
-      :residence-time-matrix           (when compute-directional-values? (t/new-tensor shape))
-      :reaction-intensity-matrix       (when compute-directional-values? (t/new-tensor shape))
-      :spot-matrix                     (when spotting (t/new-tensor shape))
-      :spread-rate-matrix              (t/new-tensor shape)
-      :spread-rate-sum-matrix          (when compute-directional-values? (t/new-tensor shape))
+      :residence-time-matrix           (when compute-directional-values? (t/new-tensor shape :datatype :float32))
+      :reaction-intensity-matrix       (when compute-directional-values? (t/new-tensor shape :datatype :float32))
+      :spot-matrix                     (when spotting (t/new-tensor shape :datatype :float32))
+      :spread-rate-matrix              (t/new-tensor shape :datatype :float32)
+      :spread-rate-sum-matrix          (when compute-directional-values? (t/new-tensor shape :datatype :float32))
       :travel-lines-matrix             (t/new-tensor shape :datatype :int16)
-      :x-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape))
-      :y-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape))})))
+      :x-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape :datatype :float32))
+      :y-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape :datatype :float32))})))
 
 (defmethod run-fire-spread* :ignition-point
   [inputs]
@@ -1456,14 +1456,14 @@
   [inputs ignited-cells]
   (let [num-rows                    (long (:num-rows inputs))
         num-cols                    (long (:num-cols inputs))
-        positive-burn-scar          (:initial-ignition-site inputs)
+        positive-burn-scar          (t/clone (:initial-ignition-site inputs) :datatype :float32)
         ignition-start-time         (:ignition-start-time inputs)
         spotting                    (:spotting inputs)
         compute-directional-values? (:compute-directional-values? inputs)
         shape                       [num-rows num-cols]
         negative-burn-scar          (d/clone (dfn/* -1.0 positive-burn-scar))
         burn-time-matrix            (-> (* num-rows num-cols)
-                                        (double-array -1.0)
+                                        (float-array -1.0)
                                         (t/ensure-tensor)
                                         (t/reshape shape)
                                         (add-ignited-cells! ignited-cells ignition-start-time))]
@@ -1481,12 +1481,12 @@
       :modified-time-matrix            (t/new-tensor shape :datatype :int32)
       :residence-time-matrix           (when compute-directional-values? (d/clone negative-burn-scar))
       :reaction-intensity-matrix       (when compute-directional-values? (d/clone negative-burn-scar))
-      :spot-matrix                     (when spotting (t/new-tensor shape))
+      :spot-matrix                     (when spotting (t/new-tensor shape :datatype :float32))
       :spread-rate-matrix              (d/clone negative-burn-scar)
-      :spread-rate-sum-matrix          (when compute-directional-values? (t/new-tensor shape))
+      :spread-rate-sum-matrix          (when compute-directional-values? (t/new-tensor shape :datatype :float32))
       :travel-lines-matrix             (t/new-tensor shape :datatype :int16)
-      :x-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape))
-      :y-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape))})))
+      :x-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape :datatype :float32))
+      :y-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape :datatype :float32))})))
 
 ;; TODO: Move this step into run-simulations to avoid running it in every thread
 (defn- get-perimeter-cells
