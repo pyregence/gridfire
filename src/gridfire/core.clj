@@ -1,7 +1,6 @@
 ;; [[file:../../org/GridFire.org::gridfire-core][gridfire-core]]
 (ns gridfire.core
-  (:require [clojure.core.reducers        :as r]
-            [clojure.spec.alpha           :as spec]
+  (:require [clojure.spec.alpha           :as spec]
             [gridfire.fire-spread-optimal :refer [memoize-rfwo rothermel-fast-wrapper-optimal]]
             [gridfire.inputs              :as inputs]
             [gridfire.outputs             :as outputs]
