@@ -42,10 +42,15 @@
   (with-multithread-profiling ; TODO: Disable this to see how much performance is gained.
     (log-str "Running simulations")
     (let [parallel-bin-size 1
+          sfmin-memoization (get-in inputs [:memoization :surface-fire-min] :across-sims)
           reducer-fn        (if (= parallel-strategy :between-fires)
                               #(into [] (r/fold parallel-bin-size r/cat r/append! %))
                               #(into [] %))
-          summary-stats     (with-redefs [rothermel-fast-wrapper-optimal (memoize-rfwo rothermel-fast-wrapper-optimal)]
+          summary-stats     (with-redefs [rothermel-fast-wrapper-optimal (if (= sfmin-memoization :across-sims)
+                                                                           (memoize-rfwo rothermel-fast-wrapper-optimal)
+                                                                           rothermel-fast-wrapper-optimal)]
+                              ;; NOTE :across-sims is useful to share the memo across simulations, with a risk of running out of memory. Pointless when there are perturbations.
+                              ;; WARNING: omitting :memoization {} is not equivalent to :memoization {:surface-fire-min nil}, but to :memoization {:surface-fire-min :across-sims}, for backward compatibility. (Val, 09 Jan 2023)
                               (->> (range simulations)
                                    (vec)
                                    (r/map #(simulations/run-simulation! % inputs))

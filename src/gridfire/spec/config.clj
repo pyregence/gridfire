@@ -2,6 +2,7 @@
   (:require [clojure.spec.alpha          :as s]
             [gridfire.spec.burn-period   :as burn-period]
             [gridfire.spec.common        :as common]
+            [gridfire.spec.memoization   :as memoization]
             [gridfire.spec.perturbations :as perturbations]
             [gridfire.spec.suppression   :as suppression]))
 
@@ -233,7 +234,6 @@
 (s/def ::output-flame-length-max  #{:max :directional})
 (s/def ::output-flame-length-sum  #{:max :directional})
 
-
 ;;=============================================================================
 ;; Spread Rate Adjustment
 ;;=============================================================================
@@ -316,6 +316,7 @@
              ::random-ignition
              ::relative-humidity
              ::fuel-moisture
+             ::memoization/memoization
              ::spotting
              ::suppression
              ::perturbations

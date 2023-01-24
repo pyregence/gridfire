@@ -134,7 +134,7 @@
       (moisturize fuel-moisture)
       (rothermel-surface-fire-spread-no-wind-no-slope grass-suppression?)))
 
-(defn ^:redef rothermel-fast-wrapper-optimal
+(defn ^:dynamic ^:redef rothermel-fast-wrapper-optimal
   [rfwo-args]
   (rothermel-surface-fire-wrapped (rfwo-struct/get-fuel-model-number rfwo-args)
                                   (rfwo-struct/get-fuel-moisture-vec rfwo-args)
@@ -1328,7 +1328,13 @@
 ;;-----------------------------------------------------------------------------
 
 ;; TODO: Move this multimethod check into run-simulations to avoid running it in every thread
-(defmulti run-fire-spread
+(defmulti ^:private run-fire-spread*
+  (fn [inputs]
+    (if (vector? (:initial-ignition-site inputs))
+      :ignition-point
+      :ignition-perimeter)))
+
+(defn run-fire-spread
   "Runs the raster-based fire spread model with a SimulationInputs record containing these fields:
   |---------------------------------------------------+--------------------+-----------------------------------------------------------|
   | Key                                               | Value Type         | Value Units                                               |
@@ -1384,10 +1390,12 @@
   | :sdi-reference-suppression-speed                  | double             | percent/day                                               |
   | :sdi-sensitivity-to-difficulty                    | double             | none                                                      |
   |---------------------------------------------------+--------------------+-----------------------------------------------------------|"
-  (fn [inputs]
-    (if (vector? (:initial-ignition-site inputs))
-      :ignition-point
-      :ignition-perimeter)))
+  [inputs]
+  (let [sfmin-memoization (get-in inputs [:memoization :surface-fire-min])]
+    (binding [rothermel-fast-wrapper-optimal (if (= sfmin-memoization :within-sims) ; NOTE :within-sims to avoid the memory leaks caused by :across-sims.
+                                               (memoize-rfwo rothermel-fast-wrapper-optimal)
+                                               rothermel-fast-wrapper-optimal)]
+      (run-fire-spread* inputs))))
 
 ;;-----------------------------------------------------------------------------
 ;; Point Ignition
@@ -1428,7 +1436,7 @@
       :x-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape))
       :y-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape))})))
 
-(defmethod run-fire-spread :ignition-point
+(defmethod run-fire-spread* :ignition-point
   [inputs]
   (run-loop inputs
             (initialize-point-ignition-matrices inputs)
@@ -1507,7 +1515,7 @@
                    acc)))
         (persistent! acc)))))
 
-(defmethod run-fire-spread :ignition-perimeter
+(defmethod run-fire-spread* :ignition-perimeter
   [inputs]
   (let [ignited-cells (get-perimeter-cells inputs)]
     (when (seq ignited-cells)
