@@ -134,7 +134,7 @@
       (moisturize fuel-moisture)
       (rothermel-surface-fire-spread-no-wind-no-slope grass-suppression?)))
 
-(defn ^:dynamic rothermel-fast-wrapper-optimal
+(defn ^:dynamic ^:redef rothermel-fast-wrapper-optimal
   [rfwo-args]
   (rothermel-surface-fire-wrapped (rfwo-struct/get-fuel-model-number rfwo-args)
                                   (rfwo-struct/get-fuel-moisture-vec rfwo-args)
