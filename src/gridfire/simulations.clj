@@ -165,6 +165,8 @@
 (defn process-aggregate-output-layers!
   [{:keys [output-flame-length-sum output-flame-length-max burn-count-matrix flame-length-max-matrix flame-length-sum-matrix
            output-burn-probability spot-count-matrix]} fire-spread-results]
+  ;; WARNING this code is probably not thread-safe, as it operates by mutating shared collections. (Val, 24 Jan 2023)
+  ;; Race conditions could become likely if simulations are very fast.
   (when-let [timestep output-burn-probability]
     (process-burn-count! fire-spread-results burn-count-matrix timestep))
   (when flame-length-sum-matrix
