@@ -56,7 +56,7 @@
   :slope
   {:type :geotiff,
    :source #gridfire.utils.files/from-this-file "./slp.tif"}},
- :max-runtime 205.75,
+ :max-runtime 390.93333333333334,
  :outfile-suffix "",
  :output-binary? true,
  :output-csvs? true,
