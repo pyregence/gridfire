@@ -795,9 +795,10 @@
            :output-edn
            (-> {:cell-size                       (m->ft COMPUTATIONAL_DOMAIN_CELLSIZE)
                 :srid                            (or A_SRS "EPSG:32610")
+                ;; FIXME what about SIMULATION_TSTART? Might want to use that for :ignition-start-timestamps or something.
                 :max-runtime                     (sec->min SIMULATION_TSTOP)
                 :simulations                     NUM_ENSEMBLE_MEMBERS
-                ;; FIXME temperature elmfire does not use temperature, this is a required key in gridfire.
+                ;; NOTE temperature elmfire does not use temperature, this is a required key in gridfire.
                 ;; Default to 80 or set in override-config
                 :temperature                     80
                 :random-seed                     SEED
