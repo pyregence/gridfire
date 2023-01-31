@@ -60,6 +60,7 @@
 (s/def ::ellipse-adjustment-factor       ::common/number-sample)
 (s/def ::fractional-distance-combination #{:sum}) ; FIXME This is currently unused.
 (s/def ::parallel-strategy               #{:within-fires :between-fires})
+(s/def ::max-parallel-simulations        (s/or :omitted nil? :provided pos-int?))
 
 ;; DB Connection
 
@@ -306,6 +307,7 @@
              ::fractional-distance-combination
              ::fuel-number->spread-rate-adjustment-samples
              ::parallel-strategy
+             ::max-parallel-simulations
              ::db-spec
              ::ignition-row
              ::ignition-col

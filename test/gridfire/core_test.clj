@@ -215,8 +215,10 @@
 (deftest ^:simulation geotiff-ignition-test
   (testing "Running simulation with ignition layers read from geotiff files"
     (let [config (merge test-config-base
-                        {:ignition-layer {:type   :geotiff
-                                          :source (in-file-path "ign.tif")}})]
+                        {:ignition-layer           {:type   :geotiff
+                                                    :source (in-file-path "ign.tif")}
+                         ;; While we're here, using this test case for testing :max-parallel-simulations without wasting the time of a simulation. (Val, 13 Jan 2023)
+                         :max-parallel-simulations 2})]
 
       (is (valid-exits? (run-test-simulation! config))))))
 
