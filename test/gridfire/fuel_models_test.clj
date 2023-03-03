@@ -5,8 +5,9 @@
                                                  sb40-fuel-models
                                                  test-fuel-moisture
                                                  within]]
-            [gridfire.fuel-models        :refer [build-fuel-model
-                                                 moisturize]]))
+            ;; FIXME do we want to keep these tests? If so, how to remove that dependency?
+            [gridfire.fuel-models-old        :refer [build-fuel-model
+                                                     moisturize]]))
 
 ;; Checks live fuel moisture of extinction and dynamic fuel loading for the S&B40 fuel models under fully cured conditions
 (deftest ^:unit moisturize-test-dry

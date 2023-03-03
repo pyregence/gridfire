@@ -1,5 +1,5 @@
 ;; [[file:../../org/GridFire.org::fuel-model-definitions][fuel-model-definitions]]
-(ns gridfire.fuel-models)
+(ns gridfire.fuel-models-old)
 
 (def fuel-models
   "Lookup table including one entry for each of the Anderson 13 and

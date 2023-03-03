@@ -1,5 +1,5 @@
 ;; [[file:../../org/GridFire.org::fire-spread-algorithm][fire-spread-algorithm]]
-(ns gridfire.fire-spread
+(ns gridfire.fire-spread-old
   (:require [clojure.core.reducers         :as r]
             [gridfire.common               :refer [burnable-fuel-model?
                                                    burnable?
@@ -15,10 +15,10 @@
                                                   cruz-crown-fire-spread
                                                   van-wagner-crown-fire-initiation?]]
             [gridfire.fire-spread-optimal :refer [rothermel-surface-fire-wrapped]]
-            [gridfire.fuel-models         :refer [build-fuel-model moisturize]]
+            [gridfire.fuel-models-old         :refer [build-fuel-model moisturize]]
             [gridfire.grid-lookup         :as grid-lookup]
-            [gridfire.spotting            :as spot]
-            [gridfire.surface-fire        :refer [anderson-flame-depth
+            [gridfire.spotting-old            :as spot]
+            [gridfire.surface-fire-old        :refer [anderson-flame-depth
                                                   byram-fire-line-intensity
                                                   byram-flame-length
                                                   rothermel-surface-fire-spread-any

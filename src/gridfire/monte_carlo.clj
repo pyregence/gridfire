@@ -4,8 +4,9 @@
             [clojure.data.csv :as csv]
             [clojure.java.jdbc :as jdbc]
             [clojure.core.reducers :as r]
-            [gridfire.surface-fire :refer [degrees-to-radians]]
-            [gridfire.fire-spread :refer [random-cell run-fire-spread]]
+            ;; FIXME figure out how to remove these dependencies, or delete this namespace.
+            [gridfire.surface-fire-old :refer [degrees-to-radians]]
+            [gridfire.fire-spread-old :refer [random-cell run-fire-spread]]
             [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]
             [tech.v3.datatype :as d]
             [tech.v3.datatype.functional :as dfn]

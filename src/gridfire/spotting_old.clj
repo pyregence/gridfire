@@ -1,5 +1,5 @@
 ;; [[file:../../org/GridFire.org::sardoy-firebrand-dispersal][sardoy-firebrand-dispersal]]
-(ns gridfire.spotting
+(ns gridfire.spotting-old
   (:require [gridfire.common       :refer [distance-3d
                                            calc-fuel-moisture
                                            in-bounds?
