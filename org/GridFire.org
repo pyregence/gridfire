@@ -5511,3 +5511,57 @@ This concludes our discussion of GridFire's command line interface.
    "/data/IWAP_GRIDFIRE_RUNS/inputs/wrf_cells_to_process.clj"
    30000 41423 100))
 #+end_src
+* Unfiled Namespaces
+** Grouping 1 (e.g., Utility functions)
+#+name: gridfire.active-fire-watcher
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/active_fire_watcher.clj :padline no :no-expand :comments link
+#+end_src
+
+#+name: gridfire.foo.some.ns2
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/foo/some/ns2.clj :padline no :no-expand :comments link
+#+end_src
+
+#+name: gridfire.foo.some.ns3
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/foo/some/ns3.clj :padline no :no-expand :comments link
+#+end_src
+
+#+name: gridfire.foo.some.ns4
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/foo/some/ns4.clj :padline no :no-expand :comments link
+#+end_src
+
+** Grouping 2 (e.g., Testing functions)
+
+#+name: gridfire.foo.some.ns5
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/foo/some/ns5.clj :padline no :no-expand :comments link
+#+end_src
+
+#+name: gridfire.foo.some.ns6
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/foo/some/ns6.clj :padline no :no-expand :comments link
+#+end_src
+
+** Grouping 3 (e.g., I/O functions)
+#+name: gridfire.foo.some.ns7
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/foo/some/ns7.clj :padline no :no-expand :comments link
+#+end_src
+
+#+name: gridfire.foo.some.ns8
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/foo/some/ns8.clj :padline no :no-expand :comments link
+#+end_src
+
+** Grouping 4
+#+name: gridfire.foo.some.ns9
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/foo/some/ns9.clj :padline no :no-expand :comments link
+#+end_src
+
+#+name: gridfire.foo.some.ns10
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/foo/some/ns10.clj :padline no :no-expand :comments link
+#+end_src
+
+** Grouping 5
+#+name: gridfire.foo.some.ns11
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/foo/some/ns11.clj :padline no :no-expand :comments link
+#+end_src
+
+#+name: gridfire.foo.some.ns12
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/foo/some/ns12.clj :padline no :no-expand :comments link
+#+end_src

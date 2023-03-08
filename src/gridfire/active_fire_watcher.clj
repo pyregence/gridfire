@@ -1,4 +1,4 @@
-;; FIXME LP coverage
+;; [[file:../../org/GridFire.org::gridfire.active-fire-watcher][gridfire.active-fire-watcher]]
 (ns gridfire.active-fire-watcher
   (:require [clojure.core.async   :refer [<! >! go-loop timeout]]
             [clojure.edn          :as edn]
@@ -82,3 +82,4 @@
   (when @directory-watcher
     (beholder/stop @directory-watcher)
     (reset! directory-watcher nil)))
+;; gridfire.active-fire-watcher ends here
