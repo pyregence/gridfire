@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 #!/usr/bin/env bb
 (ns gridfire.server.sync.call
   "A zero-deps script for invoking a running `gridfire.server.sync`.

@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.output-test
   (:require [clojure.java.io     :as io]
             [clojure.test        :refer [deftest is use-fixtures]]

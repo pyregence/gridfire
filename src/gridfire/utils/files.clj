@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.utils.files
   "File-system utilities for GridFire."
   (:require [clojure.edn     :as edn]

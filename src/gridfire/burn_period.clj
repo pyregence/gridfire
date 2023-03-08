@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.burn-period
   (:require [gridfire.burn-period.sunrise-sunset :as burnp-sun]
             [gridfire.utils.geo                  :refer [resolve-simulation-lat+lon]]))

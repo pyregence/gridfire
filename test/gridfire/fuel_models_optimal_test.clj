@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.fuel-models-optimal-test
   (:require [clojure.test                 :refer [deftest is testing]]
             [gridfire.fuel-models-optimal :as f-opt]))

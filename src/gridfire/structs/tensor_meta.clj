@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.structs.tensor-meta)
 
 (defprotocol IDoubleGetter

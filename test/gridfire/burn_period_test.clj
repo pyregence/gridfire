@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.burn-period-test
   (:require [clojure.test        :refer [deftest is testing use-fixtures]]
             [gridfire.core       :refer [load-config! load-inputs!]]

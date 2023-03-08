@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns build
   (:require [clojure.tools.build.api :as b])
   (:import java.util.Date))

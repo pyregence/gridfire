@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 {:output-binary?          false
  :output-burn-probability :final
  :random-seed             1991

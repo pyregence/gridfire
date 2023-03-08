@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.fuel-models-test
   (:require [clojure.test                :refer [deftest testing is run-tests]]
             [gridfire.behaveplus-results :refer [behaveplus5-surface-fire-values-dry-no-wind-no-slope

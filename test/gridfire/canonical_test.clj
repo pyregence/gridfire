@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.canonical-test
   (:require [clojure.edn          :as edn]
             [clojure.java.io      :as io]

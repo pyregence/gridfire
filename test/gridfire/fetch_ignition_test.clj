@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.fetch-ignition-test
   (:require [clojure.test                :refer [deftest is testing use-fixtures]]
             [gridfire.fetch              :as fetch]

@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.spotting-optimal
   (:require [gridfire.common              :refer [burnable-cell?
                                                   burnable-fuel-model?

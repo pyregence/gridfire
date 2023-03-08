@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.server.protocols)
 
 (defprotocol JobHandler

@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.structs.burn-vector
   "Custom data structure for representing Burn Vectors, isolated in this namespace to wrap JVM interop.")
 

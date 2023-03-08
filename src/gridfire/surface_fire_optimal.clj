@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.surface-fire-optimal
   (:require [gridfire.conversion          :refer [deg->rad rad->deg]]
             [gridfire.fuel-models-optimal :refer [is-dynamic-grass-fuel-model-number? map-category map-size-class category-sum size-class-sum]]))

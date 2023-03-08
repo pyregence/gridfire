@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.spec.inputs.grid-of-rasters
   (:require [clojure.spec.alpha :as s]))
 

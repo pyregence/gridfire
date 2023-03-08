@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.spec.inputs.sql
   (:require [clojure.spec.alpha :as s]))
 

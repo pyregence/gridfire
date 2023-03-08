@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.grid-lookup
   "Utils for efficiently resolving values at [b i j] coordinates in a grid.
 

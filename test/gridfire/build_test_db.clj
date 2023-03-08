@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.build-test-db
   (:require [clojure.java.shell :as sh]
             [clojure.string :as str]

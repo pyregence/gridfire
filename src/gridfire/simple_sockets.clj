@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.simple-sockets
   (:require [clojure.java.io    :as io]
             [clojure.string     :as s]

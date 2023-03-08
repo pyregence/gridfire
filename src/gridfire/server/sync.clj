@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.server.sync
   "A very basic, mono-threaded socket-based API into a GridFire server."
   (:require [clojure.core.async         :as async]

@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.behaveplus-results
   (:require [gridfire.fuel-models-optimal :refer [fuel-models]]))
 

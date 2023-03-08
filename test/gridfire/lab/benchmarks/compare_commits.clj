@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.lab.benchmarks.compare-commits
   "A babashka script for benchmarking several commits."
   (:require [babashka.process]

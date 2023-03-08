@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.spec.burn-period-test
   (:require [clojure.spec.alpha        :as s]
             [clojure.test              :refer [deftest is testing]]

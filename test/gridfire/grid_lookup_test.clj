@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.grid-lookup-test
   (:require [gridfire.grid-lookup :as grid-lookup]
             [clojure.test         :refer [deftest is testing]])

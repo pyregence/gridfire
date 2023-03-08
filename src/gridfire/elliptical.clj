@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.elliptical
   "Computations based on the Elliptical Wavelets model.")
 

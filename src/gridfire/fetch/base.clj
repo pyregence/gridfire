@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.fetch.base
   (:require [gridfire.grid-lookup :as grid-lookup]
             [tech.v3.datatype     :as d]))

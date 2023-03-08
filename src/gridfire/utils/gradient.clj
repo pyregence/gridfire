@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.utils.gradient)
 
 (defn estimate-dF

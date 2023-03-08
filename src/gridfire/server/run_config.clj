@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.server.run-config
   "Sequential processing of run-config requests through an in-memory job queue."
   (:require [clojure.core.async        :as async]

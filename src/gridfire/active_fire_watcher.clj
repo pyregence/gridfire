@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.active-fire-watcher
   (:require [clojure.core.async   :refer [<! >! go-loop timeout]]
             [clojure.edn          :as edn]

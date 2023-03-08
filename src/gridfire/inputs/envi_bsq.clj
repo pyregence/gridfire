@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.inputs.envi-bsq
   "A custom parser for BSQ-interleaved ENVI raster files.
   This is a special case of GDAL's ENVI .hdr Labelled Raster:

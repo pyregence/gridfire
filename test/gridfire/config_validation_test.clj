@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.config-validation-test
   (:require [clojure.spec.alpha   :as s]
             [clojure.test         :refer [deftest is]]

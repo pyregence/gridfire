@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.spec.config
   (:require [clojure.spec.alpha          :as s]
             [gridfire.spec.burn-period   :as burn-period]

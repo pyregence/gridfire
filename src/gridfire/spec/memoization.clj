@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.spec.memoization
   (:require [clojure.spec.alpha :as s]))
 

@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.active-fire-watcher-test
   (:require [gridfire.active-fire-watcher :refer [file-name-regex
                                                   fire-name-regex

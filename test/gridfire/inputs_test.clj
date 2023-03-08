@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.inputs-test
   (:require [clojure.test    :refer [are deftest is testing use-fixtures]]
             [gridfire.inputs :as inputs]

@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.fetch-weather-test
   (:require [clojure.java.jdbc           :as jdbc]
             [clojure.test                :refer [deftest is testing use-fixtures]]

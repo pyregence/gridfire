@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.fetch-fuel-moisture-test
   (:require
    [clojure.test                :refer [deftest are]]

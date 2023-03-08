@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 (ns gridfire.elm-to-grid-test
   (:require [clojure.java.io      :as io]
             [clojure.java.shell   :as sh]
