@@ -110,6 +110,8 @@ deps.edn for the current GridFire version is shown below.
         com.nextjournal/beholder            {:mvn/version "1.0.0"}
         com.taoensso/tufte                  {:mvn/version "2.2.0"}
         hikari-cp/hikari-cp                 {:mvn/version "2.13.0"}
+        manifold/manifold                   {:mvn/version "0.2.4"}
+        org.apache.commons/commons-compress {:mvn/version "1.21"}
         org.clojars.lambdatronic/matrix-viz {:mvn/version "2022.02.03"}
         org.clojure/clojure                 {:mvn/version "1.10.3"}
         org.clojure/core.async              {:mvn/version "1.3.622"}
@@ -118,36 +120,26 @@ deps.edn for the current GridFire version is shown below.
         org.clojure/java.jdbc               {:mvn/version "0.7.12"}
         org.clojure/tools.cli               {:mvn/version "1.0.206"}
         org.postgresql/postgresql           {:mvn/version "42.2.23"}
-        sig-gis/magellan                    {:mvn/version "2022.03.18"}
+        sig-gis/magellan                    {:git/url "https://github.com/sig-gis/magellan" :sha "6730285f033704dd9cd863535aaf94b11a352f5a"} ;{:mvn/version "2022.10.21"} ;; TODO restore to a tagged version when published. (Val, 19 Dec 2022)
         sig-gis/triangulum                  {:git/url "https://github.com/sig-gis/triangulum"
                                              :sha     "5b179a97ebd8fbcbff51776db06d9770cb649b9d"}}
 
  :mvn/repos {"osgeo" {:url "https://repo.osgeo.org/repository/release/"}}
 
- :aliases {:build-test-db     {:extra-paths ["test"]
+ :aliases {:build             {:deps       {io.github.clojure/tools.build
+                                            {:git/tag "v0.8.3" :git/sha "0d20256"}}
+                               :ns-default build}
+           :with-tools-build  {:extra-deps {io.github.clojure/tools.build
+                                            {:git/tag "v0.8.3" :git/sha "0d20256"}}}
+           :build-test-db     {:extra-paths ["test"]
                                :main-opts   ["-m" "gridfire.build-test-db"]}
            :run               {:main-opts ["-m" "gridfire.cli"]
                                :jvm-opts  ["-XX:MaxRAMPercentage=90"]}
            :repl              {:main-opts ["-e" "(require,'gridfire.core)"
                                            "-e" "(in-ns,'gridfire.core)"
                                            "-r"]}
+           :vsampling         {:jvm-opts ["-Dgridfire.utils.vsampling.enabled=true"]}
            :gen-raster        {:main-opts ["-m" "gridfire.gen-raster"]}
-           :make-uberjar      {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
-                               :exec-fn      hf.depstar/uberjar
-                               :exec-args    {:jar         target/gridfire-2022.02.07.jar
-                                              :main-class  gridfire.cli
-                                              :aot         true
-                                              :sync-pom    true
-                                              :group-id    sig-gis
-                                              :artifact-id gridfire
-                                              :version     "2022.02.07"
-                                              :manifest
-                                              {:specification-title    "Java Advanced Imaging Image I/O Tools"
-                                               :specification-version  "1.1"
-                                               :specification-vendor   "Sun Microsystems, Inc."
-                                               :implementation-title   "com.sun.media.imageio"
-                                               :implementation-version "1.1"
-                                               :implementation-vendor  "Sun Microsystems, Inc."}}}
            :test              {:extra-paths ["test"]
                                :extra-deps  {com.cognitect/test-runner
                                              {:git/url "https://github.com/cognitect-labs/test-runner.git"
@@ -161,9 +153,26 @@ deps.edn for the current GridFire version is shown below.
                                :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
                                              "-m" "cognitect.test-runner"
                                              "--include" ":unit"]}
+           ;; A moderately fast high-coverage test suite to be run before submitting code, using command:
+           ;; clojure -M:test-ci
+           :test-ci           {:extra-paths ["test"]
+                               :extra-deps  {com.cognitect/test-runner
+                                             {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                              :sha     "dd6da11611eeb87f08780a30ac8ea6012d4c05ce"}}
+                               :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
+                                             "-m" "cognitect.test-runner"
+                                             "--include" ":unit"
+                                             "--include" ":simulation"
+                                             "--exclude" ":database"
+                                             "--exclude" ":canonical"]}
+           :perf-testing      {:extra-paths ["test"]
+                               :extra-deps  {com.clojure-goes-fast/clj-async-profiler  {:mvn/version "0.5.1"}
+                                             com.clojure-goes-fast/clj-java-decompiler {:mvn/version "0.3.1"}
+                                             criterium/criterium                       {:mvn/version "0.4.5"}}}
            :check-reflections {:extra-paths ["test"]
                                :main-opts   ["-e" "(do,(set!,*warn-on-reflection*,true),nil)"
                                              "-e" "(require,'gridfire.cli)"
+                                             "-e" "(require,'gridfire.server2.socket)"
                                              "-e" "(require,'gridfire.build-test-db)"]}
            :check-deps        {:extra-deps {olical/depot {:mvn/version "2.3.0"}}
                                :main-opts  ["-m" "depot.outdated.main"]}}}
@@ -492,22 +501,19 @@ internal data structure, which may be updated to include additional
 custom fuel models desired by the user.
 
 #+name: fuel-model-definitions
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj :padline no :no-expand :comments link
-(ns gridfire.fuel-models-optimal)
-
-(set! *unchecked-math* :warn-on-boxed)
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models_old.clj :padline no :no-expand :comments link
+(ns gridfire.fuel-models-old)
 
 (def fuel-models
   "Lookup table including one entry for each of the Anderson 13 and
    Scott & Burgan 40 fuel models. The fields have the following
    meanings:
-   {fuel-model-number
+   {number
     [name delta M_x-dead h
      [w_o-dead-1hr w_o-dead-10hr w_o-dead-100hr w_o-live-herbaceous w_o-live-woody]
      [sigma-dead-1hr sigma-dead-10hr sigma-dead-100hr sigma-live-herbaceous sigma-live-woody]]
    }"
   {
-   ;; Anderson 13:
    ;; Grass and Grass-dominated (short-grass,timber-grass-and-understory,tall-grass)
    1   [:R01 1.0 12 8 [0.0340 0.0000 0.0000 0.0000 0.0000] [3500.0   0.0  0.0    0.0    0.0]]
    2   [:R02 1.0 15 8 [0.0920 0.0460 0.0230 0.0230 0.0000] [3000.0 109.0 30.0 1500.0    0.0]]
@@ -531,7 +537,6 @@ custom fuel models desired by the user.
    93  [:NB3 0.0  0 0 [0.0000 0.0000 0.0000 0.0000 0.0000] [   0.0   0.0  0.0    0.0    0.0]]
    98  [:NB4 0.0  0 0 [0.0000 0.0000 0.0000 0.0000 0.0000] [   0.0   0.0  0.0    0.0    0.0]]
    99  [:NB5 0.0  0 0 [0.0000 0.0000 0.0000 0.0000 0.0000] [   0.0   0.0  0.0    0.0    0.0]]
-   ;; Scott & Burgan 40:
    ;; Grass (GR)
    101 [:GR1 0.4 15 8 [0.0046 0.0000 0.0000 0.0138 0.0000] [2200.0 109.0 30.0 2000.0    0.0]]
    102 [:GR2 1.0 15 8 [0.0046 0.0000 0.0000 0.0459 0.0000] [2000.0 109.0 30.0 1800.0    0.0]]
@@ -579,126 +584,6 @@ custom fuel models desired by the user.
    203 [:SB3 1.2 25 8 [0.2525 0.1263 0.1377 0.0000 0.0000] [2000.0 109.0 30.0    0.0    0.0]]
    204 [:SB4 2.7 25 8 [0.2410 0.1607 0.2410 0.0000 0.0000] [2000.0 109.0 30.0    0.0    0.0]]
    })
-
-(def WUI-model-number->original
-  "Some variants of the above fuel models,
-  with a different fuel model number to distinguish them as
-  belonging to the Wildland Urban Interface (WUI).
-
-  Each of these WUI fuel models has the same physical characteristics
-  as one of the fuel models in the above table,
-  but having a different model number enables a different behavior
-  for other aspects, such as spread-rate adjustment or spotting.
-
-  This table provides the mapping from variant model number -> original model number.
-  Notice how the difference of model numbers is usually 100 or 110."
-  {;; Grass (GR)
-   211 101
-   212 102
-   213 103
-   214 104
-   215 105
-   216 106
-   217 107
-   218 108
-   ;; Grass-Shrub (GS)
-   221 121
-   222 122
-   223 123
-   224 124
-   ;; Shrub (SH)
-   241 141
-   242 142
-   243 143
-   244 144
-   245 145
-   246 146
-   247 147
-   248 148
-   249 149
-   ;; Timber-Understory (TU)
-   261 161
-   262 162
-   263 163
-   265 165
-   ;; Timber Litter (TL)
-   281 181
-   282 182
-   283 183
-   284 184
-   285 185
-   286 186
-   287 187
-   288 188
-   289 189
-   ;; Slash-Blowdown (SB)
-   301 201
-   302 202
-   303 203})
-
-(defrecord FuelModel
-    [name
-     ^long number
-     ^double delta
-     M_x
-     w_o
-     sigma
-     h
-     rho_p
-     S_T
-     S_e
-     M_f
-     f_ij
-     f_i
-     g_ij])
-
-(defn is-dynamic-fuel-model-number?
-  [^long fuel-model-number]
-  (> fuel-model-number 100))
-
-(defn compute-fuel-model
-  [^long fuel-model-number]
-  (let [[name delta M_x-dead h
-         [w_o-dead-1hr w_o-dead-10hr w_o-dead-100hr
-          w_o-live-herbaceous w_o-live-woody]
-         [sigma-dead-1hr sigma-dead-10hr sigma-dead-100hr
-          sigma-live-herbaceous sigma-live-woody]]
-        (fuel-models fuel-model-number)
-        M_x-dead   (* ^long M_x-dead 0.01)
-        h          (* ^long h 1000.0)
-        fuel-model {:name   name
-                    :number fuel-model-number
-                    :delta  delta
-                    :M_x    [M_x-dead M_x-dead M_x-dead 0.0 0.0 0.0]
-                    :w_o    [w_o-dead-1hr w_o-dead-10hr w_o-dead-100hr 0.0 w_o-live-herbaceous w_o-live-woody]
-                    :sigma  [sigma-dead-1hr sigma-dead-10hr sigma-dead-100hr 0.0 sigma-live-herbaceous sigma-live-woody]
-                    :h      [h h h h h h]
-                    :rho_p  [32.0 32.0 32.0 32.0 32.0 32.0]
-                    :S_T    [0.0555 0.0555 0.0555 0.0555 0.0555 0.0555]
-                    :S_e    [0.01 0.01 0.01 0.01 0.01 0.01]}]
-    (if (and (is-dynamic-fuel-model-number? fuel-model-number)
-             (pos? ^double w_o-live-herbaceous))
-      ;; Set dead-herbaceous values
-      (-> fuel-model
-          (assoc-in [:M_x   3] M_x-dead)
-          (assoc-in [:sigma 3] sigma-live-herbaceous))
-      ;; No dead-herbaceous values
-      fuel-model)))
-
-(defn- add-synonym-models
-  [variant->original-model-number number->model-data]
-  (reduce-kv (fn [ret v-num o-num]
-               (assoc ret v-num (or (get number->model-data o-num)
-                                    (throw (ex-info (format "Cannot find synonym fuel model number: %s" (pr-str o-num))
-                                                    {::variant-fuel-model-number  v-num
-                                                     ::original-fuel-model-number o-num})))))
-             number->model-data
-             variant->original-model-number))
-
-(def fuel-models-precomputed (->> fuel-models
-                                  (keys)
-                                  (into {} (map #(vector % (map->FuelModel (compute-fuel-model %)))))
-                                  (add-synonym-models WUI-model-number->original)))
 #+end_src
 
 Once fuel moisture is added to the base fuel model definitions, they
@@ -717,7 +602,7 @@ classes, we define a collection of utility functions that will later
 be used in both the fuel moisture and fire spread algorithms.
 
 #+name: fuel-category-and-size-class-functions
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj :no-expand :comments link
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models_old.clj :no-expand :comments link
 (defn map-category [f]
   {:dead (f :dead) :live (f :live)})
 
@@ -742,7 +627,7 @@ encoded fuel model definitions into human-readable representations of
 the fuel model properties.
 
 #+name: fuel-model-constructor-functions
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj :no-expand :comments link
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models_old.clj :no-expand :comments link
 (defn build-fuel-model
   [fuel-model-number]
   (let [[name delta ^double M_x-dead ^double h
@@ -833,7 +718,7 @@ $M_{f}^{lh}$ is the live herbaceous moisture content.
 \end{align*}
 
 #+name: add-dynamic-fuel-loading
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj :no-expand :comments link
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models_old.clj :no-expand :comments link
 (defn add-dynamic-fuel-loading
   [{:keys [number M_x M_f w_o sigma] :as fuel-model}]
   (let [number               (double number)
@@ -858,7 +743,7 @@ class weighting factors expressed in equations 53-57 in Rothermel
 this text.
 
 #+name: add-weighting-factors
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj :no-expand :comments link
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models_old.clj :no-expand :comments link
 (defn add-weighting-factors
   [{:keys [w_o sigma rho_p] :as fuel-model}]
   (let [A_ij (map-size-class (fn [i j] (/ (* (-> sigma i ^double (j)) (-> w_o i ^double (j)))
@@ -929,7 +814,7 @@ ratio of size class $c$, and $M_{f}^{c}$ is the moisture content of
 size class $c$.
 
 #+name: add-live-moisture-of-extinction
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj :no-expand :comments link
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models_old.clj :no-expand :comments link
 (defn add-live-moisture-of-extinction
   "Equation 88 from Rothermel 1972 adjusted by Albini 1976 Appendix III."
   [{:keys [w_o sigma M_f M_x] :as fuel-model}]
@@ -1992,8 +1877,8 @@ pseudo-code lays out the steps taken in this procedure:
    |----------------------------+-----------------------------------------+-----------------------------|
 
 #+name: fire-spread-algorithm
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fire_spread.clj :padline no :no-expand :comments link
-(ns gridfire.fire-spread
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fire_spread_old.clj :padline no :no-expand :comments link
+(ns gridfire.fire-spread-old
   (:require [clojure.core.reducers         :as r]
             [gridfire.common               :refer [burnable-fuel-model?
                                                    burnable?
@@ -2008,10 +1893,11 @@ pseudo-code lays out the steps taken in this procedure:
                                                   crown-fire-line-intensity
                                                   cruz-crown-fire-spread
                                                   van-wagner-crown-fire-initiation?]]
-            [gridfire.fire-spread-optimal :refer [rothermel-fast-wrapper-optimal]]
-            [gridfire.fuel-models         :refer [build-fuel-model moisturize]]
-            [gridfire.spotting            :as spot]
-            [gridfire.surface-fire        :refer [anderson-flame-depth
+            [gridfire.fire-spread-optimal :refer [rothermel-surface-fire-wrapped]]
+            [gridfire.fuel-models-old         :refer [build-fuel-model moisturize]]
+            [gridfire.grid-lookup         :as grid-lookup]
+            [gridfire.spotting-old            :as spot]
+            [gridfire.surface-fire-old        :refer [anderson-flame-depth
                                                   byram-fire-line-intensity
                                                   byram-flame-length
                                                   rothermel-surface-fire-spread-any
@@ -2142,59 +2028,59 @@ pseudo-code lays out the steps taken in this procedure:
    overflow-trajectory
    overflow-heat
    global-clock]
-  (let [band                                        (int (/ global-clock 60.0))
-        ^double aspect                              (get-aspect i j)
-        ^double canopy-base-height                  (get-canopy-base-height i j)
-        ^double canopy-height                       (get-canopy-height i j)
-        ^double canopy-cover                        (get-canopy-cover i j)
-        ^double crown-bulk-density                  (get-crown-bulk-density i j)
-        ^double fuel-model                          (get-fuel-model i j)
-        ^double slope                               (get-slope i j)
-        ^double relative-humidity                   (get-relative-humidity band i j)
-        ^double temperature                         (get-temperature band i j)
-        ^double wind-speed-20ft                     (get-wind-speed-20ft band i j)
-        ^double wind-from-direction                 (get-wind-from-direction band i j)
-        ^double fuel-moisture-dead-1hr              (if get-fuel-moisture-dead-1hr
-                                                      (get-fuel-moisture-dead-1hr band i j)
-                                                      (calc-fuel-moisture relative-humidity temperature :dead :1hr))
-        ^double fuel-moisture-dead-10hr             (if get-fuel-moisture-dead-10hr
-                                                      (get-fuel-moisture-dead-10hr band i j)
-                                                      (calc-fuel-moisture relative-humidity temperature :dead :10hr))
-        ^double fuel-moisture-dead-100hr            (if get-fuel-moisture-dead-100hr
-                                                      (get-fuel-moisture-dead-100hr band i j)
-                                                      (calc-fuel-moisture relative-humidity temperature :dead :100hr))
-        ^double fuel-moisture-live-herbaceous       (if get-fuel-moisture-live-herbaceous
-                                                      (get-fuel-moisture-live-herbaceous i j)
-                                                      (calc-fuel-moisture relative-humidity temperature :live :herbaceous))
-        ^double fuel-moisture-live-woody            (if get-fuel-moisture-live-woody
-                                                      (get-fuel-moisture-live-woody i j)
-                                                      (calc-fuel-moisture relative-humidity temperature :live :woody))
-        ^double foliar-moisture                     (get-foliar-moisture band i j)
-        surface-fire-min                            (rothermel-fast-wrapper-optimal
-                                                     fuel-model
-                                                     [fuel-moisture-dead-1hr
-                                                      fuel-moisture-dead-10hr
-                                                      fuel-moisture-dead-100hr
-                                                      0.0 ; fuel-moisture-dead-herbaceous
-                                                      fuel-moisture-live-herbaceous
-                                                      fuel-moisture-live-woody]
-                                                     grass-suppression?)
-        midflame-wind-speed                         (mph->fpm
-                                                     (* wind-speed-20ft
-                                                        (wind-adjustment-factor (:fuel-bed-depth surface-fire-min)
-                                                                                canopy-height
-                                                                                canopy-cover)))
-        surface-fire-max                            (rothermel-surface-fire-spread-max surface-fire-min
-                                                                                       midflame-wind-speed
-                                                                                       wind-from-direction
-                                                                                       slope
-                                                                                       aspect
-                                                                                       ellipse-adjustment-factor)
-        crown-spread-max                            (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density fuel-moisture-dead-1hr)
-        crown-type                                  (if (neg? crown-spread-max) :passive-crown :active-crown)
-        crown-spread-max                            (Math/abs crown-spread-max)
-        crown-eccentricity                          (crown-fire-eccentricity wind-speed-20ft
-                                                                             ellipse-adjustment-factor)]
+  (let [band                          (int (/ global-clock 60.0))
+        aspect                        (grid-lookup/double-at get-aspect i j)
+        canopy-base-height            (grid-lookup/double-at get-canopy-base-height i j)
+        canopy-height                 (grid-lookup/double-at get-canopy-height i j)
+        canopy-cover                  (grid-lookup/double-at get-canopy-cover i j)
+        crown-bulk-density            (grid-lookup/double-at get-crown-bulk-density i j)
+        fuel-model                    (grid-lookup/double-at get-fuel-model i j)
+        slope                         (grid-lookup/double-at get-slope i j)
+        relative-humidity             (grid-lookup/double-at get-relative-humidity band i j)
+        temperature                   (grid-lookup/double-at get-temperature band i j)
+        wind-speed-20ft               (grid-lookup/double-at get-wind-speed-20ft band i j)
+        wind-from-direction           (grid-lookup/double-at get-wind-from-direction band i j)
+        fuel-moisture-dead-1hr        (if get-fuel-moisture-dead-1hr
+                                        (grid-lookup/double-at get-fuel-moisture-dead-1hr band i j)
+                                        (calc-fuel-moisture relative-humidity temperature :dead :1hr))
+        fuel-moisture-dead-10hr       (if get-fuel-moisture-dead-10hr
+                                        (grid-lookup/double-at get-fuel-moisture-dead-10hr band i j)
+                                        (calc-fuel-moisture relative-humidity temperature :dead :10hr))
+        fuel-moisture-dead-100hr      (if get-fuel-moisture-dead-100hr
+                                        (grid-lookup/double-at get-fuel-moisture-dead-100hr band i j)
+                                        (calc-fuel-moisture relative-humidity temperature :dead :100hr))
+        fuel-moisture-live-herbaceous (if get-fuel-moisture-live-herbaceous
+                                        (grid-lookup/double-at get-fuel-moisture-live-herbaceous i j)
+                                        (calc-fuel-moisture relative-humidity temperature :live :herbaceous))
+        fuel-moisture-live-woody      (if get-fuel-moisture-live-woody
+                                        (grid-lookup/double-at get-fuel-moisture-live-woody i j)
+                                        (calc-fuel-moisture relative-humidity temperature :live :woody))
+        foliar-moisture               (grid-lookup/double-at get-foliar-moisture band i j)
+        surface-fire-min              (rothermel-surface-fire-wrapped
+                                        fuel-model
+                                        [fuel-moisture-dead-1hr
+                                         fuel-moisture-dead-10hr
+                                         fuel-moisture-dead-100hr
+                                         0.0                ; fuel-moisture-dead-herbaceous
+                                         fuel-moisture-live-herbaceous
+                                         fuel-moisture-live-woody]
+                                        grass-suppression?)
+        midflame-wind-speed           (mph->fpm
+                                        (* wind-speed-20ft
+                                          (wind-adjustment-factor (:fuel-bed-depth surface-fire-min)
+                                            canopy-height
+                                            canopy-cover)))
+        surface-fire-max              (rothermel-surface-fire-spread-max surface-fire-min
+                                        midflame-wind-speed
+                                        wind-from-direction
+                                        slope
+                                        aspect
+                                        ellipse-adjustment-factor)
+        crown-spread-max              (cruz-crown-fire-spread wind-speed-20ft crown-bulk-density fuel-moisture-dead-1hr)
+        crown-type                    (if (neg? crown-spread-max) :passive-crown :active-crown)
+        crown-spread-max              (Math/abs crown-spread-max)
+        crown-eccentricity            (crown-fire-eccentricity wind-speed-20ft
+                                        ellipse-adjustment-factor)]
     (into []
           (comp
            (filter #(and (in-bounds? num-rows num-cols %)
@@ -2647,14 +2533,15 @@ distribution for the direction parallel to the wind and normal distribution for
 the direction perpendicular to the wind.
 
 #+name: sardoy-firebrand-dispersal
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting.clj :padline no :no-expand :comments link
-(ns gridfire.spotting
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting_old.clj :padline no :no-expand :comments link
+(ns gridfire.spotting-old
   (:require [gridfire.common       :refer [distance-3d
                                            calc-fuel-moisture
                                            in-bounds?
                                            burnable?]]
             [gridfire.utils.random :refer [my-rand-range]]
             [gridfire.conversion   :as convert]
+            [gridfire.grid-lookup  :as grid-lookup]
             [tech.v3.tensor        :as t])
   (:import java.util.Random))
 
@@ -2736,7 +2623,7 @@ convert  this to deltas in our coordinate plane. We can convert
 these deltas by using trigonometric functions.
 
 #+name: convert-deltas
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting.clj :padline no :no-expand :comments link
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting_old.clj :padline no :no-expand :comments link
 (defn hypotenuse ^double
   [x y]
   (Math/sqrt (+ (Math/pow x 2) (Math/pow y 2))))
@@ -2793,7 +2680,7 @@ the probability of spot fire ignition taking into consideration b, the number of
 firebrands landing in a cell.
 
 #+name: firebrand-ignition-probability
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting.clj :padline no :no-expand :comments link
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting_old.clj :padline no :no-expand :comments link
 (defn heat-of-preignition
   "Returns heat of preignition given:
    - Temperature: (Celsius)
@@ -2871,7 +2758,7 @@ and $t_g$ to be equal and used the formula from Albini (1979) to calculate it.
 $t_I$ is also assumed to be 20 min as used in McAlpine and Wakimoto (1991).
 
 #+name: firebrands-time-of-ignition
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting.clj :padline no :no-expand :comments link
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting_old.clj :padline no :no-expand :comments link
 (defn spot-ignition?
   [rand-gen ^double spot-ignition-probability]
   (let [random-number (my-rand-range rand-gen 0 1)]
@@ -2927,7 +2814,7 @@ returned, to be processed in `gridfire.cli`. The key is [x y] location of the
 firebrand and the value [t p] where t is the time of igintion and p is the
 ignition probability.
 #+name: spread-firebrands
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting.clj :padline no :no-expand :comments link
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting_old.clj :padline no :no-expand :comments link
 (defn- update-firebrand-counts!
   [{:keys [num-rows num-cols fuel-model-matrix]}
    firebrand-count-matrix
@@ -3015,12 +2902,12 @@ ignition probability.
   (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
     (let [band              (long (/ global-clock 60.0))
           [i j]             cell
-          tmp               (get-temperature band i j)
-          rh                (get-relative-humidity band i j)
-          ws                (get-wind-speed-20ft band i j)
-          wd                (get-wind-from-direction band i j)
+          tmp               (grid-lookup/double-at get-temperature band i j)
+          rh                (grid-lookup/double-at get-relative-humidity band i j)
+          ws                (grid-lookup/double-at get-wind-speed-20ft band i j)
+          wd                (grid-lookup/double-at get-wind-from-direction band i j)
           m1                (if get-fuel-moisture-dead-1hr
-                              (get-fuel-moisture-dead-1hr band i j)
+                              (grid-lookup/double-at get-fuel-moisture-dead-1hr band i j)
                               (calc-fuel-moisture rh tmp :dead :1hr))
           deltas            (sample-wind-dir-deltas inputs
                                                     fire-line-intensity-matrix
@@ -3050,7 +2937,7 @@ ignition probability.
                                                (convert/ft->m (t/mget flame-length-matrix i j)))]
                  [[x y] [t spot-ignition-p]])))
            (remove nil?)))))
-  #+end_src
+#+end_src
 
 ** Suppression Model Formulas
 
@@ -3474,7 +3361,7 @@ The suppression algorithm was built using the method described in
                                                              suppression-difficulty-factor)
                                                           (percent->dec)
                                                           (* (min->day suppression-dt)))]
-    (+ previous-fraction-contained change-in-fraction-contained)))
+    (max 0.0 (+ previous-fraction-contained change-in-fraction-contained))))
 
 (defn- compute-fraction-contained-sc
   "Compute fraction contained using suppression curve algorithm"
@@ -3719,8 +3606,7 @@ described in the previous section.
    post-processed raster values as a Clojure tensor using the dtype-next/tech.v3.tensor API
    along with all of the georeferencing information associated with this tile in a
    hash-map with the following form:
-  {:srid 900916,
-   :upperleftx -321043.875,
+  {:upperleftx -321043.875,
    :upperlefty -1917341.5,
    :width 486,
    :height 534,
@@ -3733,12 +3619,10 @@ described in the previous section.
   [file-path & [datatype convert-fn]]
   (let [raster   (read-raster file-path)
         grid     ^GridGeometry2D (:grid raster)
-        r-info   (inspect/describe-raster raster)
-        image    (:image r-info)
-        envelope (:envelope r-info)
+        image    (inspect/describe-image (:image raster))
+        envelope (inspect/describe-envelope (:envelope raster))
         crs2d    ^AffineTransform2D (.getGridToCRS2D grid)]
-    {:srid       (:srid r-info)
-     :upperleftx (get-in envelope [:x :min])
+    {:upperleftx (get-in envelope [:x :min])
      :upperlefty (get-in envelope [:y :max])
      :width      (:width image)
      :height     (:height image)
@@ -3803,14 +3687,14 @@ or false:
 #+name: gridfire-core
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/core.clj :padline no :no-expand :comments link
 (ns gridfire.core
-  (:require [clojure.core.reducers        :as r]
-            [clojure.edn                  :as edn]
-            [clojure.spec.alpha           :as spec]
-            [gridfire.fire-spread-optimal :refer [rothermel-fast-wrapper-optimal]]
+  (:require [clojure.spec.alpha           :as spec]
+            [gridfire.fire-spread-optimal :refer [memoize-rfwo rothermel-fast-wrapper-optimal]]
             [gridfire.inputs              :as inputs]
             [gridfire.outputs             :as outputs]
             [gridfire.simulations         :as simulations]
             [gridfire.spec.config         :as config-spec]
+            [gridfire.utils.async         :as gf-async]
+            [gridfire.utils.files         :as files]
             [manifold.deferred            :as mfd]
             [taoensso.tufte               :as tufte]
             [triangulum.logging           :refer [log log-str]]))
@@ -3820,11 +3704,11 @@ or false:
 (defn write-outputs!
   [outputs]
   (->
-    (mfd/zip
-      (outputs/write-landfire-layers! outputs)
-      (outputs/write-aggregate-layers! outputs)
-      (outputs/write-csv-outputs! outputs))
-    (deref))
+   (mfd/zip
+    (outputs/write-landfire-layers! outputs)
+    (outputs/write-aggregate-layers! outputs)
+    (outputs/write-csv-outputs! outputs))
+   (deref))
   :success)
 
 (defmacro with-multithread-profiling
@@ -3832,26 +3716,38 @@ or false:
   `(do (tufte/remove-handler! :accumulating)
        (let [stats-accumulator# (tufte/add-accumulating-handler! {:handler-id :accumulating})
              result#            (do ~@body)]
-         (Thread/sleep 1000)
+         (when simulations/*log-performance-metrics*
+           (Thread/sleep 1000))
          (as-> {:format-pstats-opts {:columns [:n-calls :min :max :mean :mad :clock :total]}} $#
            (tufte/format-grouped-pstats @stats-accumulator# $#)
-           (log $# :truncate? false))
+           (when simulations/*log-performance-metrics*
+             (log $# :truncate? false)))
          result#)))
 
 (defn run-simulations!
   [{:keys [^long simulations parallel-strategy] :as inputs}]
-  (with-multithread-profiling ; TODO: Disable this to see how much performance is gained.
+  (with-multithread-profiling                               ; TODO: Disable this to see how much performance is gained.
     (log-str "Running simulations")
-    (let [parallel-bin-size 1
-          reducer-fn        (if (= parallel-strategy :between-fires)
-                              #(into [] (r/fold parallel-bin-size r/cat r/append! %))
-                              #(into [] %))
-          summary-stats     (with-redefs [rothermel-fast-wrapper-optimal (memoize rothermel-fast-wrapper-optimal)]
+    (let [sfmin-memoization (get-in inputs [:memoization :surface-fire-min] :across-sims)
+          pmap-fn           (if (= parallel-strategy :between-fires)
+                              (fn [f coll]
+                                (->> coll
+                                     (gf-async/pmap-in-n-threads (or (:max-parallel-simulations inputs) ; INTRO :max-parallel-simulations sets the maximum number of fires running simultaneously. Useful for limiting the memory usage of GridFire.
+                                                                     (.availableProcessors (Runtime/getRuntime)))
+                                                                 f)
+                                     (deref)))
+                              ;; NOTE the optimization behind {:parallel-strategy :within-fires} is no longer implemented, so we default to single-threaded sequential processing.
+                              map)
+          summary-stats     (with-redefs [rothermel-fast-wrapper-optimal (if (= sfmin-memoization :across-sims)
+                                                                           (memoize-rfwo rothermel-fast-wrapper-optimal)
+                                                                           rothermel-fast-wrapper-optimal)]
+                              ;; NOTE :across-sims is useful to share the memo across simulations, with a risk of running out of memory. Pointless when there are perturbations.
+                              ;; WARNING: omitting :memoization {} is not equivalent to :memoization {:surface-fire-min nil}, but to :memoization {:surface-fire-min :across-sims}, for backward compatibility. (Val, 09 Jan 2023)
                               (->> (range simulations)
-                                   (vec)
-                                   (r/map #(simulations/run-simulation! % inputs))
-                                   (r/remove nil?)
-                                   (reducer-fn)))]
+                                   (pmap-fn (fn run-ith-simulation [i]
+                                              (simulations/run-simulation! i inputs)))
+                                   (remove nil?)
+                                   (vec)))]
       (assoc inputs :summary-stats summary-stats))))
 
 (defn load-inputs!
@@ -3866,11 +3762,11 @@ or false:
       (inputs/add-fuel-moisture-params)
       (inputs/add-random-ignition-sites)
       (inputs/add-aggregate-matrices)
-      (inputs/add-burn-period-params)
       (inputs/add-ignition-start-times)
       (inputs/add-ignition-start-timestamps)
+      (inputs/add-burn-period-samples)
       (inputs/add-suppression)
-      (inputs/add-spread-rate-adjustment-factors)))
+      (inputs/add-fuel-number->spread-rate-adjustment-array-lookup-samples)))
 
 (defn load-config-or-throw!
   [config-file-path]
@@ -3880,7 +3776,7 @@ or false:
       (throw (ex-info (format "Invalid config file [%s]:\n%s"
                               config-file-path
                               (spec/explain-str ::config-spec/config config))
-                      {::config config
+                      {::config           config
                        ::spec-explanation (spec/explain-data ::config-spec/config config)})))))
 
 (defn load-config!
@@ -3906,18 +3802,19 @@ or false:
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/cli.clj :padline no :no-expand :comments link
 (ns gridfire.cli
   (:gen-class)
-  (:require [clojure.core.async       :refer [<!!]]
-            [clojure.edn              :as edn]
-            [clojure.java.io          :as io]
-            [clojure.tools.cli        :refer [parse-opts]]
-            [gridfire.core            :as gridfire]
-            [gridfire.magellan-bridge :refer [register-custom-projections!]]
-            [gridfire.server          :as server]
-            [gridfire.utils.server    :refer [hostname? nil-on-error]]))
+  (:require [clojure.core.async             :refer [<!!]]
+            [clojure.edn                    :as edn]
+            [clojure.java.io                :as io]
+            [clojure.tools.cli              :refer [parse-opts]]
+            [gridfire.core                  :as gridfire]
+            [gridfire.magellan-bridge       :refer [register-custom-projections!]]
+            [gridfire.server.pyrecast-async :as server]
+            [gridfire.server.sync           :refer [start-with-cli-args!]]
+            [gridfire.utils.server          :refer [hostname? nil-on-error]]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
-(def cli-options
+(def pyrecast-server-cli-options
   [["-c" "--server-config CONFIG" "Server config file"
     :validate [#(.exists  (io/file %)) "The provided --server-config does not exist."
                #(.canRead (io/file %)) "The provided --server-config is not readable."]]
@@ -3933,9 +3830,16 @@ or false:
   (str "gridfire: Launch fire spread simulations via config files or in server mode.\n"
        "Copyright © 2014-2022 Spatial Informatics Group, LLC.\n"))
 
-(defn -main [& args]
-  (println program-banner)
-  (let [{:keys [options arguments summary errors]} (parse-opts args cli-options)]
+(defn run-config-files!
+  [args]
+  (register-custom-projections!)
+  (doseq [config-file args]
+    (gridfire/process-config-file! config-file)))
+
+(defn run-default!
+  "CLI execution when no verb is provided. Much of this is here for backwards-compatibility."
+  [args]
+  (let [{:keys [options arguments summary errors]} (parse-opts args pyrecast-server-cli-options)]
     ;; {:options   The options map, keyed by :id, mapped to the parsed value
     ;;  :arguments A vector of unprocessed arguments
     ;;  :summary   A string containing a minimal options summary
@@ -3961,20 +3865,29 @@ or false:
 
       ;; CLI mode invoked
       (seq arguments)
-      (do
-        (register-custom-projections!)
-        (doseq [config-file arguments]
-          (gridfire/process-config-file! config-file)))
+      (run-config-files! args)
 
       ;; Incorrect CLI invocation
       :else
       (do
-        (println "For gridfire cli mode, include one or more gridfire.edn files.")
-        (println "For gridfire server mode, include these args: --server-config --host --port")
-        (println (str "\nUsage:\n" summary))))
+        (->> ["Usage:"
+              "1) For running one or more GridFire config files, use sub-command:"
+              "run-config-files /path/to/first/config.edn [/path/to/second/config.edn ...]"
+              "2) For starting a synchronous socket server, use sub-command:"
+              "start-sync-socket-server --port MY-PORT-NUMBER"
+              (format "%s will be printed to standard out once the server is ready."
+                      (pr-str :gridfire.server.sync/ready-to-accept-connections))]
+             (run! println))
+        (System/exit 1)))))
 
-    ;; Exit cleanly
-    (System/exit 0)))
+(defn -main [& args]
+  (println program-banner)
+  (case (first args)
+    "start-sync-socket-server" (start-with-cli-args! (rest args))
+    "run-config-files"         (run-config-files! (rest args))
+    (run-default! args))
+  ;; Exit cleanly
+  (System/exit 0))
 #+end_src
 
 #+name: utils-random
@@ -4321,14 +4234,18 @@ this functionality.
 
 #+name: fetch.clj
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fetch.clj :padline no :no-expand :comments link
-;; FIXME update when PR approved
 (ns gridfire.fetch
-  (:require [clojure.string           :as s]
-            [gridfire.conversion      :as convert]
-            [gridfire.magellan-bridge :refer [geotiff-raster-to-tensor]]
-            [gridfire.postgis-bridge  :refer [postgis-raster-to-matrix]]
-            [magellan.core            :refer [make-envelope]]
-            [tech.v3.datatype         :as d]))
+  (:require [clojure.string                 :as s]
+            [gridfire.conversion            :as convert]
+            [gridfire.fetch.base            :refer [convert-tensor-as-requested get-wrapped-tensor get-wrapped-tensor-multi]]
+            [gridfire.fetch.grid-of-rasters :refer [map-grid2d stitch-grid-of-layers]]
+            [gridfire.inputs.envi-bsq       :as gf-bsq]
+            [gridfire.magellan-bridge       :refer [geotiff-raster-to-tensor]]
+            [gridfire.postgis-bridge        :refer [postgis-raster-to-matrix]]
+            [magellan.core                  :refer [make-envelope]]
+            [manifold.deferred              :as mfd]
+            [tech.v3.datatype               :as d]
+            [tech.v3.tensor                 :as t]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -4350,61 +4267,140 @@ this functionality.
                  (* width scalex)
                  (* -1.0 height scaley)))
 
+(defn- comp-convert-fns
+  "Like clojure.core/comp but for convert-fns, which can be nil and return ^double."
+  ([cf0] cf0)
+  ([cf1 cf0]
+   (fn ^double [^double v]
+     (-> v
+         (cond-> (some? cf0) (cf0))
+         (double)
+         (cf1)))))
+
+(defn- add-angle360
+  ^double [^double v ^double angle360]
+  (-> v (+ angle360) (mod 360.0)))
+
+(defn get-convert-fn
+  ([layer-name layer-spec fallback-unit]
+   (get-convert-fn layer-name layer-spec fallback-unit 1.0))
+  ([layer-name layer-spec fallback-unit fallback-multiplier]
+   (-> (convert/get-units-converter layer-name
+                                    (or (:units layer-spec) fallback-unit)
+                                    (or (:multiplier layer-spec) fallback-multiplier))
+       (as-> convert-fn
+             (if-some [angle360 (:gridfire.input/add-correction-angle360 layer-spec)]
+               (comp-convert-fns (fn add-angular-correction [^double v] (add-angle360 v angle360))
+                                 convert-fn)
+               convert-fn)))))
+
+;;-----------------------------------------------------------------------------
+;; Data sources
+;;-----------------------------------------------------------------------------
+
+(defmethod get-wrapped-tensor-multi :postgis
+  [{:keys [db-spec]} {:keys [source]} convert-fn target-dtype]
+  (-> (postgis-raster-to-matrix db-spec source)
+      (convert-tensor-as-requested convert-fn target-dtype)))
+
+(defmethod get-wrapped-tensor-multi :geotiff
+  [_env {:keys [source]} convert-fn target-dtype]
+  (geotiff-raster-to-tensor source target-dtype convert-fn))
+
+(defn adapt-bsq-tensor
+  [tensor3d]
+  (let [[n-bands _w _h] (d/shape tensor3d)]
+    (-> tensor3d
+        (cond->
+         ;; Mimicks the behavior of Magellan. (Val, 21 Oct 2022)
+         (= 1 n-bands) (t/mget 0)))))
+
+(defn read-bsq-file
+  [source]
+  (-> (gf-bsq/read-bsq-file source)
+      (mfd/chain
+       (fn [layer-map]
+         (-> layer-map (update :matrix adapt-bsq-tensor))))
+      (deref)))
+
+(defn request-dtype-like-magellan
+  [tensor-dtype]
+  (case tensor-dtype
+    :int16 :int32
+    nil))
+
+(defmethod get-wrapped-tensor-multi :gridfire-envi-bsq
+  [_env {:keys [source]} convert-fn target-dtype]
+  (-> (read-bsq-file source)
+      (as-> layer
+            (let [t (:matrix layer)]
+              (convert-tensor-as-requested layer
+                                           convert-fn
+                                           (or target-dtype
+                                               (let [tensor-dtype (d/elemwise-datatype t)]
+                                                 (request-dtype-like-magellan tensor-dtype))))))))
+
+(defn get-grid-of-rasters
+  [env layer-spec convert-fn target-dtype]
+  (let [fetched-rasters-grid (->> (:rasters-grid layer-spec)
+                                  (map-grid2d (fn [layer-spec-ij]
+                                                (future (get-wrapped-tensor env layer-spec-ij convert-fn target-dtype))))
+                                  (map-grid2d deref))]
+    (stitch-grid-of-layers fetched-rasters-grid)))
+
+(defmethod get-wrapped-tensor-multi :grid-of-rasters
+  [env layer-spec convert-fn target-dtype]
+  ;; It's good practice to not do advanced work inside (defmethod ...): (Val, 25 Oct 2022)
+  ;; code located in (defn ...) is more developer-friendly.
+  (get-grid-of-rasters env layer-spec convert-fn target-dtype))
+
 ;;-----------------------------------------------------------------------------
 ;; LANDFIRE
 ;;-----------------------------------------------------------------------------
 
 (defn landfire-layer
-  [{:keys [db-spec landfire-layers]} layer-name]
-  (let [layer-spec                             (get landfire-layers layer-name)
-        {:keys [type source units multiplier]} (if (map? layer-spec)
-                                                 layer-spec
-                                                 {:type   :postgis
-                                                  :source layer-spec
-                                                  :units  :metric})
-        convert-fn                             (convert/get-units-converter layer-name
-                                                                            units
-                                                                            (or multiplier 1.0))
-        datatype                               (if (= layer-name :fuel-model) ;TODO investigate why postgis
-                                                 :int32                       ;     fuel-model is not converted
-                                                 :float32)]                   ;     to int32
-    (if (= type :postgis)
-      (cond-> (postgis-raster-to-matrix db-spec source)
-        convert-fn (update :matrix #(d/copy! (d/emap convert-fn datatype %) %)))
-      (geotiff-raster-to-tensor source datatype convert-fn))))
+  [{:keys [landfire-layers] :as config} layer-name]
+  (let [layer-spec (get landfire-layers layer-name)
+        layer-spec (if (map? layer-spec)
+                     layer-spec
+                     {:type   :postgis
+                      :source layer-spec
+                      :units  :metric})
+        convert-fn (get-convert-fn layer-name layer-spec nil 1.0)
+        datatype   (if (= layer-name :fuel-model)
+                     ;; TODO investigate why postgis fuel-model is not converted to int32
+                     ;; NOTE: might have been fixed by refactoring to use get-wrapped-tensor. (Val, 25 Oct 2022)
+                     :int32
+                     :float32)]
+    (get-wrapped-tensor config layer-spec convert-fn datatype)))
 
 ;;-----------------------------------------------------------------------------
 ;; Initial Ignition
 ;;-----------------------------------------------------------------------------
 
 (defn ignition-layer
-  [{:keys [db-spec ignition-layer]}]
+  [{:keys [ignition-layer] :as config}]
   (when ignition-layer
-    (if-let [burn-values (:burn-values ignition-layer)]
-      (let [{:keys [burned unburned]} burn-values
-            convert-fn                (fn [x] (cond
-                                                (= x burned)   1.0
-                                                (= x unburned) 0.0
-                                                :else          -1.0))]
-        (if (= (:type ignition-layer) :postgis)
-          (-> (postgis-raster-to-matrix db-spec (:source ignition-layer))
-              (update :matrix #(d/copy! (d/emap convert-fn :float32 %) %)))
-          (geotiff-raster-to-tensor (:source ignition-layer) :float32 convert-fn)))
-      (if (= (:type ignition-layer) :postgis)
-        (postgis-raster-to-matrix db-spec (:source ignition-layer))
-        (geotiff-raster-to-tensor (:source ignition-layer))))))
+    (get-wrapped-tensor config
+                        ignition-layer
+                        (if-let [burn-values (:burn-values ignition-layer)]
+                          (let [{:keys [burned unburned]} burn-values]
+                            (fn [x] (cond
+                                      (= x burned)   1.0
+                                      (= x unburned) 0.0
+                                      :else          -1.0)))
+                          nil)
+                        :float32)))
 
 ;;-----------------------------------------------------------------------------
 ;; Ignition Mask
 ;;-----------------------------------------------------------------------------
 
 (defn ignition-mask-layer
-  [{:keys [db-spec random-ignition]}]
+  [{:keys [random-ignition] :as config}]
   (when (map? random-ignition)
     (let [spec (:ignition-mask random-ignition)]
-      (if (= (:type spec) :postgis)
-        (postgis-raster-to-matrix db-spec (:source spec))
-        (geotiff-raster-to-tensor (:source spec))))))
+      (get-wrapped-tensor config spec nil nil))))
 
 ;;-----------------------------------------------------------------------------
 ;; Weather
@@ -4416,48 +4412,43 @@ this functionality.
   - relative-humidity:   percent (0-100)
   - wind-speed-20ft:     mph
   - wind-from-direction: degreees clockwise from north"
-  [{:keys [db-spec] :as config} weather-name]
+  [config weather-name]
   (let [weather-spec (get config weather-name)]
     (when (map? weather-spec)
-      (let [{:keys [type source units multiplier]} weather-spec
-            convert-fn                             (convert/get-units-converter weather-name units (or multiplier 1.0))]
-        (if (= type :postgis)
-          (cond-> (postgis-raster-to-matrix db-spec source)
-            convert-fn (update :matrix #(d/copy! (d/emap convert-fn :float32 %) %)))
-          (geotiff-raster-to-tensor source :float32 convert-fn))))))
+      (get-wrapped-tensor config
+                          weather-spec
+                          (get-convert-fn weather-name weather-spec nil)
+                          :float32))))
 
 ;;-----------------------------------------------------------------------------
 ;; Moisture Layers
 ;;-----------------------------------------------------------------------------
 
 (defn fuel-moisture-layer
-  [{:keys [db-spec fuel-moisture]} category size]
+  [{:keys [fuel-moisture] :as config} category size]
   (let [spec (get-in fuel-moisture [category size])]
     (when (map? spec)
-      (let [{:keys [type source units multiplier]} spec
-            fuel-moisture-name                     (keyword (s/join "-" ["fuel-moisture" (name category) (name size)]))
-            convert-fn                             (convert/get-units-converter fuel-moisture-name
-                                                                                (or units :percent)
-                                                                                (or multiplier 1.0))]
-        (if (= type :postgis)
-          (cond-> (postgis-raster-to-matrix db-spec source)
-            convert-fn (update :matrix #(d/copy! (d/emap convert-fn :float32 %) %)))
-          (geotiff-raster-to-tensor source :float32 convert-fn))))))
+      (get-wrapped-tensor config
+                          spec
+                          (let [fuel-moisture-name (keyword
+                                                    ;; WARNING we rely on keyword structure:
+                                                    ;; renaming those keywords would break the program.
+                                                    (s/join "-" ["fuel-moisture" (name category) (name size)]))]
+                            (get-convert-fn fuel-moisture-name spec :percent 1.0))
+                          :float32))))
+
 
 ;;-----------------------------------------------------------------------------
 ;; Suppression Difficulty Index Layer
 ;;-----------------------------------------------------------------------------
 
 (defn sdi-layer
-  [{:keys [db-spec suppression]}]
-  (when-let [{:keys [type source units multiplier] :as _spec} (:sdi-layer suppression)]
-    (let [convert-fn (convert/get-units-converter :suppression
-                                                  units
-                                                  (or multiplier 1.0))]
-      (if (= type :postgis)
-        (cond-> (postgis-raster-to-matrix db-spec source)
-          convert-fn (update :matrix #(d/copy! (d/emap convert-fn :float32 %) %)))
-        (geotiff-raster-to-tensor source :float32 convert-fn)))))
+  [{:keys [suppression] :as config}]
+  (when-let [layer-spec (:sdi-layer suppression)]
+    (get-wrapped-tensor config
+                        layer-spec
+                        (get-convert-fn :suppression layer-spec nil)
+                        :float32)))
 #+end_src
 
 ** Section 3: Weather data from which to build simulation inputs
@@ -4749,9 +4740,9 @@ which differs only to leverage more efficient JVM-primitive operations:
   (if-not (pos-int? n)
     false
     (cond
-      (= n 1) true
+      (= n 1)  true
       (odd? n) false
-      :else (recur (quot n 2)))))
+      :else    (recur (quot n 2)))))
 
 (comment
 
@@ -4776,10 +4767,9 @@ which differs only to leverage more efficient JVM-primitive operations:
   [n-buckets gen-perturbation]
   {:pre [(is-power-of-2? n-buckets)]}
   (into-array
-    Double/TYPE
-    (map
-      gen-perturbation
-      (range n-buckets))))
+   Double/TYPE
+   (map gen-perturbation
+        (range n-buckets))))
 
 (defn resolve-perturbation-for-coords
   "Resolves the random perturbation for the grid cell ('pixel') of the supplied coordinates,
@@ -4788,25 +4778,24 @@ which differs only to leverage more efficient JVM-primitive operations:
   This function is deterministic: all the randomness happened when h->perturb was created."
   (^double [^doubles h->perturb ^long i ^long j]
    (let [n-buckets   (alength h->perturb)
-         coords-hash (->
-                       (->> (int 36791)
-                            (MurmurHash3/hash32 i j))
-                       (bit-and (dec n-buckets)))]
+         coords-hash (as-> (int 36791) h
+                       (MurmurHash3/hash32 i j h)
+                       (bit-and h (dec n-buckets)))]
      (aget h->perturb coords-hash)))
   (^double [^doubles h->perturb ^long b ^long i ^long j]
    (let [n-buckets   (alength h->perturb)
-         coords-hash (->
-                       (->> (int 6053696) ;; randomly chosen seed.
-                            ;; Compared to clojure.core's (hash) or (hash-combine) functions, MurmurHash3 buys us 2 things:
-                            ;; 1. a guarantee of stable behaviour - the hashing functions will still return
-                            ;; the same results after upgrading. That's not guaranteed with (hash).
-                            ;; 2. Better performance, since those methods have primitive signatures.
-                            ;; (this performance gain was empirically observed).
-                            (MurmurHash3/hash32 i j)
-                            (MurmurHash3/hash32 b))
-                       (bit-and ;; fast modulo op - that's why we require n-buckets to be a power of 2.
-                         ;; NOTE there is no significant efficiency gain to replacing this expr with a hardcoded int like 2r111111111.
-                         (dec n-buckets)))]
+         coords-hash (as-> (int 6053696) h
+                       ;; Compared to clojure.core's (hash) or (hash-combine) functions, MurmurHash3 buys us 2 things:
+                       ;; 1. a guarantee of stable behaviour - the hashing functions will still return
+                       ;; the same results after upgrading. That's not guaranteed with (hash).
+                       ;; 2. Better performance, since those methods have primitive signatures.
+                       ;; (this performance gain was empirically observed).
+                       (MurmurHash3/hash32 i j h)
+                       (MurmurHash3/hash32 b h)
+                       (bit-and h
+                                ;; fast modulo op - that's why we require n-buckets to be a power of 2.
+                                ;; NOTE there is no significant efficiency gain to replacing this expr with a hardcoded int like 2r111111111.
+                                (dec n-buckets)))]
      (aget h->perturb coords-hash))))
 #+end_src
 
@@ -5112,11 +5101,14 @@ from a range.
 
  ;; Section 4: Number of simulations and (optional) random seed parameter
  :max-runtime               60             ; (minutes)
- :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
  :simulations               10
  :random-seed               1234567890     ; long value (optional)
 
- ;; Section 5: Types and names of outputs
+ ;; Section 5: Fire spread model behavior
+ :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
+ :crowning-disabled?        false
+
+ ;; Section 6: Types and names of outputs
  :outfile-suffix            "_tile_100"
  :output-landfire-inputs?   true
  :output-geotiffs?          true
@@ -5178,11 +5170,14 @@ files on disk.
 
  ;; Section 4: Number of simulations and (optional) random seed parameter
  :max-runtime               60             ; (minutes)
- :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
  :simulations               10
  :random-seed               1234567890     ; long value (optional)
 
- ;; Section 5: Types and names of outputs
+ ;; Section 5: Fire spread model behavior
+ :crowning-disabled?        false          ; when true, disables crown fire initiation. Can be useful to avoid over-prediction.
+ :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
+
+ ;; Section 6: Types and names of outputs
  :outfile-suffix            "_from_raster_ignition"
  :output-landfire-inputs?   true
  :output-geotiffs?          true
@@ -5204,8 +5199,9 @@ This concludes our discussion of GridFire's command line interface.
             [clojure.data.csv :as csv]
             [clojure.java.jdbc :as jdbc]
             [clojure.core.reducers :as r]
-            [gridfire.surface-fire :refer [degrees-to-radians]]
-            [gridfire.fire-spread :refer [random-cell run-fire-spread]]
+            ;; FIXME figure out how to remove these dependencies, or delete this namespace.
+            [gridfire.surface-fire-old :refer [degrees-to-radians]]
+            [gridfire.fire-spread-old :refer [random-cell run-fire-spread]]
             [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]
             [tech.v3.datatype :as d]
             [tech.v3.datatype.functional :as dfn]
@@ -5224,7 +5220,7 @@ This concludes our discussion of GridFire's command line interface.
                                               equilibrium-moisture lw-moisture eaf fire-size flame-length-mean
                                               ;; flame-length-stddev fire-volume fire-shape]}]
                                               fire-volume fire-shape]}]
-                                   (let [local-site     (mop/- ignition-site cell-offset-in-neighborhood)
+                                   (let [local-site     (dfn/- ignition-site cell-offset-in-neighborhood)
                                          wrf-percentile (- 100.0 (/ weather-sample 36.0))]
                                      [wrf-cell-id
                                       lon
@@ -5434,7 +5430,7 @@ This concludes our discussion of GridFire's command line interface.
          (r/map (fn [{:keys [wrf_cell_id lon lat lw_moisture]}]
                   (try (let [ignition-sites   (into []
                                                     (comp (distinct) (take num-ignitions))
-                                                    (repeatedly #(mop/+ cell-offset-in-neighborhood (random-cell 84 83))))
+                                                    (repeatedly #(dfn/+ cell-offset-in-neighborhood (random-cell 84 83))))
                              weather-readings (fetch-midrange-weather-readings db-spec wrf_cell_id)]
                          (when-let [landfire-data (fetch-landfire-data db-spec wrf_cell_id)]
                            (->> (run-monte-carlo-fire-spread landfire-data landfire-cell-size ignition-sites weather-readings lw_moisture
