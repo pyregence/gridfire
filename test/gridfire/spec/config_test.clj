@@ -1,5 +1,4 @@
 ;; [[file:../../../org/GridFire.org::gridfire.spec.config-test][gridfire.spec.config-test]]
-;; FIXME LP coverage
 (ns gridfire.spec.config-test
   (:require [clojure.spec.alpha   :as s]
             [clojure.test         :refer [deftest is testing]]

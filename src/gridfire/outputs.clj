@@ -1,5 +1,4 @@
 ;; [[file:../../org/GridFire.org::gridfire.outputs][gridfire.outputs]]
-;; FIXME LP coverage
 (ns gridfire.outputs
   (:require [clojure.data.csv     :as csv]
             [clojure.java.io      :as io]

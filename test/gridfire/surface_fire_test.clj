@@ -1,5 +1,4 @@
 ;; [[file:../../org/GridFire.org::gridfire.surface-fire-test][gridfire.surface-fire-test]]
-;; FIXME LP coverage
 (ns gridfire.surface-fire-test
   (:require [clojure.test                :refer [deftest testing is run-tests]]
             [gridfire.fuel-models-old        :refer [fuel-models build-fuel-model moisturize]]

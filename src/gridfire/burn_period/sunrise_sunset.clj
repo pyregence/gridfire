@@ -1,5 +1,4 @@
 ;; [[file:../../../org/GridFire.org::gridfire.burn-period.sunrise-sunset][gridfire.burn-period.sunrise-sunset]]
-;; FIXME LP coverage
 (ns gridfire.burn-period.sunrise-sunset
   (:require [clojure.test :as test])
   (:import  (java.time Instant ZonedDateTime ZoneOffset)))

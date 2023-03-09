@@ -1,5 +1,4 @@
 ;; [[file:../../org/GridFire.org::gridfire.elm-to-grid-test][gridfire.elm-to-grid-test]]
-;; FIXME LP coverage
 (ns gridfire.elm-to-grid-test
   (:require [clojure.java.io      :as io]
             [clojure.java.shell   :as sh]

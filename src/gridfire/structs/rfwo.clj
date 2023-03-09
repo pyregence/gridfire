@@ -1,5 +1,4 @@
 ;; [[file:../../../org/GridFire.org::gridfire.structs.rfwo][gridfire.structs.rfwo]]
-;; FIXME LP coverage
 (ns gridfire.structs.rfwo
   "Custom data structure for memoizing rothermel-fast-wrapper-optimal,
   isolated in this namespace to wrap JVM interop."

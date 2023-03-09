@@ -1,5 +1,4 @@
 ;; [[file:../../org/GridFire.org::gridfire.spotting-test][gridfire.spotting-test]]
-;; FIXME LP coverage
 (ns gridfire.spotting-test
   (:require [clojure.test                :refer [are deftest is testing use-fixtures run-tests]]
             [gridfire.conversion         :as c]

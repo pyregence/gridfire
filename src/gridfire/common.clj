@@ -1,5 +1,4 @@
 ;; [[file:../../org/GridFire.org::gridfire.common][gridfire.common]]
-;; FIXME LP coverage
 (ns gridfire.common
   (:require [gridfire.fuel-models-optimal :as f-opt]
             [gridfire.grid-lookup         :as grid-lookup]

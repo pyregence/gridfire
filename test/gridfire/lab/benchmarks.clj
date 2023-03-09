@@ -1,5 +1,4 @@
 ;; [[file:../../../org/GridFire.org::gridfire.lab.benchmarks][gridfire.lab.benchmarks]]
-;; FIXME LP coverage
 (set! clojure.core/*assert* false)
 
 (ns gridfire.lab.benchmarks

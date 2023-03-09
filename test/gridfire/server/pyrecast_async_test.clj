@@ -1,5 +1,4 @@
 ;; [[file:../../../org/GridFire.org::gridfire.server.pyrecast-async-test][gridfire.server.pyrecast-async-test]]
-;; FIXME LP coverage
 (ns gridfire.server.pyrecast-async-test
   (:require [clojure.java.io                :as io]
             [clojure.java.shell             :refer [sh]]

@@ -1,5 +1,4 @@
 ;; [[file:../../org/GridFire.org::gridfire.fire-spread-optimal][gridfire.fire-spread-optimal]]
-;; FIXME LP coverage
 (ns gridfire.fire-spread-optimal
   (:require [clojure.string                :as s]
             [gridfire.common               :refer [burnable-cell?

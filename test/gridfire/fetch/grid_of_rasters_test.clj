@@ -1,5 +1,4 @@
 ;; [[file:../../../org/GridFire.org::gridfire.fetch.grid-of-rasters-test][gridfire.fetch.grid-of-rasters-test]]
-;; FIXME LP coverage
 (ns gridfire.fetch.grid-of-rasters-test
   (:require [clojure.test                   :refer [deftest is testing]]
             [clojure.java.io                :as io]

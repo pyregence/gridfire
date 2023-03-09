@@ -1,5 +1,4 @@
 ;; [[file:../../../org/GridFire.org::gridfire.structs.burn-vector][gridfire.structs.burn-vector]]
-;; FIXME LP coverage
 (ns gridfire.structs.burn-vector
   "Custom data structure for representing Burn Vectors, isolated in this namespace to wrap JVM interop.")
 

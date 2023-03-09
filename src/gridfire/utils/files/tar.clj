@@ -1,5 +1,4 @@
 ;; [[file:../../../../org/GridFire.org::gridfire.utils.files.tar][gridfire.utils.files.tar]]
-;; FIXME LP coverage
 (ns gridfire.utils.files.tar
   (:require [clojure.java.io :as io])
   (:import (org.apache.commons.compress.compressors.gzip GzipCompressorInputStream)

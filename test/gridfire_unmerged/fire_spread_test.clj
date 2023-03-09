@@ -1,5 +1,4 @@
 ;; [[file:../../org/GridFire.org::gridfire-unmerged.fire-spread-test][gridfire-unmerged.fire-spread-test]]
-;; FIXME LP coverage
 ;; (ns gridfire-unmerged.fire-spread-test
 ;;   (:require [clojure.java.io :as io]
 ;;             [clojure.core.matrix :as m]

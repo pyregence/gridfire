@@ -1,5 +1,4 @@
 ;; [[file:../../org/GridFire.org::gridfire.postgis-bridge-test][gridfire.postgis-bridge-test]]
-;; FIXME LP coverage
 (ns gridfire.postgis-bridge-test
   (:require [clojure.test            :refer [deftest is]]
             [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]))

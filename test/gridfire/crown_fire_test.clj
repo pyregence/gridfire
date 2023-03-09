@@ -1,5 +1,4 @@
 ;; [[file:../../org/GridFire.org::gridfire.crown-fire-test][gridfire.crown-fire-test]]
-;; FIXME LP coverage
 (ns gridfire.crown-fire-test
   (:require [clojure.test        :refer [deftest testing are run-tests]]
             [gridfire.conversion :as c]

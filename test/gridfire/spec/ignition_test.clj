@@ -1,5 +1,4 @@
 ;; [[file:../../../org/GridFire.org::gridfire.spec.ignition-test][gridfire.spec.ignition-test]]
-;; FIXME LP coverage
 (ns gridfire.spec.ignition-test
   (:require [clojure.spec.alpha   :as s]
             [clojure.test         :refer [deftest is]]

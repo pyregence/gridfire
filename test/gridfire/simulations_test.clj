@@ -1,5 +1,4 @@
 ;; [[file:../../org/GridFire.org::gridfire.simulations-test][gridfire.simulations-test]]
-;; FIXME LP coverage
 (ns gridfire.simulations-test
   (:require [gridfire.grid-lookup :as grid-lookup]
             [gridfire.simulations :as simulations]

@@ -1,5 +1,4 @@
 ;; [[file:../../../org/GridFire.org::gridfire.spec.output-test][gridfire.spec.output-test]]
-;; FIXME LP coverage
 (ns gridfire.spec.output-test
   (:require [clojure.spec.alpha   :as s]
             [clojure.test         :refer [deftest is]]

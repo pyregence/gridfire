@@ -1,5 +1,4 @@
 ;; [[file:../../../org/GridFire.org::gridfire.spec.memoization][gridfire.spec.memoization]]
-;; FIXME LP coverage
 (ns gridfire.spec.memoization
   (:require [clojure.spec.alpha :as s]))
 

@@ -1,5 +1,4 @@
-;; [[file:../../../org/GridFire.org::gridfire.utils.gradient)][gridfire.utils.gradient)]]
-;; FIXME LP coverage
+;; [[file:../../../org/GridFire.org::gridfire.utils.gradient][gridfire.utils.gradient]]
 (ns gridfire.utils.gradient)
 
 (defn estimate-dF
@@ -20,4 +19,4 @@
         (- Fu+du Fu))
       ;; This is the favored way of estimating the gradient: https://numpy.org/doc/stable/reference/generated/numpy.gradient.html
       (* 0.5 (- Fu+du Fu-du)))))
-;; gridfire.utils.gradient) ends here
+;; gridfire.utils.gradient ends here

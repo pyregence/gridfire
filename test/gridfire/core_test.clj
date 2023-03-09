@@ -1,5 +1,4 @@
 ;; [[file:../../org/GridFire.org::gridfire.core-test][gridfire.core-test]]
-;; FIXME LP coverage
 (ns gridfire.core-test
   (:require [clojure.string              :as str]
             [clojure.test                :refer [deftest is testing use-fixtures are compose-fixtures]]

@@ -1,5 +1,4 @@
 ;; [[file:../../org/GridFire.org::gridfire.binary-output][gridfire.binary-output]]
-;; FIXME LP coverage
 (ns gridfire.binary-output
   (:require [clojure.java.io :as io]
             [gridfire.common :refer [non-zero-indices non-zero-count]]

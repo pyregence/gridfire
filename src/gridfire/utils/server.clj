@@ -1,5 +1,4 @@
 ;; [[file:../../../org/GridFire.org::gridfire.utils.server][gridfire.utils.server]]
-;; FIXME LP coverage
 (ns gridfire.utils.server
   (:require [clojure.string :as s]))
 

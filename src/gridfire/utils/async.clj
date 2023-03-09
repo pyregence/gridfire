@@ -1,5 +1,4 @@
 ;; [[file:../../../org/GridFire.org::gridfire.utils.async][gridfire.utils.async]]
-;; FIXME LP coverage
 (ns gridfire.utils.async
   (:require [clojure.core.async :as async]
             [manifold.deferred  :as mfd]

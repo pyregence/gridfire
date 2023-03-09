@@ -1,5 +1,4 @@
 ;; [[file:../../org/GridFire.org::gridfire.fire-spread-optimal-test][gridfire.fire-spread-optimal-test]]
-;; FIXME LP coverage
 (ns gridfire.fire-spread-optimal-test
   (:require [clojure.test                 :refer [deftest are is testing]]
             [gridfire.fire-spread-optimal :refer [create-new-burn-vectors!-pfn

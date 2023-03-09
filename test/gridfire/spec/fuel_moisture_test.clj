@@ -1,5 +1,4 @@
 ;; [[file:../../../org/GridFire.org::gridfire.spec.fuel-moisture-test][gridfire.spec.fuel-moisture-test]]
-;; FIXME LP coverage
 (ns gridfire.spec.fuel-moisture-test
   (:require [clojure.spec.alpha   :as s]
             [clojure.test         :refer [deftest is]]

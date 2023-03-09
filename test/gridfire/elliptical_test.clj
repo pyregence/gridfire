@@ -1,5 +1,4 @@
 ;; [[file:../../org/GridFire.org::gridfire.elliptical-test][gridfire.elliptical-test]]
-;; FIXME LP coverage
 (ns gridfire.elliptical-test
   (:require [clojure.test                  :refer [deftest is testing]]
             [gridfire.elliptical           :refer [fireline-normal-spread-rate-scalar]]

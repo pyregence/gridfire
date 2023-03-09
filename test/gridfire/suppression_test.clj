@@ -1,5 +1,4 @@
 ;; [[file:../../org/GridFire.org::gridfire.suppression-test][gridfire.suppression-test]]
-;; FIXME LP coverage
 (ns gridfire.suppression-test
   (:require
    [clojure.test :refer [are deftest testing is]]

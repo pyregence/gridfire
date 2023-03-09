@@ -1,5 +1,4 @@
 ;; [[file:../../org/GridFire.org::gridfire.simulations][gridfire.simulations]]
-;; FIXME LP coverage
 (ns gridfire.simulations
   (:require [clojure.java.io                              :as io]
             [gridfire.binary-output                       :as binary]

@@ -1,5 +1,4 @@
 ;; [[file:../../org/GridFire.org::gridfire.gen-raster][gridfire.gen-raster]]
-;; FIXME LP coverage
 (ns gridfire.gen-raster
   (:require [clojure.string           :as str]
             [clojure.tools.cli        :refer [parse-opts]]

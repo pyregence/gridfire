@@ -1,5 +1,4 @@
 ;; [[file:../../../../org/GridFire.org::gridfire.lab.benchmarks.compare-commits][gridfire.lab.benchmarks.compare-commits]]
-;; FIXME LP coverage
 (ns gridfire.lab.benchmarks.compare-commits
   "A babashka script for benchmarking several commits."
   (:require [babashka.process]

@@ -1,5 +1,4 @@
 ;; [[file:../../../org/GridFire.org::gridfire.utils.geo][gridfire.utils.geo]]
-;; FIXME LP coverage
 (ns gridfire.utils.geo
   (:import (org.geotools.referencing CRS)
            (org.opengis.geometry Envelope)))

@@ -1,5 +1,4 @@
 ;; [[file:../../org/GridFire.org::gridfire.active-fire-watcher-test][gridfire.active-fire-watcher-test]]
-;; FIXME LP coverage
 (ns gridfire.active-fire-watcher-test
   (:require [gridfire.active-fire-watcher :refer [file-name-regex
                                                   fire-name-regex

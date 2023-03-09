@@ -1,5 +1,4 @@
 ;; [[file:../../../org/GridFire.org::gridfire.spec.server][gridfire.spec.server]]
-;; FIXME LP coverage
 (ns gridfire.spec.server
   (:require [clojure.spec.alpha    :as spec]
             [gridfire.utils.server :refer [hostname? port? fire-name? time?]]))

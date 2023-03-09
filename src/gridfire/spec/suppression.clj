@@ -1,5 +1,4 @@
 ;; [[file:../../../org/GridFire.org::gridfire.spec.suppression][gridfire.spec.suppression]]
-;; FIXME LP coverage
 (ns gridfire.spec.suppression
   (:require [clojure.spec.alpha   :as s]
             [gridfire.spec.common :as common]))

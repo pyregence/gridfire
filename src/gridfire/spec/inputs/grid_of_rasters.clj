@@ -1,5 +1,4 @@
 ;; [[file:../../../../org/GridFire.org::gridfire.spec.inputs.grid-of-rasters][gridfire.spec.inputs.grid-of-rasters]]
-;; FIXME LP coverage
 (ns gridfire.spec.inputs.grid-of-rasters
   (:require [clojure.spec.alpha :as s]))
 

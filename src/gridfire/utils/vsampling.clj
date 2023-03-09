@@ -1,5 +1,4 @@
 ;; [[file:../../../org/GridFire.org::gridfire.utils.vsampling][gridfire.utils.vsampling]]
-;; FIXME LP coverage
 (ns gridfire.utils.vsampling
   "Values-Sampling: a utility similar to logging or tracing, useful for recording
   (subsets of) the values which occur in our formulas.")

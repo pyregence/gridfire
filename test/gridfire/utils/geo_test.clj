@@ -1,5 +1,4 @@
 ;; [[file:../../../org/GridFire.org::gridfire.utils.geo-test][gridfire.utils.geo-test]]
-;; FIXME LP coverage
 (ns gridfire.utils.geo-test
   (:require [clojure.test        :refer [deftest is testing use-fixtures]]
             [gridfire.core       :refer [load-config! load-inputs!]]

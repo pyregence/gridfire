@@ -1,5 +1,4 @@
 ;; [[file:../../org/GridFire.org::gridfire.elliptical][gridfire.elliptical]]
-;; FIXME LP coverage
 (ns gridfire.elliptical
   "Computations based on the Elliptical Wavelets model.")
 

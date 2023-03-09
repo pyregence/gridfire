@@ -1,5 +1,4 @@
 ;; [[file:../../../org/GridFire.org::gridfire.inputs.envi-bsq-test][gridfire.inputs.envi-bsq-test]]
-;; FIXME LP coverage
 (ns gridfire.inputs.envi-bsq-test
   (:require [clojure.java.io             :as io]
             [clojure.string              :as str]

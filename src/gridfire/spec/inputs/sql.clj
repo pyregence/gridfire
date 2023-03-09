@@ -1,5 +1,4 @@
 ;; [[file:../../../../org/GridFire.org::gridfire.spec.inputs.sql][gridfire.spec.inputs.sql]]
-;; FIXME LP coverage
 (ns gridfire.spec.inputs.sql
   (:require [clojure.spec.alpha :as s]))
 

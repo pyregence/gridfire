@@ -1,5 +1,4 @@
 ;; [[file:../../org/GridFire.org::gridfire-unmerged.scale-assessment][gridfire-unmerged.scale-assessment]]
-;; FIXME LP coverage
 ;; (ns gridfire-unmerged.scale-assessment
 ;;   (:require [clojure.java.io :as io]
 ;;             [tech.v3.tensor :as t]

@@ -1,5 +1,4 @@
 ;; [[file:../../../org/GridFire.org::gridfire.utils.files-test][gridfire.utils.files-test]]
-;; FIXME LP coverage
 (ns gridfire.utils.files-test
   (:require [clojure.edn          :as edn]
             [clojure.test         :refer [deftest is are testing]]

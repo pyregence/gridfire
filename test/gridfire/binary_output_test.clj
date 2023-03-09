@@ -1,5 +1,4 @@
 ;; [[file:../../org/GridFire.org::gridfire.binary-output-test][gridfire.binary-output-test]]
-;; FIXME LP coverage
 (ns gridfire.binary-output-test
   (:require [clojure.test                :refer [deftest is use-fixtures]]
             [gridfire.utils.test         :as utils]

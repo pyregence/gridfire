@@ -1,5 +1,4 @@
 ;; [[file:../../../org/GridFire.org::gridfire.spec.perturbations][gridfire.spec.perturbations]]
-;; FIXME LP coverage
 (ns gridfire.spec.perturbations
   (:require [clojure.spec.alpha   :as s]
             [gridfire.spec.common :as common]))
