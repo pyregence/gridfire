@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.active-fire-watcher-test][gridfire.active-fire-watcher-test]]
 ;; FIXME LP coverage
 (ns gridfire.active-fire-watcher-test
   (:require [gridfire.active-fire-watcher :refer [file-name-regex
@@ -41,3 +42,4 @@
   (is (= "20210617_203600"
          (->>  "nm-johnson_20210617_203600_001"
                (re-find ignition-time-regex)))))
+;; gridfire.active-fire-watcher-test ends here

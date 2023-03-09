@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.server.protocols)][gridfire.server.protocols)]]
 ;; FIXME LP coverage
 (ns gridfire.server.protocols)
 
@@ -7,3 +8,4 @@
   =notifications-channel= must be a core.async channel, which will receive progress notifications.")
   (n-queued [this] "Returns the number of commands currently waiting to be processed.")
   (halt [this] "Terminates the logical process handling commands."))
+;; gridfire.server.protocols) ends here

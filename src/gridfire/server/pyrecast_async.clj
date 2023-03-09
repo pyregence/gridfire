@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.server.pyrecast-async][gridfire.server.pyrecast-async]]
 ;; FIXME LP coverage
 (ns gridfire.server.pyrecast-async
   "For exposing GridFire through a socket server, making it act as a worker process behind a job queue,
@@ -306,3 +307,4 @@
  :backup-dir                 "/home/kcheung/work/servers/chickadee/backup-to-ftp"
  :suppression-white-list     "/home/kcheung/work/servers/chickadee/suppression-white-list.edn"
    :also-simulate-suppression? true}
+;; gridfire.server.pyrecast-async ends here

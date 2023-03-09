@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire-unmerged.fire-spread-test][gridfire-unmerged.fire-spread-test]]
 ;; FIXME LP coverage
 ;; (ns gridfire-unmerged.fire-spread-test
 ;;   (:require [clojure.java.io :as io]
@@ -529,3 +530,4 @@
 ;; (sort (distinct (apply concat (vals (into {} (for [tile [:tile205 :tile210 :tile281 :tile310 :tile564 :tile643]]
 ;;                                                (let [error-fm (-> validation-outputs tile :error-fuel-models)]
 ;;                                                  [tile (sort (distinct (filter pos? (t/tensor->buffer error-fm))))])))))))
+;; gridfire-unmerged.fire-spread-test ends here

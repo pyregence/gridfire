@@ -1,3 +1,4 @@
+;; [[file:org/GridFire.org::build][build]]
 ;; FIXME LP coverage
 (ns build
   (:require [clojure.tools.build.api :as b])
@@ -51,3 +52,4 @@
                        "Implementation-Vendor"  "Sun Microsystems, Inc."}})
 
   (println (format "Uberjar file created: \"%s\"" uberjar-file-name)))
+;; build ends here

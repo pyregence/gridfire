@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.utils.vsampling][gridfire.utils.vsampling]]
 ;; FIXME LP coverage
 (ns gridfire.utils.vsampling
   "Values-Sampling: a utility similar to logging or tracing, useful for recording
@@ -100,3 +101,4 @@
                                        :file   "/Users/val/projects/SIG/gridfire/src/gridfire/utils/vsampling.clj"}}]
 
   *e)
+;; gridfire.utils.vsampling ends here

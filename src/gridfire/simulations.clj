@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.simulations][gridfire.simulations]]
 ;; FIXME LP coverage
 (ns gridfire.simulations
   (:require [clojure.java.io                              :as io]
@@ -574,3 +575,4 @@
          simulation-results (tufte/p :run-fire-spread
                                      (run-fire-spread simulation-inputs))]
      (process-simulation-results! i inputs simulation-inputs simulation-results))))
+;; gridfire.simulations ends here

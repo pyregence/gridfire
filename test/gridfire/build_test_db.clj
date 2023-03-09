@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.build-test-db][gridfire.build-test-db]]
 ;; FIXME LP coverage
 (ns gridfire.build-test-db
   (:require [clojure.java.shell :as sh]
@@ -61,3 +62,4 @@
 (defn -main [& args]
   (build-everything true)
   (shutdown-agents))
+;; gridfire.build-test-db ends here

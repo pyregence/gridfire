@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.lab.replay][gridfire.lab.replay]]
 ;; FIXME LP coverage ???
 (ns gridfire.lab.replay
   (:require [clojure.java.io              :as io]
@@ -2032,5 +2033,4 @@
 
 
   *e)
-
-
+;; gridfire.lab.replay ends here

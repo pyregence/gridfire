@@ -1,3 +1,4 @@
+;; [[file:../../../../org/GridFire.org::gridfire.utils.files.tar][gridfire.utils.files.tar]]
 ;; FIXME LP coverage
 (ns gridfire.utils.files.tar
   (:require [clojure.java.io :as io])
@@ -31,3 +32,4 @@
        ;; WARNING sometimes thrown for no apparent reason... (Val, 26 Sep 2022)
        (catch EOFException _eofex
          ())))))
+;; gridfire.utils.files.tar ends here

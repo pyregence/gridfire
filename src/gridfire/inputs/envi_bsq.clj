@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.inputs.envi-bsq][gridfire.inputs.envi-bsq]]
 ;; FIXME LP coverage
 (ns gridfire.inputs.envi-bsq
   "A custom parser for BSQ-interleaved ENVI raster files.
@@ -254,3 +255,4 @@
     (check-expected-buffer-size! data-buf n-elements)
     (.get data-buf (doubles data-arr))
     data-arr))
+;; gridfire.inputs.envi-bsq ends here

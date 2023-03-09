@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.fuel-models-optimal-test][gridfire.fuel-models-optimal-test]]
 ;; FIXME LP coverage
 (ns gridfire.fuel-models-optimal-test
   (:require [clojure.test                 :refer [deftest is testing]]
@@ -26,3 +27,4 @@
   (testing "Magic numbers:"
     (is (= 204 (apply max (classical-model-numbers))))
     (is (= 303 (apply max (all-model-numbers))))))
+;; gridfire.fuel-models-optimal-test ends here

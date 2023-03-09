@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.utils.geo-test][gridfire.utils.geo-test]]
 ;; FIXME LP coverage
 (ns gridfire.utils.geo-test
   (:require [clojure.test        :refer [deftest is testing use-fixtures]]
@@ -15,3 +16,4 @@
         (is (= [36.144687673692644 -123.00000000000001]
                (resolve-simulation-lat+lon inputs))
             "returns an USA-typical [lat lon] pair.")))))
+;; gridfire.utils.geo-test ends here

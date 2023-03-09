@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire-unmerged.scale-assessment][gridfire-unmerged.scale-assessment]]
 ;; FIXME LP coverage
 ;; (ns gridfire-unmerged.scale-assessment
 ;;   (:require [clojure.java.io :as io]
@@ -498,3 +499,4 @@
 ;;     (generate-cumulative-csv-results "org/pics/scale_assessment" :tile643 7))
 
 ;;   (merge-csv-files "org/pics/scale_assessment/sequential_runs" #"tile.+data-table-scenario.+\.csv" #"tile.+-(\d+)\.csv" "data-table.csv"))
+;; gridfire-unmerged.scale-assessment ends here

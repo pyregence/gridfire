@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.inputs.envi-bsq-test][gridfire.inputs.envi-bsq-test]]
 ;; FIXME LP coverage
 (ns gridfire.inputs.envi-bsq-test
   (:require [clojure.java.io             :as io]
@@ -351,3 +352,4 @@
                   (is (dfn/equals bsq-tensor tif-tensor)
                       "Same numeric values."))))))
          (doall))))
+;; gridfire.inputs.envi-bsq-test ends here

@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.burn-period.sunrise-sunset][gridfire.burn-period.sunrise-sunset]]
 ;; FIXME LP coverage
 (ns gridfire.burn-period.sunrise-sunset
   (:require [clojure.test :as test])
@@ -404,3 +405,4 @@
    (str "if provided, correctly uses " (pr-str :burn-period-length) " and " (pr-str :burn-period-frac) ".")))
 
 #_(test/run-tests)
+;; gridfire.burn-period.sunrise-sunset ends here

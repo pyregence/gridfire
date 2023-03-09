@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.core-test][gridfire.core-test]]
 ;; FIXME LP coverage
 (ns gridfire.core-test
   (:require [clojure.string              :as str]
@@ -611,3 +612,4 @@
           (is (= (results-signature default-res)
                  (results-signature res))
               "the logical behavior of the simulation is unchanged."))))))
+;; gridfire.core-test ends here

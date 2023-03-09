@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.spec.suppression][gridfire.spec.suppression]]
 ;; FIXME LP coverage
 (ns gridfire.spec.suppression
   (:require [clojure.spec.alpha   :as s]
@@ -23,3 +24,4 @@
   (fn [{:keys [suppression-coefficient sdi-layer]}]
     (or (and suppression-coefficient (nil? sdi-layer))
         (and (nil? suppression-coefficient) sdi-layer))))
+;; gridfire.spec.suppression ends here

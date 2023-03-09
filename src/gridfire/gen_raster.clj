@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.gen-raster][gridfire.gen-raster]]
 ;; FIXME LP coverage
 (ns gridfire.gen-raster
   (:require [clojure.string           :as str]
@@ -120,3 +121,4 @@
           (register-custom-projections!)
           (inputs->output-raster options)))
     (System/exit 0)))
+;; gridfire.gen-raster ends here

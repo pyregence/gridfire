@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.spec.burn-period-test][gridfire.spec.burn-period-test]]
 ;; FIXME LP coverage
 (ns gridfire.spec.burn-period-test
   (:require [clojure.spec.alpha        :as s]
@@ -8,3 +9,4 @@
   (testing "valid"
     (is (s/valid? ::burn-period/burn-period {:start "08:00"
                                              :end   "20:00"}))))
+;; gridfire.spec.burn-period-test ends here

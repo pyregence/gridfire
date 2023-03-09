@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.lab.benchmarks][gridfire.lab.benchmarks]]
 ;; FIXME LP coverage
 (set! clojure.core/*assert* false)
 
@@ -86,3 +87,4 @@
 ;; Example:
 ;; $ clojure -J-Dclojure.compiler.direct-linking=true -M:perf-testing -m gridfire.lab.benchmarks benchmark test/gridfire/lab/benchmarks/rhino-input-deck/gridfire.edn
 ;; $ clojure -J-Dclojure.compiler.direct-linking=true -J-Djdk.attach.allowAttachSelf=true -M:perf-testing -m gridfire.lab.benchmarks profile test/gridfire/lab/benchmarks/rhino-input-deck/gridfire.edn
+;; gridfire.lab.benchmarks ends here

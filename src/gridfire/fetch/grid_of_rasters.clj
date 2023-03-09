@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.fetch.grid-of-rasters][gridfire.fetch.grid-of-rasters]]
 ;; FIXME LP coverage
 (ns gridfire.fetch.grid-of-rasters
   (:require [clojure.spec.alpha :as s]
@@ -221,3 +222,4 @@
                                  :skewx
                                  :skewy
                                  :numbands]))))
+;; gridfire.fetch.grid-of-rasters ends here

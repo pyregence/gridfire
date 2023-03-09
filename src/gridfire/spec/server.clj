@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.spec.server][gridfire.spec.server]]
 ;; FIXME LP coverage
 (ns gridfire.spec.server
   (:require [clojure.spec.alpha    :as spec]
@@ -17,3 +18,4 @@
 (spec/def ::gridfire-server-response-minimal
   (spec/keys
    :req-un [::response-host ::response-port]))
+;; gridfire.spec.server ends here

@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.spec.config-test][gridfire.spec.config-test]]
 ;; FIXME LP coverage
 (ns gridfire.spec.config-test
   (:require [clojure.spec.alpha   :as s]
@@ -21,3 +22,4 @@
                   :ignition-start-timestamp #inst "1970-01-01T00:00:00.000-00:00"}]
       (is (not (s/valid? ::config/valid-timestamps config))
           "weather-start-timestamp should be not be before ignition-start-timestamp"))))
+;; gridfire.spec.config-test ends here

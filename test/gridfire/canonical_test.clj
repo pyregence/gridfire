@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.canonical-test][gridfire.canonical-test]]
 ;; FIXME LP coverage
 (ns gridfire.canonical-test
   (:require [clojure.edn          :as edn]
@@ -311,3 +312,4 @@
                            #'test-suppression-sdi-scenario])
 
   (run-tests 'gridfire.canonical-test))
+;; gridfire.canonical-test ends here

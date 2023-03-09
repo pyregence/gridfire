@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.elm-to-grid-test][gridfire.elm-to-grid-test]]
 ;; FIXME LP coverage
 (ns gridfire.elm-to-grid-test
   (:require [clojure.java.io      :as io]
@@ -77,3 +78,4 @@
                                                 "--pyrome-calibration-csv"            (str dir-path "pyrome_calibration_constants.csv")]
                                                gfr-conf-path
                                                (str dir-path "expected-1-gridfire.edn")))))))
+;; gridfire.elm-to-grid-test ends here

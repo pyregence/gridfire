@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.fire-spread-optimal-test][gridfire.fire-spread-optimal-test]]
 ;; FIXME LP coverage
 (ns gridfire.fire-spread-optimal-test
   (:require [clojure.test                 :refer [deftest are is testing]]
@@ -99,3 +100,4 @@
       6 (t/mset! (new-travel-lines-matrix shape) i j 2r01000001) ; N & W burn vectors exists
       5 (t/mset! (new-travel-lines-matrix shape) i j 2r11000001) ; N & W & NW burn vectors exists
       4 (t/mset! (new-travel-lines-matrix shape) i j 2r11000011)))) ; N & W & NW & NE burn vectors exists
+;; gridfire.fire-spread-optimal-test ends here

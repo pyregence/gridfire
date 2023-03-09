@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.binary-output][gridfire.binary-output]]
 ;; FIXME LP coverage
 (ns gridfire.binary-output
   (:require [clojure.java.io :as io]
@@ -125,3 +126,4 @@
 
 ;; toa_test.bin was created with:
 ;; (write-matrix-as-binary [[0 1 2] [3 0 4] [5 6 0]] "toa_test.bin")
+;; gridfire.binary-output ends here

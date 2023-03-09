@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.elliptical-test][gridfire.elliptical-test]]
 ;; FIXME LP coverage
 (ns gridfire.elliptical-test
   (:require [clojure.test                  :refer [deftest is testing]]
@@ -64,3 +65,4 @@
                                 (map (fn [^double cos-ang]
                                        (fireline-normal-spread-rate-scalar eccentricity cos-ang))))
                            [1.0])))))))
+;; gridfire.elliptical-test ends here

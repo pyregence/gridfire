@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.burn-period-test][gridfire.burn-period-test]]
 ;; FIXME LP coverage
 (ns gridfire.burn-period-test
   (:require [clojure.test        :refer [deftest is testing use-fixtures]]
@@ -51,3 +52,4 @@
                    (-> inputs
                        (select-keys [:ignition-start-timestamps
                                      :burn-period-samples]))))))))))
+;; gridfire.burn-period-test ends here

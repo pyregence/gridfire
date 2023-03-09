@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.spotting-optimal][gridfire.spotting-optimal]]
 ;; FIXME LP coverage
 (ns gridfire.spotting-optimal
   (:require [gridfire.common              :refer [burnable-cell?
@@ -405,3 +406,4 @@
                                                    (convert/ft->m (grid-lookup/mget-double-at flame-length-matrix i j)))]
                          [[x y] [t burn-probability]]))))))
              (remove nil?))))))
+;; gridfire.spotting-optimal ends here

@@ -1,3 +1,4 @@
+;; [[file:../../../../org/GridFire.org::gridfire.server.sync.call][gridfire.server.sync.call]]
 ;; FIXME LP coverage
 #!/usr/bin/env bb
 (ns gridfire.server.sync.call
@@ -49,3 +50,4 @@
   ;; bb --classpath my-gridfire-uberjar.jar --main gridfire.server.sync.call localhost 8085 path/to/my/gridfire.edn
 
   *e)
+;; gridfire.server.sync.call ends here

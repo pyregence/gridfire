@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.utils.files][gridfire.utils.files]]
 ;; FIXME LP coverage
 (ns gridfire.utils.files
   "File-system utilities for GridFire."
@@ -68,3 +69,4 @@
    {:readers (merge (location-aware-edn-readers edn-file)
                     convenience-encoding-readers)}
    (slurp edn-file)))
+;; gridfire.utils.files ends here

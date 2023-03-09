@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.fetch-ignition-test][gridfire.fetch-ignition-test]]
 ;; FIXME LP coverage
 (ns gridfire.fetch-ignition-test
   (:require [clojure.test                :refer [deftest is testing use-fixtures]]
@@ -78,3 +79,4 @@
 
       (is (dfn/equals (:matrix geotiff-ignition-layer)
                    (:matrix postgis-ignition-layer))))))
+;; gridfire.fetch-ignition-test ends here

@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.spec.config][gridfire.spec.config]]
 ;; FIXME LP coverage
 (ns gridfire.spec.config
   (:require [clojure.spec.alpha          :as s]
@@ -348,3 +349,4 @@
    ::burn-period-required-keys
    ::valid-timestamps
    ::mutually-exclusive-keys))
+;; gridfire.spec.config ends here

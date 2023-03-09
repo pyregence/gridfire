@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.fuel-models-test][gridfire.fuel-models-test]]
 ;; FIXME LP coverage
 (ns gridfire.fuel-models-test
   (:require [clojure.test                :refer [deftest testing is run-tests]]
@@ -49,3 +50,4 @@
 (comment
   (run-tests)
   )
+;; gridfire.fuel-models-test ends here

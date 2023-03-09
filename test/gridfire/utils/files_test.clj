@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.utils.files-test][gridfire.utils.files-test]]
 ;; FIXME LP coverage
 (ns gridfire.utils.files-test
   (:require [clojure.edn          :as edn]
@@ -47,3 +48,4 @@
                          (pr-str)
                          (edn/read-string {:readers convenience-encoding-readers}))]
         (is (identical? v0 v1))))))
+;; gridfire.utils.files-test ends here

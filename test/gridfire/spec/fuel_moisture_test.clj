@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.spec.fuel-moisture-test][gridfire.spec.fuel-moisture-test]]
 ;; FIXME LP coverage
 (ns gridfire.spec.fuel-moisture-test
   (:require [clojure.spec.alpha   :as s]
@@ -38,3 +39,4 @@
                 :live {:woody      0.10
                        :herbaceous 0.10}}]
     (is (s/valid? ::config/fuel-moisture config))))
+;; gridfire.spec.fuel-moisture-test ends here

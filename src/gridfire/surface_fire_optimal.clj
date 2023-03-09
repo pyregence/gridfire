@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.surface-fire-optimal][gridfire.surface-fire-optimal]]
 ;; FIXME LP coverage
 (ns gridfire.surface-fire-optimal
   (:require [gridfire.conversion          :refer [deg->rad rad->deg]]
@@ -546,3 +547,4 @@
   ;;    - primitive arrays (e.g., longs, doubles)
 
   )
+;; gridfire.surface-fire-optimal ends here

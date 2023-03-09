@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.conversion][gridfire.conversion]]
 ;; FIXME LP coverage
 (ns gridfire.conversion
   (:require [clojure.string   :as str]
@@ -289,3 +290,4 @@
     (if (valid-multiplier? multiplier)
       (fn ^double [^double x] (* x multiplier))
       nil)))
+;; gridfire.conversion ends here

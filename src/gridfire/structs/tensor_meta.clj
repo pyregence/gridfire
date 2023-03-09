@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.structs.tensor-meta)][gridfire.structs.tensor-meta)]]
 ;; FIXME LP coverage
 (ns gridfire.structs.tensor-meta)
 
@@ -9,3 +10,4 @@
   [grid-lookup-double-getter]
   IDoubleGetter
   (double-getter [_this] grid-lookup-double-getter))
+;; gridfire.structs.tensor-meta) ends here

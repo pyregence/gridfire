@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.server.pyrecast-async-test][gridfire.server.pyrecast-async-test]]
 ;; FIXME LP coverage
 (ns gridfire.server.pyrecast-async-test
   (:require [clojure.java.io                :as io]
@@ -41,3 +42,4 @@
                                                               :suppression-coefficent 2.0})
                            config)
       (is (.exists (io/file data-dir "unzip-fire-test-suppressed_19700101_000000_001"))))))
+;; gridfire.server.pyrecast-async-test ends here

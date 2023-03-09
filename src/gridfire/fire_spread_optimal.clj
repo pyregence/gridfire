@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.fire-spread-optimal][gridfire.fire-spread-optimal]]
 ;; FIXME LP coverage
 (ns gridfire.fire-spread-optimal
   (:require [clojure.string                :as s]
@@ -1523,3 +1524,4 @@
       (run-loop inputs
                 (initialize-perimeter-ignition-matrices inputs ignited-cells)
                 ignited-cells))))
+;; gridfire.fire-spread-optimal ends here

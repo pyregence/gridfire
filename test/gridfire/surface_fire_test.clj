@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.surface-fire-test][gridfire.surface-fire-test]]
 ;; FIXME LP coverage
 (ns gridfire.surface-fire-test
   (:require [clojure.test                :refer [deftest testing is run-tests]]
@@ -165,3 +166,4 @@
 (comment
   (run-tests)
   )
+;; gridfire.surface-fire-test ends here

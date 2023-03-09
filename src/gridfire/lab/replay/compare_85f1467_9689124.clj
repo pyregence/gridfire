@@ -1,3 +1,4 @@
+;; [[file:../../../../org/GridFire.org::gridfire.lab.replay.compare-85f1467-9689124][gridfire.lab.replay.compare-85f1467-9689124]]
 ;; FIXME LP coverage ???
 (ns gridfire.lab.replay.compare-85f1467-9689124
   "Records a comparison of gridfire.lab.replay results for 2 version of GridFire,
@@ -824,3 +825,4 @@
   ;  vwaeselynk-336-burn-period-from-sunrise-sunset
 
   *e)
+;; gridfire.lab.replay.compare-85f1467-9689124 ends here

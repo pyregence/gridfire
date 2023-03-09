@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.outputs][gridfire.outputs]]
 ;; FIXME LP coverage
 (ns gridfire.outputs
   (:require [clojure.data.csv     :as csv]
@@ -248,3 +249,4 @@
                         "fire-size" "flame-length-mean" "flame-length-stddev" "fire-line-intensity-mean"
                         "fire-line-intensity-stddev" "crown-fire-size" "spot-count" "surface-fire-size"])
                  (csv/write-csv out-file))))))))
+;; gridfire.outputs ends here

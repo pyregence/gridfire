@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.fetch.base][gridfire.fetch.base]]
 ;; FIXME LP coverage
 (ns gridfire.fetch.base
   (:require [gridfire.grid-lookup :as grid-lookup]
@@ -41,3 +42,4 @@
                          (d/clone converted))]
         (assoc layer-map :matrix new-tensor))
       layer-map)))
+;; gridfire.fetch.base ends here

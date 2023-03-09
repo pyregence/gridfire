@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.structs.rfwo][gridfire.structs.rfwo]]
 ;; FIXME LP coverage
 (ns gridfire.structs.rfwo
   "Custom data structure for memoizing rothermel-fast-wrapper-optimal,
@@ -69,3 +70,4 @@
 (defn get-grass-suppression?
   [^RothFWOArgs rothFWOArgs]
   (.-grass-suppression? rothFWOArgs))
+;; gridfire.structs.rfwo ends here

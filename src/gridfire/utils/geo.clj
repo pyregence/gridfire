@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.utils.geo][gridfire.utils.geo]]
 ;; FIXME LP coverage
 (ns gridfire.utils.geo
   (:import (org.geotools.referencing CRS)
@@ -23,3 +24,4 @@
   ;; We could use the Median point, but that would require
   ;; a GeoTools upgrade.
   (envelope-lower-corner-lat+lon (:envelope inputs)))
+;; gridfire.utils.geo ends here
