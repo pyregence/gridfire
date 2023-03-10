@@ -1332,7 +1332,7 @@
   *e)
 ;; fire-spread-matrices ends here
 
-;; [[file:../../org/GridFire.org::fire-spread-matrices][fire-spread-matrices]]
+;; [[file:../../org/GridFire.org::fire-spread-entry-point][fire-spread-entry-point]]
 ;;-----------------------------------------------------------------------------
 ;; Main Simulation Entry Point - Dispatches to Point/Perimeter Ignition
 ;;-----------------------------------------------------------------------------

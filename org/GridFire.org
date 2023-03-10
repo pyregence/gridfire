@@ -2844,6 +2844,205 @@ and the initial conditions (point or perimeter ignited at the beginning of the s
 
 #+name: fire-spread-entry-point
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fire_spread.clj :padline no :no-expand :comments link
+;;-----------------------------------------------------------------------------
+;; Main Simulation Entry Point - Dispatches to Point/Perimeter Ignition
+;;-----------------------------------------------------------------------------
+
+;; TODO: Move this multimethod check into run-simulations to avoid running it in every thread
+(defmulti ^:private run-fire-spread*
+  (fn [inputs]
+    (if (vector? (:initial-ignition-site inputs))
+      :ignition-point
+      :ignition-perimeter)))
+
+(defn run-fire-spread
+  "Runs the raster-based fire spread model with a SimulationInputs record containing these fields:
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | Key                                               | Value Type         | Value Units                                               |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :num-rows                                         | long               | column count of fuel-model-matrix                         |
+  | :num-cols                                         | long               | row count of fuel-model-matrix                            |
+  | :cell-size                                        | double             | feet                                                      |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :ignition-start-time                              | double             | minutes                                                   |
+  | :max-runtime                                      | double             | minutes                                                   |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :initial-ignition-site                            | [i,j] or 2D tensor | [y,x] coordinate or categories 0-2 in tensor              |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :crowning-disabled?                               | boolean            | true or false                                             |
+  | :ellipse-adjustment-factor                        | double             | < 1.0 = more circular, > 1.0 = more elliptical            |
+  | :grass-suppression?                               | boolean            | true or false                                             |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :rand-gen                                         | java.util.Random   | uniform sample [0-1]                                      |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :get-elevation                                    | (i,j) -> v         | feet                                                      |
+  | :get-slope                                        | (i,j) -> v         | vertical feet/horizontal feet                             |
+  | :get-aspect                                       | (i,j) -> v         | degrees clockwise from north [0-360)                      |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :get-canopy-cover                                 | (i,j) -> v         | percent [0-100]                                           |
+  | :get-canopy-height                                | (i,j) -> v         | feet                                                      |
+  | :get-canopy-base-height                           | (i,j) -> v         | feet                                                      |
+  | :get-crown-bulk-density                           | (i,j) -> v         | lb/ft^3                                                   |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :get-fuel-model                                   | (i,j) -> v         | fuel model numbers [1-256]                                |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :get-temperature                                  | (b,i,j) -> v       | degrees Fahrenheit                                        |
+  | :get-relative-humidity                            | (b,i,j) -> v       | percent [0-100]                                           |
+  | :get-wind-speed-20ft                              | (b,i,j) -> v       | miles/hour                                                |
+  | :get-wind-from-direction                          | (b,i,j) -> v       | degrees clockwise from north                              |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :get-fuel-moisture-dead-1hr                       | (b,i,j) -> v       | ratio [0-1]                                               |
+  | :get-fuel-moisture-dead-10hr                      | (b,i,j) -> v       | ratio [0-1]                                               |
+  | :get-fuel-moisture-dead-100hr                     | (b,i,j) -> v       | ratio [0-1]                                               |
+  | :get-fuel-moisture-live-herbaceous                | (b,i,j) -> v       | ratio [0-1]                                               |
+  | :get-fuel-moisture-live-woody                     | (b,i,j) -> v       | ratio [0-1]                                               |
+  | :get-foliar-moisture                              | (b,i,j) -> v       | ratio [0-1]                                               |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :spotting                                         | map                | :decay-constant -> double                                 |
+  |                                                   |                    | :num-firebrands -> long                                   |
+  |                                                   |                    | :surface-fire-spotting -> map                             |
+  |                                                   |                    | :crown-fire-spotting-percent -> double or [double double] |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :fuel-number->spread-rate-adjustment-array-lookup | array of doubles   | unitless                                                  |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|
+  | :suppression-dt                                   | double             | minutes                                                   |
+  | :suppression-coefficient                          | double             | none                                                      |
+  | :sdi-containment-overwhelming-area-growth-rate    | double             | Acres/day                                                 |
+  | :sdi-reference-suppression-speed                  | double             | percent/day                                               |
+  | :sdi-sensitivity-to-difficulty                    | double             | none                                                      |
+  |---------------------------------------------------+--------------------+-----------------------------------------------------------|"
+  [inputs]
+  (let [sfmin-memoization (get-in inputs [:memoization :surface-fire-min])]
+    (binding [rothermel-fast-wrapper-optimal (if (= sfmin-memoization :within-sims) ; NOTE :within-sims to avoid the memory leaks caused by :across-sims.
+                                               (memoize-rfwo rothermel-fast-wrapper-optimal)
+                                               rothermel-fast-wrapper-optimal)]
+      (run-fire-spread* inputs))))
+
+;;-----------------------------------------------------------------------------
+;; Point Ignition
+;;-----------------------------------------------------------------------------
+
+(defn- initialize-point-ignition-matrices
+  [inputs]
+  (let [num-rows                    (long (:num-rows inputs))
+        num-cols                    (long (:num-cols inputs))
+        [i j]                       (:initial-ignition-site inputs)
+        ignition-start-time         (:ignition-start-time inputs)
+        spotting                    (:spotting inputs)
+        compute-directional-values? (:compute-directional-values? inputs)
+        shape                       [num-rows num-cols]
+        burn-time-matrix            (-> (* num-rows num-cols)
+                                        (float-array -1.0)
+                                        (t/ensure-tensor)
+                                        (t/reshape shape)
+                                        (t/mset! i j ignition-start-time))]
+    (make-simulation-matrices
+     {:burn-time-matrix                burn-time-matrix
+      :eccentricity-matrix             (t/new-tensor shape :datatype :float32)
+      :fire-line-intensity-matrix      (t/new-tensor shape :datatype :float32)
+      :fire-spread-matrix              (-> (t/new-tensor shape :datatype :float32) (t/mset! i j 1.0))
+      :fire-type-matrix                (t/new-tensor shape :datatype :float32)
+      :firebrand-count-matrix          (when spotting (t/new-tensor shape :datatype :int32))
+      :flame-length-matrix             (t/new-tensor shape :datatype :float32)
+      :directional-flame-length-matrix (when compute-directional-values? (t/new-tensor shape :datatype :float32))
+      :max-spread-direction-matrix     (t/new-tensor shape :datatype :float32)
+      :max-spread-rate-matrix          (t/new-tensor shape :datatype :float32)
+      :modified-time-matrix            (t/new-tensor shape :datatype :int32)
+      :residence-time-matrix           (when compute-directional-values? (t/new-tensor shape :datatype :float32))
+      :reaction-intensity-matrix       (when compute-directional-values? (t/new-tensor shape :datatype :float32))
+      :spot-matrix                     (when spotting (t/new-tensor shape :datatype :float32))
+      :spread-rate-matrix              (t/new-tensor shape :datatype :float32)
+      :spread-rate-sum-matrix          (when compute-directional-values? (t/new-tensor shape :datatype :float32))
+      :travel-lines-matrix             (t/new-tensor shape :datatype :int16)
+      :x-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape :datatype :float32))
+      :y-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape :datatype :float32))})))
+
+(defmethod run-fire-spread* :ignition-point
+  [inputs]
+  (run-loop inputs
+            (initialize-point-ignition-matrices inputs)
+            [(:initial-ignition-site inputs)]))
+
+;;-----------------------------------------------------------------------------
+;; Perimeter Ignition
+;;-----------------------------------------------------------------------------
+
+(defn- add-ignited-cells!
+  [matrix ignited-cells value]
+  (doseq [[i j] ignited-cells]
+    (t/mset! matrix i j value))
+  matrix)
+
+(defn- initialize-perimeter-ignition-matrices
+  [inputs ignited-cells]
+  (let [num-rows                    (long (:num-rows inputs))
+        num-cols                    (long (:num-cols inputs))
+        positive-burn-scar          (t/clone (:initial-ignition-site inputs) :datatype :float32)
+        ignition-start-time         (:ignition-start-time inputs)
+        spotting                    (:spotting inputs)
+        compute-directional-values? (:compute-directional-values? inputs)
+        shape                       [num-rows num-cols]
+        negative-burn-scar          (d/clone (dfn/* -1.0 positive-burn-scar))
+        burn-time-matrix            (-> (* num-rows num-cols)
+                                        (float-array -1.0)
+                                        (t/ensure-tensor)
+                                        (t/reshape shape)
+                                        (add-ignited-cells! ignited-cells ignition-start-time))]
+    (make-simulation-matrices
+     {:burn-time-matrix                burn-time-matrix
+      :eccentricity-matrix             (d/clone negative-burn-scar)
+      :fire-line-intensity-matrix      negative-burn-scar
+      :fire-spread-matrix              (d/clone positive-burn-scar)
+      :fire-type-matrix                (d/clone negative-burn-scar)
+      :firebrand-count-matrix          (when spotting (t/new-tensor shape :datatype :int32))
+      :flame-length-matrix             (d/clone negative-burn-scar)
+      :directional-flame-length-matrix (when compute-directional-values? (d/clone negative-burn-scar))
+      :max-spread-direction-matrix     (d/clone negative-burn-scar)
+      :max-spread-rate-matrix          (d/clone negative-burn-scar)
+      :modified-time-matrix            (t/new-tensor shape :datatype :int32)
+      :residence-time-matrix           (when compute-directional-values? (d/clone negative-burn-scar))
+      :reaction-intensity-matrix       (when compute-directional-values? (d/clone negative-burn-scar))
+      :spot-matrix                     (when spotting (t/new-tensor shape :datatype :float32))
+      :spread-rate-matrix              (d/clone negative-burn-scar)
+      :spread-rate-sum-matrix          (when compute-directional-values? (t/new-tensor shape :datatype :float32))
+      :travel-lines-matrix             (t/new-tensor shape :datatype :int16)
+      :x-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape :datatype :float32))
+      :y-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape :datatype :float32))})))
+
+;; TODO: Move this step into run-simulations to avoid running it in every thread
+(defn- get-perimeter-cells
+  [inputs]
+  (let [num-rows                    (:num-rows inputs)
+        num-cols                    (:num-cols inputs)
+        initial-ignition-site       (:initial-ignition-site inputs)
+        get-fuel-model              (:get-fuel-model inputs)
+        {:keys [row-idxs col-idxs]} (non-zero-indices initial-ignition-site)
+        num-idxs                    (d/ecount row-idxs)]
+    (loop [idx 0
+           acc (transient [])]
+      (if (< idx num-idxs)
+        (let [i (row-idxs idx)
+              j (col-idxs idx)]
+          (if (burnable-neighbors? get-fuel-model
+                                   (grid-lookup/add-double-getter initial-ignition-site)
+                                   1.0
+                                   num-rows
+                                   num-cols
+                                   i
+                                   j)
+            (recur (inc idx)
+                   (conj! acc [i j]))
+            (recur (inc idx)
+                   acc)))
+        (persistent! acc)))))
+
+(defmethod run-fire-spread* :ignition-perimeter
+  [inputs]
+  (let [ignited-cells (get-perimeter-cells inputs)]
+    (when (seq ignited-cells)
+      (run-loop inputs
+                (initialize-perimeter-ignition-matrices inputs ignited-cells)
+                ignited-cells))))
 #+end_src
 
 The next snippet shows the details of GridFire's fire spread algorithm.
