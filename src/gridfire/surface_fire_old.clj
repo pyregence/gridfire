@@ -1,7 +1,7 @@
 ;; [[file:../../org/GridFire.org::rothermel-surface-fire-spread-no-wind-no-slope][rothermel-surface-fire-spread-no-wind-no-slope]]
 (ns gridfire.surface-fire-old
   (:require [gridfire.fuel-models-old :refer [map-category map-size-class
-                                          category-sum size-class-sum]]))
+                                              category-sum size-class-sum]]))
 
 (defn grass-fuel-model?
   [^long number]
