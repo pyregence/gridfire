@@ -14,19 +14,19 @@
                                                   crown-fire-line-intensity
                                                   cruz-crown-fire-spread
                                                   van-wagner-crown-fire-initiation?]]
-            [gridfire.fire-spread-optimal :refer [rothermel-surface-fire-wrapped]]
-            [gridfire.fuel-models-old         :refer [build-fuel-model moisturize]]
+            [gridfire.fire-spread         :refer [rothermel-surface-fire-wrapped]]
+            [gridfire.fuel-models-old     :refer [build-fuel-model moisturize]]
             [gridfire.grid-lookup         :as grid-lookup]
-            [gridfire.spotting-old            :as spot]
-            [gridfire.surface-fire-old        :refer [anderson-flame-depth
+            [gridfire.spotting-old        :as spot]
+            [gridfire.surface-fire-old    :refer [anderson-flame-depth
                                                   byram-fire-line-intensity
                                                   byram-flame-length
                                                   rothermel-surface-fire-spread-any
                                                   rothermel-surface-fire-spread-max
                                                   rothermel-surface-fire-spread-no-wind-no-slope
                                                   wind-adjustment-factor]]
-            [gridfire.fuel-models-optimal  :as f-opt]
-            [gridfire.surface-fire-optimal :as s-opt]
+            [gridfire.fuel-models  :as f-opt]
+            [gridfire.surface-fire :as s-opt]
             [tech.v3.datatype             :as d]
             [tech.v3.datatype.functional  :as dfn]
             [tech.v3.tensor               :as t]

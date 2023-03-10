@@ -1,5 +1,5 @@
 ;; [[file:../../org/GridFire.org::fuel-model-definitions][fuel-model-definitions]]
-(ns gridfire.fuel-models-optimal)
+(ns gridfire.fuel-models)
 
 (set! *unchecked-math* :warn-on-boxed)
 

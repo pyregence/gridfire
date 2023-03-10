@@ -1,6 +1,6 @@
 ;; [[file:../../org/GridFire.org::gridfire.common][gridfire.common]]
 (ns gridfire.common
-  (:require [gridfire.fuel-models-optimal :as f-opt]
+  (:require [gridfire.fuel-models         :as f-opt]
             [gridfire.grid-lookup         :as grid-lookup]
             [tech.v3.datatype             :as d]
             [tech.v3.datatype.argops      :as da]

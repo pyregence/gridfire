@@ -1893,7 +1893,7 @@ pseudo-code lays out the steps taken in this procedure:
                                                   crown-fire-line-intensity
                                                   cruz-crown-fire-spread
                                                   van-wagner-crown-fire-initiation?]]
-            [gridfire.fire-spread-optimal :refer [rothermel-surface-fire-wrapped]]
+            [gridfire.spotting :refer [rothermel-surface-fire-wrapped]]
             [gridfire.fuel-models-old         :refer [build-fuel-model moisturize]]
             [gridfire.grid-lookup         :as grid-lookup]
             [gridfire.spotting-old            :as spot]
@@ -1905,7 +1905,7 @@ pseudo-code lays out the steps taken in this procedure:
                                                   rothermel-surface-fire-spread-no-wind-no-slope
                                                   wind-adjustment-factor]]
             [gridfire.fuel-models-optimal  :as f-opt]
-            [gridfire.surface-fire-optimal :as s-opt]
+            [gridfire.surface-fire :as s-opt]
             [tech.v3.datatype             :as d]
             [tech.v3.datatype.functional  :as dfn]
             [tech.v3.tensor               :as t]
@@ -3688,7 +3688,7 @@ or false:
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/core.clj :padline no :no-expand :comments link
 (ns gridfire.core
   (:require [clojure.spec.alpha           :as spec]
-            [gridfire.fire-spread-optimal :refer [memoize-rfwo rothermel-fast-wrapper-optimal]]
+            [gridfire.spotting :refer [memoize-rfwo rothermel-fast-wrapper-optimal]]
             [gridfire.inputs              :as inputs]
             [gridfire.outputs             :as outputs]
             [gridfire.simulations         :as simulations]
@@ -6843,11 +6843,11 @@ FIXME isn't this deprecated?
 
 ** Core Algorithm
 
-*** gridfire.fuel-models-optimal-test
+*** gridfire.fuel-models-test
 
-#+name: gridfire.fuel-models-optimal-test
-#+begin_src clojure :results silent :exports code :tangle ../test/gridfire/fuel_models_optimal_test.clj :padline no :no-expand :comments link
-(ns gridfire.fuel-models-optimal-test
+#+name: gridfire.fuel-models-test
+#+begin_src clojure :results silent :exports code :tangle ../test/gridfire/fuel_models_test.clj :padline no :no-expand :comments link
+(ns gridfire.fuel-models-test
   (:require [clojure.test                 :refer [deftest is testing]]
             [gridfire.fuel-models-optimal :as f-opt]))
 
@@ -6879,7 +6879,7 @@ FIXME isn't this deprecated?
 *** gridfire.fuel-models-test
 
 #+name: gridfire.fuel-models-test
-#+begin_src clojure :results silent :exports code :tangle ../test/gridfire/fuel_models_test.clj :padline no :no-expand :comments link
+#+begin_src clojure :results silent :exports code :tangle ../test/gridfire/fuel_models_old_test.clj :padline no :no-expand :comments link
 (ns gridfire.fuel-models-test
   (:require [clojure.test                :refer [deftest testing is run-tests]]
             [gridfire.behaveplus-results :refer [behaveplus5-surface-fire-values-dry-no-wind-no-slope
@@ -6932,11 +6932,11 @@ FIXME isn't this deprecated?
   )
 
 #+end_src
-*** gridfire.fire-spread-optimal
+*** gridfire.fire-spread
 
-#+name: gridfire.fire-spread-optimal
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fire_spread_optimal.clj :padline no :no-expand :comments link
-(ns gridfire.fire-spread-optimal
+#+name: gridfire.spotting
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fire_spread.clj :padline no :no-expand :comments link
+(ns gridfire.spotting
   (:require [clojure.string                :as s]
             [gridfire.common               :refer [burnable-cell?
                                                    burnable-fuel-model?
@@ -6956,11 +6956,11 @@ FIXME isn't this deprecated?
             [gridfire.fuel-models-optimal  :refer [fuel-models-precomputed
                                                    moisturize]]
             [gridfire.grid-lookup          :as grid-lookup]
-            [gridfire.spotting-optimal     :as spot-optimal]
+            [gridfire.spotting     :as spot-optimal]
             [gridfire.structs.burn-vector  :as burn-vec]
             [gridfire.structs.rfwo         :as rfwo-struct]
             [gridfire.suppression          :as suppression]
-            [gridfire.surface-fire-optimal :refer [rothermel-surface-fire-spread-no-wind-no-slope
+            [gridfire.surface-fire :refer [rothermel-surface-fire-spread-no-wind-no-slope
                                                    rothermel-surface-fire-spread-max
                                                    compute-spread-rate
                                                    anderson-flame-depth
@@ -8653,7 +8653,7 @@ FIXME isn't this deprecated?
             [gridfire.binary-output                       :as binary]
             [gridfire.common                              :refer [get-neighbors in-bounds?]]
             [gridfire.conversion                          :refer [min->hour kebab->snake snake->kebab]]
-            [gridfire.fire-spread-optimal                 :refer [run-fire-spread]]
+            [gridfire.spotting                 :refer [run-fire-spread]]
             [gridfire.grid-lookup                         :as grid-lookup]
             [gridfire.outputs                             :as outputs]
             [gridfire.perturbations.pixel.hash-determined :as pixel-hdp]
@@ -9298,11 +9298,11 @@ FIXME isn't this deprecated?
           (is (<= 0.0 (grid-lookup/double-at get-layer-fn 0 0 0) 2.0)))))))
 
 #+end_src
-*** gridfire.surface-fire-optimal
+*** gridfire.surface-fire
 
-#+name: gridfire.surface-fire-optimal
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/surface_fire_optimal.clj :padline no :no-expand :comments link
-(ns gridfire.surface-fire-optimal
+#+name: gridfire.surface-fire
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/surface_fire.clj :padline no :no-expand :comments link
+(ns gridfire.surface-fire
   (:require [gridfire.conversion          :refer [deg->rad rad->deg]]
             [gridfire.fuel-models-optimal :refer [is-dynamic-grass-fuel-model-number? map-category map-size-class category-sum size-class-sum]]))
 
@@ -10722,13 +10722,13 @@ FIXME isn't this deprecated?
               "the logical behavior of the simulation is unchanged."))))))
 
 #+end_src
-*** gridfire.fire-spread-optimal-test
+*** gridfire.fire-spread-test
 
-#+name: gridfire.fire-spread-optimal-test
-#+begin_src clojure :results silent :exports code :tangle ../test/gridfire/fire_spread_optimal_test.clj :padline no :no-expand :comments link
-(ns gridfire.fire-spread-optimal-test
+#+name: gridfire.fire-spread-test
+#+begin_src clojure :results silent :exports code :tangle ../test/gridfire/fire_spread_test.clj :padline no :no-expand :comments link
+(ns gridfire.fire-spread-test
   (:require [clojure.test                 :refer [deftest are is testing]]
-            [gridfire.fire-spread-optimal :refer [create-new-burn-vectors!-pfn
+            [gridfire.spotting :refer [create-new-burn-vectors!-pfn
                                                   create-new-burn-vectors!-invoke
                                                   diagonal?
                                                   direction-angle->bit
@@ -10973,11 +10973,11 @@ FIXME isn't this deprecated?
 
 #+end_src
 
-*** gridfire.spotting-optimal
+*** gridfire.spotting
 
-#+name: gridfire.spotting-optimal
+#+name: gridfire.spotting
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting_optimal.clj :padline no :no-expand :comments link
-(ns gridfire.spotting-optimal
+(ns gridfire.spotting
   (:require [gridfire.common              :refer [burnable-cell?
                                                   burnable-fuel-model?
                                                   calc-fuel-moisture
@@ -12456,7 +12456,7 @@ FIXME relate to other elliptical equations
 (ns gridfire.elliptical-test
   (:require [clojure.test                  :refer [deftest is testing]]
             [gridfire.elliptical           :refer [fireline-normal-spread-rate-scalar]]
-            [gridfire.surface-fire-optimal :refer [compute-spread-rate]]
+            [gridfire.surface-fire :refer [compute-spread-rate]]
             [gridfire.conversion           :as convert]))
 
 (defn almost-=?
@@ -16105,7 +16105,7 @@ FIXME relate to other elliptical equations
             [clojure.pprint               :as pprint]
             [criterium.core               :as bench]
             [gridfire.core                :as gridfire]
-            [gridfire.fire-spread-optimal :refer [memoize-rfwo rothermel-fast-wrapper-optimal]]
+            [gridfire.spotting :refer [memoize-rfwo rothermel-fast-wrapper-optimal]]
             [gridfire.simulations         :as simulations]))
 
 (defn simulation-result-summary
@@ -16123,7 +16123,7 @@ FIXME relate to other elliptical equations
     (->> (range n-sims)
          (mapv (fn [sim-i]
                  (let [simulation-inputs  (simulations/prepare-simulation-inputs sim-i inputs)
-                       simulation-results (gridfire.fire-spread-optimal/run-fire-spread simulation-inputs)]
+                       simulation-results (gridfire.spotting/run-fire-spread simulation-inputs)]
                    (simulation-result-summary simulation-results)))))))
 
 (defn- results-digest
@@ -16651,7 +16651,7 @@ FIXME relate to other elliptical equations
             [clojure.pprint               :as pprint]
             [clojure.string               :as str]
             [gridfire.core                :as gridfire]
-            [gridfire.fire-spread-optimal :refer [memoize-rfwo rothermel-fast-wrapper-optimal run-fire-spread]]
+            [gridfire.spotting :refer [memoize-rfwo rothermel-fast-wrapper-optimal run-fire-spread]]
             [gridfire.magellan-bridge     :refer [geotiff-raster-to-tensor]]
             [gridfire.simulations         :as simulations]
             [gridfire.utils.files.tar     :as utar]

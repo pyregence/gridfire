@@ -1,7 +1,7 @@
-;; [[file:../../org/GridFire.org::gridfire.fire-spread-optimal-test][gridfire.fire-spread-optimal-test]]
-(ns gridfire.fire-spread-optimal-test
+;; [[file:../../org/GridFire.org::gridfire.fire-spread-test][gridfire.fire-spread-test]]
+(ns gridfire.fire-spread-test
   (:require [clojure.test                 :refer [deftest are is testing]]
-            [gridfire.fire-spread-optimal :refer [create-new-burn-vectors!-pfn
+            [gridfire.fire-spread         :refer [create-new-burn-vectors!-pfn
                                                   create-new-burn-vectors!-invoke
                                                   diagonal?
                                                   direction-angle->bit
@@ -99,4 +99,4 @@
       6 (t/mset! (new-travel-lines-matrix shape) i j 2r01000001) ; N & W burn vectors exists
       5 (t/mset! (new-travel-lines-matrix shape) i j 2r11000001) ; N & W & NW burn vectors exists
       4 (t/mset! (new-travel-lines-matrix shape) i j 2r11000011)))) ; N & W & NW & NE burn vectors exists
-;; gridfire.fire-spread-optimal-test ends here
+;; gridfire.fire-spread-test ends here

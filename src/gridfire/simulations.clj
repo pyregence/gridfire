@@ -4,7 +4,7 @@
             [gridfire.binary-output                       :as binary]
             [gridfire.common                              :refer [get-neighbors in-bounds?]]
             [gridfire.conversion                          :refer [min->hour kebab->snake snake->kebab]]
-            [gridfire.fire-spread-optimal                 :refer [run-fire-spread]]
+            [gridfire.fire-spread                         :refer [run-fire-spread]]
             [gridfire.grid-lookup                         :as grid-lookup]
             [gridfire.outputs                             :as outputs]
             [gridfire.perturbations.pixel.hash-determined :as pixel-hdp]

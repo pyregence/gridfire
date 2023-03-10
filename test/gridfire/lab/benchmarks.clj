@@ -7,7 +7,7 @@
             [clojure.pprint               :as pprint]
             [criterium.core               :as bench]
             [gridfire.core                :as gridfire]
-            [gridfire.fire-spread-optimal :refer [memoize-rfwo rothermel-fast-wrapper-optimal]]
+            [gridfire.fire-spread         :refer [memoize-rfwo rothermel-fast-wrapper-optimal]]
             [gridfire.simulations         :as simulations]))
 
 (defn simulation-result-summary
@@ -25,7 +25,7 @@
     (->> (range n-sims)
          (mapv (fn [sim-i]
                  (let [simulation-inputs  (simulations/prepare-simulation-inputs sim-i inputs)
-                       simulation-results (gridfire.fire-spread-optimal/run-fire-spread simulation-inputs)]
+                       simulation-results (gridfire.fire-spread/run-fire-spread simulation-inputs)]
                    (simulation-result-summary simulation-results)))))))
 
 (defn- results-digest

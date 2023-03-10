@@ -6,7 +6,7 @@
             [clojure.pprint               :as pprint]
             [clojure.string               :as str]
             [gridfire.core                :as gridfire]
-            [gridfire.fire-spread-optimal :refer [memoize-rfwo rothermel-fast-wrapper-optimal run-fire-spread]]
+            [gridfire.fire-spread         :refer [memoize-rfwo rothermel-fast-wrapper-optimal run-fire-spread]]
             [gridfire.magellan-bridge     :refer [geotiff-raster-to-tensor]]
             [gridfire.simulations         :as simulations]
             [gridfire.utils.files.tar     :as utar]

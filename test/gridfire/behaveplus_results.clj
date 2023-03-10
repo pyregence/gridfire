@@ -1,6 +1,6 @@
 ;; [[file:../../org/GridFire.org::gridfire.behaveplus-results][gridfire.behaveplus-results]]
 (ns gridfire.behaveplus-results
-  (:require [gridfire.fuel-models-optimal :refer [fuel-models]]))
+  (:require [gridfire.fuel-models :refer [fuel-models]]))
 
 (defn within [a b epsilon]
   (<= (Math/abs ^double (- a b)) epsilon))

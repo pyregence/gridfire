@@ -1,7 +1,7 @@
-;; [[file:../../org/GridFire.org::gridfire.surface-fire-optimal][gridfire.surface-fire-optimal]]
-(ns gridfire.surface-fire-optimal
-  (:require [gridfire.conversion          :refer [deg->rad rad->deg]]
-            [gridfire.fuel-models-optimal :refer [is-dynamic-grass-fuel-model-number? map-category map-size-class category-sum size-class-sum]]))
+;; [[file:../../org/GridFire.org::gridfire.surface-fire][gridfire.surface-fire]]
+(ns gridfire.surface-fire
+  (:require [gridfire.conversion  :refer [deg->rad rad->deg]]
+            [gridfire.fuel-models :refer [is-dynamic-grass-fuel-model-number? map-category map-size-class category-sum size-class-sum]]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -546,4 +546,4 @@
   ;;    - primitive arrays (e.g., longs, doubles)
 
   )
-;; gridfire.surface-fire-optimal ends here
+;; gridfire.surface-fire ends here

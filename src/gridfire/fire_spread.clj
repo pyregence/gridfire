@@ -1,5 +1,5 @@
-;; [[file:../../org/GridFire.org::gridfire.fire-spread-optimal][gridfire.fire-spread-optimal]]
-(ns gridfire.fire-spread-optimal
+;; [[file:../../org/GridFire.org::gridfire.fire-spread][gridfire.fire-spread]]
+(ns gridfire.fire-spread
   (:require [clojure.string                :as s]
             [gridfire.common               :refer [burnable-cell?
                                                    burnable-fuel-model?
@@ -16,14 +16,14 @@
                                                    cruz-crown-fire-spread
                                                    van-wagner-crown-fire-initiation?]]
             [gridfire.elliptical           :as ellip]
-            [gridfire.fuel-models-optimal  :refer [fuel-models-precomputed
+            [gridfire.fuel-models          :refer [fuel-models-precomputed
                                                    moisturize]]
             [gridfire.grid-lookup          :as grid-lookup]
-            [gridfire.spotting-optimal     :as spot-optimal]
+            [gridfire.spotting             :as spotting]
             [gridfire.structs.burn-vector  :as burn-vec]
             [gridfire.structs.rfwo         :as rfwo-struct]
             [gridfire.suppression          :as suppression]
-            [gridfire.surface-fire-optimal :refer [rothermel-surface-fire-spread-no-wind-no-slope
+            [gridfire.surface-fire         :refer [rothermel-surface-fire-spread-no-wind-no-slope
                                                    rothermel-surface-fire-spread-max
                                                    compute-spread-rate
                                                    anderson-flame-depth
@@ -553,7 +553,7 @@
   (when (:spotting inputs)
     (persistent!
      (reduce (fn [acc [i j]]
-               (merge-spot-ignitions acc (spot-optimal/spread-firebrands inputs matrices i j)))
+               (merge-spot-ignitions acc (spotting/spread-firebrands inputs matrices i j)))
              (transient {})
              ignited-cells))))
 
@@ -1523,4 +1523,4 @@
       (run-loop inputs
                 (initialize-perimeter-ignition-matrices inputs ignited-cells)
                 ignited-cells))))
-;; gridfire.fire-spread-optimal ends here
+;; gridfire.fire-spread ends here

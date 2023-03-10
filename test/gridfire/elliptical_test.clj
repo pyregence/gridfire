@@ -2,7 +2,7 @@
 (ns gridfire.elliptical-test
   (:require [clojure.test                  :refer [deftest is testing]]
             [gridfire.elliptical           :refer [fireline-normal-spread-rate-scalar]]
-            [gridfire.surface-fire-optimal :refer [compute-spread-rate]]
+            [gridfire.surface-fire         :refer [compute-spread-rate]]
             [gridfire.conversion           :as convert]))
 
 (defn almost-=?

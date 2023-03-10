@@ -1,5 +1,5 @@
-;; [[file:../../org/GridFire.org::gridfire.spotting-optimal][gridfire.spotting-optimal]]
-(ns gridfire.spotting-optimal
+;; [[file:../../org/GridFire.org::gridfire.spotting][gridfire.spotting]]
+(ns gridfire.spotting
   (:require [gridfire.common              :refer [burnable-cell?
                                                   burnable-fuel-model?
                                                   calc-fuel-moisture
@@ -405,4 +405,4 @@
                                                    (convert/ft->m (grid-lookup/mget-double-at flame-length-matrix i j)))]
                          [[x y] [t burn-probability]]))))))
              (remove nil?))))))
-;; gridfire.spotting-optimal ends here
+;; gridfire.spotting ends here
