@@ -1,4 +1,4 @@
-;; [[file:../../org/GridFire.org::gridfire.fire-spread][gridfire.fire-spread]]
+;; [[file:../../org/GridFire.org::gridfire.fire-spread-beginning][gridfire.fire-spread-beginning]]
 (ns gridfire.fire-spread
   (:require [clojure.string                :as s]
             [gridfire.common               :refer [burnable-cell?
@@ -40,7 +40,9 @@
            (java.util ArrayList Date)))
 
 (set! *unchecked-math* :warn-on-boxed)
+;; fire-spread-beginning ends here
 
+;; [[file:../../org/GridFire.org::fire-spread-directional-utils][fire-spread-directional-utils]]
 (defn- direction-bit->angle
   ^double [^long dir-bit]
   (case dir-bit
@@ -79,98 +81,13 @@
     (0.0 180.0)         0
     (225.0 270.0 315.0) -1))
 
-;;-----------------------------------------------------------------------------
-;; Fire spread
-;;-----------------------------------------------------------------------------
-
 (defn diagonal? [^double direction-angle]
   (case-double direction-angle
     (0.0  90.0  180.0 270.0) false
     (45.0 135.0 225.0 315.0) true))
+;; fire-spread-directional-utils ends here
 
-(defn- find-max-spread-rate ^double
-  [^double max-spread-rate burn-vector]
-  (max max-spread-rate (burn-vec/get-spread-rate burn-vector)))
-
-(defn- compute-dt ^double
-  [^double cell-size burn-vectors]
-  (if (pos? (count burn-vectors))
-    (/ cell-size (double (reduce find-max-spread-rate 0.0 burn-vectors)))
-    10.0)) ; Wait 10 minutes for spot ignitions to smolder and catch fire
-
-#_(defn- compute-terrain-distance-slow
-    [inputs ^long i ^long j ^double direction]
-    (let [cell-size          (double (:cell-size inputs))
-          cell-size-diagonal (double (:cell-size-diagonal inputs))
-          get-aspect         (:get-aspect inputs)
-          get-slope          (:get-slope inputs)
-          ^double aspect     (grid-lookup/double-at get-aspect i j)
-          ^double slope      (grid-lookup/double-at get-slope i j)
-          theta              (Math/abs (- aspect direction))
-          slope-factor       (/
-                              (if (<= theta 90.0)
-                                (- 90.0 theta)
-                                (if (<= theta 180.0)
-                                  (- theta 90.0)
-                                  (if (<= theta 270.0)
-                                    (- 270.0 theta)
-                                    (- theta 270.0))))
-                              90.0)
-          run                (case direction
-                               0.0   cell-size
-                               45.0  cell-size-diagonal
-                               90.0  cell-size
-                               135.0 cell-size-diagonal
-                               180.0 cell-size
-                               225.0 cell-size-diagonal
-                               270.0 cell-size
-                               315.0 cell-size-diagonal)
-          rise               (* run slope slope-factor)]
-      (Math/sqrt (+ (* run run) (* rise rise)))))
-
-(defn rothermel-surface-fire-wrapped
-  [^double fuel-model-number fuel-moisture grass-suppression?]
-  (-> (long fuel-model-number)
-      (fuel-models-precomputed)
-      (moisturize fuel-moisture)
-      (rothermel-surface-fire-spread-no-wind-no-slope grass-suppression?)))
-
-(defn ^:dynamic ^:redef rothermel-fast-wrapper-optimal
-  [rfwo-args]
-  (rothermel-surface-fire-wrapped (rfwo-struct/get-fuel-model-number rfwo-args)
-                                  (rfwo-struct/get-fuel-moisture-vec rfwo-args)
-                                  (rfwo-struct/get-grass-suppression? rfwo-args)))
-
-(defn- memoize-1arg
-  "Like clojure.core/memoize, but optimized for 1-argument functions,
-  avoiding varargs overhead."
-  [f]
-  (let [mem       (atom {})
-        not-found (Object.)]
-    (fn mem-wrapper [arg]
-      (let [v (get @mem arg not-found)]
-        (if (identical? v not-found)
-          (let [v (f arg)]
-            (swap! mem assoc arg v)
-            v)
-          v)))))
-
-(defn memoize-rfwo
-  "Memoization function specialized for rothermel-fast-wrapper-optimal."
-  [f]
-  ;; NOTE currently implemented using clojure.core/memoize, but that will change.
-  (memoize-1arg f))
-
-(defn- store-if-max!
-  [matrix ^long i ^long j ^double new-value]
-  (let [old-value (grid-lookup/mget-double-at matrix i j)]
-    (when (> new-value old-value)
-      (t/mset! matrix i j new-value))))
-
-(defn- lookup-spread-rate-adjustment
-  ^double [fuel-number->spread-rate-adjustment-array-lookup fuel-model]
-  (aget (doubles fuel-number->spread-rate-adjustment-array-lookup) fuel-model))
-
+;; [[file:../../org/GridFire.org::fire-spread-estimate-incidence][fire-spread-estimate-incidence]]
 (def ^:const default-incidence-cosine
   "The default guess for the cosine of the fireline-incidence of maximum spread.
 
@@ -276,6 +193,95 @@
               <duv|fln> (+ (* <duv|i> <fln|i>)
                            (* <duv|j> <fln|j>))]
           <duv|fln>)))))
+;; fire-spread-estimate-incidence ends here
+
+;; [[file:../../org/GridFire.org::fire-spread-core-algorithm][fire-spread-core-algorithm]]
+;;-----------------------------------------------------------------------------
+;; Fire spread
+;;-----------------------------------------------------------------------------
+
+(defn- find-max-spread-rate ^double
+  [^double max-spread-rate burn-vector]
+  (max max-spread-rate (burn-vec/get-spread-rate burn-vector)))
+
+(defn- compute-dt ^double
+  [^double cell-size burn-vectors]
+  (if (pos? (count burn-vectors))
+    (/ cell-size (double (reduce find-max-spread-rate 0.0 burn-vectors)))
+    10.0)) ; Wait 10 minutes for spot ignitions to smolder and catch fire
+
+#_(defn- compute-terrain-distance-slow
+    [inputs ^long i ^long j ^double direction]
+    (let [cell-size          (double (:cell-size inputs))
+          cell-size-diagonal (double (:cell-size-diagonal inputs))
+          get-aspect         (:get-aspect inputs)
+          get-slope          (:get-slope inputs)
+          ^double aspect     (grid-lookup/double-at get-aspect i j)
+          ^double slope      (grid-lookup/double-at get-slope i j)
+          theta              (Math/abs (- aspect direction))
+          slope-factor       (/
+                              (if (<= theta 90.0)
+                                (- 90.0 theta)
+                                (if (<= theta 180.0)
+                                  (- theta 90.0)
+                                  (if (<= theta 270.0)
+                                    (- 270.0 theta)
+                                    (- theta 270.0))))
+                              90.0)
+          run                (case direction
+                               0.0   cell-size
+                               45.0  cell-size-diagonal
+                               90.0  cell-size
+                               135.0 cell-size-diagonal
+                               180.0 cell-size
+                               225.0 cell-size-diagonal
+                               270.0 cell-size
+                               315.0 cell-size-diagonal)
+          rise               (* run slope slope-factor)]
+      (Math/sqrt (+ (* run run) (* rise rise)))))
+
+(defn rothermel-surface-fire-wrapped
+  [^double fuel-model-number fuel-moisture grass-suppression?]
+  (-> (long fuel-model-number)
+      (fuel-models-precomputed)
+      (moisturize fuel-moisture)
+      (rothermel-surface-fire-spread-no-wind-no-slope grass-suppression?)))
+
+(defn ^:dynamic ^:redef rothermel-fast-wrapper-optimal
+  [rfwo-args]
+  (rothermel-surface-fire-wrapped (rfwo-struct/get-fuel-model-number rfwo-args)
+                                  (rfwo-struct/get-fuel-moisture-vec rfwo-args)
+                                  (rfwo-struct/get-grass-suppression? rfwo-args)))
+
+(defn- memoize-1arg
+  "Like clojure.core/memoize, but optimized for 1-argument functions,
+  avoiding varargs overhead."
+  [f]
+  (let [mem       (atom {})
+        not-found (Object.)]
+    (fn mem-wrapper [arg]
+      (let [v (get @mem arg not-found)]
+        (if (identical? v not-found)
+          (let [v (f arg)]
+            (swap! mem assoc arg v)
+            v)
+          v)))))
+
+(defn memoize-rfwo
+  "Memoization function specialized for rothermel-fast-wrapper-optimal."
+  [f]
+  ;; NOTE currently implemented using clojure.core/memoize, but that will change.
+  (memoize-1arg f))
+
+(defn- store-if-max!
+  [matrix ^long i ^long j ^double new-value]
+  (let [old-value (grid-lookup/mget-double-at matrix i j)]
+    (when (> new-value old-value)
+      (t/mset! matrix i j new-value))))
+
+(defn- lookup-spread-rate-adjustment
+  ^double [fuel-number->spread-rate-adjustment-array-lookup fuel-model]
+  (aget (doubles fuel-number->spread-rate-adjustment-array-lookup) fuel-model))
 
 (defn- compute-max-in-situ-values!
   "Computes and saves fire-spread behavior quantities for a cell-band.
@@ -1249,11 +1255,12 @@
                                                  (d/emap #(if (>= ^double % 2.0) 1 0) :int64)
                                                  (dfn/sum))
            :spot-count                      spot-count})))))
+;; fire-spread-core-algorithm ends here
 
+;; [[file:../../org/GridFire.org::fire-spread-matrices][fire-spread-matrices]]
 ;;-----------------------------------------------------------------------------
 ;; SimulationMatrices Record
 ;;-----------------------------------------------------------------------------
-
 (defrecord SimulationMatrices
     [burn-time-matrix
      eccentricity-matrix
@@ -1323,7 +1330,9 @@
   ;; The bulk of the code related to burn-probability is, of course, in the collision detection and resolution logic. If we want to change how the probabilities propagate from one spot fire to another, that should be isolated to a quite small part of the code currently without needing to change the rest of the logic significantly.
 
   *e)
+;; fire-spread-matrices ends here
 
+;; [[file:../../org/GridFire.org::fire-spread-matrices][fire-spread-matrices]]
 ;;-----------------------------------------------------------------------------
 ;; Main Simulation Entry Point - Dispatches to Point/Perimeter Ignition
 ;;-----------------------------------------------------------------------------
@@ -1523,4 +1532,4 @@
       (run-loop inputs
                 (initialize-perimeter-ignition-matrices inputs ignited-cells)
                 ignited-cells))))
-;; gridfire.fire-spread ends here
+;; fire-spread-entry-point ends here
