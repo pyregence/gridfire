@@ -85,8 +85,7 @@
     (mapv (fn [x y] [(convert/m->ft x) (convert/m->ft y)])
           parallel-values
           perpendicular-values)))
-;; sardoy-firebrand-dispersal ends here
-;; [[file:../../org/GridFire.org::convert-deltas][convert-deltas]]
+
 (defn hypotenuse ^double
   [x y]
   (Math/sqrt (+ (Math/pow x 2) (Math/pow y 2))))
@@ -122,8 +121,7 @@
               [(long (Math/floor (/ (+ dy y) cell-size)))
                (long (Math/floor (/ (+ dx x) cell-size)))]))
           coord-deltas)))
-;; convert-deltas ends here
-;; [[file:../../org/GridFire.org::firebrand-ignition-probability][firebrand-ignition-probability]]
+
 (defn heat-of-preignition
   "Returns heat of preignition given:
    - Temperature: (Celsius)
@@ -186,8 +184,7 @@
       (one-minus)
       (Math/pow firebrand-count)
       (one-minus)))
-;; firebrand-ignition-probability ends here
-;; [[file:../../org/GridFire.org::firebrands-time-of-ignition][firebrands-time-of-ignition]]
+
 (defn spot-ignition?
   [rand-gen ^double spot-ignition-probability]
   (let [random-number (my-rand-range rand-gen 0 1)]
@@ -235,8 +232,7 @@
         (* 2.0)
         (+ burn-time)
         (+ t-steady-state))))
-;; firebrands-time-of-ignition ends here
-;; [[file:../../org/GridFire.org::spread-firebrands][spread-firebrands]]
+
 (defn- update-firebrand-counts!
   [inputs firebrand-count-matrix fire-spread-matrix source firebrands]
   (let [num-rows                (:num-rows inputs)
