@@ -25,8 +25,6 @@
                                                   rothermel-surface-fire-spread-max
                                                   rothermel-surface-fire-spread-no-wind-no-slope
                                                   wind-adjustment-factor]]
-            [gridfire.fuel-models  :as f-opt]
-            [gridfire.surface-fire :as s-opt]
             [tech.v3.datatype             :as d]
             [tech.v3.datatype.functional  :as dfn]
             [tech.v3.tensor               :as t]

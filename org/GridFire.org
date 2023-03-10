@@ -1,3 +1,4 @@
+
 #+TITLE: The GridFire Fire Behavior Model
 #+AUTHOR: Gary W. Johnson, Ph.D., David Saah, Ph.D., Max Moritz, Ph.D., Kenneth Cheung
 #+DATE: Copyright © 2014-2022 Spatial Informatics Group, LLC
@@ -1893,18 +1894,18 @@ pseudo-code lays out the steps taken in this procedure:
                                                   crown-fire-line-intensity
                                                   cruz-crown-fire-spread
                                                   van-wagner-crown-fire-initiation?]]
-            [gridfire.spotting :refer [rothermel-surface-fire-wrapped]]
-            [gridfire.fuel-models-old         :refer [build-fuel-model moisturize]]
+            [gridfire.fire-spread         :refer [rothermel-surface-fire-wrapped]]
+            [gridfire.fuel-models-old     :refer [build-fuel-model moisturize]]
             [gridfire.grid-lookup         :as grid-lookup]
-            [gridfire.spotting-old            :as spot]
-            [gridfire.surface-fire-old        :refer [anderson-flame-depth
+            [gridfire.spotting-old        :as spot]
+            [gridfire.surface-fire-old    :refer [anderson-flame-depth
                                                   byram-fire-line-intensity
                                                   byram-flame-length
                                                   rothermel-surface-fire-spread-any
                                                   rothermel-surface-fire-spread-max
                                                   rothermel-surface-fire-spread-no-wind-no-slope
                                                   wind-adjustment-factor]]
-            [gridfire.fuel-models-optimal  :as f-opt]
+            [gridfire.fuel-models  :as f-opt]
             [gridfire.surface-fire :as s-opt]
             [tech.v3.datatype             :as d]
             [tech.v3.datatype.functional  :as dfn]
@@ -3688,7 +3689,7 @@ or false:
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/core.clj :padline no :no-expand :comments link
 (ns gridfire.core
   (:require [clojure.spec.alpha           :as spec]
-            [gridfire.spotting :refer [memoize-rfwo rothermel-fast-wrapper-optimal]]
+            [gridfire.fire-spread         :refer [memoize-rfwo rothermel-fast-wrapper-optimal]]
             [gridfire.inputs              :as inputs]
             [gridfire.outputs             :as outputs]
             [gridfire.simulations         :as simulations]
@@ -4005,7 +4006,6 @@ for calling a running server:
   ;; bb --classpath my-gridfire-uberjar.jar --main gridfire.server.sync.call localhost 8085 path/to/my/gridfire.edn
 
   *e)
-
 #+end_src
 
 *** Implementation Code
@@ -4021,7 +4021,6 @@ for calling a running server:
   =notifications-channel= must be a core.async channel, which will receive progress notifications.")
   (n-queued [this] "Returns the number of commands currently waiting to be processed.")
   (halt [this] "Terminates the logical process handling commands."))
-
 #+end_src
 
 
@@ -4205,7 +4204,6 @@ for calling a running server:
   #:gridfire.run-config{:succeeded true}
 
   *e)
-
 #+end_src
 
 #+name: gridfire.server.run-config
@@ -4277,7 +4275,6 @@ for calling a running server:
        (let [[config-path =notifications-channel= completion-dfr] (.take queue)]
          (run-gridfire-config! config-path =notifications-channel= completion-dfr))))
     (->RunConfigHandler queue (fn halt [] (reset! *keep-handling false)))))
-
 #+end_src
 
 
@@ -5852,8 +5849,6 @@ FIXME isn't this deprecated?
                 :source    "weather.ws WHERE rid=1"
                 :cell-size 10.0}]
     (is (s/valid? ::spec/weather config))))
-
-
 #+end_src
 *** gridfire.spec.memoization
 
@@ -5866,7 +5861,6 @@ FIXME isn't this deprecated?
 
 (s/def ::memoization
   (s/keys :opt-un [::surface-fire-min]))
-
 #+end_src
 *** gridfire.spec.common
 
@@ -6021,7 +6015,6 @@ FIXME isn't this deprecated?
   (let [keyseq (map (comp keyword name) ks)]
     `(s/and (s/keys :opt-un ~ks)
             #(some % '~keyseq))))
-
 #+end_src
 *** gridfire.spec.perturbations
 
@@ -6063,7 +6056,6 @@ FIXME isn't this deprecated?
 (s/def :gridfire.perturbation.smoothed-supergrid/supergrid-size-b pos-int?)
 (s/def :gridfire.perturbation.smoothed-supergrid/supergrid-size-i pos-int?)
 (s/def :gridfire.perturbation.smoothed-supergrid/supergrid-size-j pos-int?)
-
 #+end_src
 *** gridfire.spec.burn-period
 
@@ -6091,7 +6083,6 @@ FIXME isn't this deprecated?
 ;; Test
 #_(s/explain ::burn-period {:start "08:00"
                             :end   "20:00"})
-
 #+end_src
 *** gridfire.spec.suppression
 
@@ -6121,7 +6112,6 @@ FIXME isn't this deprecated?
   (fn [{:keys [suppression-coefficient sdi-layer]}]
     (or (and suppression-coefficient (nil? sdi-layer))
         (and (nil? suppression-coefficient) sdi-layer))))
-
 #+end_src
 *** gridfire.spec.inputs.grid-of-rasters
 
@@ -6151,7 +6141,6 @@ FIXME isn't this deprecated?
   (s/coll-of (s/coll-of :gridfire.spec.common/raw-layer-coords-map)))
 
 (s/def ::raw-layer-coords-map (s/keys :req-un [::type ::rasters-grid]))
-
 #+end_src
 *** gridfire.spec.inputs.sql
 
@@ -6169,7 +6158,6 @@ FIXME isn't this deprecated?
 (s/def ::source ::sql)
 
 (s/def ::postgis-coords-map (s/keys :req-un [::type ::source]))
-
 #+end_src
 *** gridfire.spec.inputs.file-raster
 
@@ -6187,7 +6175,6 @@ FIXME isn't this deprecated?
 (s/def ::type #{:geotiff :gridfire-envi-bsq})
 
 (s/def ::raw-layer-coords-map (s/keys :req-un [::type ::source]))
-
 #+end_src
 *** gridfire.spec.config
 
@@ -6542,7 +6529,6 @@ FIXME isn't this deprecated?
    ::burn-period-required-keys
    ::valid-timestamps
    ::mutually-exclusive-keys))
-
 #+end_src
 *** gridfire.spec.common-test
 
@@ -6617,7 +6603,6 @@ FIXME isn't this deprecated?
       "may end with /")
   (is (s/valid? ::common/directory-path "../relative/directory/path/"))
   (is (s/valid? ::common/directory-path "../../relative/directory/path/")))
-
 #+end_src
 *** gridfire.spec.config-test
 
@@ -6645,7 +6630,6 @@ FIXME isn't this deprecated?
                   :ignition-start-timestamp #inst "1970-01-01T00:00:00.000-00:00"}]
       (is (not (s/valid? ::config/valid-timestamps config))
           "weather-start-timestamp should be not be before ignition-start-timestamp"))))
-
 #+end_src
 *** gridfire.spec.ignition-test
 
@@ -6669,7 +6653,6 @@ FIXME isn't this deprecated?
                                          :source      "test/gridfire/resources/asp.tif"
                                          :burn-values {:burned   1.0
                                                        :unburned -1.0}})))
-
 #+end_src
 *** gridfire.spec.spotting-test
 
@@ -6754,7 +6737,6 @@ FIXME isn't this deprecated?
                   [[169 204] [0.2 0.4]]]]
 
       (is (s/valid? ::config/spotting-percent config)))))
-
 #+end_src
 *** gridfire.spec.output-test
 
@@ -6791,7 +6773,6 @@ FIXME isn't this deprecated?
                 :fire-line-intensity 10
                 :burn-history        10}]
     (is (s/valid? ::config/output-layers config))))
-
 #+end_src
 *** gridfire.spec.fuel-moisture-test
 
@@ -6836,7 +6817,6 @@ FIXME isn't this deprecated?
                 :live {:woody      0.10
                        :herbaceous 0.10}}]
     (is (s/valid? ::config/fuel-moisture config))))
-
 #+end_src
 
 
@@ -6848,8 +6828,8 @@ FIXME isn't this deprecated?
 #+name: gridfire.fuel-models-test
 #+begin_src clojure :results silent :exports code :tangle ../test/gridfire/fuel_models_test.clj :padline no :no-expand :comments link
 (ns gridfire.fuel-models-test
-  (:require [clojure.test                 :refer [deftest is testing]]
-            [gridfire.fuel-models-optimal :as f-opt]))
+  (:require [clojure.test         :refer [deftest is testing]]
+            [gridfire.fuel-models :as f-opt]))
 
 (defn- classical-model-numbers
   []
@@ -6874,7 +6854,6 @@ FIXME isn't this deprecated?
   (testing "Magic numbers:"
     (is (= 204 (apply max (classical-model-numbers))))
     (is (= 303 (apply max (all-model-numbers))))))
-
 #+end_src
 *** gridfire.fuel-models-test
 
@@ -6934,9 +6913,9 @@ FIXME isn't this deprecated?
 #+end_src
 *** gridfire.fire-spread
 
-#+name: gridfire.spotting
+#+name: gridfire.fire-spread
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fire_spread.clj :padline no :no-expand :comments link
-(ns gridfire.spotting
+(ns gridfire.fire-spread
   (:require [clojure.string                :as s]
             [gridfire.common               :refer [burnable-cell?
                                                    burnable-fuel-model?
@@ -6953,14 +6932,14 @@ FIXME isn't this deprecated?
                                                    cruz-crown-fire-spread
                                                    van-wagner-crown-fire-initiation?]]
             [gridfire.elliptical           :as ellip]
-            [gridfire.fuel-models-optimal  :refer [fuel-models-precomputed
+            [gridfire.fuel-models          :refer [fuel-models-precomputed
                                                    moisturize]]
             [gridfire.grid-lookup          :as grid-lookup]
-            [gridfire.spotting     :as spot-optimal]
+            [gridfire.spotting             :as spotting]
             [gridfire.structs.burn-vector  :as burn-vec]
             [gridfire.structs.rfwo         :as rfwo-struct]
             [gridfire.suppression          :as suppression]
-            [gridfire.surface-fire :refer [rothermel-surface-fire-spread-no-wind-no-slope
+            [gridfire.surface-fire         :refer [rothermel-surface-fire-spread-no-wind-no-slope
                                                    rothermel-surface-fire-spread-max
                                                    compute-spread-rate
                                                    anderson-flame-depth
@@ -7490,7 +7469,7 @@ FIXME isn't this deprecated?
   (when (:spotting inputs)
     (persistent!
      (reduce (fn [acc [i j]]
-               (merge-spot-ignitions acc (spot-optimal/spread-firebrands inputs matrices i j)))
+               (merge-spot-ignitions acc (spotting/spread-firebrands inputs matrices i j)))
              (transient {})
              ignited-cells))))
 
@@ -8460,14 +8439,13 @@ FIXME isn't this deprecated?
       (run-loop inputs
                 (initialize-perimeter-ignition-matrices inputs ignited-cells)
                 ignited-cells))))
-
 #+end_src
 *** gridfire.common
 
 #+name: gridfire.common
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/common.clj :padline no :no-expand :comments link
 (ns gridfire.common
-  (:require [gridfire.fuel-models-optimal :as f-opt]
+  (:require [gridfire.fuel-models         :as f-opt]
             [gridfire.grid-lookup         :as grid-lookup]
             [tech.v3.datatype             :as d]
             [tech.v3.datatype.argops      :as da]
@@ -8642,7 +8620,6 @@ FIXME isn't this deprecated?
       (dist-expr num-rows num-cols cell-size
                  i0 j0 z0
                  i1 j1 (grid-lookup/double-at get-elevation i1 j1)))))
-
 #+end_src
 *** gridfire.simulations
 
@@ -8653,7 +8630,7 @@ FIXME isn't this deprecated?
             [gridfire.binary-output                       :as binary]
             [gridfire.common                              :refer [get-neighbors in-bounds?]]
             [gridfire.conversion                          :refer [min->hour kebab->snake snake->kebab]]
-            [gridfire.spotting                 :refer [run-fire-spread]]
+            [gridfire.fire-spread                         :refer [run-fire-spread]]
             [gridfire.grid-lookup                         :as grid-lookup]
             [gridfire.outputs                             :as outputs]
             [gridfire.perturbations.pixel.hash-determined :as pixel-hdp]
@@ -9223,7 +9200,6 @@ FIXME isn't this deprecated?
          simulation-results (tufte/p :run-fire-spread
                                      (run-fire-spread simulation-inputs))]
      (process-simulation-results! i inputs simulation-inputs simulation-results))))
-
 #+end_src
 *** gridfire.simulations-test
 
@@ -9296,7 +9272,6 @@ FIXME isn't this deprecated?
               get-layer-fn (#'simulations/grid-getter inputs (Random. 1234) :temperature 0)]
 
           (is (<= 0.0 (grid-lookup/double-at get-layer-fn 0 0 0) 2.0)))))))
-
 #+end_src
 *** gridfire.surface-fire
 
@@ -10021,7 +9996,6 @@ FIXME isn't this deprecated?
 (comment
   (run-tests)
   )
-
 #+end_src
 
 *** gridfire.suppression-test
@@ -10102,7 +10076,6 @@ FIXME isn't this deprecated?
               ['(5.0 4.0 3.0) 4.0] 6
               ['(4.0 3.0 2.0) 5.0] 6}
              (#'gridfire.suppression/compute-contiguous-slices num-cells-to-suppress avg-dsr-data))))))
-
 #+end_src
 *** gridfire.core-test
 
@@ -10720,7 +10693,6 @@ FIXME isn't this deprecated?
           (is (= (results-signature default-res)
                  (results-signature res))
               "the logical behavior of the simulation is unchanged."))))))
-
 #+end_src
 *** gridfire.fire-spread-test
 
@@ -10728,7 +10700,7 @@ FIXME isn't this deprecated?
 #+begin_src clojure :results silent :exports code :tangle ../test/gridfire/fire_spread_test.clj :padline no :no-expand :comments link
 (ns gridfire.fire-spread-test
   (:require [clojure.test                 :refer [deftest are is testing]]
-            [gridfire.spotting :refer [create-new-burn-vectors!-pfn
+            [gridfire.fire-spread         :refer [create-new-burn-vectors!-pfn
                                                   create-new-burn-vectors!-invoke
                                                   diagonal?
                                                   direction-angle->bit
@@ -10826,7 +10798,6 @@ FIXME isn't this deprecated?
       6 (t/mset! (new-travel-lines-matrix shape) i j 2r01000001) ; N & W burn vectors exists
       5 (t/mset! (new-travel-lines-matrix shape) i j 2r11000001) ; N & W & NW burn vectors exists
       4 (t/mset! (new-travel-lines-matrix shape) i j 2r11000011)))) ; N & W & NW & NE burn vectors exists
-
 #+end_src
 *** gridfire.crown-fire-test
 
@@ -10970,7 +10941,6 @@ FIXME isn't this deprecated?
 (comment
   (run-tests 'gridfire.crown-fire-test)
   )
-
 #+end_src
 
 *** gridfire.spotting
@@ -11595,14 +11565,13 @@ FIXME isn't this deprecated?
 (comment
   (run-tests 'gridfire.spotting-test)
   )
-
 #+end_src
 *** gridfire.behaveplus-results
 
 #+name: gridfire.behaveplus-results
 #+begin_src clojure :results silent :exports code :tangle ../test/gridfire/behaveplus_results.clj :padline no :no-expand :comments link
 (ns gridfire.behaveplus-results
-  (:require [gridfire.fuel-models-optimal :refer [fuel-models]]))
+  (:require [gridfire.fuel-models :refer [fuel-models]]))
 
 (defn within [a b epsilon]
   (<= (Math/abs ^double (- a b)) epsilon))
@@ -11880,7 +11849,6 @@ FIXME isn't this deprecated?
    :SB2 [49.7    1031    10.9    316       10.1  3.5 ]
    :SB3 [91.5    2541    16.6    316       10.1  3.5 ]
    :SB4 [176.5   5246    23.1    316       10.1  3.5 ]})
-
 #+end_src
 
 
@@ -11910,7 +11878,6 @@ consists of explicitly providing start and end times:
   (testing "valid"
     (is (s/valid? ::burn-period/burn-period {:start "08:00"
                                              :end   "20:00"}))))
-
 #+end_src
 
 The 2nd method consists of resolving the Burn Period through astronomy computations
@@ -11970,7 +11937,6 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
                    (-> inputs
                        (select-keys [:ignition-start-timestamps
                                      :burn-period-samples]))))))))))
-
 #+end_src
 
 **** Implementation Code
@@ -11989,7 +11955,6 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
                                         {::burnp-sun/lat-deg lat
                                          ::burnp-sun/lng-deg lon})
                                       {:ignition-start-timestamp ignition-start-timestamp})))
-
 #+end_src
 
 
@@ -12447,7 +12412,6 @@ FIXME relate to other elliptical equations
           (Math/sqrt (+ (- 1.0 (* E E))
                         (* E*cos-ang E*cos-ang))))
        (+ 1.0 E))))
-
 #+end_src
 **** gridfire.elliptical-test
 
@@ -12456,7 +12420,7 @@ FIXME relate to other elliptical equations
 (ns gridfire.elliptical-test
   (:require [clojure.test                  :refer [deftest is testing]]
             [gridfire.elliptical           :refer [fireline-normal-spread-rate-scalar]]
-            [gridfire.surface-fire :refer [compute-spread-rate]]
+            [gridfire.surface-fire         :refer [compute-spread-rate]]
             [gridfire.conversion           :as convert]))
 
 (defn almost-=?
@@ -12518,7 +12482,6 @@ FIXME relate to other elliptical equations
                                 (map (fn [^double cos-ang]
                                        (fireline-normal-spread-rate-scalar eccentricity cos-ang))))
                            [1.0])))))))
-
 #+end_src
 
 
@@ -12601,7 +12564,6 @@ FIXME relate to other elliptical equations
 (defn get-grass-suppression?
   [^RothFWOArgs rothFWOArgs]
   (.-grass-suppression? rothFWOArgs))
-
 #+end_src
 **** gridfire.structs.tensor-meta
 
@@ -12617,7 +12579,6 @@ FIXME relate to other elliptical equations
   [grid-lookup-double-getter]
   IDoubleGetter
   (double-getter [_this] grid-lookup-double-getter))
-
 #+end_src
 
 
@@ -12670,7 +12631,6 @@ FIXME relate to other elliptical equations
                          (d/clone converted))]
         (assoc layer-map :matrix new-tensor))
       layer-map)))
-
 #+end_src
 *** gridfire.fetch.grid-of-rasters
 
@@ -12898,7 +12858,6 @@ FIXME relate to other elliptical equations
                                  :skewx
                                  :skewy
                                  :numbands]))))
-
 #+end_src
 *** gridfire.fetch.grid-of-rasters-test
 
@@ -13087,7 +13046,6 @@ FIXME relate to other elliptical equations
 (deftest ^:simulation gdal-corner-coordinates
   (testing "How our test grids touch."
     (are-grid-corner-coords-as-we-expect (:rasters-grid (example-grid-layer-spec "fbfm40")))))
-
 #+end_src
 *** gridfire.postgis-bridge-test
 
@@ -13130,7 +13088,6 @@ FIXME relate to other elliptical equations
     (is (some? raster))
 
     (is (= 73 (:numbands raster)))))
-
 #+end_src
 
 *** gridfire.inputs
@@ -13539,7 +13496,6 @@ FIXME relate to other elliptical equations
                             (let [{:keys [start end]} inputs]
                               (constantly {:burn-period-start (or start "00:00")
                                            :burn-period-end   (or end "24:00")})))))))))
-
 #+end_src
 *** gridfire.inputs-test
 
@@ -13641,7 +13597,6 @@ FIXME relate to other elliptical equations
     (is (one-dimensional-double-array? (first (:fuel-number->spread-rate-adjustment-array-lookup-samples inputs-after))))
 
     (is (= 0.1 (aget (doubles (first (:fuel-number->spread-rate-adjustment-array-lookup-samples inputs-after))) 101)))))
-
 #+end_src
 *** gridfire.inputs.envi-bsq
 
@@ -13902,7 +13857,6 @@ FIXME relate to other elliptical equations
     (check-expected-buffer-size! data-buf n-elements)
     (.get data-buf (doubles data-arr))
     data-arr))
-
 #+end_src
 *** gridfire.inputs.envi-bsq-test
 
@@ -14260,7 +14214,6 @@ FIXME relate to other elliptical equations
                   (is (dfn/equals bsq-tensor tif-tensor)
                       "Same numeric values."))))))
          (doall))))
-
 #+end_src
 
 *** gridfire.fetch-ignition-test
@@ -14346,7 +14299,6 @@ FIXME relate to other elliptical equations
 
       (is (dfn/equals (:matrix geotiff-ignition-layer)
                    (:matrix postgis-ignition-layer))))))
-
 #+end_src
 *** gridfire.fetch-fuel-moisture-test
 
@@ -14395,7 +14347,6 @@ FIXME relate to other elliptical equations
   (clojure.test/test-vars [#'fuel-moisture-test])
 
   *e)
-
 #+end_src
 *** gridfire.fetch-weather-test
 
@@ -14606,7 +14557,6 @@ FIXME relate to other elliptical equations
           (is (dfn/equals wd-matrix
                           (t/const-tensor 12.0 (d/shape wd-matrix)))
               "the correction has been applied."))))))
-
 #+end_src
 
 
@@ -14866,7 +14816,6 @@ FIXME relate to other elliptical equations
                         "fire-size" "flame-length-mean" "flame-length-stddev" "fire-line-intensity-mean"
                         "fire-line-intensity-stddev" "crown-fire-size" "spot-count" "surface-fire-size"])
                  (csv/write-csv out-file))))))))
-
 #+end_src
 
 *** gridfire.output-test
@@ -14977,7 +14926,6 @@ FIXME relate to other elliptical equations
         _      (utils/run-gridfire! config)]
 
     (is (.exists (io/file "test/output/spot_count.tif")))))
-
 #+end_src
 *** gridfire.binary-output
 
@@ -15109,7 +15057,6 @@ FIXME relate to other elliptical equations
 
 ;; toa_test.bin was created with:
 ;; (write-matrix-as-binary [[0 1 2] [3 0 4] [5 6 0]] "toa_test.bin")
-
 #+end_src
 
 *** gridfire.binary-output-test
@@ -15167,7 +15114,6 @@ FIXME relate to other elliptical equations
     (is (dfn/equals (nth matrices 2) (nth result 2)))
 
     (is (dfn/equals (nth matrices 3) (nth result 3)))))
-
 #+end_src
 
 
@@ -15467,7 +15413,6 @@ FIXME relate to other elliptical equations
     (if (valid-multiplier? multiplier)
       (fn ^double [^double x] (* x multiplier))
       nil)))
-
 #+end_src
 
 
@@ -15547,7 +15492,6 @@ FIXME relate to other elliptical equations
                   (stop-server!)))))))
 
 #_(start-server! 31337 (fn [msg] :do-something))
-
 #+end_src
 
 *** gridfire.utils.files.tar
@@ -15586,7 +15530,6 @@ FIXME relate to other elliptical equations
        ;; WARNING sometimes thrown for no apparent reason... (Val, 26 Sep 2022)
        (catch EOFException _eofex
          ())))))
-
 #+end_src
 *** gridfire.utils.files
 
@@ -15661,7 +15604,6 @@ FIXME relate to other elliptical equations
    {:readers (merge (location-aware-edn-readers edn-file)
                     convenience-encoding-readers)}
    (slurp edn-file)))
-
 #+end_src
 *** gridfire.utils.files-test
 
@@ -15715,7 +15657,6 @@ FIXME relate to other elliptical equations
                          (pr-str)
                          (edn/read-string {:readers convenience-encoding-readers}))]
         (is (identical? v0 v1))))))
-
 #+end_src
 
 *** gridfire.utils.async
@@ -15806,7 +15747,6 @@ FIXME relate to other elliptical equations
       (->> x+ds
            (map (fn [[_x d]] d))
            (apply mfd/zip)))))
-
 #+end_src
 
 
@@ -15906,7 +15846,6 @@ FIXME relate to other elliptical equations
                            (/ pf))
                        x))
                    data)))
-
 #+end_src
 
 
@@ -16017,7 +15956,6 @@ FIXME relate to other elliptical equations
                                        :file   "/Users/val/projects/SIG/gridfire/src/gridfire/utils/vsampling.clj"}}]
 
   *e)
-
 #+end_src
 
 
@@ -16091,7 +16029,6 @@ FIXME relate to other elliptical equations
 ;; Applying Babashka recipe: https://book.babashka.org/#main_file
 (when (= *file* (System/getProperty "babashka.file"))
   (apply -main *command-line-args*))
-
 #+end_src
 **** gridfire.lab.benchmarks
 
@@ -16105,7 +16042,7 @@ FIXME relate to other elliptical equations
             [clojure.pprint               :as pprint]
             [criterium.core               :as bench]
             [gridfire.core                :as gridfire]
-            [gridfire.spotting :refer [memoize-rfwo rothermel-fast-wrapper-optimal]]
+            [gridfire.fire-spread         :refer [memoize-rfwo rothermel-fast-wrapper-optimal]]
             [gridfire.simulations         :as simulations]))
 
 (defn simulation-result-summary
@@ -16123,7 +16060,7 @@ FIXME relate to other elliptical equations
     (->> (range n-sims)
          (mapv (fn [sim-i]
                  (let [simulation-inputs  (simulations/prepare-simulation-inputs sim-i inputs)
-                       simulation-results (gridfire.spotting/run-fire-spread simulation-inputs)]
+                       simulation-results (gridfire.fire-spread/run-fire-spread simulation-inputs)]
                    (simulation-result-summary simulation-results)))))))
 
 (defn- results-digest
@@ -16184,7 +16121,6 @@ FIXME relate to other elliptical equations
 ;; Example:
 ;; $ clojure -J-Dclojure.compiler.direct-linking=true -M:perf-testing -m gridfire.lab.benchmarks benchmark test/gridfire/lab/benchmarks/rhino-input-deck/gridfire.edn
 ;; $ clojure -J-Dclojure.compiler.direct-linking=true -J-Djdk.attach.allowAttachSelf=true -M:perf-testing -m gridfire.lab.benchmarks profile test/gridfire/lab/benchmarks/rhino-input-deck/gridfire.edn
-
 #+end_src
 
 
@@ -16315,7 +16251,6 @@ FIXME relate to other elliptical equations
           (register-custom-projections!)
           (inputs->output-raster options)))
     (System/exit 0)))
-
 #+end_src
 
 
@@ -16638,7 +16573,6 @@ FIXME relate to other elliptical equations
                            #'test-suppression-sdi-scenario])
 
   (run-tests 'gridfire.canonical-test))
-
 #+end_src
 *** gridfire.lab.replay
 
@@ -16651,7 +16585,7 @@ FIXME relate to other elliptical equations
             [clojure.pprint               :as pprint]
             [clojure.string               :as str]
             [gridfire.core                :as gridfire]
-            [gridfire.spotting :refer [memoize-rfwo rothermel-fast-wrapper-optimal run-fire-spread]]
+            [gridfire.fire-spread         :refer [memoize-rfwo rothermel-fast-wrapper-optimal run-fire-spread]]
             [gridfire.magellan-bridge     :refer [geotiff-raster-to-tensor]]
             [gridfire.simulations         :as simulations]
             [gridfire.utils.files.tar     :as utar]
@@ -18678,9 +18612,6 @@ FIXME relate to other elliptical equations
 
 
   *e)
-
-
-
 #+end_src
 *** gridfire.lab.replay.compare-85f1467-9689124
 
@@ -19512,7 +19443,6 @@ FIXME relate to other elliptical equations
   ;  vwaeselynk-336-burn-period-from-sunrise-sunset
 
   *e)
-
 #+end_src
 
 
@@ -19754,7 +19684,6 @@ FIXME relate to other elliptical equations
    (double-at (mgetter-double m) i j))
   (^double [m ^long b ^long i ^long j]
    (double-at (mgetter-double m) b i j)))
-
 #+end_src
 
 *** gridfire.grid-lookup-test
@@ -19799,7 +19728,6 @@ FIXME relate to other elliptical equations
           (is (=
                420.
                (grid-lookup/double-at my-getter 10 3 7))))))))
-
 #+end_src
 
 *** gridfire.utils.gradient
@@ -19826,7 +19754,6 @@ FIXME relate to other elliptical equations
         (- Fu+du Fu))
       ;; This is the favored way of estimating the gradient: https://numpy.org/doc/stable/reference/generated/numpy.gradient.html
       (* 0.5 (- Fu+du Fu-du)))))
-
 #+end_src
 *** gridfire.utils.flow
 
@@ -20017,7 +19944,6 @@ FIXME relate to other elliptical equations
           0))))
 
   *e)
-
 #+end_src
 
 ** Helpers for GridFire development
@@ -20081,7 +20007,6 @@ FIXME relate to other elliptical equations
 (defn get-burn-probability
   ^double [^BurnVector bv]
   (.-burn-probability bv))
-
 #+end_src
 *** gridfire.utils.geo
 
@@ -20111,7 +20036,6 @@ FIXME relate to other elliptical equations
   ;; We could use the Median point, but that would require
   ;; a GeoTools upgrade.
   (envelope-lower-corner-lat+lon (:envelope inputs)))
-
 #+end_src
 
 
@@ -20135,11 +20059,99 @@ FIXME relate to other elliptical equations
         (is (= [36.144687673692644 -123.00000000000001]
                (resolve-simulation-lat+lon inputs))
             "returns an USA-typical [lat lon] pair.")))))
-
 #+end_src
 
 
 ** Code for Application-Specific Deployments of GridFire
+
+*** gridfire.active-fire-watcher-test
+
+#+name: gridfire.active-fire-watcher
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/active_fire_watcher.clj :padline no :no-expand :comments link
+(ns gridfire.active-fire-watcher
+  (:require [clojure.core.async   :refer [<! >! go-loop timeout]]
+            [clojure.edn          :as edn]
+            [clojure.string       :as s]
+            [gridfire.conversion  :refer [convert-date-string]]
+            [nextjournal.beholder :as beholder]
+            [triangulum.logging   :refer [log-str]])
+  (:import java.util.Date))
+
+(set! *unchecked-math* :warn-on-boxed)
+
+;;=============================================================================
+;; File Path -> Job
+;;=============================================================================
+
+(def file-name-regex #"[^/]*(?=[.][a-zA-Z]+$)")
+
+(def fire-name-regex #"[a-zA-Z]*[-[a-zA-Z0-9]]*")
+
+(def ignition-time-regex #"\d{8}_\d{6}")
+
+(defn- build-job [path-str]
+  (let [file-name     (re-find file-name-regex path-str)
+        fire-name     (re-find fire-name-regex file-name)
+        ignition-time (re-find ignition-time-regex file-name)]
+    {:fire-name     fire-name
+     :type          :active-fire
+     :ignition-time (convert-date-string ignition-time
+                                         "yyyyMMdd_HHmmss"
+                                         "yyyy-MM-dd HH:mm zzz")}))
+
+(defn- suppress? [{:keys [also-simulate-suppression? suppression-white-list]} file-path]
+  (and also-simulate-suppression?
+       (some #(s/includes? file-path %) (-> (slurp suppression-white-list)
+                                            (edn/read-string)
+                                            (:suppression-white-list)))))
+
+;;=============================================================================
+;; Server
+;;=============================================================================
+
+(defonce download-in-progress (atom {}))
+
+(defn- now ^long []
+  (inst-ms (Date.)))
+
+(defn- still-waiting? [^long last-mod-time]
+  (< (- (now) last-mod-time) 5000)) ; wait up to 5 seconds
+
+(defn- count-down [config job-queue path-str]
+  (go-loop [^long last-mod-time (get @download-in-progress path-str)]
+    (if (still-waiting? last-mod-time)
+      (do (<! (timeout 1000))
+          (recur (get @download-in-progress path-str)))
+      (do (log-str "SCP Complete: " path-str)
+          (swap! download-in-progress dissoc path-str)
+          (let [job (build-job path-str)]
+            (>! job-queue job)
+            (when (suppress? config path-str)
+              (>! job-queue (assoc job :suppression {:suppression-dt          60.0 ;TODO remove hard code
+                                                     :suppression-coefficient 2.0})))))))) ;TODO remove hard code
+
+(defn- handler [config job-queue]
+  (fn [{:keys [type path]}]
+    (let [path-str (.toString path)]
+      (case type
+        :create (do (log-str "Active Fire input deck detected: " path-str)
+                    (swap! download-in-progress assoc path-str (now))
+                    (count-down config job-queue path-str))
+        :modify (swap! download-in-progress assoc path-str (now)) ; reset counter
+        nil))))
+
+(defonce directory-watcher (atom nil))
+
+(defn start! [{:keys [active-fire-dir] :as config} job-queue]
+  (when (and active-fire-dir (nil? @directory-watcher))
+    (reset! directory-watcher
+            (beholder/watch (handler config job-queue) active-fire-dir))))
+
+(defn stop! []
+  (when @directory-watcher
+    (beholder/stop @directory-watcher)
+    (reset! directory-watcher nil)))
+#+end_src
 
 *** gridfire.active-fire-watcher-test
 
@@ -20187,7 +20199,6 @@ FIXME relate to other elliptical equations
   (is (= "20210617_203600"
          (->>  "nm-johnson_20210617_203600_001"
                (re-find ignition-time-regex)))))
-
 #+end_src
 
 
@@ -20576,7 +20587,6 @@ clojure -M:run-server -c server.edn
  :backup-dir                 "/home/kcheung/work/servers/chickadee/backup-to-ftp"
  :suppression-white-list     "/home/kcheung/work/servers/chickadee/suppression-white-list.edn"
    :also-simulate-suppression? true}
-
 #+end_src
 
 ***** gridfire.server.pyrecast-async-test
@@ -20625,7 +20635,6 @@ clojure -M:run-server -c server.edn
                                                               :suppression-coefficent 2.0})
                            config)
       (is (.exists (io/file data-dir "unzip-fire-test-suppressed_19700101_000000_001"))))))
-
 #+end_src
 ***** gridfire.elm-to-grid-test
 
@@ -20709,7 +20718,6 @@ clojure -M:run-server -c server.edn
                                                 "--pyrome-calibration-csv"            (str dir-path "pyrome_calibration_constants.csv")]
                                                gfr-conf-path
                                                (str dir-path "expected-1-gridfire.edn")))))))
-
 #+end_src
 
 ***** gridfire.spec.server
@@ -20734,7 +20742,6 @@ clojure -M:run-server -c server.edn
 (spec/def ::gridfire-server-response-minimal
   (spec/keys
    :req-un [::response-host ::response-port]))
-
 #+end_src
 
 ***** gridfire.utils.server
@@ -20786,7 +20793,6 @@ clojure -M:run-server -c server.edn
 (defn throw-message
   [msg]
   (throw (ex-info msg {})))
-
 #+end_src
 
 
@@ -21363,7 +21369,6 @@ clojure -M:run-server -c server.edn
 ;;     (generate-cumulative-csv-results "org/pics/scale_assessment" :tile643 7))
 
 ;;   (merge-csv-files "org/pics/scale_assessment/sequential_runs" #"tile.+data-table-scenario.+\.csv" #"tile.+-(\d+)\.csv" "data-table.csv"))
-
 #+end_src
 *** gridfire-unmerged.fire-spread-test
 
@@ -21899,7 +21904,6 @@ clojure -M:run-server -c server.edn
 ;; (sort (distinct (apply concat (vals (into {} (for [tile [:tile205 :tile210 :tile281 :tile310 :tile564 :tile643]]
 ;;                                                (let [error-fm (-> validation-outputs tile :error-fuel-models)]
 ;;                                                  [tile (sort (distinct (filter pos? (t/tensor->buffer error-fm))))])))))))
-
 #+end_src
 
 
@@ -21971,7 +21975,6 @@ clojure -M:run-server -c server.edn
 (defn -main [& args]
   (build-everything true)
   (shutdown-agents))
-
 #+end_src
 
 
