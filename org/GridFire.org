@@ -1905,8 +1905,6 @@ pseudo-code lays out the steps taken in this procedure:
                                                   rothermel-surface-fire-spread-max
                                                   rothermel-surface-fire-spread-no-wind-no-slope
                                                   wind-adjustment-factor]]
-            [gridfire.fuel-models  :as f-opt]
-            [gridfire.surface-fire :as s-opt]
             [tech.v3.datatype             :as d]
             [tech.v3.datatype.functional  :as dfn]
             [tech.v3.tensor               :as t]
@@ -6855,11 +6853,11 @@ FIXME isn't this deprecated?
     (is (= 204 (apply max (classical-model-numbers))))
     (is (= 303 (apply max (all-model-numbers))))))
 #+end_src
-*** gridfire.fuel-models-test
+*** gridfire.fuel-models-old-test
 
-#+name: gridfire.fuel-models-test
+#+name: gridfire.fuel-models-old-test
 #+begin_src clojure :results silent :exports code :tangle ../test/gridfire/fuel_models_old_test.clj :padline no :no-expand :comments link
-(ns gridfire.fuel-models-test
+(ns gridfire.fuel-models-old-test
   (:require [clojure.test                :refer [deftest testing is run-tests]]
             [gridfire.behaveplus-results :refer [behaveplus5-surface-fire-values-dry-no-wind-no-slope
                                                  behaveplus5-surface-fire-values-mid-no-wind-no-slope
@@ -6867,8 +6865,8 @@ FIXME isn't this deprecated?
                                                  test-fuel-moisture
                                                  within]]
             ;; FIXME do we want to keep these tests? If so, how to remove that dependency?
-            [gridfire.fuel-models-old        :refer [build-fuel-model
-                                                     moisturize]]))
+            [gridfire.fuel-models-old    :refer [build-fuel-model
+                                                 moisturize]]))
 
 ;; Checks live fuel moisture of extinction and dynamic fuel loading for the S&B40 fuel models under fully cured conditions
 (deftest ^:unit moisturize-test-dry
@@ -6909,7 +6907,6 @@ FIXME isn't this deprecated?
 (comment
   (run-tests)
   )
-
 #+end_src
 *** gridfire.fire-spread
 
@@ -9278,8 +9275,8 @@ FIXME isn't this deprecated?
 #+name: gridfire.surface-fire
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/surface_fire.clj :padline no :no-expand :comments link
 (ns gridfire.surface-fire
-  (:require [gridfire.conversion          :refer [deg->rad rad->deg]]
-            [gridfire.fuel-models-optimal :refer [is-dynamic-grass-fuel-model-number? map-category map-size-class category-sum size-class-sum]]))
+  (:require [gridfire.conversion  :refer [deg->rad rad->deg]]
+            [gridfire.fuel-models :refer [is-dynamic-grass-fuel-model-number? map-category map-size-class category-sum size-class-sum]]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -9824,7 +9821,6 @@ FIXME isn't this deprecated?
   ;;    - primitive arrays (e.g., longs, doubles)
 
   )
-
 #+end_src
 *** gridfire.surface-fire-test
 
@@ -10946,7 +10942,7 @@ FIXME isn't this deprecated?
 *** gridfire.spotting
 
 #+name: gridfire.spotting
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting_optimal.clj :padline no :no-expand :comments link
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting.clj :padline no :no-expand :comments link
 (ns gridfire.spotting
   (:require [gridfire.common              :refer [burnable-cell?
                                                   burnable-fuel-model?

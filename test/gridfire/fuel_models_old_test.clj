@@ -1,4 +1,4 @@
-;; [[file:../../org/GridFire.org::gridfire.fuel-models-test][gridfire.fuel-models-test]]
+;; [[file:../../org/GridFire.org::gridfire.fuel-models-old-test][gridfire.fuel-models-old-test]]
 (ns gridfire.fuel-models-old-test
   (:require [clojure.test                :refer [deftest testing is run-tests]]
             [gridfire.behaveplus-results :refer [behaveplus5-surface-fire-values-dry-no-wind-no-slope
@@ -49,4 +49,4 @@
 (comment
   (run-tests)
   )
-;; gridfire.fuel-models-test ends here
+;; gridfire.fuel-models-old-test ends here
