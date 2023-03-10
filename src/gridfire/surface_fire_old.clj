@@ -1,5 +1,4 @@
-;; [[file:../../org/GridFire.org::rothermel-surface-fire-spread-no-wind-no-slope][rothermel-surface-fire-spread-no-wind-no-slope]]
-(ns gridfire.surface-fire-old
+(ns gridfire.surface-fire-old                               ;; FIXME deprecated
   (:require [gridfire.fuel-models-old :refer [map-category map-size-class
                                               category-sum size-class-sum]]))
 
@@ -159,9 +158,7 @@
      :get-phi_W          get-phi_W
      :get-phi_S          get-phi_S
      :get-wind-speed     get-wind-speed}))
-;; rothermel-surface-fire-spread-no-wind-no-slope ends here
 
-;; [[file:../../org/GridFire.org::wind-adjustment-factor][wind-adjustment-factor]]
 (defn wind-adjustment-factor
   "ft ft 0-100"
   ^double
@@ -203,9 +200,7 @@
     ;; non-burnable fuel model
     :otherwise
     0.0))
-;; wind-adjustment-factor ends here
 
-;; [[file:../../org/GridFire.org::rothermel-surface-fire-spread-max-and-any][rothermel-surface-fire-spread-max-and-any]]
 (defn almost-zero? [^double x]
   (< (Math/abs x) 0.000001))
 
@@ -326,9 +321,7 @@
       (* max-spread-rate (/ (- 1.0 eccentricity)
                             (- 1.0 (* eccentricity
                                       (Math/cos (degrees-to-radians theta)))))))))
-;; rothermel-surface-fire-spread-max-and-any ends here
 
-;; [[file:../../org/GridFire.org::surface-fire-intensity-formulas][surface-fire-intensity-formulas]]
 (defn anderson-flame-depth
   "Returns the depth, or front-to-back distance, of the actively flaming zone
    of a free-spreading fire in ft given:
@@ -352,4 +345,3 @@
   ^double
   [^double fire-line-intensity]
   (* 0.45 (Math/pow fire-line-intensity 0.46)))
-;; surface-fire-intensity-formulas ends here

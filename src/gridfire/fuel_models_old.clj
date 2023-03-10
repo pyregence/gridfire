@@ -1,5 +1,4 @@
-;; [[file:../../org/GridFire.org::fuel-model-definitions][fuel-model-definitions]]
-(ns gridfire.fuel-models-old)
+(ns gridfire.fuel-models-old)                               ;; FIXME deprecated
 
 (def fuel-models
   "Lookup table including one entry for each of the Anderson 13 and
@@ -81,9 +80,7 @@
    203 [:SB3 1.2 25 8 [0.2525 0.1263 0.1377 0.0000 0.0000] [2000.0 109.0 30.0    0.0    0.0]]
    204 [:SB4 2.7 25 8 [0.2410 0.1607 0.2410 0.0000 0.0000] [2000.0 109.0 30.0    0.0    0.0]]
    })
-;; fuel-model-definitions ends here
 
-;; [[file:../../org/GridFire.org::fuel-category-and-size-class-functions][fuel-category-and-size-class-functions]]
 (defn map-category [f]
   {:dead (f :dead) :live (f :live)})
 
@@ -101,9 +98,7 @@
 (defn size-class-sum [f]
   {:dead (+ ^double (f :dead :1hr) ^double (f :dead :10hr) ^double (f :dead :100hr) ^double (f :dead :herbaceous))
    :live (+ ^double (f :live :herbaceous) ^double (f :live :woody))})
-;; fuel-category-and-size-class-functions ends here
 
-;; [[file:../../org/GridFire.org::fuel-model-constructor-functions][fuel-model-constructor-functions]]
 (defn build-fuel-model
   [fuel-model-number]
   (let [[name delta ^double M_x-dead ^double h
@@ -159,9 +154,7 @@
                      :herbaceous 0.01}
               :live {:herbaceous 0.01
                      :woody      0.01}}}))
-;; fuel-model-constructor-functions ends here
 
-;; [[file:../../org/GridFire.org::add-dynamic-fuel-loading][add-dynamic-fuel-loading]]
 (defn add-dynamic-fuel-loading
   [{:keys [number M_x M_f w_o sigma] :as fuel-model}]
   (let [number               (double number)
@@ -178,9 +171,7 @@
             (assoc-in [:sigma :dead :herbaceous] (-> sigma :live :herbaceous))))
       ;; static fuel model
       fuel-model)))
-;; add-dynamic-fuel-loading ends here
 
-;; [[file:../../org/GridFire.org::add-weighting-factors][add-weighting-factors]]
 (defn add-weighting-factors
   [{:keys [w_o sigma rho_p] :as fuel-model}]
   (let [A_ij (map-size-class (fn [i j] (/ (* (-> sigma i ^double (j)) (-> w_o i ^double (j)))
@@ -222,9 +213,7 @@
         (assoc :f_ij f_ij)
         (assoc :f_i  f_i)
         (assoc :g_ij g_ij))))
-;; add-weighting-factors ends here
 
-;; [[file:../../org/GridFire.org::add-live-moisture-of-extinction][add-live-moisture-of-extinction]]
 (defn add-live-moisture-of-extinction
   "Equation 88 from Rothermel 1972 adjusted by Albini 1976 Appendix III."
   [{:keys [w_o sigma M_f M_x] :as fuel-model}]
@@ -279,4 +268,3 @@
       (add-dynamic-fuel-loading)
       (add-weighting-factors)
       (add-live-moisture-of-extinction)))
-;; add-live-moisture-of-extinction ends here

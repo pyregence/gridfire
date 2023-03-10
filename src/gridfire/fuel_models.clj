@@ -205,6 +205,17 @@
                                   (keys)
                                   (into {} (map #(vector % (map->FuelModel (compute-fuel-model %)))))
                                   (add-synonym-models WUI-model-number->original)))
+(defn is-burnable-fuel-model-number?
+  [^double fm-number]
+  (and (pos? fm-number)
+       (or (< fm-number 91.0)
+           (> fm-number 99.0))))
+
+(defn is-dynamic-grass-fuel-model-number?
+  [^long fm-number]
+  (or (and (< 100 fm-number) (< fm-number 110))
+      (and (< 210 fm-number) (< fm-number 220))))
+
 ;; fuel-model-definitions ends here
 
 ;; [[file:../../org/GridFire.org::fuel-category-and-size-class-functions][fuel-category-and-size-class-functions]]
@@ -252,17 +263,6 @@
       ;; static fuel model
       (assoc fuel-model :M_f M_f))))
 ;; add-dynamic-fuel-loading ends here
-
-(defn is-burnable-fuel-model-number?
-  [^double fm-number]
-  (and (pos? fm-number)
-       (or (< fm-number 91.0)
-           (> fm-number 99.0))))
-
-(defn is-dynamic-grass-fuel-model-number?
-  [^long fm-number]
-  (or (and (< 100 fm-number) (< fm-number 110))
-      (and (< 210 fm-number) (< fm-number 220))))
 
 ;; [[file:../../org/GridFire.org::add-weighting-factors][add-weighting-factors]]
 (defn add-weighting-factors
