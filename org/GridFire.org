@@ -2755,8 +2755,8 @@ These calculations are derived from the formulas presented in the previous secti
 
 Concretely, this 2D-spread behavior is implemented in *gridfire.fire-spread*
 
-#+name: gridfire.fire-spread
-#+begin_src clojure :results silent :exports code :noweb no-export  :tangle ../src/gridfire/fire_spread.clj :padline no :no-expand :comments link
+#+name: fire-spread-beginning
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fire_spread.clj :padline no :no-expand :comments link
 (ns gridfire.fire-spread
   (:require [clojure.string                :as s]
             [gridfire.common               :refer [burnable-cell?
@@ -2798,16 +2798,6 @@ Concretely, this 2D-spread behavior is implemented in *gridfire.fire-spread*
            (java.util ArrayList Date)))
 
 (set! *unchecked-math* :warn-on-boxed)
-
-<<fire-spread-directional-utils>>
-
-<<fire-spread-estimate-incidence>>
-
-<<fire-spread-core-algorithm>>
-
-<<fire-spread-matrices>>
-
-<<fire-spread-entry-point>>
 #+end_src
 
 Each simulated fire maintains a set of 2D matrices, which are used
@@ -2815,7 +2805,7 @@ for several purposes: recording simulation evolution, holding simulation state,
 and memoizing some results to avoid redundant computation.
 
 #+name: fire-spread-matrices
-#+begin_src clojure :results silent :exports code :padline no :no-expand :comments link
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fire_spread.clj :padline no :no-expand :comments link
 ;;-----------------------------------------------------------------------------
 ;; SimulationMatrices Record
 ;;-----------------------------------------------------------------------------
@@ -2894,7 +2884,7 @@ A simulated fire is based on various inputs, describing both the environmental c
 and the initial conditions (point or perimeter ignited at the beginning of the simulation), as well as algorithm parameters:
 
 #+name: fire-spread-entry-point
-#+begin_src clojure :results silent :exports code :padline no :no-expand :comments link
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fire_spread.clj :padline no :no-expand :comments link
 ;;-----------------------------------------------------------------------------
 ;; Main Simulation Entry Point - Dispatches to Point/Perimeter Ignition
 ;;-----------------------------------------------------------------------------
@@ -3100,7 +3090,7 @@ The next snippet shows the details of GridFire's fire spread algorithm.
 In brief, simulation Mmtrices get mutated and the sets of burn vectors and ignited cells get updated through various phases:
 
 #+name: fire-spread-core-algorithm
-#+begin_src clojure :results silent :exports code :padline no :no-expand :comments link
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fire_spread.clj :padline no :no-expand :comments link
 ;;-----------------------------------------------------------------------------
 ;; Fire spread
 ;;-----------------------------------------------------------------------------
@@ -4166,7 +4156,7 @@ In brief, simulation Mmtrices get mutated and the sets of burn vectors and ignit
 GridFire features some computational helpers for fast handling of spread directions:
 
 #+name: fire-spread-directional-utils
-#+begin_src clojure :results silent :exports code :padline no :no-expand :comments link
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fire_spread.clj :padline no :no-expand :comments link
 (defn- direction-bit->angle
   ^double [^long dir-bit]
   (case dir-bit
@@ -4223,7 +4213,7 @@ GridFire estimates the fireline-normal direction by computing the
 *gradient of the Time of Arrival* (recorded in *:burn-time-matrix*):
 
 #+name: fire-spread-estimate-incidence
-#+begin_src clojure :results silent :exports code :padline no :no-expand :comments link
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fire_spread.clj :padline no :no-expand :comments link
 (def ^:const default-incidence-cosine
   "The default guess for the cosine of the fireline-incidence of maximum spread.
 
