@@ -1,4 +1,4 @@
-;; [[file:../../org/GridFire.org::gridfire.fire-spread-beginning][gridfire.fire-spread-beginning]]
+;; [[file:../../org/GridFire.org::fire-spread-beginning][fire-spread-beginning]]
 (ns gridfire.fire-spread
   (:require [clojure.string                :as s]
             [gridfire.common               :refer [burnable-cell?
@@ -41,7 +41,6 @@
 
 (set! *unchecked-math* :warn-on-boxed)
 ;; fire-spread-beginning ends here
-
 ;; [[file:../../org/GridFire.org::fire-spread-directional-utils][fire-spread-directional-utils]]
 (defn- direction-bit->angle
   ^double [^long dir-bit]
@@ -86,7 +85,6 @@
     (0.0  90.0  180.0 270.0) false
     (45.0 135.0 225.0 315.0) true))
 ;; fire-spread-directional-utils ends here
-
 ;; [[file:../../org/GridFire.org::fire-spread-estimate-incidence][fire-spread-estimate-incidence]]
 (def ^:const default-incidence-cosine
   "The default guess for the cosine of the fireline-incidence of maximum spread.
@@ -194,7 +192,6 @@
                            (* <duv|j> <fln|j>))]
           <duv|fln>)))))
 ;; fire-spread-estimate-incidence ends here
-
 ;; [[file:../../org/GridFire.org::fire-spread-core-algorithm][fire-spread-core-algorithm]]
 ;;-----------------------------------------------------------------------------
 ;; Fire spread
@@ -1256,7 +1253,6 @@
                                                  (dfn/sum))
            :spot-count                      spot-count})))))
 ;; fire-spread-core-algorithm ends here
-
 ;; [[file:../../org/GridFire.org::fire-spread-matrices][fire-spread-matrices]]
 ;;-----------------------------------------------------------------------------
 ;; SimulationMatrices Record
@@ -1331,7 +1327,6 @@
 
   *e)
 ;; fire-spread-matrices ends here
-
 ;; [[file:../../org/GridFire.org::fire-spread-entry-point][fire-spread-entry-point]]
 ;;-----------------------------------------------------------------------------
 ;; Main Simulation Entry Point - Dispatches to Point/Perimeter Ignition

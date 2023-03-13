@@ -2757,6 +2757,47 @@ Concretely, this 2D-spread behavior is implemented in *gridfire.fire-spread*
 
 #+name: fire-spread-beginning
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fire_spread.clj :padline no :no-expand :comments link
+(ns gridfire.fire-spread
+  (:require [clojure.string                :as s]
+            [gridfire.common               :refer [burnable-cell?
+                                                   burnable-fuel-model?
+                                                   calc-fuel-moisture
+                                                   in-bounds-optimal?
+                                                   non-zero-indices
+                                                   overtakes-lower-probability-fire?
+                                                   terrain-distance-fn
+                                                   terrain-distance-from-cell-getter
+                                                   terrain-distance-invoke]]
+            [gridfire.conversion           :refer [deg->rad mph->fpm hour->min min->hour]]
+            [gridfire.crown-fire           :refer [crown-fire-eccentricity
+                                                   crown-fire-line-intensity
+                                                   cruz-crown-fire-spread
+                                                   van-wagner-crown-fire-initiation?]]
+            [gridfire.elliptical           :as ellip]
+            [gridfire.fuel-models          :refer [fuel-models-precomputed
+                                                   moisturize]]
+            [gridfire.grid-lookup          :as grid-lookup]
+            [gridfire.spotting             :as spotting]
+            [gridfire.structs.burn-vector  :as burn-vec]
+            [gridfire.structs.rfwo         :as rfwo-struct]
+            [gridfire.suppression          :as suppression]
+            [gridfire.surface-fire         :refer [rothermel-surface-fire-spread-no-wind-no-slope
+                                                   rothermel-surface-fire-spread-max
+                                                   compute-spread-rate
+                                                   anderson-flame-depth
+                                                   byram-fire-line-intensity
+                                                   byram-flame-length
+                                                   wind-adjustment-factor]]
+            [gridfire.utils.flow           :refer [case-double]]
+            [gridfire.utils.gradient       :as gradient]
+            [tech.v3.datatype              :as d]
+            [tech.v3.datatype.functional   :as dfn]
+            [tech.v3.tensor                :as t])
+  (:import (clojure.lang IFn$OLLDO)
+           java.time.ZoneId
+           (java.util ArrayList Date)))
+
+(set! *unchecked-math* :warn-on-boxed)
 #+end_src
 
 Each simulated fire maintains a set of 2D matrices, which are used
