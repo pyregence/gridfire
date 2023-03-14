@@ -4431,14 +4431,14 @@ representation:
                            [1.0])))))))
 #+end_src
 
-** Spotting Model Forumulas
+** Spotting Model Formulas
 
 Gridfire can optionally include spot fires using a cellular automata model
 described in Perryman 2013. The model is broken up into four submodels:
 Surface Spread, Tree Torching, Firebrand Dispersal, and Spot Ignition. For
-Surface Spread and Tree Torching, the Perryman model uses Rothermal (1972) and
+Surface Spread and Tree Torching, the Perryman model uses Rothermel (1972) and
 Van Wagner 1977 respectively. Gridfire will use the same models described in
-the previous sections.
+the previous sections. FIXME fix citations here.
 
 The Firebrand Dispersal model describes the distributions of firebrands relative
 to the wind direction. The location of where the firebrand lands is determined
@@ -4446,23 +4446,27 @@ by the probabilties of landing d meters in the direction parallel and
 perpendicular to the wind.
 
 For determining the distance a firebrands should land parallel to the wind a
-lognormal probability density function is used from Sardoy (2008). Instead
+lognormal probability distribution is used from Sardoy (2008). Instead
 of calculating the probability GridFire will sample using a log-normal
 distribution using the mean and standard deviations derived from the fireline
-intensity and wind speed (Sardoy 2008).
+intensity and wind speed (Sardoy 2008 - FIXME what is this reference? Is it perhaps this one? https://doi.org/10.1016/j.combustflame.2008.05.006).
 
-Mean and spotting distance (/m/) and it's variance (/v/):
-
-\begin{align*}
-m = aQ^{b} * U^{c}
-\end{align*}
+The mean spotting distance $m$ is modeled as a power law of the fireline intensity $Q$ and wind speed $U$:
 
 \begin{align*}
-v = m * d
+m = a\left(\frac{Q}{\text{1 kW/m}}\right)^{b} \left(\frac{U}{\text{1 m/s}}\right)^{c}
 \end{align*}
 
-The emperical parameters a,b,c, and d is specified directly (see
-section 8 in Confguration File)
+The variance of the spotting distance is modeled to be propotional to the mean:
+
+\begin{align*}
+v = m d
+\end{align*}
+
+FIXME (Val 2023-03-14) The above is a strong contraint and I don't know where it comes from, AFAICT not from the Sardoy 2008 paper.
+
+The empirical parameters a,b,c, and d are specified directly (see
+section 8 in Configuration File)
 
 a = mean-distance
 
@@ -4472,8 +4476,7 @@ c = ws-exp
 
 d = normalized-distance-variance
 
-The normalized mean (\mu) and standard deviation (\sigma) of the
-lognormal distribution are then calculated from /m/ and /v/ as:
+The lognormal parameters (\mu and \sigma) are then calculated from /m/ and /v/ as:
 
 \begin{align*}
 \mu = ln(\frac{m^2}{\sqrt{v + m^{2}}})
@@ -4483,20 +4486,14 @@ lognormal distribution are then calculated from /m/ and /v/ as:
 \sigma = \sqrt{ln(1 + \frac{v}{m^{2}})}
 \end{align*}
 
-The above values are used to plugged into the lognormal distribution
-function:
-
-\begin{align*}
-f(d) = \frac{1}{\sqrt{2 \pi \sigma x}} exp (-\frac{1}{2} \frac{ln(d) - \mu}{\sigma}^2)
-\end{align*}
-
-Instead of implementing this function Gridfire uses the log-normal
-function from kixi.stats (a Clojure/Clojurescript library of
-statistical sampling and transducing functions).
+Sampling from the lognormal distribution can then be done by sampling random draws
+from a normal distributions with parameters \mu and \sigma, then applying the exponential function.
 
 For determining the distance a firebrands should land perpendicular to the wind
-a normal distribution with the mean of 0 and standard deviation of 0.92 is used,
+a normal distribution with a mean of 0 and standard deviation of 0.92m is used,
 as described in Himoto and Tanaka (2005) (referenced in Perryman).
+FIXME this is a wrong interpretation of the Himoto and Tanaka paper,
+which actually implies that the standard deviation should be $0.92 \times (0.47/0.88^2) \times (v/m)$
 
 Once we have the mean and standard deviation we can sample using log-normal
 distribution for the direction parallel to the wind and normal distribution for
@@ -4637,17 +4634,19 @@ Schroeder (1969) but adjusts the result to take into account the distance a
 firebrand lands from the source tree (using Albini 1979) and the number of
 firebrands that land in a cell (using Stauffer 2008).
 
-
 \begin{align*}
-P(I)_d = P(I)exp(-\lambda_sd)
-P(I)_d^{FB} = 1 - (1 - P(I)_d)^b
+P(I)_l = P(I)\exp(-\lambda_s l) \\
+P(I)_l^{FB} = 1 - (1 - P(I)_l)^{n_b}
 \end{align*}
 
-where \lambda is a positive number representing the decay constant, d is the
-firebrand's landing distance away from the source cell. $P(I)_d$ is the
-probability of spot ignition taking into consideration of d. $P(I)_d^{FB}$ is
-the probability of spot fire ignition taking into consideration b, the number of
-firebrands landing in a cell.
+where $\lambda_s$ is a positive number representing the decay constant,
+$l$ is the firebrand's landing distance away from the source cell. $P(I)_l$ is the
+probability of spot ignition taking into consideration of l. $P(I)_l^{FB}$ is
+the probability of spot fire ignition taking into consideration $n_b$, the number of
+firebrands landing in a cell. These formulas simply say that the firebrands are i.i.d
+causes of ignition, with a per-firebrand probability that decays exponentially with distance
+(i.e. adding $1/\lambda_s$ to the distance divides the probability by $e$,
+or equivalently $l \mapsto P(I)_l$ has derivative $\lambda_s P(I)_l$).
 
 #+name: firebrand-ignition-probability
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting_old.clj :padline no :no-expand :comments link
@@ -4715,8 +4714,8 @@ firebrands landing in a cell.
       (one-minus)))
 #+end_src
 
-A firebrand will cause an unburened cell to transition to a burned state if the
-cell receives atleast one firebrand and the cell's probability of ignition as
+A firebrand will cause an unburned cell to transition to a burned state if the
+cell receives at least one firebrand and the cell's probability of ignition as
 calculated by the above equations is greater than a randomly generated uniform number.
 Once a cell has been determined to ignite then the time until ignition is
 calculated. The time until ignition is a sum of three time intervals: the amount
@@ -4780,9 +4779,9 @@ $t_I$ is also assumed to be 20 min as used in McAlpine and Wakimoto (1991).
 
 Once the locations, ignition probabilities, and time of ignition has been
 calculated for each of the firebrands a sequence of key value pairs are
-returned, to be processed in `gridfire.cli`. The key is [x y] location of the
-firebrand and the value [t p] where t is the time of igintion and p is the
-ignition probability.
+returned, to be processed in `gridfire.cli` (FIXME wat?). The key is [x y] location of the
+firebrand and the value [t p] where t is the time of ignition and p is the
+ignition probability (FIXME that is, the highly confusing notion of probability in the sense of 'simulation pessimism', not the probability of ignition computed above).
 #+name: spread-firebrands
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting_old.clj :padline no :no-expand :comments link
 (defn- update-firebrand-counts!

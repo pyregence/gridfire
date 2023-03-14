@@ -28,10 +28,10 @@
       (my-rand-range rand-gen l h))
     param))
 
-(defn- mean-variance
-  "Returns mean spotting distance and it's variance given:
-  fire-line-intensity: (kWm^-1)
-  wind-speed-20ft: (ms^-1)"
+(defn- downwind-distance-mean-variance
+  "Returns the mean and variance of the spotting distance along the wind direction, given:
+  fire-line-intensity: (kW/m)
+  wind-speed-20ft: (m/s)"
   [{:keys [^double mean-distance ^double flin-exp ^double ws-exp ^double normalized-distance-variance]}
    rand-gen ^double fire-line-intensity ^double wind-speed-20ft]
   (let [a (sample-spotting-params mean-distance rand-gen)
@@ -40,16 +40,20 @@
         m (* a (Math/pow fire-line-intensity b) (Math/pow wind-speed-20ft c))]
     {:mean m :variance (* m (sample-spotting-params normalized-distance-variance rand-gen))}))
 
-(defn- standard-deviation
-  "Returns standard deviation for the lognormal distribution given:
-  mean spotting distance and it's variance"
+(defn- lognormal-sigma-from-moments
+  "Resolves the dispersion parameter (sigma) of a log-normal distribution from its moments.
+
+  Given the mean `m` and variance `v` of a log-normal random variable X,
+  returns the standard deviation of ln(X), the underlying normally distributed random variable."
   ^double
   [^double m ^double v]
   (Math/sqrt (Math/log (+ 1 (/ v (Math/pow m 2))))))
 
-(defn- normalized-mean
-  "Returns normalized mean for the lognormal distribution given:
-  mean spotting distance and it's variance"
+(defn- lognnormal-mu-from-moments
+  "Resolves the location parameter (mu) of a log-normal distribution from its moments.
+
+  Given the mean `m` and variance `v` of a log-normal random variable X,
+  returns the mean of ln(X), the underlying normally distributed random variable."
   ^double
   [^double m ^double v]
   (Math/log (/ (Math/pow m 2)
@@ -77,9 +81,9 @@
         rand-gen                (:rand-gen inputs)
         num-firebrands          (long (sample-spotting-params (:num-firebrands spotting) rand-gen))
         intensity               (convert/Btu-ft-s->kW-m (t/mget fire-line-intensity-matrix i j))
-        {:keys [mean variance]} (mean-variance spotting rand-gen intensity wind-speed-20ft)
-        mu                      (normalized-mean mean variance)
-        sd                      (standard-deviation mean variance)
+        {:keys [mean variance]} (downwind-distance-mean-variance spotting rand-gen intensity wind-speed-20ft)
+        mu                      (lognnormal-mu-from-moments mean variance)
+        sd                      (lognormal-sigma-from-moments mean variance)
         parallel-values         (repeatedly num-firebrands #(sample-lognormal rand-gen mu sd))
         perpendicular-values    (repeatedly num-firebrands #(sample-normal rand-gen 0.0 0.92))]
     (mapv (fn [x y] [(convert/m->ft x) (convert/m->ft y)])
