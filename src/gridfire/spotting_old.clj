@@ -1,4 +1,4 @@
-;; [[file:../../org/GridFire.org::sardoy-firebrand-dispersal][sardoy-firebrand-dispersal]]
+;; [[file:../../org/GridFire.org::gridfire.spotting-old][gridfire.spotting-old]]
 (ns gridfire.spotting-old
   (:require [gridfire.common       :refer [distance-3d
                                            calc-fuel-moisture
@@ -81,8 +81,7 @@
     (mapv (fn [x y] [(convert/m->ft x) (convert/m->ft y)])
           parallel-values
           perpendicular-values)))
-;; sardoy-firebrand-dispersal ends here
-;; [[file:../../org/GridFire.org::convert-deltas][convert-deltas]]
+
 (defn hypotenuse ^double
   [x y]
   (Math/sqrt (+ (Math/pow x 2) (Math/pow y 2))))
@@ -118,8 +117,7 @@
               [(long (Math/floor (/ (+ dy y) cell-size)))
                (long (Math/floor (/ (+ dx x) cell-size)))]))
           coord-deltas)))
-;; convert-deltas ends here
-;; [[file:../../org/GridFire.org::firebrand-ignition-probability][firebrand-ignition-probability]]
+
 (defn heat-of-preignition
   "Returns heat of preignition given:
    - Temperature: (Celsius)
@@ -182,8 +180,7 @@
       (one-minus)
       (Math/pow firebrand-count)
       (one-minus)))
-;; firebrand-ignition-probability ends here
-;; [[file:../../org/GridFire.org::firebrands-time-of-ignition][firebrands-time-of-ignition]]
+
 (defn spot-ignition?
   [rand-gen ^double spot-ignition-probability]
   (let [random-number (my-rand-range rand-gen 0 1)]
@@ -231,8 +228,7 @@
         (* 2.0)
         (+ global-clock)
         (+ t-steady-state))))
-;; firebrands-time-of-ignition ends here
-;; [[file:../../org/GridFire.org::spread-firebrands][spread-firebrands]]
+
 (defn- update-firebrand-counts!
   [{:keys [num-rows num-cols fuel-model-matrix]}
    firebrand-count-matrix
@@ -355,4 +351,4 @@
                                                (convert/ft->m (t/mget flame-length-matrix i j)))]
                  [[x y] [t spot-ignition-p]])))
            (remove nil?)))))
-;; spread-firebrands ends here
+;; gridfire.spotting-old ends here
