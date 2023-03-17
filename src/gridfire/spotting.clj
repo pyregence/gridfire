@@ -12,7 +12,8 @@
             [gridfire.utils.random        :refer [my-rand-range]]
             [tech.v3.tensor               :as t]
             [vvvvalvalval.supdate.api     :as supd])
-  (:import java.util.Random))
+  (:import (java.util Random)
+           (org.apache.commons.math3.distribution PoissonDistribution)))
 (set! *unchecked-math* :warn-on-boxed)
 
 ;;-----------------------------------------------------------------------------
@@ -112,15 +113,13 @@
   in the directions parallel and perpendicular to the wind.
   ΔX will typically be positive (downwind),
   and positive ΔY means to the right of the downwind direction."
-  [inputs fire-line-intensity wind-speed-20ft]
+  [inputs fire-line-intensity wind-speed-20ft num-firebrands]
   (let [spotting-config   (:spotting inputs)
         rand-gen          (:rand-gen inputs)
         fl-intensity      (convert/Btu-ft-s->kW-m fire-line-intensity)
         ws20ft            (convert/mph->mps wind-speed-20ft)
         sample-delta-x-fn (delta-x-sampler spotting-config fl-intensity ws20ft)
-        sample-delta-y-fn (delta-y-sampler spotting-config fl-intensity ws20ft)
-        ;; FIXME consider drawing num-firebrands from Poisson distribution, for consistency.
-        num-firebrands    (long (:num-firebrands spotting-config))]
+        sample-delta-y-fn (delta-y-sampler spotting-config fl-intensity ws20ft)]
     (vec (repeatedly num-firebrands
                      (fn sample-delta-tuple []
                        [(sample-delta-x-fn rand-gen)
@@ -273,28 +272,7 @@
         (+ burn-time)
         (+ t-steady-state))))
 ;; firebrands-time-of-ignition ends here
-;; [[file:../../org/GridFire.org::spread-firebrands][spread-firebrands]]
-(defn- update-firebrand-counts!
-  [inputs firebrand-count-matrix fire-spread-matrix source firebrands]
-  (let [num-rows                (:num-rows inputs)
-        num-cols                (:num-cols inputs)
-        get-fuel-model          (:get-fuel-model inputs)
-        [i j]                   source
-        source-burn-probability (grid-lookup/mget-double-at fire-spread-matrix (long i) (long j))]
-    (doseq [[y x] firebrands]
-      ;; FIXME REVIEW Why this check? Why would we not count firebrands in non-burnable cells, e.g. urban areas?
-      (when (burnable-cell? get-fuel-model
-                            fire-spread-matrix
-                            source-burn-probability
-                            num-rows
-                            num-cols
-                            y
-                            x)
-        (->> (grid-lookup/mget-double-at firebrand-count-matrix y x)
-             (long)
-             (inc)
-             (t/mset! firebrand-count-matrix y x))))))
-
+;; [[file:../../org/GridFire.org::spotting-fire-probability][spotting-fire-probability]]
 (defn- in-range?
   [[min max] fuel-model-number]
   (<= min fuel-model-number max))
@@ -357,13 +335,50 @@
     (crown-spot-fire? inputs)
     (surface-fire-spot-fire? inputs here fire-line-intensity)))
 
+(defn- sample-poisson
+  ^long [^double mean rand-gen]
+  (-> (PoissonDistribution. rand-gen
+                            mean
+                            PoissonDistribution/DEFAULT_EPSILON
+                            PoissonDistribution/DEFAULT_MAX_ITERATIONS)
+      (.sample)
+      (long)))
+
+(defn sample-number-of-firebrands
+  ^long [spotting-config rand-gen]
+  (sample-poisson (:num-firebrands spotting-config) rand-gen))
+;; spotting-fire-probability ends here
+;; [[file:../../org/GridFire.org::spread-firebrands][spread-firebrands]]
+(defn- update-firebrand-counts!
+  [inputs firebrand-count-matrix fire-spread-matrix source firebrands]
+  (let [num-rows                (:num-rows inputs)
+        num-cols                (:num-cols inputs)
+        get-fuel-model          (:get-fuel-model inputs)
+        [i j]                   source
+        source-burn-probability (grid-lookup/mget-double-at fire-spread-matrix (long i) (long j))]
+    (doseq [[y x] firebrands]
+      ;; FIXME REVIEW Why this check? Why would we not count firebrands in non-burnable cells, e.g. urban areas?
+      (when (burnable-cell? get-fuel-model
+                            fire-spread-matrix
+                            source-burn-probability
+                            num-rows
+                            num-cols
+                            y
+                            x)
+        (->> (grid-lookup/mget-double-at firebrand-count-matrix y x)
+             (long)
+             (inc)
+             (t/mset! firebrand-count-matrix y x))))))
+
 ;; FIXME: Drop cell = [i j]
 (defn spread-firebrands
-  "Returns a sequence of key value pairs where
+  "Returns a sequence of [[x y] [t p]] key value pairs where
   key: [x y] locations of the cell
   val: [t p] where:
   t: time of ignition
-  p: ignition-probability"
+  p: ignition-probability.
+
+  Also mutates :firebrand-count-matrix to update the counts."
   [inputs matrices i j]
   (let [num-rows                   (:num-rows inputs)
         num-cols                   (:num-cols inputs)
@@ -393,7 +408,8 @@
       (let [band                    (long (/ burn-time 60.0))
             ws                      (grid-lookup/double-at get-wind-speed-20ft band i j)
             wd                      (grid-lookup/double-at get-wind-from-direction band i j)
-            deltas                  (sample-wind-dir-deltas inputs fire-line-intensity ws)
+            num-fbs                 (sample-number-of-firebrands spotting rand-gen)
+            deltas                  (sample-wind-dir-deltas inputs fire-line-intensity ws num-fbs)
             wind-to-direction       (mod (+ 180 wd) 360)
             firebrands              (firebrands deltas wind-to-direction cell cell-size)
             source-burn-probability (grid-lookup/mget-double-at fire-spread-matrix i j)

@@ -112,6 +112,7 @@ deps.edn for the current GridFire version is shown below.
         hikari-cp/hikari-cp                 {:mvn/version "2.13.0"}
         manifold/manifold                   {:mvn/version "0.2.4"}
         org.apache.commons/commons-compress {:mvn/version "1.21"}
+        org.apache.commons/commons-math3    {:mvn/version "3.6.1"}
         org.clojars.lambdatronic/matrix-viz {:mvn/version "2022.02.03"}
         org.clojure/clojure                 {:mvn/version "1.10.3"}
         org.clojure/core.async              {:mvn/version "1.3.622"}
@@ -4898,7 +4899,8 @@ then transforming by affine and exponential functions:
             [gridfire.utils.random        :refer [my-rand-range]]
             [tech.v3.tensor               :as t]
             [vvvvalvalval.supdate.api     :as supd])
-  (:import java.util.Random))
+  (:import (java.util Random)
+           (org.apache.commons.math3.distribution PoissonDistribution)))
 (set! *unchecked-math* :warn-on-boxed)
 
 ;;-----------------------------------------------------------------------------
@@ -4998,20 +5000,116 @@ then transforming by affine and exponential functions:
   in the directions parallel and perpendicular to the wind.
   ΔX will typically be positive (downwind),
   and positive ΔY means to the right of the downwind direction."
-  [inputs fire-line-intensity wind-speed-20ft]
+  [inputs fire-line-intensity wind-speed-20ft num-firebrands]
   (let [spotting-config   (:spotting inputs)
         rand-gen          (:rand-gen inputs)
         fl-intensity      (convert/Btu-ft-s->kW-m fire-line-intensity)
         ws20ft            (convert/mph->mps wind-speed-20ft)
         sample-delta-x-fn (delta-x-sampler spotting-config fl-intensity ws20ft)
-        sample-delta-y-fn (delta-y-sampler spotting-config fl-intensity ws20ft)
-        ;; FIXME consider drawing num-firebrands from Poisson distribution, for consistency.
-        num-firebrands    (long (:num-firebrands spotting-config))]
+        sample-delta-y-fn (delta-y-sampler spotting-config fl-intensity ws20ft)]
     (vec (repeatedly num-firebrands
                      (fn sample-delta-tuple []
                        [(sample-delta-x-fn rand-gen)
                         (sample-delta-y-fn rand-gen)])))))
 #+end_src
+
+*** Spotting Probability and Number of Firebrands
+
+Whether or not a cell emits firebrand is determined by a spotting probability.
+GridFire lets users configure separate spotting probabilities for crowning
+fires (*:crown-fire-spotting-percent*), and for surface fires under certain conditions
+(*:surface-fire-spotting :spotting-percent*).
+Note that these configuration keys have misleading names (the values must be between 0 and 1).
+
+Surface fire spotting can only happen when the fireline intensity exceeds a certain
+threshold (configured at *:critical-fire-line-intensity*).
+Both that threshold and the spotting probability can be configured per fuel number.
+
+#+name: spotting-fire-probability
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting.clj :padline no :no-expand :comments link
+(defn- in-range?
+  [[min max] fuel-model-number]
+  (<= min fuel-model-number max))
+
+(defn- intranges-mapping-lookup
+  "Looks up a value in a mapping from fuel number to anything,
+  encoded as either a single value v (constant mapping),
+  or as a vector of [[min-fuel-number max-fuel-number] v] pairs,
+  such as:
+  [[[1 140]   0.0]
+   [[141 149] 1.0]
+   [[150 256] 1.0]]"
+  [intranges-mapping fuel-model-number]
+  (if (vector? intranges-mapping)
+    ;; IMPROVEMENT for performance, we could do a non-sequential lookup, (Val, 02 Nov 2022)
+    ;; e.g. a dichotomic search,
+    ;; or even better just (aget) an array into which we have indexed the decompressed mapping.
+    (loop [irm-entries intranges-mapping]
+      (when-let [[fuel-range v] (first irm-entries)]
+        (if (in-range? fuel-range fuel-model-number)
+          v
+          (recur (rest irm-entries)))))
+    intranges-mapping))
+
+(defn surface-fire-spot-fire?
+  "Expects surface-fire-spotting config to be a sequence of tuples of
+  ranges [lo hi] and spotting probability. The range represents the range (inclusive)
+  of fuel model numbers that the spotting probability is set to.
+  [[[1 140] 0.0]
+  [[141 149] 1.0]
+  [[150 256] 1.0]]"
+  [inputs [i j] ^double fire-line-intensity]
+  (let [rand-gen                     (:rand-gen inputs)
+        get-fuel-model               (:get-fuel-model inputs)
+        fuel-model-number            (long (grid-lookup/double-at get-fuel-model i j))
+        surface-fire-spotting        (:surface-fire-spotting (:spotting inputs))
+        critical-fire-line-intensity (-> (:critical-fire-line-intensity surface-fire-spotting)
+                                         (intranges-mapping-lookup fuel-model-number)
+                                         (or 0.0)
+                                         (double))]
+    (when (and surface-fire-spotting
+               (> fire-line-intensity critical-fire-line-intensity))
+      (let [spot-percent (-> (:spotting-percent surface-fire-spotting)
+                             (intranges-mapping-lookup fuel-model-number)
+                             (or 0.0)
+                             (double))]
+        (>= spot-percent (my-rand-range rand-gen 0.0 1.0))))))
+
+(defn crown-spot-fire?
+  "Determine whether crowning causes spot fires. Config key `:spotting` should
+   take either a vector of probabilities (0-1) or a single spotting probability."
+  [inputs]
+  (when-some [spot-percent (:crown-fire-spotting-percent (:spotting inputs))] ; WARNING 'percent' is misleading. (Val, 17 Mar 2023)
+    (let [rand-gen (:rand-gen inputs)
+          p        (double spot-percent)]
+      (>= p (my-rand-range rand-gen 0.0 1.0)))))
+
+(defn- spot-fire? [inputs crown-fire? here fire-line-intensity]
+  (if crown-fire?
+    (crown-spot-fire? inputs)
+    (surface-fire-spot-fire? inputs here fire-line-intensity)))
+
+(defn- sample-poisson
+  ^long [^double mean rand-gen]
+  (-> (PoissonDistribution. rand-gen
+                            mean
+                            PoissonDistribution/DEFAULT_EPSILON
+                            PoissonDistribution/DEFAULT_MAX_ITERATIONS)
+      (.sample)
+      (long)))
+
+(defn sample-number-of-firebrands
+  ^long [spotting-config rand-gen]
+  (sample-poisson (:num-firebrands spotting-config) rand-gen))
+#+end_src
+
+If spotting occurs at a cell, the number of firebrands is randomly drawn from a Poisson distribution (FIXME REVIEW is that OK?),
+which mean is configured at key *:num-firebrands*. As such, non-integer values are allowed for *num-firebrands*.
+The use of a Poisson distribution can help make the behavior robust to changes in simulation resolution.
+That being said, note that *:num-firebrands* and/or the spotting probabilities will need to be adjusted if you change the simulation resolution,
+the essential invariant being the average number of firebrands per unit area.
+What's more, it may be sensible to set the spotting probability to 1 and compensate with a low Poisson mean.
+
 
 *** Spot Ignition Model
 
@@ -5196,75 +5294,15 @@ ignition probability (FIXME that is, the highly confusing notion of probability 
              (inc)
              (t/mset! firebrand-count-matrix y x))))))
 
-(defn- in-range?
-  [[min max] fuel-model-number]
-  (<= min fuel-model-number max))
-
-(defn- intranges-mapping-lookup
-  "Looks up a value in a mapping from fuel number to anything,
-  encoded as either a single value v (constant mapping),
-  or as a vector of [[min-fuel-number max-fuel-number] v] pairs,
-  such as:
-  [[[1 140]   0.0]
-   [[141 149] 1.0]
-   [[150 256] 1.0]]"
-  [intranges-mapping fuel-model-number]
-  (if (vector? intranges-mapping)
-    ;; IMPROVEMENT for performance, we could do a non-sequential lookup, (Val, 02 Nov 2022)
-    ;; e.g. a dichotomic search,
-    ;; or even better just (aget) an array into which we have indexed the decompressed mapping.
-    (loop [irm-entries intranges-mapping]
-      (when-let [[fuel-range v] (first irm-entries)]
-        (if (in-range? fuel-range fuel-model-number)
-          v
-          (recur (rest irm-entries)))))
-    intranges-mapping))
-
-(defn surface-fire-spot-fire?
-  "Expects surface-fire-spotting config to be a sequence of tuples of
-  ranges [lo hi] and spotting probability. The range represents the range (inclusive)
-  of fuel model numbers that the spotting probability is set to.
-  [[[1 140] 0.0]
-  [[141 149] 1.0]
-  [[150 256] 1.0]]"
-  [inputs [i j] ^double fire-line-intensity]
-  (let [rand-gen                     (:rand-gen inputs)
-        get-fuel-model               (:get-fuel-model inputs)
-        fuel-model-number            (long (grid-lookup/double-at get-fuel-model i j))
-        surface-fire-spotting        (:surface-fire-spotting (:spotting inputs))
-        critical-fire-line-intensity (-> (:critical-fire-line-intensity surface-fire-spotting)
-                                         (intranges-mapping-lookup fuel-model-number)
-                                         (or 0.0)
-                                         (double))]
-    (when (and surface-fire-spotting
-               (> fire-line-intensity critical-fire-line-intensity))
-      (let [spot-percent (-> (:spotting-percent surface-fire-spotting)
-                             (intranges-mapping-lookup fuel-model-number)
-                             (or 0.0)
-                             (double))]
-        (>= spot-percent (my-rand-range rand-gen 0.0 1.0))))))
-
-(defn crown-spot-fire?
-  "Determine whether crowning causes spot fires. Config key `:spotting` should
-   take either a vector of probabilities (0-1) or a single spotting probability."
-  [inputs]
-  (when-some [spot-percent (:crown-fire-spotting-percent (:spotting inputs))] ; WARNING 'percent' is misleading. (Val, 17 Mar 2023)
-    (let [rand-gen (:rand-gen inputs)
-          p        (double spot-percent)]
-      (>= p (my-rand-range rand-gen 0.0 1.0)))))
-
-(defn- spot-fire? [inputs crown-fire? here fire-line-intensity]
-  (if crown-fire?
-    (crown-spot-fire? inputs)
-    (surface-fire-spot-fire? inputs here fire-line-intensity)))
-
 ;; FIXME: Drop cell = [i j]
 (defn spread-firebrands
-  "Returns a sequence of key value pairs where
+  "Returns a sequence of [[x y] [t p]] key value pairs where
   key: [x y] locations of the cell
   val: [t p] where:
   t: time of ignition
-  p: ignition-probability"
+  p: ignition-probability.
+
+  Also mutates :firebrand-count-matrix to update the counts."
   [inputs matrices i j]
   (let [num-rows                   (:num-rows inputs)
         num-cols                   (:num-cols inputs)
@@ -5294,7 +5332,8 @@ ignition probability (FIXME that is, the highly confusing notion of probability 
       (let [band                    (long (/ burn-time 60.0))
             ws                      (grid-lookup/double-at get-wind-speed-20ft band i j)
             wd                      (grid-lookup/double-at get-wind-from-direction band i j)
-            deltas                  (sample-wind-dir-deltas inputs fire-line-intensity ws)
+            num-fbs                 (sample-number-of-firebrands spotting rand-gen)
+            deltas                  (sample-wind-dir-deltas inputs fire-line-intensity ws num-fbs)
             wind-to-direction       (mod (+ 180 wd) 360)
             firebrands              (firebrands deltas wind-to-direction cell cell-size)
             source-burn-probability (grid-lookup/mget-double-at fire-spread-matrix i j)
