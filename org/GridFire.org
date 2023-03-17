@@ -5030,9 +5030,15 @@ where $\lambda_s$ is a positive number representing the decay constant,
 $l$ is the firebrand's landing distance away from the source cell. $P(I)_l$ is the
 probability of spot ignition taking into consideration of l. $P(I)_l^{FB}$ is
 the probability of spot fire ignition taking into consideration $n_b$, the number of
-firebrands landing in a cell. These formulas simply say that the firebrands are i.i.d
-causes of ignition (this is consistent with the goal of making the model insensitive to grid resolution),
-with a per-firebrand probability that decays exponentially with distance
+firebrands landing in a cell.
+
+We observe that the second formula is equivalent to a model where
+the firebrands are i.i.d causes of ignition
+(this is consistent with the goal of making the model insensitive to grid resolution).
+Therefore, GridFire will simply draw an independent Bernoulli trial for each
+firebrand rather than apply the above formula.
+
+The first formula simply says that  a per-firebrand probability that decays exponentially with distance
 (i.e. adding $1/\lambda_s$ to the distance divides the probability by $e$,
 or equivalently $l \mapsto P(I)_l$ has derivative $\lambda_s P(I)_l$).
 
@@ -5085,21 +5091,17 @@ or equivalently $l \mapsto P(I)_l$ has derivative $\lambda_s P(I)_l$).
 (defn spot-ignition-probability
   "Returns the probability of spot fire ignition (Perryman 2012) given:
    - Schroeder's probability of ignition [P(I)] (0-1)
-   - Decay constant [lambda] (0.005)
+   - Decay constant [lambda] (m^-1)
    - Distance from the torched cell [d] (meters)
-   - Number of firebrands accumulated in the cell [b]
 
-   P(Spot Ignition) = 1 - (1 - (P(I) * exp(-lambda * d)))^b"
+   P(Spot Ignition) = P(I) * exp(-lambda * d)"
   ^double
-  [^double ignition-probability ^double decay-constant ^double spotting-distance ^double firebrand-count]
+  [^double ignition-probability ^double decay-constant ^double spotting-distance]
   (-> decay-constant
       (* -1.0)
       (* spotting-distance)
       (Math/exp)
-      (* ignition-probability)
-      (one-minus)
-      (Math/pow firebrand-count)
-      (one-minus)))
+      (* ignition-probability)))
 #+end_src
 
 A firebrand will cause an unburned cell to transition to a burned state if the
@@ -5165,7 +5167,7 @@ $t_I$ is also assumed to be 20 min as used in McAlpine and Wakimoto (1991).
         (+ t-steady-state))))
 #+end_src
 
-Once the locations, ignition probabilities, and time of ignition has been
+Once the locations, ignition probabilities, and time of ignition have been
 calculated for each of the firebrands a sequence of key value pairs are
 returned, to be processed in `gridfire.cli` (FIXME wat?). The key is [x y] location of the
 firebrand and the value [t p] where t is the time of ignition and p is the
@@ -5181,6 +5183,7 @@ ignition probability (FIXME that is, the highly confusing notion of probability 
         [i j]                   source
         source-burn-probability (grid-lookup/mget-double-at fire-spread-matrix (long i) (long j))]
     (doseq [[y x] firebrands]
+      ;; FIXME REVIEW Why this check? Why would we not count firebrands in non-burnable cells, e.g. urban areas?
       (when (burnable-cell? get-fuel-model
                             fire-spread-matrix
                             source-burn-probability
@@ -5312,11 +5315,9 @@ ignition probability (FIXME that is, the highly confusing notion of probability 
                          ignition-probability (schroeder-ign-prob (convert/F->C (double temperature)) fine-fuel-moisture)
                          decay-constant       (double (:decay-constant spotting))
                          spotting-distance    (convert/ft->m (terrain-distance-invoke terrain-dist-fn i j x y))
-                         firebrand-count      (t/mget firebrand-count-matrix x y)
                          spot-ignition-p      (spot-ignition-probability ignition-probability
                                                                          decay-constant
-                                                                         spotting-distance
-                                                                         firebrand-count)
+                                                                         spotting-distance)
                          burn-probability     (* spot-ignition-p source-burn-probability)]
                      (when (and (>= burn-probability 0.1)   ; TODO parametrize 0.1 in gridfire.edn
                                 (> (double burn-probability) (grid-lookup/mget-double-at fire-spread-matrix x y))
@@ -11810,25 +11811,22 @@ FIXME how about we lift this up to the Crowning section?
   (testing "Using Perryman (2012)."
     (let [lambda 0.005]
       (are [result args] (within? result (apply spotting/spot-ignition-probability args) 0.001)
-           ; Probability (0-1) [ignition-probability (0-1) decay-constant spotting-distance (m) firebrand-count]
+           ; Probability (0-1) [ignition-probability (0-1) decay-constant spotting-distance (m)]
 
            ; Increasing Schroeder Ignition Probability
-           0.121               [0.2 lambda 100 1.0]
-           0.242               [0.4 lambda 100 1.0]
-           0.363               [0.6 lambda 100 1.0]
-           0.485               [0.8 lambda 100 1.0]
-           0.606               [1.0 lambda 100 1.0]
+           0.121               [0.2 lambda 100]
+           0.242               [0.4 lambda 100]
+           0.363               [0.6 lambda 100]
+           0.485               [0.8 lambda 100]
+           0.606               [1.0 lambda 100]
 
            ; Increasing Firebrands Count
-           0.0                 [0.5 lambda 100 0.0]
-           0.303               [0.5 lambda 100 1.0]
-           0.514               [0.5 lambda 100 2.0]
-           0.973               [0.5 lambda 100 10.0]
+           0.303               [0.5 lambda 100]
 
            ; Increasing Distance
-           0.303               [0.5 lambda 100  1.0]
-           0.183               [0.5 lambda 200  1.0]
-           0.0                 [0.5 lambda 2000 1.0]))))
+           0.303               [0.5 lambda 100]
+           0.183               [0.5 lambda 200]
+           0.0                 [0.5 lambda 2000]))))
 
 (deftest ^:unit test-spot-ignition-time
   (testing "Calculating t-max from Albini (1976)."

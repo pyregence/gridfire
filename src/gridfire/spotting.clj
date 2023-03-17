@@ -212,21 +212,17 @@
 (defn spot-ignition-probability
   "Returns the probability of spot fire ignition (Perryman 2012) given:
    - Schroeder's probability of ignition [P(I)] (0-1)
-   - Decay constant [lambda] (0.005)
+   - Decay constant [lambda] (m^-1)
    - Distance from the torched cell [d] (meters)
-   - Number of firebrands accumulated in the cell [b]
 
-   P(Spot Ignition) = 1 - (1 - (P(I) * exp(-lambda * d)))^b"
+   P(Spot Ignition) = P(I) * exp(-lambda * d)"
   ^double
-  [^double ignition-probability ^double decay-constant ^double spotting-distance ^double firebrand-count]
+  [^double ignition-probability ^double decay-constant ^double spotting-distance]
   (-> decay-constant
       (* -1.0)
       (* spotting-distance)
       (Math/exp)
-      (* ignition-probability)
-      (one-minus)
-      (Math/pow firebrand-count)
-      (one-minus)))
+      (* ignition-probability)))
 ;; firebrand-ignition-probability ends here
 ;; [[file:../../org/GridFire.org::firebrands-time-of-ignition][firebrands-time-of-ignition]]
 (defn spot-ignition?
@@ -286,6 +282,7 @@
         [i j]                   source
         source-burn-probability (grid-lookup/mget-double-at fire-spread-matrix (long i) (long j))]
     (doseq [[y x] firebrands]
+      ;; FIXME REVIEW Why this check? Why would we not count firebrands in non-burnable cells, e.g. urban areas?
       (when (burnable-cell? get-fuel-model
                             fire-spread-matrix
                             source-burn-probability
@@ -417,11 +414,9 @@
                          ignition-probability (schroeder-ign-prob (convert/F->C (double temperature)) fine-fuel-moisture)
                          decay-constant       (double (:decay-constant spotting))
                          spotting-distance    (convert/ft->m (terrain-distance-invoke terrain-dist-fn i j x y))
-                         firebrand-count      (t/mget firebrand-count-matrix x y)
                          spot-ignition-p      (spot-ignition-probability ignition-probability
                                                                          decay-constant
-                                                                         spotting-distance
-                                                                         firebrand-count)
+                                                                         spotting-distance)
                          burn-probability     (* spot-ignition-p source-burn-probability)]
                      (when (and (>= burn-probability 0.1)   ; TODO parametrize 0.1 in gridfire.edn
                                 (> (double burn-probability) (grid-lookup/mget-double-at fire-spread-matrix x y))
