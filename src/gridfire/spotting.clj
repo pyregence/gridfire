@@ -494,6 +494,6 @@
                      :delta-y-sigma])
             (supd/supdate sp-params
                           {:crown-fire-spotting-percent #(some-> % (sample-from-uniform rand-gen))
-                           :surface-fire-spotting       {:critical-fire-line-intensity sample-intranges-mapping-values
-                                                         :spotting-percent             sample-intranges-mapping-values}}))))
+                           :surface-fire-spotting       {:critical-fire-line-intensity #(sample-intranges-mapping-values % rand-gen)
+                                                         :spotting-percent             #(sample-intranges-mapping-values % rand-gen)}}))))
 ;; spotting-firebrands-params-sampling ends here
