@@ -5,7 +5,8 @@
             [gridfire.spec.config   :as config]))
 
 (deftest ^:unit spotting-test
-  (let [required {:mean-distance                {:lo 5.0 :hi 15.0}
+  (let [required {:decay-constant               0.005
+                  :mean-distance                {:lo 5.0 :hi 15.0}
                   :normalized-distance-variance {:lo 250.0 :hi 600.0}
                   :flin-exp                     {:lo 0.2 :hi 0.4}
                   :ws-exp                       {:lo 0.4 :hi 0.7}
@@ -15,7 +16,8 @@
       (is (s/valid? ::config/spotting required)))
 
     (testing "optional surface-fire-spotting"
-      (let [optional {:surface-fire-spotting {:spotting-percent             [[[1   149] 1.0]
+      (let [optional {:delta-y-sigma         20.0
+                      :surface-fire-spotting {:spotting-percent             [[[1   149] 1.0]
                                                                              [[150 169] 2.0]
                                                                              [[169 204] 3.0]]
                                               :critical-fire-line-intensity 2000.0}}]

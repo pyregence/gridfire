@@ -649,6 +649,7 @@
               :normalized-distance-variance (extract-normalized-distance-variance elmfire-config)
               :crown-fire-spotting-percent  (extract-crown-fire-spotting-percent elmfire-config)
               :num-firebrands               (extract-num-firebrands elmfire-config)
+              :delta-y-sigma                20.0            ; (m) FIXME REVIEW is that a good default?
               :decay-constant               0.005}
              ;; FIXME Elmfire does not use relative-humidity but GF needs it for Spotting.
              ;; Default to 20 or set in override-config

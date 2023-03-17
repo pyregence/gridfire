@@ -4783,7 +4783,7 @@ The behavior of these formulas on the values found in \citep{Sardoy2008} is demo
 *** Wind-perpendicular Dispersal
 
 For $\sigma_Y$, we either let the user specify an explicit value in the GridFire configuration
-(at key *:delta-y-sigma*, in feet), which makes it equivalent to the model of \citep{Perryman2012},
+(at key *:delta-y-sigma*, in meters), which makes it equivalent to the model of \citep{Perryman2012},
 or we default to deriving them from equation (28) of \cite{Himoto2005},
 which is equivalent to:
 
@@ -4990,7 +4990,7 @@ then transforming by affine and exponential functions:
   [spotting-config ^double fire-line-intensity ^double wind-speed-20ft]
   (let [sigma-y (resolve-delta-y-sigma spotting-config fire-line-intensity wind-speed-20ft)]
     (fn draw-deltay-ft ^double [rand-gen]
-      (sample-normal rand-gen 0 sigma-y))))
+      (convert/m->ft (sample-normal rand-gen 0 sigma-y)))))
 
 (defn- sample-wind-dir-deltas
   "Draws a random sequence of [ΔX ΔY] pairs of signed distances (in ft) from the supplied cell,
@@ -5374,15 +5374,15 @@ at the beginning of each simulation:
       ;; Yes, it' a mess, that's what we get for having made the configuration so irregular. (Val, 17 Mar 2023)
       (as-> sp-params
             (reduce (fn [sp k]
-                      (cond-> sp
-                              (some? (get sp k))
-                              (update k sample-spotting-param)))
+                      (supd/supdate sp {k sample-spotting-param}))
                     sp-params
-                    [:mean-distance
+                    [:num-firebrands
+                     :decay-constant
+                     :mean-distance
                      :normalized-distance-variance
                      :flin-exp
                      :ws-exp
-                     :num-firebrands])
+                     :delta-y-sigma])
             (supd/supdate sp-params
                           {:crown-fire-spotting-percent #(some-> % (sample-from-uniform rand-gen))
                            :surface-fire-spotting       {:critical-fire-line-intensity sample-intranges-mapping-values
@@ -8772,11 +8772,13 @@ FIXME isn't this deprecated?
 
 ;; Spotting
 
+(s/def ::decay-constant               ::common/number-or-range-map)
 (s/def ::num-firebrands               ::common/number-or-range-map)
 (s/def ::mean-distance                ::common/number-or-range-map)
 (s/def ::flin-exp                     ::common/number-or-range-map)
 (s/def ::ws-exp                       ::common/number-or-range-map)
 (s/def ::normalized-distance-variance ::common/number-or-range-map)
+(s/def ::delta-y-sigma                ::common/number-or-range-map)
 (s/def ::crown-fire-spotting-percent  ::common/ratio-or-range)
 
 (s/def ::valid-fuel-range             (fn [[lo hi]] (< 0 lo hi (inc 303))))
@@ -8791,13 +8793,15 @@ FIXME isn't this deprecated?
                    ::critical-fire-line-intensity]))
 
 (s/def ::spotting
-  (s/keys :req-un [::num-firebrands
+  (s/keys :req-un [::decay-constant
+                   ::num-firebrands
                    ::mean-distance
                    ::flin-exp
                    ::ws-exp
                    ::normalized-distance-variance
                    ::crown-fire-spotting-percent]
-          :opt-un [::surface-fire-spotting]))
+          :opt-un [::delta-y-sigma
+                   ::surface-fire-spotting]))
 
 ;; Suppression
 
@@ -9113,7 +9117,8 @@ FIXME isn't this deprecated?
             [gridfire.spec.config   :as config]))
 
 (deftest ^:unit spotting-test
-  (let [required {:mean-distance                {:lo 5.0 :hi 15.0}
+  (let [required {:decay-constant               0.005
+                  :mean-distance                {:lo 5.0 :hi 15.0}
                   :normalized-distance-variance {:lo 250.0 :hi 600.0}
                   :flin-exp                     {:lo 0.2 :hi 0.4}
                   :ws-exp                       {:lo 0.4 :hi 0.7}
@@ -9123,7 +9128,8 @@ FIXME isn't this deprecated?
       (is (s/valid? ::config/spotting required)))
 
     (testing "optional surface-fire-spotting"
-      (let [optional {:surface-fire-spotting {:spotting-percent             [[[1   149] 1.0]
+      (let [optional {:delta-y-sigma         20.0
+                      :surface-fire-spotting {:spotting-percent             [[[1   149] 1.0]
                                                                              [[150 169] 2.0]
                                                                              [[169 204] 3.0]]
                                               :critical-fire-line-intensity 2000.0}}]

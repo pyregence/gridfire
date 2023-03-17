@@ -55,12 +55,13 @@
  ;; Section 5: Fire spread model behavior
  :ellipse-adjustment-factor 1.0            ; (< 1.0 = more circular, > 1.0 = more elliptical)
  :spotting                  {:num-firebrands               10
-                             :decay-constant               0.005
-                             :crown-fire-spotting-percent  1.0
-                             :mean-distance                5.0
+                             :decay-constant               0.005 ; (m^-1)
+                             :crown-fire-spotting-percent  1.0 ; (0-1)
+                             :mean-distance                5.0 ; (m)
                              :flin-exp                     0.3
                              :ws-exp                       0.7
-                             :normalized-distance-variance 250.0
+                             :normalized-distance-variance 250.0 ; (m)
+                             :delta-y-sigma                20.0  ; (m)
                              :surface-fire-spotting        {:spotting-percent             [[[1 204] 1.0]]
                                                             :critical-fire-line-intensity 10}}
 

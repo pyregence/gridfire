@@ -142,11 +142,13 @@
 
 ;; Spotting
 
+(s/def ::decay-constant               ::common/number-or-range-map)
 (s/def ::num-firebrands               ::common/number-or-range-map)
 (s/def ::mean-distance                ::common/number-or-range-map)
 (s/def ::flin-exp                     ::common/number-or-range-map)
 (s/def ::ws-exp                       ::common/number-or-range-map)
 (s/def ::normalized-distance-variance ::common/number-or-range-map)
+(s/def ::delta-y-sigma                ::common/number-or-range-map)
 (s/def ::crown-fire-spotting-percent  ::common/ratio-or-range)
 
 (s/def ::valid-fuel-range             (fn [[lo hi]] (< 0 lo hi (inc 303))))
@@ -161,13 +163,15 @@
                    ::critical-fire-line-intensity]))
 
 (s/def ::spotting
-  (s/keys :req-un [::num-firebrands
+  (s/keys :req-un [::decay-constant
+                   ::num-firebrands
                    ::mean-distance
                    ::flin-exp
                    ::ws-exp
                    ::normalized-distance-variance
                    ::crown-fire-spotting-percent]
-          :opt-un [::surface-fire-spotting]))
+          :opt-un [::delta-y-sigma
+                   ::surface-fire-spotting]))
 
 ;; Suppression
 

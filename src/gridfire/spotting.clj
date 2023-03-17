@@ -104,7 +104,7 @@
   [spotting-config ^double fire-line-intensity ^double wind-speed-20ft]
   (let [sigma-y (resolve-delta-y-sigma spotting-config fire-line-intensity wind-speed-20ft)]
     (fn draw-deltay-ft ^double [rand-gen]
-      (sample-normal rand-gen 0 sigma-y))))
+      (convert/m->ft (sample-normal rand-gen 0 sigma-y)))))
 
 (defn- sample-wind-dir-deltas
   "Draws a random sequence of [ΔX ΔY] pairs of signed distances (in ft) from the supplied cell,
@@ -472,15 +472,15 @@
       ;; Yes, it' a mess, that's what we get for having made the configuration so irregular. (Val, 17 Mar 2023)
       (as-> sp-params
             (reduce (fn [sp k]
-                      (cond-> sp
-                              (some? (get sp k))
-                              (update k sample-spotting-param)))
+                      (supd/supdate sp {k sample-spotting-param}))
                     sp-params
-                    [:mean-distance
+                    [:num-firebrands
+                     :decay-constant
+                     :mean-distance
                      :normalized-distance-variance
                      :flin-exp
                      :ws-exp
-                     :num-firebrands])
+                     :delta-y-sigma])
             (supd/supdate sp-params
                           {:crown-fire-spotting-percent #(some-> % (sample-from-uniform rand-gen))
                            :surface-fire-spotting       {:critical-fire-line-intensity sample-intranges-mapping-values
