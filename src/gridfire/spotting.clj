@@ -483,7 +483,7 @@
       ;; Yes, it' a mess, that's what we get for having made the configuration so irregular. (Val, 17 Mar 2023)
       (as-> sp-params
             (reduce (fn [sp k]
-                      (supd/supdate sp {k sample-spotting-param}))
+                      (supd/supdate sp {k #(sample-spotting-param % rand-gen)}))
                     sp-params
                     [:num-firebrands
                      :decay-constant
