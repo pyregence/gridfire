@@ -184,9 +184,7 @@
            ; Result [crown fire spotting probability (0-1)]
            true     [(->argmap 1.0)]
            false    [(->argmap 0.0)]
-           true     [(->argmap 0.5)]
-           false    [(->argmap [0.0 0.001])]
-           true     [(->argmap [0.99 1.0])]))))
+           true     [(->argmap 0.5)]))))
 
 (deftest ^:unit test-surface-fire-spot-fire?
   (testing "Whether spotting from surface fire occurs based on a single or range of probabilities."
@@ -201,10 +199,10 @@
                                           :spotting-percent             spotting}}})]
       (are [result args] (= result (apply spotting/surface-fire-spot-fire? args))
            ; Result [crit. fire line intensity (kW/m) surface fire spotting probability (0-1) here (coords) fire line intensity (kW/m)]
-           nil      [(->argmap 1500 nil)                     [0 0] 1000]
-           true     [(->argmap 500  [[[1 20] 1.0]])          [0 0] 1000]
-           false    [(->argmap 500  [[[1 20] [0.0  0.001]]]) [0 0] 1000]
-           true     [(->argmap 500  [[[1 20] [0.99 1.0]]])   [0 0] 1000]))))
+           nil      [(->argmap 1500 nil)                [0 0] 1000]
+           true     [(->argmap 500  [[[1 20] 1.0]])     [0 0] 1000]
+           false    [(->argmap 500  [[[1 20] 0.001]])   [0 0] 1000]
+           true     [(->argmap 500  [[[1 20] 0.999]])   [0 0] 1000]))))
 
 (comment
   (run-tests 'gridfire.spotting-test)

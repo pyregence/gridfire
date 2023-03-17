@@ -10,7 +10,8 @@
             [gridfire.grid-lookup         :as grid-lookup]
             [gridfire.spotting.elmfire    :as spotting-elm]
             [gridfire.utils.random        :refer [my-rand-range]]
-            [tech.v3.tensor               :as t])
+            [tech.v3.tensor               :as t]
+            [vvvvalvalval.supdate.api     :as supd])
   (:import java.util.Random))
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -321,16 +322,6 @@
           (recur (rest irm-entries)))))
     intranges-mapping))
 
-(defn- sample-from-uniform
-  "Draws a random number from a Uniform Distribution,
-  encoded as either a single number (no randomness, a.k.a. Constant Distribution)
-  or a [min max] range."
-  ^double [values-range rand-gen]
-  (cond
-    (number? values-range) (double values-range)
-    (vector? values-range) (let [[min max] values-range]
-                             (my-rand-range rand-gen min max))))
-
 (defn surface-fire-spot-fire?
   "Expects surface-fire-spotting config to be a sequence of tuples of
   ranges [lo hi] and spotting probability. The range represents the range (inclusive)
@@ -346,26 +337,22 @@
         critical-fire-line-intensity (-> (:critical-fire-line-intensity surface-fire-spotting)
                                          (intranges-mapping-lookup fuel-model-number)
                                          (or 0.0)
-                                         (sample-from-uniform rand-gen))]
+                                         (double))]
     (when (and surface-fire-spotting
                (> fire-line-intensity critical-fire-line-intensity))
       (let [spot-percent (-> (:spotting-percent surface-fire-spotting)
                              (intranges-mapping-lookup fuel-model-number)
                              (or 0.0)
-                             ;; FIXME this should probably happen only at the beginning of the simulation.
-                             (sample-from-uniform rand-gen))]
+                             (double))]
         (>= spot-percent (my-rand-range rand-gen 0.0 1.0))))))
 
 (defn crown-spot-fire?
   "Determine whether crowning causes spot fires. Config key `:spotting` should
    take either a vector of probabilities (0-1) or a single spotting probability."
   [inputs]
-  (when-let [spot-percent (:crown-fire-spotting-percent (:spotting inputs))]
-    (let [rand-gen  (:rand-gen inputs)
-          ^double p (if (vector? spot-percent)
-                      (let [[lo hi] spot-percent]
-                        (my-rand-range rand-gen lo hi)) ; TODO should this be calculated once at input phase?
-                      spot-percent)]
+  (when-some [spot-percent (:crown-fire-spotting-percent (:spotting inputs))] ; WARNING 'percent' is misleading. (Val, 17 Mar 2023)
+    (let [rand-gen (:rand-gen inputs)
+          p        (double spot-percent)]
       (>= p (my-rand-range rand-gen 0.0 1.0)))))
 
 (defn- spot-fire? [inputs crown-fire? here fire-line-intensity]
@@ -446,16 +433,32 @@
 ;; spread-firebrands ends here
 
 ;; [[file:../../org/GridFire.org::spotting-firebrands-params-sampling][spotting-firebrands-params-sampling]]
-;; FIXME random sampling of parameters
 (defn- sample-spotting-param
   ^double
   [param rand-gen]
   (if (and (map? param) (contains? param :lo) (contains? param :hi))
     (let [{:keys [lo hi]} param
+          ;; FIXME REVIEW Why on Earth are we sampling from a range with random bounds? (Val, 17 Mar 2023)
           l               (if (vector? lo) (my-rand-range rand-gen (lo 0) (lo 1)) lo)
           h               (if (vector? hi) (my-rand-range rand-gen (hi 0) (hi 1)) hi)]
       (my-rand-range rand-gen l h))
     param))
+
+(defn- sample-from-uniform
+  "Draws a random number from a Uniform Distribution,
+  encoded as either a single number (no randomness, a.k.a. Constant Distribution)
+  or a [min max] range."
+  ^double [values-range rand-gen]
+  (cond
+    (number? values-range) (double values-range)
+    (vector? values-range) (let [[min max] values-range]
+                             (my-rand-range rand-gen min max))))
+
+(defn- sample-intranges-mapping-values
+  [pairs rand-gen]
+  (if (sequential? pairs)
+    (supd/supdate pairs [{1 #(sample-from-uniform % rand-gen)}])
+    pairs))
 
 (defn sample-spotting-params
   "Resolves values for the spotting parameters which are configured as a range to draw from.
@@ -465,9 +468,21 @@
   with randomly drawn values from that range,
   returning a new map."
   [spotting-config rand-gen]
-  (->> spotting-config
-       (sort-by key)                                        ; sorting fosters reproducibility.
-       (reduce (fn [ret [k v]]
-                 (assoc ret k (sample-spotting-param v rand-gen)))
-               {})))
+  (-> spotting-config
+      ;; Yes, it' a mess, that's what we get for having made the configuration so irregular. (Val, 17 Mar 2023)
+      (as-> sp-params
+            (reduce (fn [sp k]
+                      (cond-> sp
+                              (some? (get sp k))
+                              (update k sample-spotting-param)))
+                    sp-params
+                    [:mean-distance
+                     :normalized-distance-variance
+                     :flin-exp
+                     :ws-exp
+                     :num-firebrands])
+            (supd/supdate sp-params
+                          {:crown-fire-spotting-percent #(some-> % (sample-from-uniform rand-gen))
+                           :surface-fire-spotting       {:critical-fire-line-intensity sample-intranges-mapping-values
+                                                         :spotting-percent             sample-intranges-mapping-values}}))))
 ;; spotting-firebrands-params-sampling ends here

@@ -18,7 +18,8 @@
         org.postgresql/postgresql           {:mvn/version "42.2.23"}
         sig-gis/magellan                    {:git/url "https://github.com/sig-gis/magellan" :sha "6730285f033704dd9cd863535aaf94b11a352f5a"} ;{:mvn/version "2022.10.21"} ;; TODO restore to a tagged version when published. (Val, 19 Dec 2022)
         sig-gis/triangulum                  {:git/url "https://github.com/sig-gis/triangulum"
-                                             :sha     "5b179a97ebd8fbcbff51776db06d9770cb649b9d"}}
+                                             :sha     "5b179a97ebd8fbcbff51776db06d9770cb649b9d"}
+        vvvvalvalval/supdate                {:mvn/version "0.2.3"}}
 
  :mvn/repos {"osgeo" {:url "https://repo.osgeo.org/repository/release/"}}
 
