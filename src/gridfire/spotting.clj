@@ -8,61 +8,21 @@
                                                   terrain-distance-invoke]]
             [gridfire.conversion          :as convert]
             [gridfire.grid-lookup         :as grid-lookup]
+            [gridfire.spotting.elmfire    :as spotting-elm]
             [gridfire.utils.random        :refer [my-rand-range]]
             [tech.v3.tensor               :as t])
   (:import java.util.Random))
-
 (set! *unchecked-math* :warn-on-boxed)
 
 ;;-----------------------------------------------------------------------------
 ;; Formulas
 ;;-----------------------------------------------------------------------------
 
-(defn- sample-spotting-params
-  ^double
-  [param rand-gen]
-  (if (map? param)
-    (let [{:keys [lo hi]} param
-          l               (if (vector? lo) (my-rand-range rand-gen (lo 0) (lo 1)) lo)
-          h               (if (vector? hi) (my-rand-range rand-gen (hi 0) (hi 1)) hi)]
-      (my-rand-range rand-gen l h))
-    param))
-
-(defn- downwind-distance-mean-variance
-  "Returns the mean and variance of the spotting distance along the wind direction, given:
-  fire-line-intensity: (kW/m)
-  wind-speed-20ft: (m/s)"
-  [{:keys [^double mean-distance ^double flin-exp ^double ws-exp ^double normalized-distance-variance]}
-   rand-gen ^double fire-line-intensity ^double wind-speed-20ft]
-  (let [a (sample-spotting-params mean-distance rand-gen)
-        b (sample-spotting-params flin-exp rand-gen)
-        c (sample-spotting-params ws-exp rand-gen)
-        m (* a (Math/pow fire-line-intensity b) (Math/pow wind-speed-20ft c))]
-    {:mean m :variance (* m (sample-spotting-params normalized-distance-variance rand-gen))}))
-
-(defn- lognormal-sigma-from-moments
-  "Resolves the dispersion parameter (sigma) of a log-normal distribution from its moments.
-
-  Given the mean `m` and variance `v` of a log-normal random variable X,
-  returns the standard deviation of ln(X), the underlying normally distributed random variable."
-  ^double
-  [^double m ^double v]
-  (Math/sqrt (Math/log (+ 1 (/ v (Math/pow m 2))))))
-
-(defn- lognnormal-mu-from-moments
-  "Resolves the location parameter (mu) of a log-normal distribution from its moments.
-
-  Given the mean `m` and variance `v` of a log-normal random variable X,
-  returns the mean of ln(X), the underlying normally distributed random variable."
-  ^double
-  [^double m ^double v]
-  (Math/log (/ (Math/pow m 2)
-               (Math/sqrt (+ v (Math/pow m 2))))))
-
 (defn- sample-normal
   "Returns sample from normal/gaussian distribution given mu and sd."
   ^double
   [^Random rand-gen ^double mu ^double sd]
+  (.nextGaussian rand-gen)
   (+ mu (* sd (.nextGaussian rand-gen))))
 
 (defn- sample-lognormal
@@ -71,24 +31,99 @@
   [^Random rand-gen ^double mu ^double sd]
   (Math/exp (sample-normal rand-gen mu sd)))
 
+(defn deltax-expected-value
+  ^double [^double mu-x ^double sigma-x]
+  (convert/m->ft (Math/exp (+ mu-x
+                              (/ (Math/pow sigma-x 2)
+                                 2.0)))))
+
+(defn deltax-coefficient-of-variation
+  ^double [^double sigma-x]
+  (Math/sqrt (- (Math/exp (Math/pow sigma-x 2))
+                1)))
+
+;; NOTE might be turned into a multimethod.
+(defn resolve-lognormal-params
+  [spotting-config ^double fire-line-intensity ^double  wind-speed-20ft]
+  (spotting-elm/resolve-lognormal-params spotting-config fire-line-intensity wind-speed-20ft))
+
+(defn delta-x-sampler
+  "Returns a function for randomly sampling ΔX, the spotting jump along the wind direction (in ft)."
+  [spotting-config ^double fire-line-intensity ^double wind-speed-20ft]
+  (let [ln-params (resolve-lognormal-params spotting-config fire-line-intensity wind-speed-20ft)
+        mux       (:prob.lognormal/mu ln-params)
+        sigmax    (:prob.lognormal/sigma ln-params)]
+    (fn ^double draw-deltax-ft [rand-gen]
+      (-> (sample-lognormal rand-gen mux sigmax)
+          (convert/m->ft)))))
+
+(def ^:private sigma-y-scalar-ft
+  (* (convert/m->ft 1.0)
+     0.92
+     (/ 0.47
+        (Math/pow 0.88 2))))
+
+(defn himoto-resolve-default-sigma-y-from-lognormal-params
+  ^double [^double mu-x ^double sigma-x]
+  (let [es2h (Math/exp (/ (Math/pow sigma-x 2)
+                          2))
+        avg-deltax-m (* (Math/exp mu-x) es2h)]
+    (* (double sigma-y-scalar-ft)
+       avg-deltax-m
+       (+ es2h 1.0)
+       (- es2h 1.0))))
+
+(comment
+  ;; When will we have the default sigma_Y > E[ΔX]?
+  ;; It can be seen that this nonsensical situation
+  ;; happens iff sigma_X exceeds the following number:
+  (Math/sqrt
+   (Math/log (+ 1.0
+                (/ (Math/pow 0.88 2)
+                   (* 0.92 0.47)))))
+  ;; =>
+  1.0131023746492023
+
+  *e)
+
+(defn himoto-resolve-default-sigma-y
+  ^double [spotting-config ^double fire-line-intensity ^double wind-speed-20ft]
+  (let [ln-params (resolve-lognormal-params spotting-config fire-line-intensity wind-speed-20ft)
+        mux       (:prob.lognormal/mu ln-params)
+        sigmax    (:prob.lognormal/sigma ln-params)]
+    (himoto-resolve-default-sigma-y-from-lognormal-params mux sigmax)))
+
+(defn resolve-delta-y-sigma
+  ^double [spotting-config ^double fire-line-intensity ^double wind-speed-20ft]
+  (or (some-> (:delta-y-sigma spotting-config) (double))
+      (himoto-resolve-default-sigma-y spotting-config fire-line-intensity wind-speed-20ft)))
+
+(defn delta-y-sampler
+  "Returns a function for randomly sampling ΔY, the spotting jump perpendicular to the wind direction (in ft)."
+  [spotting-config ^double fire-line-intensity ^double wind-speed-20ft]
+  (let [sigma-y (resolve-delta-y-sigma spotting-config fire-line-intensity wind-speed-20ft)]
+    (fn draw-deltay-ft ^double [rand-gen]
+      (sample-normal rand-gen 0 sigma-y))))
+
 (defn- sample-wind-dir-deltas
-  "Returns a sequence of [x y] distances (meters) that firebrands land away
-  from a torched cell at i j where:
-  x: parallel to the wind
-  y: perpendicular to the wind (positive values are to the right of wind direction)"
-  [inputs fire-line-intensity-matrix wind-speed-20ft [i j]]
-  (let [spotting                (:spotting inputs)
-        rand-gen                (:rand-gen inputs)
-        num-firebrands          (long (sample-spotting-params (:num-firebrands spotting) rand-gen))
-        intensity               (convert/Btu-ft-s->kW-m (t/mget fire-line-intensity-matrix i j))
-        {:keys [mean variance]} (downwind-distance-mean-variance spotting rand-gen intensity wind-speed-20ft)
-        mu                      (lognnormal-mu-from-moments mean variance)
-        sd                      (lognormal-sigma-from-moments mean variance)
-        parallel-values         (repeatedly num-firebrands #(sample-lognormal rand-gen mu sd))
-        perpendicular-values    (repeatedly num-firebrands #(sample-normal rand-gen 0.0 0.92))]
-    (mapv (fn [x y] [(convert/m->ft x) (convert/m->ft y)])
-          parallel-values
-          perpendicular-values)))
+  "Draws a random sequence of [ΔX ΔY] pairs of signed distances (in ft) from the supplied cell,
+  representing the coordinates of the spotting jump
+  in the directions parallel and perpendicular to the wind.
+  ΔX will typically be positive (downwind),
+  and positive ΔY means to the right of the downwind direction."
+  [inputs fire-line-intensity wind-speed-20ft]
+  (let [spotting-config   (:spotting inputs)
+        rand-gen          (:rand-gen inputs)
+        fl-intensity      (convert/Btu-ft-s->kW-m fire-line-intensity)
+        ws20ft            (convert/mph->mps wind-speed-20ft)
+        sample-delta-x-fn (delta-x-sampler spotting-config fl-intensity ws20ft)
+        sample-delta-y-fn (delta-y-sampler spotting-config fl-intensity ws20ft)
+        ;; FIXME consider drawing num-firebrands from Poisson distribution, for consistency.
+        num-firebrands    (long (:num-firebrands spotting-config))]
+    (vec (repeatedly num-firebrands
+                     (fn sample-delta-tuple []
+                       [(sample-delta-x-fn rand-gen)
+                        (sample-delta-y-fn rand-gen)])))))
 ;; sardoy-firebrand-dispersal ends here
 ;; [[file:../../org/GridFire.org::convert-deltas][convert-deltas]]
 (defn hypotenuse ^double
@@ -99,6 +134,7 @@
   "Converts deltas from the torched tree in the wind direction to deltas
   in the coordinate plane"
   [deltas ^double wind-direction]
+  ;; IMPROVEMENT re-implement using sin, cos and dot-products, cleaner and faster. (Val, 16 Mar 2023)
   (mapv (fn [[d-paral d-perp]]
           (let [d-paral (double d-paral)
                 d-perp  (double d-perp)
@@ -316,6 +352,7 @@
       (let [spot-percent (-> (:spotting-percent surface-fire-spotting)
                              (intranges-mapping-lookup fuel-model-number)
                              (or 0.0)
+                             ;; FIXME this should probably happen only at the beginning of the simulation.
                              (sample-from-uniform rand-gen))]
         (>= spot-percent (my-rand-range rand-gen 0.0 1.0))))))
 
@@ -372,10 +409,7 @@
       (let [band                    (long (/ burn-time 60.0))
             ws                      (grid-lookup/double-at get-wind-speed-20ft band i j)
             wd                      (grid-lookup/double-at get-wind-from-direction band i j)
-            deltas                  (sample-wind-dir-deltas inputs
-                                                            fire-line-intensity-matrix
-                                                            (convert/mph->mps ws)
-                                                            cell)
+            deltas                  (sample-wind-dir-deltas inputs fire-line-intensity ws)
             wind-to-direction       (mod (+ 180 wd) 360)
             firebrands              (firebrands deltas wind-to-direction cell cell-size)
             source-burn-probability (grid-lookup/mget-double-at fire-spread-matrix i j)
@@ -410,3 +444,30 @@
                          [[x y] [t burn-probability]]))))))
              (remove nil?))))))
 ;; spread-firebrands ends here
+
+;; [[file:../../org/GridFire.org::spotting-firebrands-params-sampling][spotting-firebrands-params-sampling]]
+;; FIXME random sampling of parameters
+(defn- sample-spotting-param
+  ^double
+  [param rand-gen]
+  (if (and (map? param) (contains? param :lo) (contains? param :hi))
+    (let [{:keys [lo hi]} param
+          l               (if (vector? lo) (my-rand-range rand-gen (lo 0) (lo 1)) lo)
+          h               (if (vector? hi) (my-rand-range rand-gen (hi 0) (hi 1)) hi)]
+      (my-rand-range rand-gen l h))
+    param))
+
+(defn sample-spotting-params
+  "Resolves values for the spotting parameters which are configured as a range to draw from.
+
+  Given a GridFire spotting configuration map,
+  replaces those parameters which are configured as a range
+  with randomly drawn values from that range,
+  returning a new map."
+  [spotting-config rand-gen]
+  (->> spotting-config
+       (sort-by key)                                        ; sorting fosters reproducibility.
+       (reduce (fn [ret [k v]]
+                 (assoc ret k (sample-spotting-param v rand-gen)))
+               {})))
+;; spotting-firebrands-params-sampling ends here

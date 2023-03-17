@@ -37,7 +37,7 @@
 (def ^:private surface-spotting-scenarios {:fuel-model         [:firebreak]
                                            :canopy-cover       [:zero-raster]
                                            :slope              [:zero-raster]
-                                           :wind-speed-20ft    [5.0 10.0 15.0 20.0]
+                                           :wind-speed-20ft    [15.0] ; [5.0 10.0 15.0 20.0]
                                            :fuel-moisture      [0.0]
                                            :foliar-moisture    [0.0]
                                            :canopy-base-height [:zero-raster]
@@ -46,7 +46,7 @@
 (def ^:private crown-spotting-scenarios {:fuel-model         [:firebreak]
                                          :canopy-cover       [:raster-100]
                                          :slope              [:zero-raster]
-                                         :wind-speed-20ft    [5.0 10.0 15.0 20.0]
+                                         :wind-speed-20ft    [15.0] ; [5.0 10.0 15.0 20.0]
                                          :fuel-moisture      [0.0]
                                          :foliar-moisture    [0.0]
                                          :canopy-base-height [:raster-2]
@@ -278,7 +278,7 @@
 (deftest ^{:crown-spotting true :canonical true} test-crown-spotting-scenarios
   (let [test-file (str "test-crown-spotting-"(now)".csv")]
     (results->csv test-file (map run-sim! (gen-scenarios :crown-spotting crown-spotting-scenarios)))))
-
+(comment (clojure.test/test-vars [#'test-surface-spotting-scenarios #'test-crown-spotting-scenarios]))
 #_(deftest ^{:crown-spotting true :canonical true} test-crown-spotting-scenario
     (let [test-file (str "test-crown-spotting-"(now)".csv")]
       (run-sim! (first (gen-scenarios :spotting crown-spotting-scenarios)))))
