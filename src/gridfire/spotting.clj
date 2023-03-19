@@ -13,7 +13,8 @@
             [tech.v3.tensor               :as t]
             [vvvvalvalval.supdate.api     :as supd])
   (:import (java.util Random)
-           (org.apache.commons.math3.distribution PoissonDistribution)))
+           (org.apache.commons.math3.distribution PoissonDistribution)
+           (org.apache.commons.math3.random RandomGenerator JDKRandomGenerator)))
 (set! *unchecked-math* :warn-on-boxed)
 
 ;;-----------------------------------------------------------------------------
@@ -336,8 +337,8 @@
     (surface-fire-spot-fire? inputs here fire-line-intensity)))
 
 (defn- sample-poisson
-  ^long [^double mean rand-gen]
-  (-> (PoissonDistribution. rand-gen
+  ^long [^double mean ^RandomGenerator rng]
+  (-> (PoissonDistribution. rng
                             mean
                             PoissonDistribution/DEFAULT_EPSILON
                             PoissonDistribution/DEFAULT_MAX_ITERATIONS)
@@ -345,8 +346,8 @@
       (long)))
 
 (defn sample-number-of-firebrands
-  ^long [spotting-config rand-gen]
-  (sample-poisson (:num-firebrands spotting-config) rand-gen))
+  ^long [spotting-config ^RandomGenerator rng]
+  (sample-poisson (:num-firebrands spotting-config) rng))
 ;; spotting-fire-probability ends here
 ;; [[file:../../org/GridFire.org::spread-firebrands][spread-firebrands]]
 (defn- update-firebrand-counts!
@@ -405,10 +406,11 @@
         fire-line-intensity        (grid-lookup/mget-double-at fire-line-intensity-matrix i j)
         crown-fire?                (-> fire-type-matrix (grid-lookup/mget-double-at i j) (double) (> 1.0))]
     (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
-      (let [band                    (long (/ burn-time 60.0))
+      (let [rng                     (JDKRandomGenerator. (.nextInt rand-gen))
+            band                    (long (/ burn-time 60.0))
             ws                      (grid-lookup/double-at get-wind-speed-20ft band i j)
             wd                      (grid-lookup/double-at get-wind-from-direction band i j)
-            num-fbs                 (sample-number-of-firebrands spotting rand-gen)
+            num-fbs                 (sample-number-of-firebrands spotting rng)
             deltas                  (sample-wind-dir-deltas inputs fire-line-intensity ws num-fbs)
             wind-to-direction       (mod (+ 180 wd) 360)
             firebrands              (firebrands deltas wind-to-direction cell cell-size)
