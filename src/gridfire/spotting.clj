@@ -121,10 +121,12 @@
         ws20ft            (convert/mph->mps wind-speed-20ft)
         sample-delta-x-fn (delta-x-sampler spotting-config fl-intensity ws20ft)
         sample-delta-y-fn (delta-y-sampler spotting-config fl-intensity ws20ft)]
-    (vec (repeatedly num-firebrands
-                     (fn sample-delta-tuple []
-                       [(sample-delta-x-fn rand-gen)
-                        (sample-delta-y-fn rand-gen)])))))
+    (->> (range num-firebrands)
+         ;; NOTE it turns out that clojure.core/repeatedly is slow (lazy seq overhead), (Val, 19 Mar 2023)
+         ;; so we're re-implementing a fast vector-returning version of it.
+         (mapv (fn sample-delta-tuple [_i]
+                 [(sample-delta-x-fn rand-gen)
+                  (sample-delta-y-fn rand-gen)])))))
 ;; sardoy-firebrand-dispersal ends here
 ;; [[file:../../org/GridFire.org::convert-deltas][convert-deltas]]
 (defn hypotenuse ^double
