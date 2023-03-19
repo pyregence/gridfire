@@ -25,7 +25,6 @@
   "Returns sample from normal/gaussian distribution given mu and sd."
   ^double
   [^Random rand-gen ^double mu ^double sd]
-  (.nextGaussian rand-gen)
   (+ mu (* sd (.nextGaussian rand-gen))))
 
 (defn- sample-lognormal
