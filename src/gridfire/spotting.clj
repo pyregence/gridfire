@@ -14,7 +14,8 @@
             [vvvvalvalval.supdate.api     :as supd])
   (:import (java.util Random)
            (org.apache.commons.math3.distribution PoissonDistribution)
-           (org.apache.commons.math3.random RandomGenerator JDKRandomGenerator)))
+           (org.apache.commons.math3.random RandomGenerator JDKRandomGenerator)
+           (org.apache.commons.math3.util FastMath)))
 (set! *unchecked-math* :warn-on-boxed)
 
 ;;-----------------------------------------------------------------------------
@@ -31,17 +32,17 @@
   "Returns sample from log-normal distribution given mu and sd."
   ^double
   [^Random rand-gen ^double mu ^double sd]
-  (Math/exp (sample-normal rand-gen mu sd)))
+  (FastMath/exp (sample-normal rand-gen mu sd)))
 
 (defn deltax-expected-value
   ^double [^double mu-x ^double sigma-x]
-  (convert/m->ft (Math/exp (+ mu-x
-                              (/ (Math/pow sigma-x 2)
-                                 2.0)))))
+  (convert/m->ft (FastMath/exp (+ mu-x
+                                  (/ (Math/pow sigma-x 2)
+                                     2.0)))))
 
 (defn deltax-coefficient-of-variation
   ^double [^double sigma-x]
-  (Math/sqrt (- (Math/exp (Math/pow sigma-x 2))
+  (Math/sqrt (- (FastMath/exp (Math/pow sigma-x 2))
                 1)))
 
 ;; NOTE might be turned into a multimethod.
@@ -69,7 +70,7 @@
   ^double [^double mu-x ^double sigma-x]
   (let [es2h (Math/exp (/ (Math/pow sigma-x 2)
                           2))
-        avg-deltax-m (* (Math/exp mu-x) es2h)]
+        avg-deltax-m (* (FastMath/exp mu-x) es2h)]
     (* (double sigma-y-scalar-ft)
        avg-deltax-m
        (+ es2h 1.0)
@@ -182,7 +183,7 @@
         Q_b (* -1.0 T_o M)
 
         ;; Heat of desorption
-        Q_c (* 18.54 (- 1.0 (Math/exp (* -15.1 M))))
+        Q_c (* 18.54 (- 1.0 (FastMath/exp (* -15.1 M))))
 
         ;; Heat required to vaporize moisture
         Q_d (* 640.0 M)]
@@ -220,7 +221,7 @@
   (-> decay-constant
       (* -1.0)
       (* spotting-distance)
-      (Math/exp)
+      (FastMath/exp)
       (* ignition-probability)))
 ;; firebrand-ignition-probability ends here
 ;; [[file:../../org/GridFire.org::firebrands-time-of-ignition][firebrands-time-of-ignition]]
