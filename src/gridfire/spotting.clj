@@ -37,13 +37,13 @@
 (defn deltax-expected-value
   ^double [^double mu-x ^double sigma-x]
   (convert/m->ft (FastMath/exp (+ mu-x
-                                  (/ (Math/pow sigma-x 2)
+                                  (/ (FastMath/pow sigma-x (int 2))
                                      2.0)))))
 
 (defn deltax-coefficient-of-variation
   ^double [^double sigma-x]
-  (Math/sqrt (- (FastMath/exp (Math/pow sigma-x 2))
-                1)))
+  (FastMath/sqrt (- (FastMath/exp (FastMath/pow sigma-x (int 2)))
+                    1)))
 
 ;; NOTE might be turned into a multimethod.
 (defn resolve-lognormal-params
@@ -64,12 +64,12 @@
   (* (convert/m->ft 1.0)
      0.92
      (/ 0.47
-        (Math/pow 0.88 2))))
+        (FastMath/pow 0.88 2))))
 
 (defn himoto-resolve-default-sigma-y-from-lognormal-params
   ^double [^double mu-x ^double sigma-x]
-  (let [es2h (Math/exp (/ (Math/pow sigma-x 2)
-                          2))
+  (let [es2h         (FastMath/exp (/ (FastMath/pow sigma-x 2)
+                                      2))
         avg-deltax-m (* (FastMath/exp mu-x) es2h)]
     (* (double sigma-y-scalar-ft)
        avg-deltax-m
@@ -130,8 +130,9 @@
 ;; sardoy-firebrand-dispersal ends here
 ;; [[file:../../org/GridFire.org::convert-deltas][convert-deltas]]
 (defn hypotenuse ^double
-  [x y]
-  (Math/sqrt (+ (Math/pow x 2) (Math/pow y 2))))
+  [^double x ^double y]
+  (FastMath/sqrt (+ (FastMath/pow x 2)
+                    (FastMath/pow y 2))))
 
 (defn deltas-wind->coord
   "Converts deltas from the torched tree in the wind direction to deltas
@@ -143,10 +144,10 @@
                 d-perp  (double d-perp)
                 H       (hypotenuse d-paral d-perp)
                 t1      wind-direction
-                t2      (convert/rad->deg (Math/atan (/ d-perp d-paral)))
+                t2      (convert/rad->deg (FastMath/atan (/ d-perp d-paral)))
                 t3      (+ t1 t2)]
-            [(* H (Math/sin (convert/deg->rad t3)))
-             (* -1 H (Math/cos (convert/deg->rad t3)))]))
+            [(* H (FastMath/sin (convert/deg->rad t3)))
+             (* -1 H (FastMath/cos (convert/deg->rad t3)))]))
         deltas))
 
 (defn firebrands
@@ -162,8 +163,8 @@
     (mapv (fn [[dx dy]]
             (let [dx (double dx)
                   dy (double dy)]
-              [(long (Math/floor (/ (+ dy y) cell-size)))
-               (long (Math/floor (/ (+ dx x) cell-size)))]))
+              [(long (FastMath/floor (/ (+ dy y) cell-size)))
+               (long (FastMath/floor (/ (+ dx x) cell-size)))]))
           coord-deltas)))
 ;; convert-deltas ends here
 ;; [[file:../../org/GridFire.org::firebrand-ignition-probability][firebrand-ignition-probability]]
@@ -179,7 +180,7 @@
         M   fine-fuel-moisture
 
         ;; heat required to reach ignition temperature
-        Q_a (+ 144.512 (* -0.266 T_o) (* -0.00058 (Math/pow T_o 2.0)))
+        Q_a (+ 144.512 (* -0.266 T_o) (* -0.00058 (FastMath/pow T_o 2)))
 
         ;; heat required to raise moisture to reach boiling point
         Q_b (* -1.0 T_o M)
@@ -203,11 +204,11 @@
   (let [Q_ig (heat-of-preignition temperature fine-fuel-moisture)
         X    (/ (- 400.0 Q_ig) 10.0)]
     (-> X
-        (Math/pow 4.3)
+        (FastMath/pow 4.3)
         (* 0.000048)
         (/ 50.0)
-        (Math/min 1.0)
-        (Math/max 0.0))))
+        (FastMath/min 1.0)
+        (FastMath/max 0.0))))
 
 (defn- one-minus ^double [^double x] (- 1.0 x))
 
@@ -246,16 +247,16 @@
    t_T = t_o + 1.2 + (a / 3) * ( ( (b + (z/z_F) )/a )^3/2 - 1 )  (D43)"
   ^double
   [^double flame-length]
-  (let [a     5.963                            ; constant from (D33)
-        b     4.563                            ; constant from (D34)
-        z-max 117.0                            ; max height given particle diameter of 0.003m
-        w_F   (* 2.3 (Math/sqrt flame-length)) ; upward axial velocity at flame tip
-        t_0   (/ w_F (* 2.0 flame-length))]    ; period of steady burning of tree crowns (t_c, min) normalized by 2*z_F / w_F
+  (let [a     5.963                                ; constant from (D33)
+        b     4.563                                ; constant from (D34)
+        z-max 117.0                                ; max height given particle diameter of 0.003m
+        w_F   (* 2.3 (FastMath/sqrt flame-length)) ; upward axial velocity at flame tip
+        t_0   (/ w_F (* 2.0 flame-length))]        ; period of steady burning of tree crowns (t_c, min) normalized by 2*z_F / w_F
     (-> z-max
         (/ flame-length)
         (+ b)
         (/ a)
-        (Math/pow 1.5)
+        (FastMath/pow 1.5)
         (- 1.0)
         (* (/ a 3.0))
         (+ 1.2)
