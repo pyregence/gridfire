@@ -408,7 +408,7 @@
         fire-line-intensity        (grid-lookup/mget-double-at fire-line-intensity-matrix i j)
         crown-fire?                (-> fire-type-matrix (grid-lookup/mget-double-at i j) (double) (> 1.0))]
     (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
-      (let [rng                     (JDKRandomGenerator. (.nextInt rand-gen))
+      (let [rng                     (JDKRandomGenerator. (.nextInt ^Random rand-gen))
             band                    (long (/ burn-time 60.0))
             ws                      (grid-lookup/double-at get-wind-speed-20ft band i j)
             wd                      (grid-lookup/double-at get-wind-from-direction band i j)
