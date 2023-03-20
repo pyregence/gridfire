@@ -384,7 +384,9 @@
 
   Also mutates :firebrand-count-matrix to update the counts."
   [inputs matrices i j]
-  (let [num-rows                   (:num-rows inputs)
+  (let [
+        ;; IMPROVEMENT don't read all these keys from inputs unless they're really needed
+        num-rows                   (:num-rows inputs)
         num-cols                   (:num-cols inputs)
         cell-size                  (:cell-size inputs)
         rand-gen                   (:rand-gen inputs)
@@ -420,32 +422,37 @@
             source-burn-probability (grid-lookup/mget-double-at fire-spread-matrix i j)
             terrain-dist-fn         (terrain-distance-fn get-elevation num-rows num-cols cell-size)]
         (update-firebrand-counts! inputs firebrand-count-matrix fire-spread-matrix cell firebrands)
-        (->> (for [[x y] firebrands]
-               (let [x (long x)
-                     y (long y)]
-                 (when (and
-                        (in-bounds-optimal? num-rows num-cols x y)
-                        (burnable-fuel-model? (grid-lookup/double-at get-fuel-model x y)))
-                   (let [temperature          (grid-lookup/double-at get-temperature band x y)
-                         fine-fuel-moisture   (if get-fuel-moisture-dead-1hr
-                                                (grid-lookup/double-at get-fuel-moisture-dead-1hr band x y)
-                                                (calc-fuel-moisture
-                                                 (grid-lookup/double-at get-relative-humidity band i j)
-                                                 temperature :dead :1hr))
-                         ignition-probability (schroeder-ign-prob (convert/F->C (double temperature)) fine-fuel-moisture)
-                         decay-constant       (double (:decay-constant spotting))
-                         spotting-distance    (convert/ft->m (terrain-distance-invoke terrain-dist-fn i j x y))
-                         spot-ignition-p      (spot-ignition-probability ignition-probability
-                                                                         decay-constant
-                                                                         spotting-distance)
-                         burn-probability     (* spot-ignition-p source-burn-probability)]
-                     (when (and (>= burn-probability 0.1)   ; TODO parametrize 0.1 in gridfire.edn
-                                (> (double burn-probability) (grid-lookup/mget-double-at fire-spread-matrix x y))
-                                (spot-ignition? rand-gen spot-ignition-p))
-                       (let [t (spot-ignition-time burn-time
-                                                   (convert/ft->m (grid-lookup/mget-double-at flame-length-matrix i j)))]
-                         [[x y] [t burn-probability]]))))))
-             (remove nil?))))))
+        (->> firebrands
+             (into []
+                   (keep (let [decay-constant      (double (:decay-constant spotting))
+                               origin-flame-length (convert/ft->m (grid-lookup/mget-double-at flame-length-matrix i j))]
+                           (fn resolve-spotting-ignition [x+y]
+                             (let [[x y] x+y
+                                   x     (long x)
+                                   y     (long y)]
+                               (when (and
+                                      (in-bounds-optimal? num-rows num-cols x y)
+                                      (burnable-fuel-model? (grid-lookup/double-at get-fuel-model x y)))
+                                 (let [temperature          (grid-lookup/double-at get-temperature band x y)
+                                       fine-fuel-moisture   (if get-fuel-moisture-dead-1hr
+                                                              (grid-lookup/double-at get-fuel-moisture-dead-1hr band x y)
+                                                              (calc-fuel-moisture
+                                                               (grid-lookup/double-at get-relative-humidity band i j)
+                                                               temperature :dead :1hr))
+                                       ignition-probability (schroeder-ign-prob (convert/F->C (double temperature)) fine-fuel-moisture)
+                                       ;; IMPROVEMENT compute the distance directly when sampling the firebrands trajectories- (Val, 20 Mar 2023)
+                                       ;; it's totally overkill to use topography in this distance computation.
+                                       spotting-distance    (convert/ft->m (terrain-distance-invoke terrain-dist-fn i j x y))
+                                       spot-ignition-p      (spot-ignition-probability ignition-probability
+                                                                                       decay-constant
+                                                                                       spotting-distance)
+                                       burn-probability     (* spot-ignition-p source-burn-probability)]
+                                   (when (and (>= burn-probability 0.1) ; TODO parametrize 0.1 in gridfire.edn
+                                              (> (double burn-probability) (grid-lookup/mget-double-at fire-spread-matrix x y))
+                                              ;; IMPROVEMENT make this computation lazier, using successive upper bound to burn-probability. (Val, 20 Mar 2023)
+                                              (spot-ignition? rand-gen spot-ignition-p))
+                                     (let [t (spot-ignition-time burn-time origin-flame-length)]
+                                       [x+y [t burn-probability]]))))))))))))))
 ;; spread-firebrands ends here
 
 ;; [[file:../../org/GridFire.org::spotting-firebrands-params-sampling][spotting-firebrands-params-sampling]]
