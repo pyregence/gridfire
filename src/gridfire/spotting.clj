@@ -131,8 +131,7 @@
 ;; [[file:../../org/GridFire.org::convert-deltas][convert-deltas]]
 (defn hypotenuse ^double
   [^double x ^double y]
-  (FastMath/sqrt (+ (FastMath/pow x 2)
-                    (FastMath/pow y 2))))
+  (FastMath/hypot x y))
 
 (defn deltas-wind->coord
   "Converts deltas from the torched tree in the wind direction to deltas
@@ -147,7 +146,8 @@
                 t2      (convert/rad->deg (FastMath/atan (/ d-perp d-paral)))
                 t3      (+ t1 t2)]
             [(* H (FastMath/sin (convert/deg->rad t3)))
-             (* -1 H (FastMath/cos (convert/deg->rad t3)))]))
+             (* -1 H (FastMath/cos (convert/deg->rad t3)))
+             H]))
         deltas))
 
 (defn firebrands
@@ -160,11 +160,12 @@
         x            (double x)
         y            (double y)
         coord-deltas (deltas-wind->coord deltas wind-towards-direction)]
-    (mapv (fn [[dx dy]]
+    (mapv (fn [[dx dy H]]
             (let [dx (double dx)
                   dy (double dy)]
               [(long (FastMath/floor (/ (+ dy y) cell-size)))
-               (long (FastMath/floor (/ (+ dx x) cell-size)))]))
+               (long (FastMath/floor (/ (+ dx x) cell-size)))
+               H]))
           coord-deltas)))
 ;; convert-deltas ends here
 ;; [[file:../../org/GridFire.org::firebrand-ignition-probability][firebrand-ignition-probability]]
@@ -391,7 +392,6 @@
         cell-size                  (:cell-size inputs)
         rand-gen                   (:rand-gen inputs)
         spotting                   (:spotting inputs)
-        get-elevation              (:get-elevation inputs)
         get-fuel-model             (:get-fuel-model inputs)
         get-temperature            (:get-temperature inputs)
         get-relative-humidity      (:get-relative-humidity inputs)
@@ -419,17 +419,16 @@
             deltas                  (sample-wind-dir-deltas inputs fire-line-intensity ws num-fbs)
             wind-to-direction       (mod (+ 180 wd) 360)
             firebrands              (firebrands deltas wind-to-direction cell cell-size)
-            source-burn-probability (grid-lookup/mget-double-at fire-spread-matrix i j)
-            terrain-dist-fn         (terrain-distance-fn get-elevation num-rows num-cols cell-size)]
+            source-burn-probability (grid-lookup/mget-double-at fire-spread-matrix i j)]
         (update-firebrand-counts! inputs firebrand-count-matrix fire-spread-matrix cell firebrands)
         (->> firebrands
              (into []
                    (keep (let [decay-constant      (double (:decay-constant spotting))
                                origin-flame-length (convert/ft->m (grid-lookup/mget-double-at flame-length-matrix i j))]
-                           (fn resolve-spotting-ignition [x+y]
-                             (let [[x y] x+y
-                                   x     (long x)
-                                   y     (long y)]
+                           (fn resolve-spotting-ignition [x+y+d]
+                             (let [[x y d] x+y+d
+                                   x       (long x)
+                                   y       (long y)]
                                (when (and
                                       (in-bounds-optimal? num-rows num-cols x y)
                                       (burnable-fuel-model? (grid-lookup/double-at get-fuel-model x y)))
@@ -440,9 +439,7 @@
                                                                (grid-lookup/double-at get-relative-humidity band i j)
                                                                temperature :dead :1hr))
                                        ignition-probability (schroeder-ign-prob (convert/F->C (double temperature)) fine-fuel-moisture)
-                                       ;; IMPROVEMENT compute the distance directly when sampling the firebrands trajectories- (Val, 20 Mar 2023)
-                                       ;; it's totally overkill to use topography in this distance computation.
-                                       spotting-distance    (convert/ft->m (terrain-distance-invoke terrain-dist-fn i j x y))
+                                       spotting-distance    (convert/ft->m d)
                                        spot-ignition-p      (spot-ignition-probability ignition-probability
                                                                                        decay-constant
                                                                                        spotting-distance)
@@ -452,7 +449,7 @@
                                               ;; IMPROVEMENT make this computation lazier, using successive upper bound to burn-probability. (Val, 20 Mar 2023)
                                               (spot-ignition? rand-gen spot-ignition-p))
                                      (let [t (spot-ignition-time burn-time origin-flame-length)]
-                                       [x+y [t burn-probability]]))))))))))))))
+                                       [[x y] [t burn-probability]]))))))))))))))
 ;; spread-firebrands ends here
 
 ;; [[file:../../org/GridFire.org::spotting-firebrands-params-sampling][spotting-firebrands-params-sampling]]
