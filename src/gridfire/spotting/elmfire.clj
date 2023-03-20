@@ -31,8 +31,9 @@
 
 (defn lognormal-sigma-from-moments
   ^double [^double mean ^double variance]
-  (Math/log (+ 1.0
-               (/ variance mean))))
+  (Math/sqrt (Math/log (+ 1.0
+                          (/ variance
+                             (Math/pow mean 2))))))
 
 (defn resolve-lognormal-params
   [spotting-config ^double fire-line-intensity ^double wind-speed-20ft]
