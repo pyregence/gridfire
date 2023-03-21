@@ -23,6 +23,22 @@
 (defn- within? [^double a ^double b ^double epsilon]
   (> epsilon (Math/abs (- a b))))
 
+(defn deltas-wind->coord
+  "Converts deltas from the torched tree in the wind direction to deltas
+  in the coordinate plane"
+  [deltas ^double wind-towards-direction]
+  (let [w-rad (c/deg->rad wind-towards-direction)
+        cos-w (Math/cos w-rad)
+        sin-w (Math/sin w-rad)]
+    (mapv (fn [[delta-x delta-y]]
+            (let [delta-x (double delta-x)
+                  delta-y (double delta-y)
+                  grid-dx (spotting/delta->grid-dx cos-w sin-w delta-x delta-y)
+                  grid-dy (spotting/delta->grid-dy cos-w sin-w delta-x delta-y)]
+              (sc.api/defsc 8)
+              (sc.api/spy [grid-dx grid-dy])))
+          deltas)))
+
 (deftest ^:unit deltas-axis-test
   (testing "Simple 1-unit parallel to wind."
     (are [result args] (let [[dx-res dy-res] result
@@ -40,7 +56,7 @@
 
   (testing "1 unit parallel, 1 unit perpindicular to wind direction."
     (are [result args] (let [[dx-res dy-res] result
-                             [dx dy]         (first (apply spotting/deltas-wind->coord args))]
+                             [dx dy]         (first (apply deltas-wind->coord args))]
                          (and (within? dx-res dx 0.01) (within? dy-res dy 0.01)))
          [1.0    -1.0]   [[[1 1]] 0]      ;; North
          [1.414  0.0]    [[[1 1]] 45]     ;; NE
@@ -52,6 +68,27 @@
          [0.0    -1.414] [[[1 1]] 315]    ;; NW
          [1.0    -1.0]   [[[1 1]] 360]))) ;; North
 
+(defn hypotenuse
+  ^double [^double x ^double y]
+  (Math/sqrt (+ (* x x) (* y y))))
+
+(defn firebrands
+  "Returns a sequence of cells [i,j] that firebrands land in.
+   Note: matrix index [i,j] refers to [row, column]. Therefore, we need to flip
+   [row,column] to get to [x,y] coordinates."
+  [deltas wind-towards-direction cell ^double cell-size]
+  (let [[i0 j0]      cell
+        coord-deltas (deltas-wind->coord deltas wind-towards-direction)]
+    (mapv (fn [[grid-dx grid-dy]]
+            (let [grid-dx (double grid-dx)
+                  grid-dy (double grid-dy)
+                  ;; FIXME
+                  i1      (+ i0 (spotting/distance->n-cells cell-size grid-dy))
+                  j1      (+ j0 (spotting/distance->n-cells cell-size grid-dx))
+                  H       (hypotenuse grid-dx grid-dy)]
+              [i1 j1 H]))
+          coord-deltas)))
+
 (deftest ^:unit firebrand-test
   (testing "Convert deltas to (i,j) cell in matrix."
     ; NOTE: matrix index [i,j] refers to [row, column]. Therefore, we need to flip
@@ -60,7 +97,7 @@
           cell      [8 12]]
       (are [result args] (let [[i-res j-res] result
                                [delta wd]    args
-                               [i j]         (first (spotting/firebrands [delta] wd cell cell-size))]
+                               [i j]         (first (firebrands [delta] wd cell cell-size))]
                            (and (= i-res i) (= j-res j)))
            [8   12]  [[1.0  0.0]  0]    ;; Same origin
            [7   12]  [[10.0 0.0]  0]    ;; North

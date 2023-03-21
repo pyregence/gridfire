@@ -137,8 +137,9 @@
   "Converts deltas from the torched tree in the wind direction to deltas
   in the coordinate plane"
   [deltas ^double wind-towards-direction]
-  (let [cos-w (FastMath/cos wind-towards-direction)
-        sin-w (FastMath/sin wind-towards-direction)]
+  (let [w-rad (convert/deg->rad wind-towards-direction)
+        cos-w (FastMath/cos w-rad)
+        sin-w (FastMath/sin w-rad)]
     (mapv (fn [[delta-x delta-y]]
             (let [delta-x (double delta-x)
                   delta-y (double delta-y)
