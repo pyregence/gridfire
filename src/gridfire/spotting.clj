@@ -129,52 +129,34 @@
                   (sample-delta-y-fn rand-gen)])))))
 ;; sardoy-firebrand-dispersal ends here
 ;; [[file:../../org/GridFire.org::convert-deltas][convert-deltas]]
-(defn hypotenuse ^double
-  [^double x ^double y]
-  (FastMath/hypot x y))
+(defn delta->grid-dx
+  "Computes the grid-aligned x coordinate of the delta vector, given the wind-aligned [ΔX ΔY] coordinates."
+  ^double [^double cos-w ^double sin-w ^double delta-x ^double delta-y]
+  ;; NOTATION: |w>, |wp>, |gx>, |gy> represent unit vectors,
+  ;; respectively in the downwind, wind-perpendicular, grid x, grid y directions.
+  ;; Note that the firebrand trajectory vector is |Δ> = (ΔX.|w> + ΔY.|wp>),
+  ;; such that <gx|Δ> = (ΔX.<gx|w> + ΔY.<gx|wp>)
+  (let [<gx|w>  sin-w
+        <gx|wp> cos-w]
+    (+ (* delta-x <gx|w>)
+       (* delta-y <gx|wp>))))
 
-(defn deltas-wind->coord
-  "Converts deltas from the torched tree in the wind direction to deltas
-  in the coordinate plane"
-  [deltas ^double wind-towards-direction]
-  (let [w-rad (convert/deg->rad wind-towards-direction)
-        cos-w (FastMath/cos w-rad)
-        sin-w (FastMath/sin w-rad)]
-    (mapv (fn [[delta-x delta-y]]
-            (let [delta-x (double delta-x)
-                  delta-y (double delta-y)
-                  ;; |w>, |wp>, |gx>, |gy> are unit vectors,
-                  ;; respectively in the downwind, wind-perpendicular, grid x, grid y directions.
-                  ;; Note that the firebrand trajectory vector is |Δ> = (ΔX.|w> + ΔY.|wp>).
-                  <w|gx>  sin-w
-                  <w|gy>  (- cos-w)
-                  <wp|gx> cos-w
-                  <wp|gy> sin-w
-                  grid-dx (+ (* delta-x <w|gx>)
-                             (* delta-y <wp|gx>))
-                  grid-dy (+ (* delta-x <w|gy>)
-                             (* delta-y <wp|gy>))
-                  H       (hypotenuse delta-x delta-y)]
-              [grid-dx grid-dy H]))
-          deltas)))
+(defn delta->grid-dy
+  "Computes the grid-aligned y coordinate of the delta vector, given the wind-aligned [ΔX ΔY] coordinates.
 
-(defn firebrands
-  "Returns a sequence of cells [i,j] that firebrands land in.
-   Note: matrix index [i,j] refers to [row, column]. Therefore, we need to flip
-   [row,column] to get to [x,y] coordinates."
-  [deltas wind-towards-direction cell ^double cell-size]
-  (let [step         (/ cell-size 2)
-        [y x]        (mapv #(+ step (* ^double % cell-size)) cell)
-        x            (double x)
-        y            (double y)
-        coord-deltas (deltas-wind->coord deltas wind-towards-direction)]
-    (mapv (fn [[dx dy H]]
-            (let [dx (double dx)
-                  dy (double dy)]
-              [(long (FastMath/floor (/ (+ dy y) cell-size)))
-               (long (FastMath/floor (/ (+ dx x) cell-size)))
-               H]))
-          coord-deltas)))
+  Returns a signed distance (same unit as ΔX and ΔY)."
+  ^double [^double cos-w ^double sin-w ^double delta-x ^double delta-y]
+  ;; Note that the firebrand trajectory vector is |Δ> = (ΔX.|w> + ΔY.|wp>),
+  ;; such that <gy|Δ> = (ΔX.<gy|w> + ΔY.<gy|wp>)
+  (let [<gy|w>  (- cos-w)
+        <gy|wp> sin-w]
+    (+ (* delta-x <gy|w>)
+       (* delta-y <gy|wp>))))
+
+(defn distance->n-cells
+  "Converts a delta expressed as a signed distance to one expressed as a number of grid cells."
+  ^long [^double cell-size ^double d]
+  (FastMath/round (/ d cell-size)))
 ;; convert-deltas ends here
 ;; [[file:../../org/GridFire.org::firebrand-ignition-probability][firebrand-ignition-probability]]
 (defn heat-of-preignition
@@ -362,67 +344,73 @@
   (sample-poisson (:num-firebrands spotting-config) rng))
 ;; spotting-fire-probability ends here
 ;; [[file:../../org/GridFire.org::spread-firebrands][spread-firebrands]]
-(defn- update-firebrand-counts!
-  [inputs firebrand-count-matrix fire-spread-matrix source firebrands]
+
+(defn- update-firebrand-count!-fn
+  [inputs firebrand-count-matrix fire-spread-matrix i0 j0]
   (let [num-rows                (:num-rows inputs)
         num-cols                (:num-cols inputs)
         get-fuel-model          (:get-fuel-model inputs)
-        [i j]                   source
-        source-burn-probability (grid-lookup/mget-double-at fire-spread-matrix (long i) (long j))]
-    (doseq [[y x] firebrands]
+        source-burn-probability (grid-lookup/mget-double-at fire-spread-matrix (long i0) (long j0))]
+    (fn inc-target-cell! [i1 j1]
       ;; FIXME REVIEW Why this check? Why would we not count firebrands in non-burnable cells, e.g. urban areas?
       (when (burnable-cell? get-fuel-model
                             fire-spread-matrix
                             source-burn-probability
                             num-rows
                             num-cols
-                            y
-                            x)
-        (->> (grid-lookup/mget-double-at firebrand-count-matrix y x)
+                            i1
+                            j1)
+        (->> (grid-lookup/mget-double-at firebrand-count-matrix i1 j1)
              (long)
              (inc)
-             (t/mset! firebrand-count-matrix y x))))))
+             (t/mset! firebrand-count-matrix i1 j1))))))
 
 ;; FIXME: Drop cell = [i j]
 (defn spread-firebrands
-  "Returns a sequence of [[x y] [t p]] key value pairs where
-  key: [x y] locations of the cell
+  "Returns a sequence of [[i1 j1] [t p]] key value pairs where
+  key: [i1 j1] grid coordinates of the target cell
   val: [t p] where:
-  t: time of ignition
+  t: time to ignition
   p: ignition-probability.
 
   Also mutates :firebrand-count-matrix to update the counts."
   [inputs matrices i j]
-  (let [i                          (long i)
+  (let [cell                       [i j]
+        i                          (long i)
         j                          (long j)
         fire-line-intensity-matrix (:fire-line-intensity-matrix matrices)
         fire-type-matrix           (:fire-type-matrix matrices)
-        cell                       [i j]
         fire-line-intensity        (grid-lookup/mget-double-at fire-line-intensity-matrix i j)
         crown-fire?                (-> fire-type-matrix (grid-lookup/mget-double-at i j) (double) (> 1.0))]
     (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
-      (let [cell-size               (:cell-size inputs)
-            rand-gen                (:rand-gen inputs)
+      (let [rand-gen                (:rand-gen inputs)
             spotting                (:spotting inputs)
-            get-wind-speed-20ft     (:get-wind-speed-20ft inputs)
-            get-wind-from-direction (:get-wind-from-direction inputs)
-            firebrand-count-matrix  (:firebrand-count-matrix matrices)
-            fire-spread-matrix      (:fire-spread-matrix matrices)
-            burn-time-matrix        (:burn-time-matrix matrices)
-            burn-time               (grid-lookup/mget-double-at burn-time-matrix i j)
-            band                    (long (/ burn-time 60.0))
-            ws                      (grid-lookup/double-at get-wind-speed-20ft band i j)
-            wd                      (grid-lookup/double-at get-wind-from-direction band i j)
             rng                     (JDKRandomGenerator. (.nextInt ^Random rand-gen))
-            num-fbs                 (sample-number-of-firebrands spotting rng)
-            deltas                  (sample-wind-dir-deltas inputs fire-line-intensity ws num-fbs)
-            wind-to-direction       (mod (+ 180 wd) 360)
-            firebrands              (firebrands deltas wind-to-direction cell cell-size)]
-        (update-firebrand-counts! inputs firebrand-count-matrix fire-spread-matrix cell firebrands)
-        (when-not (empty? firebrands)
-          (->> firebrands
+            num-fbs                 (sample-number-of-firebrands spotting rng)]
+        (when-not (zero? num-fbs)
+          (->> (range num-fbs)
+               ;; NOTE it turns out that clojure.core/repeatedly is slow (lazy seq overhead), (Val, 19 Mar 2023)
+               ;; so we're re-implementing a fast vector-returning version of it.
                (into []
-                     (keep (let [decay-constant             (double (:decay-constant spotting))
+                     (keep (let [burn-time-matrix           (:burn-time-matrix matrices)
+                                 burn-time                  (grid-lookup/mget-double-at burn-time-matrix i j)
+                                 band                       (long (/ burn-time 60.0))
+                                 cell-size                  (:cell-size inputs)
+                                 get-wind-speed-20ft        (:get-wind-speed-20ft inputs)
+                                 get-wind-from-direction    (:get-wind-from-direction inputs)
+                                 firebrand-count-matrix     (:firebrand-count-matrix matrices)
+                                 fire-spread-matrix         (:fire-spread-matrix matrices)
+                                 rand-gen                   (:rand-gen inputs)
+                                 fl-intensity               (convert/Btu-ft-s->kW-m fire-line-intensity)
+                                 wd                         (grid-lookup/double-at get-wind-from-direction band i j)
+                                 wind-to-direction          (convert/deg->rad (mod (+ 180 wd) 360))
+                                 cos-w                      (FastMath/cos wind-to-direction)
+                                 sin-w                      (FastMath/sin wind-to-direction)
+                                 ws                         (grid-lookup/double-at get-wind-speed-20ft band i j)
+                                 ws20ft                     (convert/mph->mps ws)
+                                 sample-delta-x-fn          (delta-x-sampler spotting fl-intensity ws20ft)
+                                 sample-delta-y-fn          (delta-y-sampler spotting fl-intensity ws20ft)
+                                 decay-constant             (double (:decay-constant spotting))
                                  num-rows                   (:num-rows inputs)
                                  num-cols                   (:num-cols inputs)
                                  get-fuel-model             (:get-fuel-model inputs)
@@ -431,33 +419,38 @@
                                  get-fuel-moisture-dead-1hr (:get-fuel-moisture-dead-1hr inputs)
                                  source-burn-probability    (grid-lookup/mget-double-at fire-spread-matrix i j)
                                  flame-length-matrix        (:flame-length-matrix matrices)
-                                 origin-flame-length        (convert/ft->m (grid-lookup/mget-double-at flame-length-matrix i j))]
-                             (fn resolve-spotting-ignition [x+y+d]
-                               ;; FIXME maybe it's y x
-                               (let [[x y d] x+y+d
-                                     x (long x)
-                                     y (long y)]
+                                 origin-flame-length        (convert/ft->m (grid-lookup/mget-double-at flame-length-matrix i j))
+                                 update-firebrand-count!    (update-firebrand-count!-fn inputs firebrand-count-matrix fire-spread-matrix i j)]
+                             (fn resolve-spotting-ignition! [_k]
+                               (let [delta-x (sample-delta-x-fn rand-gen)
+                                     delta-y (sample-delta-y-fn rand-gen)
+                                     grid-dx (delta->grid-dx cos-w sin-w delta-x delta-y)
+                                     grid-dy (delta->grid-dy cos-w sin-w delta-x delta-y)
+                                     i1      (+ i (distance->n-cells cell-size grid-dy))
+                                     j1      (+ j (distance->n-cells cell-size grid-dx))]
+                                 (update-firebrand-count! i1 j1)
                                  (when (and
-                                        (in-bounds-optimal? num-rows num-cols x y)
-                                        (burnable-fuel-model? (grid-lookup/double-at get-fuel-model x y)))
-                                   (let [temperature          (grid-lookup/double-at get-temperature band x y)
+                                        (in-bounds-optimal? num-rows num-cols i1 j1)
+                                        (burnable-fuel-model? (grid-lookup/double-at get-fuel-model i1 j1)))
+                                   (let [temperature          (grid-lookup/double-at get-temperature band i1 j1)
                                          fine-fuel-moisture   (if get-fuel-moisture-dead-1hr
-                                                                (grid-lookup/double-at get-fuel-moisture-dead-1hr band x y)
+                                                                (grid-lookup/double-at get-fuel-moisture-dead-1hr band i1 j1)
                                                                 (calc-fuel-moisture
+                                                                 ;; FIXME must be in target cell: i j -> i1 j1
                                                                  (grid-lookup/double-at get-relative-humidity band i j)
                                                                  temperature :dead :1hr))
                                          ignition-probability (schroeder-ign-prob (convert/F->C (double temperature)) fine-fuel-moisture)
-                                         spotting-distance    (convert/ft->m d)
+                                         spotting-distance    (convert/ft->m (FastMath/hypot grid-dx grid-dy))
                                          spot-ignition-p      (spot-ignition-probability ignition-probability
                                                                                          decay-constant
                                                                                          spotting-distance)
                                          burn-probability     (* spot-ignition-p source-burn-probability)]
                                      (when (and (>= burn-probability 0.1) ; TODO parametrize 0.1 in gridfire.edn
-                                                (> (double burn-probability) (grid-lookup/mget-double-at fire-spread-matrix x y))
+                                                (> (double burn-probability) (grid-lookup/mget-double-at fire-spread-matrix i1 j1))
                                                 ;; IMPROVEMENT make this computation lazier, using successive upper bound to burn-probability. (Val, 20 Mar 2023)
                                                 (spot-ignition? rand-gen spot-ignition-p))
                                        (let [t (spot-ignition-time burn-time origin-flame-length)]
-                                         [[x y] [t burn-probability]])))))))))))))))
+                                         [[i1 j1] [t burn-probability]])))))))))))))))
 ;; spread-firebrands ends here
 
 ;; [[file:../../org/GridFire.org::spotting-firebrands-params-sampling][spotting-firebrands-params-sampling]]

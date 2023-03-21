@@ -35,14 +35,13 @@
                   delta-y (double delta-y)
                   grid-dx (spotting/delta->grid-dx cos-w sin-w delta-x delta-y)
                   grid-dy (spotting/delta->grid-dy cos-w sin-w delta-x delta-y)]
-              (sc.api/defsc 8)
-              (sc.api/spy [grid-dx grid-dy])))
+              [grid-dx grid-dy]))
           deltas)))
 
 (deftest ^:unit deltas-axis-test
   (testing "Simple 1-unit parallel to wind."
     (are [result args] (let [[dx-res dy-res] result
-                             [dx dy]         (first (apply spotting/deltas-wind->coord args))]
+                             [dx dy]         (first (apply deltas-wind->coord args))]
                          (and (within? dx-res dx 0.01) (within? dy-res dy 0.01)))
          [0.0     -1.0]   [[[1 0]] 0]     ;; North
          [0.707   -0.707] [[[1 0]] 45]    ;; NE
