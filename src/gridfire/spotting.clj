@@ -136,19 +136,26 @@
 (defn deltas-wind->coord
   "Converts deltas from the torched tree in the wind direction to deltas
   in the coordinate plane"
-  [deltas ^double wind-direction]
-  ;; IMPROVEMENT re-implement using sin, cos and dot-products, cleaner and faster. (Val, 16 Mar 2023)
-  (mapv (fn [[d-paral d-perp]]
-          (let [d-paral (double d-paral)
-                d-perp  (double d-perp)
-                H       (hypotenuse d-paral d-perp)
-                t1      wind-direction
-                t2      (convert/rad->deg (FastMath/atan (/ d-perp d-paral)))
-                t3      (+ t1 t2)]
-            [(* H (FastMath/sin (convert/deg->rad t3)))
-             (* -1 H (FastMath/cos (convert/deg->rad t3)))
-             H]))
-        deltas))
+  [deltas ^double wind-towards-direction]
+  (let [cos-w (FastMath/cos wind-towards-direction)
+        sin-w (FastMath/sin wind-towards-direction)]
+    (mapv (fn [[delta-x delta-y]]
+            (let [delta-x (double delta-x)
+                  delta-y (double delta-y)
+                  ;; |w>, |wp>, |gx>, |gy> are unit vectors,
+                  ;; respectively in the downwind, wind-perpendicular, grid x, grid y directions.
+                  ;; Note that the firebrand trajectory vector is |Δ> = (ΔX.|w> + ΔY.|wp>).
+                  <w|gx>  sin-w
+                  <w|gy>  (- cos-w)
+                  <wp|gx> cos-w
+                  <wp|gy> sin-w
+                  grid-dx (+ (* delta-x <w|gx>)
+                             (* delta-y <wp|gx>))
+                  grid-dy (+ (* delta-x <w|gy>)
+                             (* delta-y <wp|gy>))
+                  H       (hypotenuse delta-x delta-y)]
+              [grid-dx grid-dy H]))
+          deltas)))
 
 (defn firebrands
   "Returns a sequence of cells [i,j] that firebrands land in.
@@ -425,6 +432,7 @@
                                  flame-length-matrix        (:flame-length-matrix matrices)
                                  origin-flame-length        (convert/ft->m (grid-lookup/mget-double-at flame-length-matrix i j))]
                              (fn resolve-spotting-ignition [x+y+d]
+                               ;; FIXME maybe it's y x
                                (let [[x y d] x+y+d
                                      x (long x)
                                      y (long y)]
