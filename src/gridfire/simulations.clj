@@ -63,9 +63,9 @@
    :int64))
 
 (defn process-output-layers-timestepped
-  [{:keys [simulation-id] :as config}
+  [{:keys [output-geotiffs? output-pngs?] :as config}
    {:keys [global-clock burn-time-matrix] :as fire-spread-results}
-   name layer timestep envelope]
+   name layer timestep envelope simulation-id]
   (let [global-clock (double global-clock)
         output-times (range 0 (inc global-clock) timestep)]
     (->> output-times
@@ -81,8 +81,10 @@
                (mfd/chain
                  (fn [filtered-matrix]
                    (mfd/zip
-                     (outputs/output-geotiff config filtered-matrix name envelope simulation-id output-time)
-                     (outputs/output-png config filtered-matrix name envelope simulation-id output-time))))
+                    (when output-geotiffs?
+                      (outputs/output-geotiff config filtered-matrix name envelope simulation-id output-time))
+                    (when output-pngs?
+                      (outputs/output-png config filtered-matrix name envelope simulation-id output-time)))))
                (gf-async/nil-when-completed))))
          (gf-async/nil-when-all-completed))))
 
@@ -118,7 +120,8 @@
                                                     name
                                                     layer
                                                     timestep
-                                                    envelope)
+                                                    envelope
+                                                    simulation-id)
                  (when-some [matrix0 (or (get fire-spread-results layer)
                                          (if is-optional?
                                            nil
