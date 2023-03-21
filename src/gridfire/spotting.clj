@@ -203,20 +203,62 @@
 
 (defn- one-minus ^double [^double x] (- 1.0 x))
 
-(defn spot-ignition-probability
+(defmacro spot-ignition-probability*
   "Returns the probability of spot fire ignition (Perryman 2012) given:
    - Schroeder's probability of ignition [P(I)] (0-1)
    - Decay constant [lambda] (m^-1)
    - Distance from the torched cell [d] (meters)
 
-   P(Spot Ignition) = P(I) * exp(-lambda * d)"
+   P(Spot Ignition) = P(I) * exp(-lambda * d).
+
+   For performance, syntactic abstraction is used to allow early termination of the calculation,
+   through the use of upper bounds on the result probability. Concretely, this is done
+   by injecting additional arguments into `yield-expr`, which must be a list.
+   `yield-expr` will receive either 1 argument-the final probability-
+   or it will receive 2 arguments-an upper bound and an expression for continuing the computation."
+  [yield-expr decay-constant spotting-distance ignition-probability]
+  `(let [distance-penalty# (-> ~decay-constant
+                               (* -1.0)
+                               (* ~spotting-distance)
+                               (FastMath/exp))]
+     (~@yield-expr distance-penalty#
+      (let [pi# ~ignition-probability]
+        (~@yield-expr (* pi# distance-penalty#))))))
+
+
+(defmacro yield-lazy-sequence
+  [& args]
+  (case (count args)
+    1 (let [[arg0] args]
+        `(lazy-seq [~arg0]))
+    2 (let [[upper-bound next-steps] args]
+        `(cons ~upper-bound (lazy-seq ~next-steps)))))
+
+(defmacro yield-successful-prob
+  "(successful-prob rand01) is to be used as the `yield-expr` in `spot-ignition-probability*`
+  when you want to obtain the probability only if it is > rand01, and return nil otherwise."
+  [rand01 & args]
+  (case (count args)
+    1 (let [[arg0] args]
+        `(let [p# ~arg0]
+           (when (< ~rand01 p#)
+             p#)))
+    2 (let [[upper-bound next-steps] args]
+        `(when (< ~rand01 ~upper-bound)
+           ~next-steps))))
+
+(defmacro yield-final-result
+  [& args]
+  (case (count args)
+    1 (let [[arg0] args]
+        arg0)
+    2 (let [[_upper-bound next-steps] args]
+        next-steps)))
+
+(defn spot-ignition-probability
   ^double
   [^double ignition-probability ^double decay-constant ^double spotting-distance]
-  (-> decay-constant
-      (* -1.0)
-      (* spotting-distance)
-      (FastMath/exp)
-      (* ignition-probability)))
+  (spot-ignition-probability* (yield-final-result) decay-constant spotting-distance ignition-probability))
 ;; firebrand-ignition-probability ends here
 ;; [[file:../../org/GridFire.org::firebrands-time-of-ignition][firebrands-time-of-ignition]]
 (defn spot-ignition?
@@ -432,25 +474,25 @@
                                  (when (and
                                         (in-bounds-optimal? num-rows num-cols i1 j1)
                                         (burnable-fuel-model? (grid-lookup/double-at get-fuel-model i1 j1)))
-                                   (let [temperature          (grid-lookup/double-at get-temperature band i1 j1)
-                                         fine-fuel-moisture   (if get-fuel-moisture-dead-1hr
-                                                                (grid-lookup/double-at get-fuel-moisture-dead-1hr band i1 j1)
-                                                                (calc-fuel-moisture
-                                                                 ;; FIXME must be in target cell: i j -> i1 j1
-                                                                 (grid-lookup/double-at get-relative-humidity band i j)
-                                                                 temperature :dead :1hr))
-                                         ignition-probability (schroeder-ign-prob (convert/F->C (double temperature)) fine-fuel-moisture)
-                                         spotting-distance    (convert/ft->m (FastMath/hypot grid-dx grid-dy))
-                                         spot-ignition-p      (spot-ignition-probability ignition-probability
-                                                                                         decay-constant
-                                                                                         spotting-distance)
-                                         burn-probability     (* spot-ignition-p source-burn-probability)]
-                                     (when (and (>= burn-probability 0.1) ; TODO parametrize 0.1 in gridfire.edn
-                                                (> (double burn-probability) (grid-lookup/mget-double-at fire-spread-matrix i1 j1))
-                                                ;; IMPROVEMENT make this computation lazier, using successive upper bound to burn-probability. (Val, 20 Mar 2023)
-                                                (spot-ignition? rand-gen spot-ignition-p))
-                                       (let [t (spot-ignition-time burn-time origin-flame-length)]
-                                         [[i1 j1] [t burn-probability]])))))))))))))))
+                                   (let [spotting-distance    (convert/ft->m (FastMath/hypot grid-dx grid-dy))
+                                         rand01               (my-rand-range rand-gen 0 1)]
+                                     (when-some [spot-ignition-p (spot-ignition-probability* (yield-successful-prob rand01)
+                                                                                             decay-constant
+                                                                                             spotting-distance
+                                                                                             ;; NOTE that the following (costly) expression will only be evaluated a small fraction of the time. (Val, 21 Mar 2023)
+                                                                                             (let [temperature        (grid-lookup/double-at get-temperature band i1 j1)
+                                                                                                   fine-fuel-moisture (if get-fuel-moisture-dead-1hr
+                                                                                                                        (grid-lookup/double-at get-fuel-moisture-dead-1hr band i1 j1)
+                                                                                                                        (calc-fuel-moisture
+                                                                                                                         ;; FIXME must be in target cell: i j -> i1 j1
+                                                                                                                         (grid-lookup/double-at get-relative-humidity band i j)
+                                                                                                                         temperature :dead :1hr))]
+                                                                                               (schroeder-ign-prob (convert/F->C (double temperature)) fine-fuel-moisture)))]
+                                       (let [burn-probability (* (double spot-ignition-p) source-burn-probability)]
+                                         (when (and (>= burn-probability 0.1) ; TODO parametrize 0.1 in gridfire.edn
+                                                    (> (double burn-probability) (grid-lookup/mget-double-at fire-spread-matrix i1 j1)))
+                                           (let [t (spot-ignition-time burn-time origin-flame-length)]
+                                             [[i1 j1] [t burn-probability]])))))))))))))))))
 ;; spread-firebrands ends here
 
 ;; [[file:../../org/GridFire.org::spotting-firebrands-params-sampling][spotting-firebrands-params-sampling]]

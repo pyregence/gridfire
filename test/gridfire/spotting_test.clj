@@ -81,7 +81,6 @@
     (mapv (fn [[grid-dx grid-dy]]
             (let [grid-dx (double grid-dx)
                   grid-dy (double grid-dy)
-                  ;; FIXME
                   i1      (+ i0 (spotting/distance->n-cells cell-size grid-dy))
                   j1      (+ j0 (spotting/distance->n-cells cell-size grid-dx))
                   H       (hypotenuse grid-dx grid-dy)]
@@ -163,24 +162,31 @@
 
 (deftest ^:unit test-spot-ignition-probability
   (testing "Using Perryman (2012)."
-    (let [lambda 0.005]
-      (are [result args] (within? result (apply spotting/spot-ignition-probability args) 0.001)
-           ; Probability (0-1) [ignition-probability (0-1) decay-constant spotting-distance (m)]
-
-           ; Increasing Schroeder Ignition Probability
-           0.121               [0.2 lambda 100]
-           0.242               [0.4 lambda 100]
-           0.363               [0.6 lambda 100]
-           0.485               [0.8 lambda 100]
-           0.606               [1.0 lambda 100]
-
-           ; Increasing Firebrands Count
-           0.303               [0.5 lambda 100]
-
-           ; Increasing Distance
-           0.303               [0.5 lambda 100]
-           0.183               [0.5 lambda 200]
-           0.0                 [0.5 lambda 2000]))))
+    (let [lambda (/ 1.0 200.0)]
+      (->> [;; Increasing Schroeder Ignition Probability
+            [0.121 [0.2 lambda 100]]
+            [0.242 [0.4 lambda 100]]
+            [0.363 [0.6 lambda 100]]
+            [0.485 [0.8 lambda 100]]
+            [0.606 [1.0 lambda 100]]
+            ;; ; Increasing Distance
+            [0.303 [0.5 lambda 100]]
+            [0.183 [0.5 lambda 200]]
+            [0.0   [0.5 lambda 2000]]]
+           (every? (fn [[expected-prob [schr-ign-prob decay-constant spotting-distance]]]
+                     (let [ps              (spotting/spot-ignition-probability* (spotting/yield-lazy-sequence)
+                                                                                (double decay-constant)
+                                                                                (double spotting-distance)
+                                                                                (double schr-ign-prob))
+                           spot-ignition-p (double (last ps))
+                           upper-bounds    (butlast ps)]
+                       (and (is (within? expected-prob spot-ignition-p 0.001)
+                                "Ultimately, the correct probability of spot ignition is computed.")
+                            (is (= spot-ignition-p (spotting/spot-ignition-probability schr-ign-prob decay-constant spotting-distance))
+                                (str `spotting/spot-ignition-probability " computes the same end result directly, without upper bounds."))
+                            (->> upper-bounds (every? (fn [^double upper-bound]
+                                                        (is (>= upper-bound spot-ignition-p)
+                                                            "Each upper bound is indeed no smaller than the end result."))))))))))))
 
 (deftest ^:unit test-spot-ignition-time
   (testing "Calculating t-max from Albini (1976)."
