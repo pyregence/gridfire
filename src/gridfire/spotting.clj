@@ -427,7 +427,7 @@
                          fine-fuel-moisture   (if get-fuel-moisture-dead-1hr
                                                 (grid-lookup/double-at get-fuel-moisture-dead-1hr band x y)
                                                 (calc-fuel-moisture
-                                                 (grid-lookup/double-at get-relative-humidity band i j)
+                                                 (grid-lookup/double-at get-relative-humidity band x y)
                                                  temperature :dead :1hr))
                          ignition-probability (schroeder-ign-prob (convert/F->C (double temperature)) fine-fuel-moisture)
                          decay-constant       (double (:decay-constant spotting))
