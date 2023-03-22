@@ -484,8 +484,7 @@
                                                                                                    fine-fuel-moisture (if get-fuel-moisture-dead-1hr
                                                                                                                         (grid-lookup/double-at get-fuel-moisture-dead-1hr band i1 j1)
                                                                                                                         (calc-fuel-moisture
-                                                                                                                         ;; FIXME must be in target cell: i j -> i1 j1
-                                                                                                                         (grid-lookup/double-at get-relative-humidity band i j)
+                                                                                                                         (grid-lookup/double-at get-relative-humidity band i1 j1)
                                                                                                                          temperature :dead :1hr))]
                                                                                                (schroeder-ign-prob (convert/F->C (double temperature)) fine-fuel-moisture)))]
                                        (let [burn-probability (* (double spot-ignition-p) source-burn-probability)]
