@@ -586,7 +586,7 @@
                                       (let [[i j] k
                                             [_ p] v]
                                         (>= (grid-lookup/double-at fire-spread-getter (long i) (long j)) (double p))))
-        pruned-spot-ignite-later    (into {} (remove ignited? spot-ignite-later)) ; TODO move to identify-spot-ignition
+        pruned-spot-ignite-later    (into {} (remove ignited?) spot-ignite-later) ; TODO move to identify-spot-ignition
         pruned-spot-ignite-now      (filterv #(not (ignited? %)) spot-ignite-now) ; TODO move to identify-spot-ignition
         create-new-bvs!             (create-new-burn-vectors!-pfn num-rows num-cols cell-size get-elevation
                                                                   travel-lines-matrix fire-spread-matrix
