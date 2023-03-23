@@ -244,11 +244,19 @@
    t_T = t_o + 1.2 + (a / 3) * ( ( (b + (z/z_F) )/a )^3/2 - 1 )  (D43)"
   ^double
   [^double flame-length]
+  ;; REVIEW several issues suspected here:
   (let [a     5.963                            ; constant from (D33)
         b     4.563                            ; constant from (D34)
+        ;; D = 0.003m is a bit suspicious. Aren't the firebrands we should worry about larger than 3mm?
         z-max 117.0                            ; max height given particle diameter of 0.003m
         w_F   (* 2.3 (Math/sqrt flame-length)) ; upward axial velocity at flame tip
+        ;; This is a misinterpretation of what t_o means in the original paper:
+        ;; "normalized by 2*z_F / w_F" does not mean "equal to wF/(2*zF)".
+        ;; Btw, that code produces a result in s^{-1}, not minutes.
+        ;; As we'll see below, t_o should not be involved here anyway.
         t_0   (/ w_F (* 2.0 flame-length))]    ; period of steady burning of tree crowns (t_c, min) normalized by 2*z_F / w_F
+    ;; This formula applies (D43), but forgets that (D43) has been normalized by the time constant (2*zF/wF).
+    ;; Therefore, a multiplication by 2*zF/wF is missing.
     (-> z-max
         (/ flame-length)
         (+ b)
@@ -257,6 +265,8 @@
         (- 1.0)
         (* (/ a 3.0))
         (+ 1.2)
+        ;; t_o should not be in the sum here, because we only want to know the travel time, not the duration of the flow structure.
+        ;; In other words, we want t1 + t2 + t3, not t_T.
         (+ t_0))))
 
 (defn spot-ignition-time
