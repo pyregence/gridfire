@@ -523,17 +523,19 @@
        (.invokePrim ~cnbv-sym ~bvs-acc ~i ~j ~burn-probability))))
 
 (defn- identify-spot-ignition-events
-  [new-clock spot-ignitions]
-  (loop [to-process   spot-ignitions
-         ignite-later (transient {})
-         ignite-now   (transient {})]
-    (if (seq to-process)
-      (let [[cell spot-info] (first to-process)
-            [t _]            spot-info]
-        (if (>= ^double new-clock ^double t)
-          (recur (rest to-process) ignite-later (assoc! ignite-now cell spot-info))
-          (recur (rest to-process) (assoc! ignite-later cell spot-info) ignite-now)))
-      [(persistent! ignite-later) (persistent! ignite-now)])))
+  [^double new-clock spot-ignitions]
+  (let [ignite-now-list (ArrayList.)
+        ignite-later    (->> spot-ignitions
+                             (reduce-kv (fn [ign-later cell spot-info]
+                                          (let [[t _] spot-info]
+                                            (if (>= new-clock ^double t)
+                                              (do
+                                                (.add ignite-now-list [cell spot-info])
+                                                (dissoc! ign-later cell))
+                                              ign-later)))
+                                        (transient spot-ignitions))
+                             (persistent!))]
+    [ignite-later (into {} ignite-now-list)]))
 
 (defn- merge-spot-ignitions [a b]
   (reduce (fn [acc [cell spot-info]]
