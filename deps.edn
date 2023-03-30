@@ -6,6 +6,7 @@
         com.nextjournal/beholder            {:mvn/version "1.0.0"}
         com.taoensso/tufte                  {:mvn/version "2.2.0"}
         hikari-cp/hikari-cp                 {:mvn/version "2.13.0"}
+        hiccup/hiccup                       {:mvn/version "1.0.5"}
         manifold/manifold                   {:mvn/version "0.2.4"}
         org.apache.commons/commons-compress {:mvn/version "1.21"}
         org.clojars.lambdatronic/matrix-viz {:mvn/version "2022.02.03"}
