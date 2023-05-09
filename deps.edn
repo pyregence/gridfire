@@ -9,7 +9,7 @@
         hiccup/hiccup                       {:mvn/version "1.0.5"}
         manifold/manifold                   {:mvn/version "0.2.4"}
         org.apache.commons/commons-compress {:mvn/version "1.21"}
-        org.clojars.lambdatronic/matrix-viz {:mvn/version "2022.02.03"}
+        org.clojars.lambdatronic/matrix-viz {:mvn/version "2023.05.04"}
         org.clojure/clojure                 {:mvn/version "1.10.3"}
         org.clojure/core.async              {:mvn/version "1.3.622"}
         org.clojure/data.csv                {:mvn/version "1.0.0"}
