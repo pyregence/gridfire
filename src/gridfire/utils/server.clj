@@ -12,7 +12,7 @@
 (defmacro nil-on-error
   [& body]
   (let [_ (gensym)]
-    `(try ~@body (catch Exception ~_ nil))))
+    `(try ~@body (catch Throwable ~_ nil))))
 
 (defn non-empty-string?
   [x]
