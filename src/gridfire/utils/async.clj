@@ -74,7 +74,7 @@
                                       (try
                                         (mfd/success! d
                                                       (f x))
-                                        (catch Exception err
+                                        (catch Throwable err
                                           (mfd/error! d err)))
                                       d))
                                =tasks=)

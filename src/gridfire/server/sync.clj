@@ -58,10 +58,10 @@
     (try
       (let [success-data @completion-dfr]
         (into {:gridfire.run-config/succeeded true} success-data))
-      (catch Exception err
+      (catch Throwable err
         (let [err-map (or (try
                             (Throwable->map err)
-                            (catch Exception _parsing-err nil))
+                            (catch Throwable _parsing-err nil))
                           {:message (str "(FAILED Throwable->map) " (ex-message err))})]
           {:gridfire.run-config/succeeded  false
            :gridfire.run-config/error-data err-map})))))
@@ -79,7 +79,7 @@
   (map (fn edn-encode-safe [res]
          (try
            (pr-str res)
-           (catch Exception err
+           (catch Throwable err
              (pr-str (tagged-literal 'gridfire.server.sync/failed-printing-result
                                      {::ex-class-name (.getName (class err))
                                       ::ex-message    (ex-message err)})))))))
