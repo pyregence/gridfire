@@ -8,6 +8,7 @@
             [gridfire.grid-lookup                         :as grid-lookup]
             [gridfire.outputs                             :as outputs]
             [gridfire.perturbations.pixel.hash-determined :as pixel-hdp]
+            [gridfire.spotting                            :as spotting]
             [gridfire.utils.async                         :as gf-async]
             [gridfire.utils.random                        :refer [my-rand-range]]
             [manifold.deferred                            :as mfd]
@@ -511,7 +512,7 @@
                             :sdi-reference-suppression-speed                  (some-> (:sdi-reference-suppression-speed-samples inputs) (get i))
                             :sdi-sensitivity-to-difficulty                    (some-> (:sdi-sensitivity-to-difficulty-samples inputs) (get i))
                             :memoization                                      (:memoization inputs)
-                            :spotting                                         spotting
+                            :spotting                                         (spotting/sample-spotting-params spotting rand-gen)
                             :fuel-number->spread-rate-adjustment-array-lookup (some-> (:fuel-number->spread-rate-adjustment-array-lookup-array-lookup-samples inputs) (get i))
                             :suppression-coefficient                          (some-> (:suppression-coefficient-samples inputs) (get i))
                             :suppression-dt                                   (some-> (:suppression-dt-samples inputs) (get i))}]

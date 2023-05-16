@@ -340,6 +340,7 @@
   :normalized-distance-variance {:lo 250.0, :hi 600.0},
   :crown-fire-spotting-percent [0.195 0.975],
   :num-firebrands {:lo 2, :hi 2},
+  :delta-y-sigma 20.0,
   :decay-constant 0.005,
   :surface-fire-spotting
   {:spotting-percent [[[1 303] [0.13 0.52]]],

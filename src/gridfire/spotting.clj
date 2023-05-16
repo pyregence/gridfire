@@ -8,61 +8,24 @@
                                                   terrain-distance-invoke]]
             [gridfire.conversion          :as convert]
             [gridfire.grid-lookup         :as grid-lookup]
+            [gridfire.spotting.elmfire    :as spotting-elm]
             [gridfire.utils.random        :refer [my-rand-range]]
-            [tech.v3.tensor               :as t])
-  (:import java.util.Random))
-
+            [tech.v3.tensor               :as t]
+            [vvvvalvalval.supdate.api     :as supd])
+  (:import (java.util Random)
+           (org.apache.commons.math3.distribution PoissonDistribution)
+           (org.apache.commons.math3.random RandomGenerator JDKRandomGenerator)))
 (set! *unchecked-math* :warn-on-boxed)
 
 ;;-----------------------------------------------------------------------------
 ;; Formulas
 ;;-----------------------------------------------------------------------------
 
-(defn- sample-spotting-params
-  ^double
-  [param rand-gen]
-  (if (map? param)
-    (let [{:keys [lo hi]} param
-          l               (if (vector? lo) (my-rand-range rand-gen (lo 0) (lo 1)) lo)
-          h               (if (vector? hi) (my-rand-range rand-gen (hi 0) (hi 1)) hi)]
-      (my-rand-range rand-gen l h))
-    param))
-
-(defn- downwind-distance-mean-variance
-  "Returns the mean and variance of the spotting distance along the wind direction, given:
-  fire-line-intensity: (kW/m)
-  wind-speed-20ft: (m/s)"
-  [{:keys [^double mean-distance ^double flin-exp ^double ws-exp ^double normalized-distance-variance]}
-   rand-gen ^double fire-line-intensity ^double wind-speed-20ft]
-  (let [a (sample-spotting-params mean-distance rand-gen)
-        b (sample-spotting-params flin-exp rand-gen)
-        c (sample-spotting-params ws-exp rand-gen)
-        m (* a (Math/pow fire-line-intensity b) (Math/pow wind-speed-20ft c))]
-    {:mean m :variance (* m (sample-spotting-params normalized-distance-variance rand-gen))}))
-
-(defn- lognormal-sigma-from-moments
-  "Resolves the dispersion parameter (sigma) of a log-normal distribution from its moments.
-
-  Given the mean `m` and variance `v` of a log-normal random variable X,
-  returns the standard deviation of ln(X), the underlying normally distributed random variable."
-  ^double
-  [^double m ^double v]
-  (Math/sqrt (Math/log (+ 1 (/ v (Math/pow m 2))))))
-
-(defn- lognnormal-mu-from-moments
-  "Resolves the location parameter (mu) of a log-normal distribution from its moments.
-
-  Given the mean `m` and variance `v` of a log-normal random variable X,
-  returns the mean of ln(X), the underlying normally distributed random variable."
-  ^double
-  [^double m ^double v]
-  (Math/log (/ (Math/pow m 2)
-               (Math/sqrt (+ v (Math/pow m 2))))))
-
 (defn- sample-normal
   "Returns sample from normal/gaussian distribution given mu and sd."
   ^double
   [^Random rand-gen ^double mu ^double sd]
+  (.nextGaussian rand-gen)
   (+ mu (* sd (.nextGaussian rand-gen))))
 
 (defn- sample-lognormal
@@ -71,24 +34,97 @@
   [^Random rand-gen ^double mu ^double sd]
   (Math/exp (sample-normal rand-gen mu sd)))
 
+(defn deltax-expected-value
+  ^double [^double mu-x ^double sigma-x]
+  (convert/m->ft (Math/exp (+ mu-x
+                              (/ (Math/pow sigma-x 2)
+                                 2.0)))))
+
+(defn deltax-coefficient-of-variation
+  ^double [^double sigma-x]
+  (Math/sqrt (- (Math/exp (Math/pow sigma-x 2))
+                1)))
+
+;; NOTE might be turned into a multimethod.
+(defn resolve-lognormal-params
+  [spotting-config ^double fire-line-intensity ^double  wind-speed-20ft]
+  (spotting-elm/resolve-lognormal-params spotting-config fire-line-intensity wind-speed-20ft))
+
+(defn delta-x-sampler
+  "Returns a function for randomly sampling ΔX, the spotting jump along the wind direction (in ft)."
+  [spotting-config ^double fire-line-intensity ^double wind-speed-20ft]
+  (let [ln-params (resolve-lognormal-params spotting-config fire-line-intensity wind-speed-20ft)
+        mux       (:prob.lognormal/mu ln-params)
+        sigmax    (:prob.lognormal/sigma ln-params)]
+    (fn ^double draw-deltax-ft [rand-gen]
+      (-> (sample-lognormal rand-gen mux sigmax)
+          (convert/m->ft)))))
+
+(def ^:private sigma-y-scalar-ft
+  (* (convert/m->ft 1.0)
+     0.92
+     (/ 0.47
+        (Math/pow 0.88 2))))
+
+(defn himoto-resolve-default-sigma-y-from-lognormal-params
+  ^double [^double mu-x ^double sigma-x]
+  (let [es2h (Math/exp (/ (Math/pow sigma-x 2)
+                          2))
+        avg-deltax-m (* (Math/exp mu-x) es2h)]
+    (* (double sigma-y-scalar-ft)
+       avg-deltax-m
+       (+ es2h 1.0)
+       (- es2h 1.0))))
+
+(comment
+  ;; When will we have the default sigma_Y > E[ΔX]?
+  ;; It can be seen that this nonsensical situation
+  ;; happens iff sigma_X exceeds the following number:
+  (Math/sqrt
+   (Math/log (+ 1.0
+                (/ (Math/pow 0.88 2)
+                   (* 0.92 0.47)))))
+  ;; =>
+  1.0131023746492023
+
+  *e)
+
+(defn himoto-resolve-default-sigma-y
+  ^double [spotting-config ^double fire-line-intensity ^double wind-speed-20ft]
+  (let [ln-params (resolve-lognormal-params spotting-config fire-line-intensity wind-speed-20ft)
+        mux       (:prob.lognormal/mu ln-params)
+        sigmax    (:prob.lognormal/sigma ln-params)]
+    (himoto-resolve-default-sigma-y-from-lognormal-params mux sigmax)))
+
+(defn resolve-delta-y-sigma
+  ^double [spotting-config ^double fire-line-intensity ^double wind-speed-20ft]
+  (or (some-> (:delta-y-sigma spotting-config) (double))
+      (himoto-resolve-default-sigma-y spotting-config fire-line-intensity wind-speed-20ft)))
+
+(defn delta-y-sampler
+  "Returns a function for randomly sampling ΔY, the spotting jump perpendicular to the wind direction (in ft)."
+  [spotting-config ^double fire-line-intensity ^double wind-speed-20ft]
+  (let [sigma-y (resolve-delta-y-sigma spotting-config fire-line-intensity wind-speed-20ft)]
+    (fn draw-deltay-ft ^double [rand-gen]
+      (convert/m->ft (sample-normal rand-gen 0 sigma-y)))))
+
 (defn- sample-wind-dir-deltas
-  "Returns a sequence of [x y] distances (meters) that firebrands land away
-  from a torched cell at i j where:
-  x: parallel to the wind
-  y: perpendicular to the wind (positive values are to the right of wind direction)"
-  [inputs fire-line-intensity-matrix wind-speed-20ft [i j]]
-  (let [spotting                (:spotting inputs)
-        rand-gen                (:rand-gen inputs)
-        num-firebrands          (long (sample-spotting-params (:num-firebrands spotting) rand-gen))
-        intensity               (convert/Btu-ft-s->kW-m (t/mget fire-line-intensity-matrix i j))
-        {:keys [mean variance]} (downwind-distance-mean-variance spotting rand-gen intensity wind-speed-20ft)
-        mu                      (lognnormal-mu-from-moments mean variance)
-        sd                      (lognormal-sigma-from-moments mean variance)
-        parallel-values         (repeatedly num-firebrands #(sample-lognormal rand-gen mu sd))
-        perpendicular-values    (repeatedly num-firebrands #(sample-normal rand-gen 0.0 0.92))]
-    (mapv (fn [x y] [(convert/m->ft x) (convert/m->ft y)])
-          parallel-values
-          perpendicular-values)))
+  "Draws a random sequence of [ΔX ΔY] pairs of signed distances (in ft) from the supplied cell,
+  representing the coordinates of the spotting jump
+  in the directions parallel and perpendicular to the wind.
+  ΔX will typically be positive (downwind),
+  and positive ΔY means to the right of the downwind direction."
+  [inputs fire-line-intensity wind-speed-20ft num-firebrands]
+  (let [spotting-config   (:spotting inputs)
+        rand-gen          (:rand-gen inputs)
+        fl-intensity      (convert/Btu-ft-s->kW-m fire-line-intensity)
+        ws20ft            (convert/mph->mps wind-speed-20ft)
+        sample-delta-x-fn (delta-x-sampler spotting-config fl-intensity ws20ft)
+        sample-delta-y-fn (delta-y-sampler spotting-config fl-intensity ws20ft)]
+    (vec (repeatedly num-firebrands
+                     (fn sample-delta-tuple []
+                       [(sample-delta-x-fn rand-gen)
+                        (sample-delta-y-fn rand-gen)])))))
 ;; sardoy-firebrand-dispersal ends here
 ;; [[file:../../org/GridFire.org::convert-deltas][convert-deltas]]
 (defn hypotenuse ^double
@@ -99,6 +135,7 @@
   "Converts deltas from the torched tree in the wind direction to deltas
   in the coordinate plane"
   [deltas ^double wind-direction]
+  ;; IMPROVEMENT re-implement using sin, cos and dot-products, cleaner and faster. (Val, 16 Mar 2023)
   (mapv (fn [[d-paral d-perp]]
           (let [d-paral (double d-paral)
                 d-perp  (double d-perp)
@@ -175,21 +212,17 @@
 (defn spot-ignition-probability
   "Returns the probability of spot fire ignition (Perryman 2012) given:
    - Schroeder's probability of ignition [P(I)] (0-1)
-   - Decay constant [lambda] (0.005)
+   - Decay constant [lambda] (m^-1)
    - Distance from the torched cell [d] (meters)
-   - Number of firebrands accumulated in the cell [b]
 
-   P(Spot Ignition) = 1 - (1 - (P(I) * exp(-lambda * d)))^b"
+   P(Spot Ignition) = P(I) * exp(-lambda * d)"
   ^double
-  [^double ignition-probability ^double decay-constant ^double spotting-distance ^double firebrand-count]
+  [^double ignition-probability ^double decay-constant ^double spotting-distance]
   (-> decay-constant
       (* -1.0)
       (* spotting-distance)
       (Math/exp)
-      (* ignition-probability)
-      (one-minus)
-      (Math/pow firebrand-count)
-      (one-minus)))
+      (* ignition-probability)))
 ;; firebrand-ignition-probability ends here
 ;; [[file:../../org/GridFire.org::firebrands-time-of-ignition][firebrands-time-of-ignition]]
 (defn spot-ignition?
@@ -197,8 +230,17 @@
   (let [random-number (my-rand-range rand-gen 0 1)]
     (>= spot-ignition-probability random-number)))
 
+(defn albini-firebrand-maximum-height
+  ^double [^double firebrand-diameter]
+  (* 0.39e5 firebrand-diameter))
+
+(def ^:const fb-z-max
+  "Maximum altitude of firebrands, in meters.
+  Derived for (D44) in (Albini1979spot)."
+  117.0)
+
 (defn albini-t-max
-  "Returns the time of spot ignition using (Albini 1979) in minutes given:
+  "Returns the time of spot ignition using (Albini1979spot) in minutes given:
    - Flame length: (m) [z_F]
 
    a = 5.963                                                     (D33)
@@ -208,31 +250,36 @@
    w_F = 2.3 * (z_F)^0.5                                         (A58)
    t_o = t_c / (2 * z_F / w_F)
    z =  0.39 * D * 10^5
-   t_T = t_o + 1.2 + (a / 3) * ( ( (b + (z/z_F) )/a )^3/2 - 1 )  (D43)"
+   travel time = t_1 + t_2 + t_3 = 1.2 + (a / 3) * ( ( (b + (z/z_F) )/a )^3/2 - 1 ), see (D43)"
   ^double
   [^double flame-length]
-  (let [a     5.963                            ; constant from (D33)
-        b     4.563                            ; constant from (D34)
-        z-max 117.0                            ; max height given particle diameter of 0.003m
-        w_F   (* 2.3 (Math/sqrt flame-length)) ; upward axial velocity at flame tip
-        t_0   (/ w_F (* 2.0 flame-length))]    ; period of steady burning of tree crowns (t_c, min) normalized by 2*z_F / w_F
-    (-> z-max
-        (/ flame-length)
-        (+ b)
-        (/ a)
-        (Math/pow 1.5)
-        (- 1.0)
-        (* (/ a 3.0))
-        (+ 1.2)
-        (+ t_0))))
+  (let [z_F            flame-length                         ; m
+        ;; TODO use FastMath
+        w_F            (* 2.3 (Math/sqrt flame-length))     ; m/s
+        charact-t      (-> (* 2
+                              (/ z_F w_F))                  ; s
+                           (convert/sec->min))
+        ;; The following dimensionless factor is equal to t_T-t_o, with t_T defined by (D43) in Albini1979spot.
+        t1+2+3         (+ 1.2
+                          (let [a 5.963                     ; dimensionless constant from (D33)
+                                b 4.563                     ; dimensionless constant from (D34)
+                                z fb-z-max]
+                            (* (/ a 3)
+                               (- (-> (/ (+ b
+                                            (/ z z_F))
+                                         a)
+                                      ;; TODO use FastMath
+                                      (Math/pow 1.5))
+                                  1))))
+        tv             (* charact-t t1+2+3)]
+    tv))
 
 (defn spot-ignition-time
   "Returns the time of spot ignition using (Albini 1979) and (Perryman 2012) in minutes given:
    - Global clock: (min)
    - Flame length: (m)
 
-   t_spot = clock + (2 * t_max) + t_ss"
-  ^double
+   t_spot = clock + (2 * t_max) + t_ss"^double
   [^double burn-time ^double flame-length]
   (let [t-steady-state 20.0] ; period of building up to steady state from ignition (min)
     (-> (albini-t-max flame-length)
@@ -240,27 +287,7 @@
         (+ burn-time)
         (+ t-steady-state))))
 ;; firebrands-time-of-ignition ends here
-;; [[file:../../org/GridFire.org::spread-firebrands][spread-firebrands]]
-(defn- update-firebrand-counts!
-  [inputs firebrand-count-matrix fire-spread-matrix source firebrands]
-  (let [num-rows                (:num-rows inputs)
-        num-cols                (:num-cols inputs)
-        get-fuel-model          (:get-fuel-model inputs)
-        [i j]                   source
-        source-burn-probability (grid-lookup/mget-double-at fire-spread-matrix (long i) (long j))]
-    (doseq [[y x] firebrands]
-      (when (burnable-cell? get-fuel-model
-                            fire-spread-matrix
-                            source-burn-probability
-                            num-rows
-                            num-cols
-                            y
-                            x)
-        (->> (grid-lookup/mget-double-at firebrand-count-matrix y x)
-             (long)
-             (inc)
-             (t/mset! firebrand-count-matrix y x))))))
-
+;; [[file:../../org/GridFire.org::spotting-fire-probability][spotting-fire-probability]]
 (defn- in-range?
   [[min max] fuel-model-number]
   (<= min fuel-model-number max))
@@ -285,16 +312,6 @@
           (recur (rest irm-entries)))))
     intranges-mapping))
 
-(defn- sample-from-uniform
-  "Draws a random number from a Uniform Distribution,
-  encoded as either a single number (no randomness, a.k.a. Constant Distribution)
-  or a [min max] range."
-  ^double [values-range rand-gen]
-  (cond
-    (number? values-range) (double values-range)
-    (vector? values-range) (let [[min max] values-range]
-                             (my-rand-range rand-gen min max))))
-
 (defn surface-fire-spot-fire?
   "Expects surface-fire-spotting config to be a sequence of tuples of
   ranges [lo hi] and spotting probability. The range represents the range (inclusive)
@@ -310,25 +327,22 @@
         critical-fire-line-intensity (-> (:critical-fire-line-intensity surface-fire-spotting)
                                          (intranges-mapping-lookup fuel-model-number)
                                          (or 0.0)
-                                         (sample-from-uniform rand-gen))]
+                                         (double))]
     (when (and surface-fire-spotting
                (> fire-line-intensity critical-fire-line-intensity))
       (let [spot-percent (-> (:spotting-percent surface-fire-spotting)
                              (intranges-mapping-lookup fuel-model-number)
                              (or 0.0)
-                             (sample-from-uniform rand-gen))]
+                             (double))]
         (>= spot-percent (my-rand-range rand-gen 0.0 1.0))))))
 
 (defn crown-spot-fire?
   "Determine whether crowning causes spot fires. Config key `:spotting` should
    take either a vector of probabilities (0-1) or a single spotting probability."
   [inputs]
-  (when-let [spot-percent (:crown-fire-spotting-percent (:spotting inputs))]
-    (let [rand-gen  (:rand-gen inputs)
-          ^double p (if (vector? spot-percent)
-                      (let [[lo hi] spot-percent]
-                        (my-rand-range rand-gen lo hi)) ; TODO should this be calculated once at input phase?
-                      spot-percent)]
+  (when-some [spot-percent (:crown-fire-spotting-percent (:spotting inputs))] ; WARNING 'percent' is misleading. (Val, 17 Mar 2023)
+    (let [rand-gen (:rand-gen inputs)
+          p        (double spot-percent)]
       (>= p (my-rand-range rand-gen 0.0 1.0)))))
 
 (defn- spot-fire? [inputs crown-fire? here fire-line-intensity]
@@ -336,13 +350,50 @@
     (crown-spot-fire? inputs)
     (surface-fire-spot-fire? inputs here fire-line-intensity)))
 
+(defn- sample-poisson
+  ^long [^double mean ^RandomGenerator rng]
+  (-> (PoissonDistribution. rng
+                            mean
+                            PoissonDistribution/DEFAULT_EPSILON
+                            PoissonDistribution/DEFAULT_MAX_ITERATIONS)
+      (.sample)
+      (long)))
+
+(defn sample-number-of-firebrands
+  ^long [spotting-config ^RandomGenerator rng]
+  (sample-poisson (:num-firebrands spotting-config) rng))
+;; spotting-fire-probability ends here
+;; [[file:../../org/GridFire.org::spread-firebrands][spread-firebrands]]
+(defn- update-firebrand-counts!
+  [inputs firebrand-count-matrix fire-spread-matrix source firebrands]
+  (let [num-rows                (:num-rows inputs)
+        num-cols                (:num-cols inputs)
+        get-fuel-model          (:get-fuel-model inputs)
+        [i j]                   source
+        source-burn-probability (grid-lookup/mget-double-at fire-spread-matrix (long i) (long j))]
+    (doseq [[y x] firebrands]
+      ;; FIXME REVIEW Why this check? Why would we not count firebrands in non-burnable cells, e.g. urban areas?
+      (when (burnable-cell? get-fuel-model
+                            fire-spread-matrix
+                            source-burn-probability
+                            num-rows
+                            num-cols
+                            y
+                            x)
+        (->> (grid-lookup/mget-double-at firebrand-count-matrix y x)
+             (long)
+             (inc)
+             (t/mset! firebrand-count-matrix y x))))))
+
 ;; FIXME: Drop cell = [i j]
 (defn spread-firebrands
-  "Returns a sequence of key value pairs where
+  "Returns a sequence of [[x y] [t p]] key value pairs where
   key: [x y] locations of the cell
   val: [t p] where:
   t: time of ignition
-  p: ignition-probability"
+  p: ignition-probability.
+
+  Also mutates :firebrand-count-matrix to update the counts."
   [inputs matrices i j]
   (let [num-rows                   (:num-rows inputs)
         num-cols                   (:num-cols inputs)
@@ -369,13 +420,12 @@
         fire-line-intensity        (grid-lookup/mget-double-at fire-line-intensity-matrix i j)
         crown-fire?                (-> fire-type-matrix (grid-lookup/mget-double-at i j) (double) (> 1.0))]
     (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
-      (let [band                    (long (/ burn-time 60.0))
+      (let [rng                     (JDKRandomGenerator. (.nextInt rand-gen))
+            band                    (long (/ burn-time 60.0))
             ws                      (grid-lookup/double-at get-wind-speed-20ft band i j)
             wd                      (grid-lookup/double-at get-wind-from-direction band i j)
-            deltas                  (sample-wind-dir-deltas inputs
-                                                            fire-line-intensity-matrix
-                                                            (convert/mph->mps ws)
-                                                            cell)
+            num-fbs                 (sample-number-of-firebrands spotting rng)
+            deltas                  (sample-wind-dir-deltas inputs fire-line-intensity ws num-fbs)
             wind-to-direction       (mod (+ 180 wd) 360)
             firebrands              (firebrands deltas wind-to-direction cell cell-size)
             source-burn-probability (grid-lookup/mget-double-at fire-spread-matrix i j)
@@ -391,16 +441,14 @@
                          fine-fuel-moisture   (if get-fuel-moisture-dead-1hr
                                                 (grid-lookup/double-at get-fuel-moisture-dead-1hr band x y)
                                                 (calc-fuel-moisture
-                                                 (grid-lookup/double-at get-relative-humidity band i j)
+                                                 (grid-lookup/double-at get-relative-humidity band x y)
                                                  temperature :dead :1hr))
                          ignition-probability (schroeder-ign-prob (convert/F->C (double temperature)) fine-fuel-moisture)
                          decay-constant       (double (:decay-constant spotting))
                          spotting-distance    (convert/ft->m (terrain-distance-invoke terrain-dist-fn i j x y))
-                         firebrand-count      (t/mget firebrand-count-matrix x y)
                          spot-ignition-p      (spot-ignition-probability ignition-probability
                                                                          decay-constant
-                                                                         spotting-distance
-                                                                         firebrand-count)
+                                                                         spotting-distance)
                          burn-probability     (* spot-ignition-p source-burn-probability)]
                      (when (and (>= burn-probability 0.1)   ; TODO parametrize 0.1 in gridfire.edn
                                 (> (double burn-probability) (grid-lookup/mget-double-at fire-spread-matrix x y))
@@ -410,3 +458,58 @@
                          [[x y] [t burn-probability]]))))))
              (remove nil?))))))
 ;; spread-firebrands ends here
+
+;; [[file:../../org/GridFire.org::spotting-firebrands-params-sampling][spotting-firebrands-params-sampling]]
+(defn- sample-spotting-param
+  ^double
+  [param rand-gen]
+  (if (and (map? param) (contains? param :lo) (contains? param :hi))
+    (let [{:keys [lo hi]} param
+          ;; FIXME REVIEW Why on Earth are we sampling from a range with random bounds? (Val, 17 Mar 2023)
+          l               (if (vector? lo) (my-rand-range rand-gen (lo 0) (lo 1)) lo)
+          h               (if (vector? hi) (my-rand-range rand-gen (hi 0) (hi 1)) hi)]
+      (my-rand-range rand-gen l h))
+    param))
+
+(defn- sample-from-uniform
+  "Draws a random number from a Uniform Distribution,
+  encoded as either a single number (no randomness, a.k.a. Constant Distribution)
+  or a [min max] range."
+  ^double [values-range rand-gen]
+  (cond
+    (number? values-range) (double values-range)
+    (vector? values-range) (let [[min max] values-range]
+                             (my-rand-range rand-gen min max))))
+
+(defn- sample-intranges-mapping-values
+  [pairs rand-gen]
+  (if (sequential? pairs)
+    (supd/supdate pairs [{1 #(sample-from-uniform % rand-gen)}])
+    pairs))
+
+(defn sample-spotting-params
+  "Resolves values for the spotting parameters which are configured as a range to draw from.
+
+  Given a GridFire spotting configuration map,
+  replaces those parameters which are configured as a range
+  with randomly drawn values from that range,
+  returning a new map."
+  [spotting-config rand-gen]
+  (-> spotting-config
+      ;; Yes, it' a mess, that's what we get for having made the configuration so irregular. (Val, 17 Mar 2023)
+      (as-> sp-params
+            (reduce (fn [sp k]
+                      (supd/supdate sp {k #(sample-spotting-param % rand-gen)}))
+                    sp-params
+                    [:num-firebrands
+                     :decay-constant
+                     :mean-distance
+                     :normalized-distance-variance
+                     :flin-exp
+                     :ws-exp
+                     :delta-y-sigma])
+            (supd/supdate sp-params
+                          {:crown-fire-spotting-percent #(some-> % (sample-from-uniform rand-gen))
+                           :surface-fire-spotting       {:critical-fire-line-intensity #(sample-intranges-mapping-values % rand-gen)
+                                                         :spotting-percent             #(sample-intranges-mapping-values % rand-gen)}}))))
+;; spotting-firebrands-params-sampling ends here

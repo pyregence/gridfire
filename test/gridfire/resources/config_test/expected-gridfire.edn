@@ -93,7 +93,9 @@
   :normalized-distance-variance {:lo 250.0, :hi 600.0},
   :crown-fire-spotting-percent [0.005 0.02],
   :num-firebrands {:lo 1, :hi [1 2]},
+  :delta-y-sigma 20.0
   :decay-constant 0.005,
+  ;; FIXME :delta-y-sigma
   :surface-fire-spotting
   {:spotting-percent [[[1 303] [0.001 0.003]]],
    :critical-fire-line-intensity 288.879425327306}},

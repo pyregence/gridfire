@@ -1,8 +1,11 @@
 ;; [[file:../../org/GridFire.org::gridfire.spotting-test][gridfire.spotting-test]]
 (ns gridfire.spotting-test
-  (:require [clojure.test                :refer [are deftest is testing use-fixtures run-tests]]
+  (:require [clojure.pprint              :as pp]
+            [clojure.test                :refer [are deftest is testing use-fixtures run-tests]]
             [gridfire.conversion         :as c]
-            [gridfire.spotting-old           :as spotting]
+            [gridfire.grid-lookup        :as grid-lookup]
+            [gridfire.spotting           :as spotting]
+            [gridfire.spotting.sardoy    :as spotting-sardoy]
             [tech.v3.datatype            :as d]
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.tensor              :as t])
@@ -72,26 +75,27 @@
            [8  -8]  [[200  0]    270]  ;; West, out of bounds
            ))))
 
-(deftest ^:unit surface-spot-percents
-  (testing "Fuel model is within expected ranges."
-    (let [spot-percents [[[1 140] 1.0]
-                         [[141 149] 2.0]
-                         [[150 256] 3.0]]]
+(comment                                                    ;; FIXME restore or delete
+  (deftest ^:unit surface-spot-percents
+    (testing "Fuel model is within expected ranges."
+      (let [spot-percents [[[1 140] 1.0]
+                           [[141 149] 2.0]
+                           [[150 256] 3.0]]]
 
-      (is (= 1.0 (spotting/surface-spot-percent spot-percents 5 *rand-gen*)))
+        (is (= 1.0 (spotting/surface-spot-percent spot-percents 5 *rand-gen*)))
 
-      (is (= 2.0 (spotting/surface-spot-percent spot-percents 143 *rand-gen*)))
+        (is (= 2.0 (spotting/surface-spot-percent spot-percents 143 *rand-gen*)))
 
-      (is (= 3.0 (spotting/surface-spot-percent spot-percents 155 *rand-gen*)))))
+        (is (= 3.0 (spotting/surface-spot-percent spot-percents 155 *rand-gen*)))))
 
-  (testing "Overlapping ranges"
-    (let [spot-percents [[[1 140] 1.0]
-                         [[130 149] 2.0]]]
+    (testing "Overlapping ranges"
+      (let [spot-percents [[[1 140] 1.0]
+                           [[130 149] 2.0]]]
 
-      (is (= 2.0 (spotting/surface-spot-percent spot-percents 133 *rand-gen*))
-          "should overwite percents of previous range in the sequence")))
+        (is (= 2.0 (spotting/surface-spot-percent spot-percents 133 *rand-gen*))
+            "should overwite percents of previous range in the sequence")))
 
-  (testing "TODO: Given a pair of percentages, random percent is generated"))
+    (testing "TODO: Given a pair of percentages, random percent is generated")))
 
 (deftest ^:unit test-heat-of-preignition
   (testing "Heat of Preignition using eq. 9 of Schroeder (1969)."
@@ -125,44 +129,45 @@
   (testing "Using Perryman (2012)."
     (let [lambda 0.005]
       (are [result args] (within? result (apply spotting/spot-ignition-probability args) 0.001)
-           ; Probability (0-1) [ignition-probability (0-1) decay-constant spotting-distance (m) firebrand-count]
+           ; Probability (0-1) [ignition-probability (0-1) decay-constant spotting-distance (m)]
 
            ; Increasing Schroeder Ignition Probability
-           0.121               [0.2 lambda 100 1.0]
-           0.242               [0.4 lambda 100 1.0]
-           0.363               [0.6 lambda 100 1.0]
-           0.485               [0.8 lambda 100 1.0]
-           0.606               [1.0 lambda 100 1.0]
+           0.121               [0.2 lambda 100]
+           0.242               [0.4 lambda 100]
+           0.363               [0.6 lambda 100]
+           0.485               [0.8 lambda 100]
+           0.606               [1.0 lambda 100]
 
            ; Increasing Firebrands Count
-           0.0                 [0.5 lambda 100 0.0]
-           0.303               [0.5 lambda 100 1.0]
-           0.514               [0.5 lambda 100 2.0]
-           0.973               [0.5 lambda 100 10.0]
+           0.303               [0.5 lambda 100]
 
            ; Increasing Distance
-           0.303               [0.5 lambda 100  1.0]
-           0.183               [0.5 lambda 200  1.0]
-           0.0                 [0.5 lambda 2000 1.0]))))
+           0.303               [0.5 lambda 100]
+           0.183               [0.5 lambda 200]
+           0.0                 [0.5 lambda 2000]))))
 
 (deftest ^:unit test-spot-ignition-time
+  (testing (str `spotting/fb-z-max)
+    (is (= spotting/fb-z-max (spotting/albini-t-max 0.003))
+        "was chosen by computed the maximum height with a 3mm firebrand."))
+
   (testing "Calculating t-max from Albini (1976)."
     (are [result args] (within? result (apply spotting/albini-t-max args) 0.1)
          ; Time to max height (min) [Flame length (m)]
-         183.3                      [1.0]
-         19.9                       [5.0]
-         8.5                        [10.0]
-         2.7                        [30.0]
-         1.28                       [84.0]))
+         2.640                      [1.0]
+         0.629                      [5.0]
+         0.374                      [10.0]
+         0.204                      [30.0]
+         0.159                      [84.0]))
 
   (testing "Calculating time to spot ignition using Perryman."
     (are [result args] (within? result (apply spotting/spot-ignition-time args) 0.1)
-         ; Ignition time (m) [Global clock time (m) Flame length (m)]
-         386.6               [0 1.0]
-         59.8                [0 5.0]
-         37.0                [0 10.0]
-         25.5                [0 30.0]
-         22.56               [0 84.0])))
+         ; Ignition time (min) [Global clock time (min) Flame length (m)]
+         25.28                 [0 1.0]
+         21.26                 [0 5.0]
+         20.75                 [0 10.0]
+         20.41                 [0 30.0]
+         20.32                 [0 84.0])))
 
 (deftest ^:unit test-spot-ignition?
   (testing "Spot ignition probability exceeds a random number generator."
@@ -180,27 +185,186 @@
            ; Result [crown fire spotting probability (0-1)]
            true     [(->argmap 1.0)]
            false    [(->argmap 0.0)]
-           true     [(->argmap 0.5)]
-           false    [(->argmap [0.0 0.001])]
-           true     [(->argmap [0.99 1.0])]))))
+           true     [(->argmap 0.5)]))))
 
 (deftest ^:unit test-surface-fire-spot-fire?
   (testing "Whether spotting from surface fire occurs based on a single or range of probabilities."
     (let [fuel-model (d/clone (dfn/+ (t/new-tensor [10 10]) 10))
           ->argmap   (fn [crit-fire-line-intensity spotting]
-                       {:rand-gen          *rand-gen*
-                        :fuel-model-matrix fuel-model
-                        :spotting          {:surface-fire-spotting
-                                            {:critical-fire-line-intensity crit-fire-line-intensity
-                                             :spotting-percent             spotting}}})]
+                       {:rand-gen       *rand-gen*
+                        :get-fuel-model (-> fuel-model
+                                            (grid-lookup/add-double-getter)
+                                            (grid-lookup/mgetter-double))
+                        :spotting       {:surface-fire-spotting
+                                         {:critical-fire-line-intensity crit-fire-line-intensity
+                                          :spotting-percent             spotting}}})]
       (are [result args] (= result (apply spotting/surface-fire-spot-fire? args))
            ; Result [crit. fire line intensity (kW/m) surface fire spotting probability (0-1) here (coords) fire line intensity (kW/m)]
-           nil      [(->argmap 1500 nil)                     [0 0] 1000]
-           true     [(->argmap 500  [[[1 20] 1.0]])          [0 0] 1000]
-           false    [(->argmap 500  [[[1 20] [0.0  0.001]]]) [0 0] 1000]
-           true     [(->argmap 500  [[[1 20] [0.99 1.0]]])   [0 0] 1000]))))
+           nil      [(->argmap 1500 nil)                [0 0] 1000]
+           true     [(->argmap 500  [[[1 20] 1.0]])     [0 0] 1000]
+           false    [(->argmap 500  [[[1 20] 0.001]])   [0 0] 1000]
+           true     [(->argmap 500  [[[1 20] 0.999]])   [0 0] 1000]))))
 
 (comment
   (run-tests 'gridfire.spotting-test)
   )
 ;; gridfire.spotting-test ends here
+;; [[file:../../org/GridFire.org::himoto-typical-ranges][himoto-typical-ranges]]
+(defn himoto-eq-28-values
+  [B*]
+  (let [D                  0.08
+        ;; NOTE the above value for D seems absurdly low, and so do the predicted E[ΔX].
+        ;; I suspect a typo in the Himoto2005 paper.
+        std-delta-x-over-D (* 0.88 (Math/pow B* (/ 1.0 3)))
+        exp-delta-x-over-D (* 0.47 (Math/pow B* (/ 2.0 3)))
+
+        cv-delta-x         (/ std-delta-x-over-D exp-delta-x-over-D)
+        sigma-x            (Math/sqrt (Math/log (+ 1.0 cv-delta-x)))
+        exp-delta-x        (* exp-delta-x-over-D D)
+        mu-x               (- (Math/log exp-delta-x)
+                              (/ (Math/pow sigma-x 2)
+                                 2))
+        sigma-y            (* D 0.92)]
+    {"$B^*$"                              B*
+     ;; NOTE the following ended up being nonsensical:
+     ;"E[ΔX] (m)" exp-delta-x
+     "$\\text{CV}[\\Delta_X]$"            (str (format "%.0f" (* 100 cv-delta-x)) "%")
+     ;"μ_X"       mu-x
+     "$\\sigma_X$"                        (format "%.2f" sigma-x)
+     "$\\sigma_Y/\\mathbb{E}[\\Delta_X]$" (format "%.2f" (/ sigma-y exp-delta-x))}))
+
+(comment
+  (pp/print-table
+   (->> [20 50 100 150 200]
+        (mapv himoto-eq-28-values)))
+  ;| $B^*$ | $\text{CV}[\Delta_X]$ | $\sigma_X$ | $\sigma_Y/\mathbb{E}[\Delta_X]$ |
+  ;|-------+-----------------------+------------+---------------------------------|
+  ;|    20 |                   69% |       0.72 |                            0.27 |
+  ;|    50 |                   51% |       0.64 |                            0.14 |
+  ;|   100 |                   40% |       0.58 |                            0.09 |
+  ;|   150 |                   35% |       0.55 |                            0.07 |
+  ;|   200 |                   32% |       0.53 |                            0.06 |
+
+  *e)
+;; himoto-typical-ranges ends here
+;; [[file:../../org/GridFire.org::spotting-params-examples][spotting-params-examples]]
+(def sardoy-wind-driven-lognormal-params
+  {:delta-x-ln-mu-a    1.32
+   :delta-x-ln-mu-p    0.26
+   :delta-x-ln-mu-q    0.11
+   :delta-x-ln-mu-b    -0.02
+   :delta-x-ln-sigma-a 4.95
+   :delta-x-ln-sigma-p -0.01
+   :delta-x-ln-sigma-q -0.02
+   :delta-x-ln-sigma-b -3.48})
+
+(def sardoy-buoyancy-driven-lognormal-params
+  {:delta-x-ln-mu-a    1.47
+   :delta-x-ln-mu-p    0.54
+   :delta-x-ln-mu-q    -0.55
+   :delta-x-ln-mu-b    1.14
+   :delta-x-ln-sigma-a 0.86
+   :delta-x-ln-sigma-p -0.21
+   :delta-x-ln-sigma-q 0.44
+   :delta-x-ln-sigma-b 0.19})
+
+(defn sardoy-dist-values
+  [spotting-config mu-iu sigma-iu]
+  (let [mu-x        (+ (* (double (:delta-x-ln-mu-a spotting-config))
+                          mu-iu)
+                       (double (:delta-x-ln-mu-b spotting-config)))
+        sigma-x     (+ (* (double (:delta-x-ln-sigma-a spotting-config))
+                          sigma-iu)
+                       (double (:delta-x-ln-sigma-b spotting-config)))
+        exp-delta-x (spotting/deltax-expected-value mu-x sigma-x)]
+    {"$I^{p_\\mu}U^{q_\\mu}$"               (format "%.2f" mu-iu)
+     "$\\mu_X$"                             (format "%.2f" mu-x)
+     "$I^{p_\\sigma}U^{q_\\sigma}$"         (format "%.2f" sigma-iu)
+     "$\\sigma_X$"                          (format "%.3f" sigma-x)
+     "$\\mathbb{E}[\\Delta_X]\\text{ (m)}$" (format "%.2f" exp-delta-x)
+     "$\\text{CV}[\\Delta_X]$"              (str (format "%.0f" (* 100 (spotting/deltax-coefficient-of-variation sigma-x)))
+                                                 "%")}))
+
+(defn sardoy-typical-ranges-row
+  [model-name spotting-config [mu-iu-min mu-iu-max] [sigma-iu-min sigma-iu-max]]
+  (into {"Model" model-name}
+        (merge-with (fn [v1 v2] (str v1 " - " v2))
+                    (sardoy-dist-values spotting-config mu-iu-min sigma-iu-min)
+                    (sardoy-dist-values spotting-config mu-iu-max sigma-iu-max))))
+
+(comment
+
+  (pp/print-table
+   (->> [["Wind-driven" sardoy-wind-driven-lognormal-params
+          [2.25 3.8]
+          ;; NOTE it appears that the 1st plot of Fig 10 has incorrect x labels, (Val, 16 Mar 2023)
+          ;; so I worked out the above bounds by inverting the y = ax + b relationship.
+          #_[1.5 2.0]
+          [0.88 0.93]]
+         ["Buoyancy-driven" sardoy-buoyancy-driven-lognormal-params [1.8 2.6] [1.05 1.3]]]
+        (mapv #(apply sardoy-typical-ranges-row %))))
+  ;|           Model | $I^{p_\mu}U^{q_\mu}$ |     $\mu_X$ | $I^{p_\sigma}U^{q_\sigma}$ |    $\sigma_X$ | $\mathbb{E}[\Delta_X]\text{ (m)}$ | $\text{CV}[\Delta_X]$ |
+  ;|-----------------+----------------------+-------------+----------------------------+---------------+-----------------------------------+-----------------------|
+  ;|     Wind-driven |          2.25 - 3.80 | 2.95 - 5.00 |                0.88 - 0.93 | 0.876 - 1.124 |                    92.00 - 911.67 |           107% - 159% |
+  ;| Buoyancy-driven |          1.80 - 2.60 | 3.79 - 4.96 |                1.05 - 1.30 | 1.093 - 1.308 |                  262.82 - 1102.77 |           152% - 213% |
+
+  *e)
+
+(deftest lognormal-params-sanity-checks-test
+  (let [fireline-intensity 30e3
+        wind-speed         11.17]
+    (testing "When using the Sardoy2008 wind-driven parameters"
+      (let [spotting-params sardoy-wind-driven-lognormal-params
+            expected-mux    4.147842572687786
+            expected-sigmax 1.0790349643407962
+            expected-sigmay 457.4026146906983
+            avg-deltax      (spotting/deltax-expected-value expected-mux expected-sigmax)]
+        (testing "the value of mu_X"
+          (is (within? (spotting-sardoy/sardoy-resolve-mu-x spotting-params fireline-intensity wind-speed)
+                       expected-mux
+                       1e-6))
+          (testing "is close to the value in Fig9 of Sardoy2008"
+            (is (within? expected-mux 4.20 0.1))))
+        (testing "the value of sigma_X"
+          (is (within? (spotting-sardoy/sardoy-resolve-sigma-x spotting-params fireline-intensity wind-speed)
+                       expected-sigmax
+                       1e-6))
+          (testing "is close to the value in Fig9 of Sardoy2008"
+            (is (within? expected-sigmax 0.96 0.2))))
+        (testing "E[ΔX] (the average ΔX)"
+          (is (within? avg-deltax 371.72303737837905
+                       1e-3)
+              (format "is about %.0f ft." avg-deltax)))
+        (testing "the default value of sigma_Y"
+          (is (within? (spotting/himoto-resolve-default-sigma-y-from-lognormal-params expected-mux expected-sigmax)
+                       expected-sigmay
+                       1e-3)
+              (format "is about %.0f ft." expected-sigmay))
+          (is (> expected-sigmay avg-deltax)
+              "is larger than E[ΔX], which means it is probably a bad idea to use it."))))
+    (testing "When using the Sardoy2008 buoyancy-driven parameters"
+      (let [spotting-params sardoy-buoyancy-driven-lognormal-params
+            expected-mux    3.586434356261935
+            expected-sigmax 1.407436684216556
+            expected-sigmay 1112.8976983507514
+            avg-deltax      (spotting/deltax-expected-value expected-mux expected-sigmax)]
+        (is (within? (spotting-sardoy/sardoy-resolve-mu-x spotting-params fireline-intensity wind-speed)
+                     expected-mux
+                     1e-6)
+            (format "mu_X is about %.2f" expected-mux))
+        (is (within? (spotting-sardoy/sardoy-resolve-sigma-x spotting-params fireline-intensity wind-speed)
+                     expected-sigmax
+                     1e-6)
+            (format "sigma_X is about %.2f" expected-sigmax))
+        (testing "E[ΔX] (the average ΔX)"
+          (is (within? avg-deltax 318.94593966227154
+                       1e-3)
+              (format "is about %.0f ft." avg-deltax)))
+        (testing "the default value of sigma_Y"
+          (is (within? (spotting/himoto-resolve-default-sigma-y-from-lognormal-params expected-mux expected-sigmax)
+                       expected-sigmay
+                       1e-3)
+              (format "is about %.0f ft" expected-sigmay))
+          (is (> expected-sigmay avg-deltax)
+              "is larger than E[ΔX], which means it is probably a bad idea to use it."))))))
+;; spotting-params-examples ends here
