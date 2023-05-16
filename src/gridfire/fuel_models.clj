@@ -1,16 +1,19 @@
 ;; [[file:../../org/GridFire.org::fuel-model-definitions][fuel-model-definitions]]
 (ns gridfire.fuel-models)
 
+(set! *unchecked-math* :warn-on-boxed)
+
 (def fuel-models
   "Lookup table including one entry for each of the Anderson 13 and
    Scott & Burgan 40 fuel models. The fields have the following
    meanings:
-   {number
+   {fuel-model-number
     [name delta M_x-dead h
      [w_o-dead-1hr w_o-dead-10hr w_o-dead-100hr w_o-live-herbaceous w_o-live-woody]
      [sigma-dead-1hr sigma-dead-10hr sigma-dead-100hr sigma-live-herbaceous sigma-live-woody]]
    }"
   {
+   ;; Anderson 13:
    ;; Grass and Grass-dominated (short-grass,timber-grass-and-understory,tall-grass)
    1   [:R01 1.0 12 8 [0.0340 0.0000 0.0000 0.0000 0.0000] [3500.0   0.0  0.0    0.0    0.0]]
    2   [:R02 1.0 15 8 [0.0920 0.0460 0.0230 0.0230 0.0000] [3000.0 109.0 30.0 1500.0    0.0]]
@@ -34,6 +37,7 @@
    93  [:NB3 0.0  0 0 [0.0000 0.0000 0.0000 0.0000 0.0000] [   0.0   0.0  0.0    0.0    0.0]]
    98  [:NB4 0.0  0 0 [0.0000 0.0000 0.0000 0.0000 0.0000] [   0.0   0.0  0.0    0.0    0.0]]
    99  [:NB5 0.0  0 0 [0.0000 0.0000 0.0000 0.0000 0.0000] [   0.0   0.0  0.0    0.0    0.0]]
+   ;; Scott & Burgan 40:
    ;; Grass (GR)
    101 [:GR1 0.4 15 8 [0.0046 0.0000 0.0000 0.0138 0.0000] [2200.0 109.0 30.0 2000.0    0.0]]
    102 [:GR2 1.0 15 8 [0.0046 0.0000 0.0000 0.0459 0.0000] [2000.0 109.0 30.0 1800.0    0.0]]
@@ -81,202 +85,288 @@
    203 [:SB3 1.2 25 8 [0.2525 0.1263 0.1377 0.0000 0.0000] [2000.0 109.0 30.0    0.0    0.0]]
    204 [:SB4 2.7 25 8 [0.2410 0.1607 0.2410 0.0000 0.0000] [2000.0 109.0 30.0    0.0    0.0]]
    })
-;; fuel-model-definitions ends here
 
-;; [[file:../../org/GridFire.org::fuel-category-and-size-class-functions][fuel-category-and-size-class-functions]]
-(defn map-category [f]
-  {:dead (f :dead) :live (f :live)})
+(def WUI-model-number->original
+  "Some variants of the above fuel models,
+  with a different fuel model number to distinguish them as
+  belonging to the Wildland Urban Interface (WUI).
 
-(defn map-size-class [f]
-  {:dead {:1hr        (f :dead :1hr)
-          :10hr       (f :dead :10hr)
-          :100hr      (f :dead :100hr)
-          :herbaceous (f :dead :herbaceous)}
-   :live {:herbaceous (f :live :herbaceous)
-          :woody      (f :live :woody)}})
+  Each of these WUI fuel models has the same physical characteristics
+  as one of the fuel models in the above table,
+  but having a different model number enables a different behavior
+  for other aspects, such as spread-rate adjustment or spotting.
 
-(defn category-sum ^double [f]
-  (+ ^double (f :dead) ^double (f :live)))
+  This table provides the mapping from variant model number -> original model number.
+  Notice how the difference of model numbers is usually 100 or 110."
+  {;; Grass (GR)
+   211 101
+   212 102
+   213 103
+   214 104
+   215 105
+   216 106
+   217 107
+   218 108
+   ;; Grass-Shrub (GS)
+   221 121
+   222 122
+   223 123
+   224 124
+   ;; Shrub (SH)
+   241 141
+   242 142
+   243 143
+   244 144
+   245 145
+   246 146
+   247 147
+   248 148
+   249 149
+   ;; Timber-Understory (TU)
+   261 161
+   262 162
+   263 163
+   265 165
+   ;; Timber Litter (TL)
+   281 181
+   282 182
+   283 183
+   284 184
+   285 185
+   286 186
+   287 187
+   288 188
+   289 189
+   ;; Slash-Blowdown (SB)
+   301 201
+   302 202
+   303 203})
 
-(defn size-class-sum [f]
-  {:dead (+ ^double (f :dead :1hr) ^double (f :dead :10hr) ^double (f :dead :100hr) ^double (f :dead :herbaceous))
-   :live (+ ^double (f :live :herbaceous) ^double (f :live :woody))})
-;; fuel-category-and-size-class-functions ends here
+(defrecord FuelModel
+    [name
+     ^long number
+     ^double delta
+     M_x
+     w_o
+     sigma
+     h
+     rho_p
+     S_T
+     S_e
+     M_f
+     f_ij
+     f_i
+     g_ij])
 
-;; [[file:../../org/GridFire.org::fuel-model-constructor-functions][fuel-model-constructor-functions]]
-(defn build-fuel-model
-  [fuel-model-number]
-  (let [[name delta ^double M_x-dead ^double h
+(defn is-dynamic-fuel-model-number?
+  [^long fuel-model-number]
+  (> fuel-model-number 100))
+
+(defn compute-fuel-model
+  [^long fuel-model-number]
+  (let [[name delta M_x-dead h
          [w_o-dead-1hr w_o-dead-10hr w_o-dead-100hr
           w_o-live-herbaceous w_o-live-woody]
          [sigma-dead-1hr sigma-dead-10hr sigma-dead-100hr
           sigma-live-herbaceous sigma-live-woody]]
         (fuel-models fuel-model-number)
-        M_x-dead (* M_x-dead 0.01)
-        h        (* h 1000.0)]
-    {:name   name
-     :number fuel-model-number
-     :delta  delta
-     :M_x    {:dead {:1hr        M_x-dead
-                     :10hr       M_x-dead
-                     :100hr      M_x-dead
-                     :herbaceous 0.0}
-              :live {:herbaceous 0.0
-                     :woody      0.0}}
-     :w_o    {:dead {:1hr        w_o-dead-1hr
-                     :10hr       w_o-dead-10hr
-                     :100hr      w_o-dead-100hr
-                     :herbaceous 0.0}
-              :live {:herbaceous w_o-live-herbaceous
-                     :woody      w_o-live-woody}}
-     :sigma  {:dead {:1hr        sigma-dead-1hr
-                     :10hr       sigma-dead-10hr
-                     :100hr      sigma-dead-100hr
-                     :herbaceous 0.0}
-              :live {:herbaceous sigma-live-herbaceous
-                     :woody      sigma-live-woody}}
-     :h      {:dead {:1hr        h
-                     :10hr       h
-                     :100hr      h
-                     :herbaceous h}
-              :live {:herbaceous h
-                     :woody      h}}
-     :rho_p  {:dead {:1hr        32.0
-                     :10hr       32.0
-                     :100hr      32.0
-                     :herbaceous 32.0}
-              :live {:herbaceous 32.0
-                     :woody      32.0}}
-     :S_T    {:dead {:1hr        0.0555
-                     :10hr       0.0555
-                     :100hr      0.0555
-                     :herbaceous 0.0555}
-              :live {:herbaceous 0.0555
-                     :woody      0.0555}}
-     :S_e    {:dead {:1hr        0.01
-                     :10hr       0.01
-                     :100hr      0.01
-                     :herbaceous 0.01}
-              :live {:herbaceous 0.01
-                     :woody      0.01}}}))
-;; fuel-model-constructor-functions ends here
+        M_x-dead   (* ^long M_x-dead 0.01)
+        h          (* ^long h 1000.0)
+        fuel-model {:name   name
+                    :number fuel-model-number
+                    :delta  delta
+                    :M_x    [M_x-dead M_x-dead M_x-dead 0.0 0.0 0.0]
+                    :w_o    [w_o-dead-1hr w_o-dead-10hr w_o-dead-100hr 0.0 w_o-live-herbaceous w_o-live-woody]
+                    :sigma  [sigma-dead-1hr sigma-dead-10hr sigma-dead-100hr 0.0 sigma-live-herbaceous sigma-live-woody]
+                    :h      [h h h h h h]
+                    :rho_p  [32.0 32.0 32.0 32.0 32.0 32.0]
+                    :S_T    [0.0555 0.0555 0.0555 0.0555 0.0555 0.0555]
+                    :S_e    [0.01 0.01 0.01 0.01 0.01 0.01]}]
+    (if (and (is-dynamic-fuel-model-number? fuel-model-number)
+             (pos? ^double w_o-live-herbaceous))
+      ;; Set dead-herbaceous values
+      (-> fuel-model
+          (assoc-in [:M_x   3] M_x-dead)
+          (assoc-in [:sigma 3] sigma-live-herbaceous))
+      ;; No dead-herbaceous values
+      fuel-model)))
+
+(defn- add-synonym-models
+  [variant->original-model-number number->model-data]
+  (reduce-kv (fn [ret v-num o-num]
+               (assoc ret v-num (or (get number->model-data o-num)
+                                    (throw (ex-info (format "Cannot find synonym fuel model number: %s" (pr-str o-num))
+                                                    {::variant-fuel-model-number  v-num
+                                                     ::original-fuel-model-number o-num})))))
+             number->model-data
+             variant->original-model-number))
+
+(def fuel-models-precomputed (->> fuel-models
+                                  (keys)
+                                  (into {} (map #(vector % (map->FuelModel (compute-fuel-model %)))))
+                                  (add-synonym-models WUI-model-number->original)))
+(defn is-burnable-fuel-model-number?
+  [^double fm-number]
+  (and (pos? fm-number)
+       (or (< fm-number 91.0)
+           (> fm-number 99.0))))
+
+(defn is-dynamic-grass-fuel-model-number?
+  [^long fm-number]
+  (or (and (< 100 fm-number) (< fm-number 110))
+      (and (< 210 fm-number) (< fm-number 220))))
+
+;; fuel-model-definitions ends here
+
+;; [[file:../../org/GridFire.org::fuel-category-and-size-class-functions][fuel-category-and-size-class-functions]]
+(defn map-category [f]
+  [(f 0) (f 1)])
+
+(defn map-size-class [f]
+  [(f 0) (f 1) (f 2) (f 3) (f 4) (f 5)])
+
+(defn category-sum ^double [f]
+  (+ ^double (f 0) ^double (f 1)))
+
+(defn size-class-sum [f]
+  [(+ (+ ^double (f 0) ^double (f 1))
+      (+ ^double (f 2) ^double (f 3)))
+   (+ ^double (f 4) ^double (f 5))])
+;; fuel-category-and-size-class-functions ends here
 
 ;; [[file:../../org/GridFire.org::add-dynamic-fuel-loading][add-dynamic-fuel-loading]]
 (defn add-dynamic-fuel-loading
-  [{:keys [number M_x M_f w_o sigma] :as fuel-model}]
-  (let [number               (double number)
-        live-herbaceous-load (-> w_o :live :herbaceous double)]
-    (if (and (> number 100) (pos? live-herbaceous-load))
+  [fuel-model M_f]
+  (let [^long number                 (:number fuel-model)
+        w_o                          (:w_o fuel-model)
+        ^double live-herbaceous-load (w_o 4)] ; 4 = live-herbaceous
+    (if (and (is-dynamic-fuel-model-number? number) (pos? live-herbaceous-load))
       ;; dynamic fuel model
-      (let [fraction-green (max 0.0 (min 1.0 (- (/ (-> M_f :live :herbaceous double) 0.9) (/ 1.0 3.0))))
-            fraction-cured (- 1.0 fraction-green)]
-        (-> fuel-model
-            (assoc-in [:M_f   :dead :herbaceous] (-> M_f :dead :1hr))
-            (assoc-in [:M_x   :dead :herbaceous] (-> M_x :dead :1hr))
-            (assoc-in [:w_o   :dead :herbaceous] (* live-herbaceous-load fraction-cured))
-            (assoc-in [:w_o   :live :herbaceous] (* live-herbaceous-load fraction-green))
-            (assoc-in [:sigma :dead :herbaceous] (-> sigma :live :herbaceous))))
+      (let [name           (:name fuel-model)
+            delta          (:delta fuel-model)
+            M_x            (:M_x fuel-model)
+            sigma          (:sigma fuel-model)
+            h              (:h fuel-model)
+            rho_p          (:rho_p fuel-model)
+            S_T            (:S_T fuel-model)
+            S_e            (:S_e fuel-model)
+            fraction-green (max 0.0 (min 1.0 (- (/ ^double (M_f 4) 0.9) 0.3333333333333333))) ; 4 = live-herbaceous
+            fraction-cured (- 1.0 fraction-green)
+            dynamic-M_f    (assoc M_f 3 (M_f 0)) ; 0 = dead-1hr, 3 = dead-herbaceous
+            dynamic-w_o    [(w_o 0)
+                            (w_o 1)
+                            (w_o 2)
+                            (* live-herbaceous-load fraction-cured)
+                            (* live-herbaceous-load fraction-green)
+                            (w_o 5)]]
+        (->FuelModel name number delta M_x dynamic-w_o sigma h rho_p S_T S_e dynamic-M_f nil nil nil))
       ;; static fuel model
-      fuel-model)))
+      (assoc fuel-model :M_f M_f))))
 ;; add-dynamic-fuel-loading ends here
 
 ;; [[file:../../org/GridFire.org::add-weighting-factors][add-weighting-factors]]
 (defn add-weighting-factors
-  [{:keys [w_o sigma rho_p] :as fuel-model}]
-  (let [A_ij (map-size-class (fn [i j] (/ (* (-> sigma i ^double (j)) (-> w_o i ^double (j)))
-                                          (-> rho_p i ^double (j)))))
+  [fuel-model]
+  (let [name                 (:name fuel-model)
+        number               (:number fuel-model)
+        delta                (:delta fuel-model)
+        M_x                  (:M_x fuel-model)
+        w_o                  (:w_o fuel-model)
+        sigma                (:sigma fuel-model)
+        h                    (:h fuel-model)
+        rho_p                (:rho_p fuel-model)
+        S_T                  (:S_T fuel-model)
+        S_e                  (:S_e fuel-model)
+        M_f                  (:M_f fuel-model)
+        A_ij                 (map-size-class (fn ^double [i]
+                                               (/ (* ^double (sigma i) ^double (w_o i))
+                                                  ^double (rho_p i))))
 
-        A_i  (size-class-sum (fn [i j] (-> A_ij i j)))
+        A_i                  (size-class-sum (fn ^double [i] ^double (A_ij i)))
 
-        A_T  (category-sum (fn [i] (-> A_i i)))
+        A_T                  (category-sum   (fn ^double [i] ^double (A_i i)))
 
-        f_ij (map-size-class (fn [i j] (if (pos? ^double ( A_i i))
-                                         (/ (-> A_ij i ^double (j))
-                                            ^double (A_i i))
-                                         0.0)))
+        f_ij                 (map-size-class (fn ^double [^long i]
+                                               (let [^double A (A_i (quot i 4))]
+                                                 (if (pos? A)
+                                                   (/ ^double (A_ij i) A)
+                                                   0.0))))
 
-        f_i  (map-category (fn [i] (if (pos? A_T)
-                                     (/ ^double (A_i i) A_T)
-                                     0.0)))
+        f_i                  (map-category   (fn ^double [i]
+                                               (if (pos? A_T)
+                                                 (/ ^double (A_i i) A_T)
+                                                 0.0)))
 
-        firemod-size-classes (map-size-class
-                              (fn [i j] (condp <= (-> sigma i j)
-                                          1200 1
-                                          192  2
-                                          96   3
-                                          48   4
-                                          16   5
-                                          0    6)))
+        firemod-size-classes (map-size-class (fn ^long [i]
+                                               (let [^double s (sigma i)]
+                                                 (if (>= s 1200.0)
+                                                   1
+                                                   (if (>= s 192.0)
+                                                     2
+                                                     (if (>= s 96.0)
+                                                       3
+                                                       (if (>= s 48.0)
+                                                         4
+                                                         (if (>= s 16.0)
+                                                           5
+                                                           6))))))))
 
-        firemod-weights (into {}
-                              (for [[category size-classes] firemod-size-classes]
-                                [category
-                                 (apply merge-with +
-                                        (for [[size-class firemod-size-class] size-classes]
-                                          {firemod-size-class (get-in f_ij [category size-class])}))]))
-
-        g_ij (map-size-class (fn [i j]
-                               (let [firemod-size-class (-> firemod-size-classes i j)]
-                                 (get-in firemod-weights [i firemod-size-class]))))]
-    (-> fuel-model
-        (assoc :f_ij f_ij)
-        (assoc :f_i  f_i)
-        (assoc :g_ij g_ij))))
+        g_ij                 (map-size-class (fn ^double [^long i]
+                                               (let [c (firemod-size-classes i)]
+                                                 (if (< i 4)
+                                                   (+ (+ (if (= c (firemod-size-classes 0)) ^double (f_ij 0) 0.0)
+                                                         (if (= c (firemod-size-classes 1)) ^double (f_ij 1) 0.0))
+                                                      (+ (if (= c (firemod-size-classes 2)) ^double (f_ij 2) 0.0)
+                                                         (if (= c (firemod-size-classes 3)) ^double (f_ij 3) 0.0)))
+                                                   (+ (if (= c (firemod-size-classes 4)) ^double (f_ij 4) 0.0)
+                                                      (if (= c (firemod-size-classes 5)) ^double (f_ij 5) 0.0))))))]
+    (->FuelModel name number delta M_x w_o sigma h rho_p S_T S_e M_f f_ij f_i g_ij)))
 ;; add-weighting-factors ends here
 
 ;; [[file:../../org/GridFire.org::add-live-moisture-of-extinction][add-live-moisture-of-extinction]]
 (defn add-live-moisture-of-extinction
   "Equation 88 from Rothermel 1972 adjusted by Albini 1976 Appendix III."
-  [{:keys [w_o sigma M_f M_x] :as fuel-model}]
-  (let [dead-loading-factor  (->> (size-class-sum
-                                   (fn [i j] (let [sigma_ij (-> sigma i j double)]
-                                               (if (pos? sigma_ij)
-                                                 (* (-> w_o i ^double (j))
-                                                    (Math/exp (/ -138.0 sigma_ij)))
-                                                 0.0))))
-                                  :dead
-                                  double)
-        live-loading-factor  (->> (size-class-sum
-                                   (fn [i j] (let [sigma_ij (-> sigma i j double)]
-                                               (if (pos? sigma_ij)
-                                                 (* (-> w_o i ^double (j))
-                                                    (Math/exp (/ -500.0 sigma_ij)))
-                                                 0.0))))
-                                  :live
-                                  double)
-        dead-moisture-factor (->> (size-class-sum
-                                   (fn [i j] (let [sigma_ij (-> sigma i j double)]
-                                              (if (pos? sigma_ij)
-                                                (* (-> w_o i ^double (j))
-                                                   (Math/exp (/ -138.0 sigma_ij))
-                                                   (-> M_f i ^double (j)))
-                                                0.0))))
-                                  :dead
-                                  double)
-        ^double
-        dead-to-live-ratio   (when (pos? live-loading-factor)
-                               (/ dead-loading-factor live-loading-factor))
-        dead-fuel-moisture   (if (pos? dead-loading-factor)
-                               (/ dead-moisture-factor dead-loading-factor)
-                               0.0)
-        M_x-dead             (-> M_x :dead :1hr double)
-        M_x-live             (if (pos? live-loading-factor)
-                               (max M_x-dead
-                                    (- (* 2.9
-                                          dead-to-live-ratio
-                                          (- 1.0 (/ dead-fuel-moisture M_x-dead)))
-                                       0.226))
-                               M_x-dead)]
-    (-> fuel-model
-        (assoc-in [:M_x :live :herbaceous] M_x-live)
-        (assoc-in [:M_x :live :woody]      M_x-live))))
+  [fuel-model]
+  (let [w_o                            (:w_o fuel-model)
+        sigma                          (:sigma fuel-model)
+        M_f                            (:M_f fuel-model)
+        M_x                            (:M_x fuel-model)
+        loading-factors                (map-size-class (fn ^double [^long i]
+                                                         (let [^double sigma_ij (sigma i)
+                                                               A (if (< i 4) -138.0 -500.0)]
+                                                           (if (pos? sigma_ij)
+                                                             (* ^double (w_o i)
+                                                                (Math/exp (/ A sigma_ij)))
+                                                             0.0))))
+        [^double dead-loading-factor
+         ^double live-loading-factor]  (size-class-sum (fn ^double [i] ^double (loading-factors i)))
+        [^double dead-moisture-factor] (size-class-sum (fn ^double [i]
+                                                         (* ^double (M_f i)
+                                                            ^double (loading-factors i))))
+        ^double dead-to-live-ratio     (when (pos? live-loading-factor)
+                                         (/ dead-loading-factor live-loading-factor))
+        dead-fuel-moisture             (if (pos? dead-loading-factor)
+                                         (/ dead-moisture-factor dead-loading-factor)
+                                         0.0)
+        ^double M_x-dead               (M_x 0)
+        M_x-live                       (if (pos? live-loading-factor)
+                                         (max M_x-dead
+                                              (- (-> 2.9
+                                                     (* dead-to-live-ratio)
+                                                     (* (- 1.0 (/ dead-fuel-moisture M_x-dead))))
+                                                 0.226))
+                                         M_x-dead)]
+    (assoc fuel-model :M_x [(M_x 0)
+                            (M_x 1)
+                            (M_x 2)
+                            (M_x 3)
+                            M_x-live
+                            M_x-live])))
 
 (defn moisturize
   [fuel-model fuel-moisture]
   (-> fuel-model
-      (assoc :M_f fuel-moisture)
-      (assoc-in [:M_f :dead :herbaceous] 0.0)
-      (add-dynamic-fuel-loading)
+      (add-dynamic-fuel-loading fuel-moisture)
       (add-weighting-factors)
       (add-live-moisture-of-extinction)))
 ;; add-live-moisture-of-extinction ends here

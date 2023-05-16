@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.server.sync][gridfire.server.sync]]
 (ns gridfire.server.sync
   "A very basic, mono-threaded socket-based API into a GridFire server."
   (:require [clojure.core.async         :as async]
@@ -176,3 +177,4 @@
   #:gridfire.run-config{:succeeded true}
 
   *e)
+;; gridfire.server.sync ends here

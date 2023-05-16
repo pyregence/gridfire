@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.spec.memoization][gridfire.spec.memoization]]
 (ns gridfire.spec.memoization
   (:require [clojure.spec.alpha :as s]))
 
@@ -5,3 +6,4 @@
 
 (s/def ::memoization
   (s/keys :opt-un [::surface-fire-min]))
+;; gridfire.spec.memoization ends here

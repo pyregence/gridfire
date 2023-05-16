@@ -1,3 +1,4 @@
+;; [[file:../../../../org/GridFire.org::gridfire.spec.inputs.grid-of-rasters][gridfire.spec.inputs.grid-of-rasters]]
 (ns gridfire.spec.inputs.grid-of-rasters
   (:require [clojure.spec.alpha :as s]))
 
@@ -22,3 +23,4 @@
   (s/coll-of (s/coll-of :gridfire.spec.common/raw-layer-coords-map)))
 
 (s/def ::raw-layer-coords-map (s/keys :req-un [::type ::rasters-grid]))
+;; gridfire.spec.inputs.grid-of-rasters ends here

@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.spec.common-test][gridfire.spec.common-test]]
 (ns gridfire.spec.common-test
   (:require [clojure.spec.alpha   :as s]
             [clojure.test         :refer [deftest is testing]]
@@ -67,3 +68,4 @@
       "may end with /")
   (is (s/valid? ::common/directory-path "../relative/directory/path/"))
   (is (s/valid? ::common/directory-path "../../relative/directory/path/")))
+;; gridfire.spec.common-test ends here

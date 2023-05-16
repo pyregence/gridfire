@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.canonical-test][gridfire.canonical-test]]
 (ns gridfire.canonical-test
   (:require [clojure.edn          :as edn]
             [clojure.java.io      :as io]
@@ -310,3 +311,4 @@
                            #'test-suppression-sdi-scenario])
 
   (run-tests 'gridfire.canonical-test))
+;; gridfire.canonical-test ends here

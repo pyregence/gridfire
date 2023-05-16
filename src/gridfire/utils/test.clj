@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.utils.test][gridfire.utils.test]]
 (ns gridfire.utils.test
   (:require [clojure.java.io          :as io]
             [clojure.string           :as str]
@@ -88,3 +89,4 @@
                            (/ pf))
                        x))
                    data)))
+;; gridfire.utils.test ends here

@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.spec.server][gridfire.spec.server]]
 (ns gridfire.spec.server
   (:require [clojure.spec.alpha    :as spec]
             [gridfire.utils.server :refer [hostname? port? fire-name? time?]]))
@@ -16,3 +17,4 @@
 (spec/def ::gridfire-server-response-minimal
   (spec/keys
    :req-un [::response-host ::response-port]))
+;; gridfire.spec.server ends here

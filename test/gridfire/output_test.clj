@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.output-test][gridfire.output-test]]
 (ns gridfire.output-test
   (:require [clojure.java.io     :as io]
             [clojure.test        :refer [deftest is use-fixtures]]
@@ -102,3 +103,4 @@
         _      (utils/run-gridfire! config)]
 
     (is (.exists (io/file "test/output/spot_count.tif")))))
+;; gridfire.output-test ends here

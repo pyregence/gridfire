@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.utils.async][gridfire.utils.async]]
 (ns gridfire.utils.async
   (:require [clojure.core.async :as async]
             [manifold.deferred  :as mfd]
@@ -82,3 +83,4 @@
       (->> x+ds
            (map (fn [[_x d]] d))
            (apply mfd/zip)))))
+;; gridfire.utils.async ends here

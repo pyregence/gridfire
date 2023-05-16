@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.postgis-bridge-test][gridfire.postgis-bridge-test]]
 (ns gridfire.postgis-bridge-test
   (:require [clojure.test            :refer [deftest is]]
             [gridfire.postgis-bridge :refer [postgis-raster-to-matrix]]))
@@ -35,3 +36,4 @@
     (is (some? raster))
 
     (is (= 73 (:numbands raster)))))
+;; gridfire.postgis-bridge-test ends here

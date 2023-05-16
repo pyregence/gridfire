@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.spec.spotting-test][gridfire.spec.spotting-test]]
 (ns gridfire.spec.spotting-test
   (:require [clojure.spec.alpha     :as s]
             [clojure.test           :refer [deftest is testing]]
@@ -77,3 +78,4 @@
                   [[169 204] [0.2 0.4]]]]
 
       (is (s/valid? ::config/spotting-percent config)))))
+;; gridfire.spec.spotting-test ends here

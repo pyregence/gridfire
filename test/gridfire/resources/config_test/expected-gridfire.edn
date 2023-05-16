@@ -1,3 +1,4 @@
+;; FIXME LP coverage
 {:cell-size 98.43,
  :ellipse-adjustment-factor 1.0,
  :foliar-moisture 90.0,

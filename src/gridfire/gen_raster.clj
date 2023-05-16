@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.gen-raster][gridfire.gen-raster]]
 (ns gridfire.gen-raster
   (:require [clojure.string           :as str]
             [clojure.tools.cli        :refer [parse-opts]]
@@ -119,3 +120,4 @@
           (register-custom-projections!)
           (inputs->output-raster options)))
     (System/exit 0)))
+;; gridfire.gen-raster ends here

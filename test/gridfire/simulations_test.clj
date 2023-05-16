@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.simulations-test][gridfire.simulations-test]]
 (ns gridfire.simulations-test
   (:require [gridfire.grid-lookup :as grid-lookup]
             [gridfire.simulations :as simulations]
@@ -65,3 +66,4 @@
               get-layer-fn (#'simulations/grid-getter inputs (Random. 1234) :temperature 0)]
 
           (is (<= 0.0 (grid-lookup/double-at get-layer-fn 0 0 0) 2.0)))))))
+;; gridfire.simulations-test ends here

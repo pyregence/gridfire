@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.utils.server][gridfire.utils.server]]
 (ns gridfire.utils.server
   (:require [clojure.string :as s]))
 
@@ -43,3 +44,4 @@
 (defn throw-message
   [msg]
   (throw (ex-info msg {})))
+;; gridfire.utils.server ends here

@@ -1,7 +1,8 @@
+;; [[file:../../org/GridFire.org::gridfire.elliptical-test][gridfire.elliptical-test]]
 (ns gridfire.elliptical-test
   (:require [clojure.test                  :refer [deftest is testing]]
             [gridfire.elliptical           :refer [fireline-normal-spread-rate-scalar]]
-            [gridfire.surface-fire-optimal :refer [compute-spread-rate]]
+            [gridfire.surface-fire         :refer [compute-spread-rate]]
             [gridfire.conversion           :as convert]))
 
 (defn almost-=?
@@ -63,3 +64,4 @@
                                 (map (fn [^double cos-ang]
                                        (fireline-normal-spread-rate-scalar eccentricity cos-ang))))
                            [1.0])))))))
+;; gridfire.elliptical-test ends here

@@ -1,7 +1,8 @@
+;; [[file:../../org/GridFire.org::gridfire.surface-fire-test][gridfire.surface-fire-test]]
 (ns gridfire.surface-fire-test
   (:require [clojure.test                :refer [deftest testing is run-tests]]
-            [gridfire.fuel-models        :refer [fuel-models build-fuel-model moisturize]]
-            [gridfire.surface-fire       :refer [anderson-flame-depth
+            [gridfire.fuel-models-old        :refer [fuel-models build-fuel-model moisturize]]
+            [gridfire.surface-fire-old       :refer [anderson-flame-depth
                                                  grass-fuel-model?
                                                  byram-fire-line-intensity
                                                  byram-flame-length
@@ -164,3 +165,4 @@
 (comment
   (run-tests)
   )
+;; gridfire.surface-fire-test ends here

@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.structs.rfwo][gridfire.structs.rfwo]]
 (ns gridfire.structs.rfwo
   "Custom data structure for memoizing rothermel-fast-wrapper-optimal,
   isolated in this namespace to wrap JVM interop."
@@ -68,3 +69,4 @@
 (defn get-grass-suppression?
   [^RothFWOArgs rothFWOArgs]
   (.-grass-suppression? rothFWOArgs))
+;; gridfire.structs.rfwo ends here

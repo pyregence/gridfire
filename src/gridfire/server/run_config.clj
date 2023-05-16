@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.server.run-config][gridfire.server.run-config]]
 (ns gridfire.server.run-config
   "Sequential processing of run-config requests through an in-memory job queue."
   (:require [clojure.core.async        :as async]
@@ -65,3 +66,4 @@
        (let [[config-path =notifications-channel= completion-dfr] (.take queue)]
          (run-gridfire-config! config-path =notifications-channel= completion-dfr))))
     (->RunConfigHandler queue (fn halt [] (reset! *keep-handling false)))))
+;; gridfire.server.run-config ends here

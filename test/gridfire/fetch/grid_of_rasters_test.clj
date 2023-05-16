@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.fetch.grid-of-rasters-test][gridfire.fetch.grid-of-rasters-test]]
 (ns gridfire.fetch.grid-of-rasters-test
   (:require [clojure.test                   :refer [deftest is testing]]
             [clojure.java.io                :as io]
@@ -181,3 +182,4 @@
 (deftest ^:simulation gdal-corner-coordinates
   (testing "How our test grids touch."
     (are-grid-corner-coords-as-we-expect (:rasters-grid (example-grid-layer-spec "fbfm40")))))
+;; gridfire.fetch.grid-of-rasters-test ends here

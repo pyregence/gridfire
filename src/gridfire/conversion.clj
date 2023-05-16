@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.conversion][gridfire.conversion]]
 (ns gridfire.conversion
   (:require [clojure.string   :as str]
             [tech.v3.datatype :as d])
@@ -288,3 +289,4 @@
     (if (valid-multiplier? multiplier)
       (fn ^double [^double x] (* x multiplier))
       nil)))
+;; gridfire.conversion ends here

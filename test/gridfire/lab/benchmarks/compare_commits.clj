@@ -1,3 +1,4 @@
+;; [[file:../../../../org/GridFire.org::gridfire.lab.benchmarks.compare-commits][gridfire.lab.benchmarks.compare-commits]]
 (ns gridfire.lab.benchmarks.compare-commits
   "A babashka script for benchmarking several commits."
   (:require [babashka.process]
@@ -62,3 +63,4 @@
 ;; Applying Babashka recipe: https://book.babashka.org/#main_file
 (when (= *file* (System/getProperty "babashka.file"))
   (apply -main *command-line-args*))
+;; gridfire.lab.benchmarks.compare-commits ends here

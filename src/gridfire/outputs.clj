@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.outputs][gridfire.outputs]]
 (ns gridfire.outputs
   (:require [clojure.data.csv     :as csv]
             [clojure.java.io      :as io]
@@ -257,3 +258,4 @@
                         "fire-size" "flame-length-mean" "flame-length-stddev" "fire-line-intensity-mean"
                         "fire-line-intensity-stddev" "crown-fire-size" "spot-count" "surface-fire-size"])
                  (csv/write-csv out-file))))))))
+;; gridfire.outputs ends here

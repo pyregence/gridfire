@@ -1,10 +1,12 @@
+;; [[file:../../../org/GridFire.org::gridfire.lab.replay][gridfire.lab.replay]]
+;; FIXME LP coverage ???
 (ns gridfire.lab.replay
   (:require [clojure.java.io              :as io]
             [clojure.java.shell           :as sh]
             [clojure.pprint               :as pprint]
             [clojure.string               :as str]
             [gridfire.core                :as gridfire]
-            [gridfire.fire-spread-optimal :refer [memoize-rfwo rothermel-fast-wrapper-optimal run-fire-spread]]
+            [gridfire.fire-spread         :refer [memoize-rfwo rothermel-fast-wrapper-optimal run-fire-spread]]
             [gridfire.magellan-bridge     :refer [geotiff-raster-to-tensor]]
             [gridfire.simulations         :as simulations]
             [gridfire.utils.files.tar     :as utar]
@@ -2031,5 +2033,4 @@
 
 
   *e)
-
-
+;; gridfire.lab.replay ends here

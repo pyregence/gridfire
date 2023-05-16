@@ -1,3 +1,4 @@
+-- FIXME LP coverage
 DROP DATABASE IF EXISTS gridfire_test;
 DROP ROLE IF EXISTS gridfire_test;
 CREATE ROLE gridfire_test WITH LOGIN CREATEDB PASSWORD 'gridfire_test';

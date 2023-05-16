@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.spec.burn-period][gridfire.spec.burn-period]]
 (ns gridfire.spec.burn-period
   (:require [clojure.spec.alpha   :as s]
             [gridfire.spec.common :as common]))
@@ -20,3 +21,4 @@
 ;; Test
 #_(s/explain ::burn-period {:start "08:00"
                             :end   "20:00"})
+;; gridfire.spec.burn-period ends here

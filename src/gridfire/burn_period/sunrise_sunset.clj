@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.burn-period.sunrise-sunset][gridfire.burn-period.sunrise-sunset]]
 (ns gridfire.burn-period.sunrise-sunset
   (:require [clojure.test :as test])
   (:import  (java.time Instant ZonedDateTime ZoneOffset)))
@@ -403,3 +404,4 @@
    (str "if provided, correctly uses " (pr-str :burn-period-length) " and " (pr-str :burn-period-frac) ".")))
 
 #_(test/run-tests)
+;; gridfire.burn-period.sunrise-sunset ends here

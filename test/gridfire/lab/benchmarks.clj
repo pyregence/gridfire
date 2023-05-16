@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.lab.benchmarks][gridfire.lab.benchmarks]]
 (set! clojure.core/*assert* false)
 
 (ns gridfire.lab.benchmarks
@@ -6,7 +7,7 @@
             [clojure.pprint               :as pprint]
             [criterium.core               :as bench]
             [gridfire.core                :as gridfire]
-            [gridfire.fire-spread-optimal :refer [memoize-rfwo rothermel-fast-wrapper-optimal]]
+            [gridfire.fire-spread         :refer [memoize-rfwo rothermel-fast-wrapper-optimal]]
             [gridfire.simulations         :as simulations]))
 
 (defn simulation-result-summary
@@ -24,7 +25,7 @@
     (->> (range n-sims)
          (mapv (fn [sim-i]
                  (let [simulation-inputs  (simulations/prepare-simulation-inputs sim-i inputs)
-                       simulation-results (gridfire.fire-spread-optimal/run-fire-spread simulation-inputs)]
+                       simulation-results (gridfire.fire-spread/run-fire-spread simulation-inputs)]
                    (simulation-result-summary simulation-results)))))))
 
 (defn- results-digest
@@ -85,3 +86,4 @@
 ;; Example:
 ;; $ clojure -J-Dclojure.compiler.direct-linking=true -M:perf-testing -m gridfire.lab.benchmarks benchmark test/gridfire/lab/benchmarks/rhino-input-deck/gridfire.edn
 ;; $ clojure -J-Dclojure.compiler.direct-linking=true -J-Djdk.attach.allowAttachSelf=true -M:perf-testing -m gridfire.lab.benchmarks profile test/gridfire/lab/benchmarks/rhino-input-deck/gridfire.edn
+;; gridfire.lab.benchmarks ends here

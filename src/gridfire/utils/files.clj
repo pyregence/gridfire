@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.utils.files][gridfire.utils.files]]
 (ns gridfire.utils.files
   "File-system utilities for GridFire."
   (:require [clojure.edn     :as edn]
@@ -67,3 +68,4 @@
    {:readers (merge (location-aware-edn-readers edn-file)
                     convenience-encoding-readers)}
    (slurp edn-file)))
+;; gridfire.utils.files ends here

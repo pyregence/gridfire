@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.fetch-weather-test][gridfire.fetch-weather-test]]
 (ns gridfire.fetch-weather-test
   (:require [clojure.java.jdbc           :as jdbc]
             [clojure.test                :refer [deftest is testing use-fixtures]]
@@ -203,3 +204,4 @@
           (is (dfn/equals wd-matrix
                           (t/const-tensor 12.0 (d/shape wd-matrix)))
               "the correction has been applied."))))))
+;; gridfire.fetch-weather-test ends here

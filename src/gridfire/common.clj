@@ -1,5 +1,6 @@
+;; [[file:../../org/GridFire.org::gridfire.common][gridfire.common]]
 (ns gridfire.common
-  (:require [gridfire.fuel-models-optimal :as f-opt]
+  (:require [gridfire.fuel-models         :as f-opt]
             [gridfire.grid-lookup         :as grid-lookup]
             [tech.v3.datatype             :as d]
             [tech.v3.datatype.argops      :as da]
@@ -174,3 +175,4 @@
       (dist-expr num-rows num-cols cell-size
                  i0 j0 z0
                  i1 j1 (grid-lookup/double-at get-elevation i1 j1)))))
+;; gridfire.common ends here

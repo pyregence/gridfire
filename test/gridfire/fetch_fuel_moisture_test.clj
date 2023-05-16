@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.fetch-fuel-moisture-test][gridfire.fetch-fuel-moisture-test]]
 (ns gridfire.fetch-fuel-moisture-test
   (:require
    [clojure.test                :refer [deftest are]]
@@ -41,3 +42,4 @@
   (clojure.test/test-vars [#'fuel-moisture-test])
 
   *e)
+;; gridfire.fetch-fuel-moisture-test ends here

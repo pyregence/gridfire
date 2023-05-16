@@ -1,7 +1,7 @@
 ;; [[file:../../org/GridFire.org::gridfire-core][gridfire-core]]
 (ns gridfire.core
   (:require [clojure.spec.alpha           :as spec]
-            [gridfire.fire-spread-optimal :refer [memoize-rfwo rothermel-fast-wrapper-optimal]]
+            [gridfire.fire-spread         :refer [memoize-rfwo rothermel-fast-wrapper-optimal]]
             [gridfire.inputs              :as inputs]
             [gridfire.outputs             :as outputs]
             [gridfire.simulations         :as simulations]

@@ -1,9 +1,10 @@
+;; [[file:../../org/GridFire.org::gridfire.simulations][gridfire.simulations]]
 (ns gridfire.simulations
   (:require [clojure.java.io                              :as io]
             [gridfire.binary-output                       :as binary]
             [gridfire.common                              :refer [get-neighbors in-bounds?]]
             [gridfire.conversion                          :refer [min->hour kebab->snake snake->kebab]]
-            [gridfire.fire-spread-optimal                 :refer [run-fire-spread]]
+            [gridfire.fire-spread                         :refer [run-fire-spread]]
             [gridfire.grid-lookup                         :as grid-lookup]
             [gridfire.outputs                             :as outputs]
             [gridfire.perturbations.pixel.hash-determined :as pixel-hdp]
@@ -576,3 +577,4 @@
          simulation-results (tufte/p :run-fire-spread
                                      (run-fire-spread simulation-inputs))]
      (process-simulation-results! i inputs simulation-inputs simulation-results))))
+;; gridfire.simulations ends here

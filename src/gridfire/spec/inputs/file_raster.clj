@@ -1,3 +1,4 @@
+;; [[file:../../../../org/GridFire.org::gridfire.spec.inputs.file-raster][gridfire.spec.inputs.file-raster]]
 (ns gridfire.spec.inputs.file-raster
   (:require [clojure.spec.alpha :as s]))
 
@@ -10,3 +11,4 @@
 (s/def ::type #{:geotiff :gridfire-envi-bsq})
 
 (s/def ::raw-layer-coords-map (s/keys :req-un [::type ::source]))
+;; gridfire.spec.inputs.file-raster ends here

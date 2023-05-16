@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.behaveplus-results][gridfire.behaveplus-results]]
 (ns gridfire.behaveplus-results
   (:require [gridfire.fuel-models :refer [fuel-models]]))
 
@@ -277,3 +278,4 @@
    :SB2 [49.7    1031    10.9    316       10.1  3.5 ]
    :SB3 [91.5    2541    16.6    316       10.1  3.5 ]
    :SB4 [176.5   5246    23.1    316       10.1  3.5 ]})
+;; gridfire.behaveplus-results ends here

@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.structs.burn-vector][gridfire.structs.burn-vector]]
 (ns gridfire.structs.burn-vector
   "Custom data structure for representing Burn Vectors, isolated in this namespace to wrap JVM interop.")
 
@@ -53,3 +54,4 @@
 (defn get-burn-probability
   ^double [^BurnVector bv]
   (.-burn-probability bv))
+;; gridfire.structs.burn-vector ends here

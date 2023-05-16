@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.grid-lookup-test][gridfire.grid-lookup-test]]
 (ns gridfire.grid-lookup-test
   (:require [gridfire.grid-lookup :as grid-lookup]
             [clojure.test         :refer [deftest is testing]])
@@ -36,3 +37,4 @@
           (is (=
                420.
                (grid-lookup/double-at my-getter 10 3 7))))))))
+;; gridfire.grid-lookup-test ends here

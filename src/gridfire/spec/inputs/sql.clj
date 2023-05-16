@@ -1,3 +1,4 @@
+;; [[file:../../../../org/GridFire.org::gridfire.spec.inputs.sql][gridfire.spec.inputs.sql]]
 (ns gridfire.spec.inputs.sql
   (:require [clojure.spec.alpha :as s]))
 
@@ -10,3 +11,4 @@
 (s/def ::source ::sql)
 
 (s/def ::postgis-coords-map (s/keys :req-un [::type ::source]))
+;; gridfire.spec.inputs.sql ends here

@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.spec.ignition-test][gridfire.spec.ignition-test]]
 (ns gridfire.spec.ignition-test
   (:require [clojure.spec.alpha   :as s]
             [clojure.test         :refer [deftest is]]
@@ -16,3 +17,4 @@
                                          :source      "test/gridfire/resources/asp.tif"
                                          :burn-values {:burned   1.0
                                                        :unburned -1.0}})))
+;; gridfire.spec.ignition-test ends here

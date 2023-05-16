@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.fetch.base][gridfire.fetch.base]]
 (ns gridfire.fetch.base
   (:require [gridfire.grid-lookup :as grid-lookup]
             [tech.v3.datatype     :as d]))
@@ -40,3 +41,4 @@
                          (d/clone converted))]
         (assoc layer-map :matrix new-tensor))
       layer-map)))
+;; gridfire.fetch.base ends here

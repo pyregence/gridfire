@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.fetch-ignition-test][gridfire.fetch-ignition-test]]
 (ns gridfire.fetch-ignition-test
   (:require [clojure.test                :refer [deftest is testing use-fixtures]]
             [gridfire.fetch              :as fetch]
@@ -77,3 +78,4 @@
 
       (is (dfn/equals (:matrix geotiff-ignition-layer)
                    (:matrix postgis-ignition-layer))))))
+;; gridfire.fetch-ignition-test ends here

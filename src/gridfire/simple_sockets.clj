@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.simple-sockets][gridfire.simple-sockets]]
 (ns gridfire.simple-sockets
   (:require [clojure.java.io    :as io]
             [clojure.string     :as s]
@@ -70,3 +71,4 @@
                   (stop-server!)))))))
 
 #_(start-server! 31337 (fn [msg] :do-something))
+;; gridfire.simple-sockets ends here

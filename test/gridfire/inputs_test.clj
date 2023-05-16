@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.inputs-test][gridfire.inputs-test]]
 (ns gridfire.inputs-test
   (:require [clojure.test    :refer [are deftest is testing use-fixtures]]
             [gridfire.inputs :as inputs]
@@ -94,3 +95,4 @@
     (is (one-dimensional-double-array? (first (:fuel-number->spread-rate-adjustment-array-lookup-samples inputs-after))))
 
     (is (= 0.1 (aget (doubles (first (:fuel-number->spread-rate-adjustment-array-lookup-samples inputs-after))) 101)))))
+;; gridfire.inputs-test ends here

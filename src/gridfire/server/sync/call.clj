@@ -1,3 +1,4 @@
+;; [[file:../../../../org/GridFire.org::gridfire.server.sync.call][gridfire.server.sync.call]]
 #!/usr/bin/env bb
 (ns gridfire.server.sync.call
   "A zero-deps script for invoking a running `gridfire.server.sync`.
@@ -48,3 +49,4 @@
   ;; bb --classpath my-gridfire-uberjar.jar --main gridfire.server.sync.call localhost 8085 path/to/my/gridfire.edn
 
   *e)
+;; gridfire.server.sync.call ends here

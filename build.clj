@@ -1,3 +1,4 @@
+;; [[file:org/GridFire.org::build][build]]
 (ns build
   (:require [clojure.tools.build.api :as b])
   (:import java.util.Date))
@@ -50,3 +51,4 @@
                        "Implementation-Vendor"  "Sun Microsystems, Inc."}})
 
   (println (format "Uberjar file created: \"%s\"" uberjar-file-name)))
+;; build ends here

@@ -1,7 +1,8 @@
+;; [[file:../../org/GridFire.org::gridfire.spotting-test][gridfire.spotting-test]]
 (ns gridfire.spotting-test
   (:require [clojure.test                :refer [are deftest is testing use-fixtures run-tests]]
             [gridfire.conversion         :as c]
-            [gridfire.spotting           :as spotting]
+            [gridfire.spotting-old           :as spotting]
             [tech.v3.datatype            :as d]
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.tensor              :as t])
@@ -202,3 +203,4 @@
 (comment
   (run-tests 'gridfire.spotting-test)
   )
+;; gridfire.spotting-test ends here

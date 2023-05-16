@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.crown-fire-test][gridfire.crown-fire-test]]
 (ns gridfire.crown-fire-test
   (:require [clojure.test        :refer [deftest testing are run-tests]]
             [gridfire.conversion :as c]
@@ -136,3 +137,4 @@
 (comment
   (run-tests 'gridfire.crown-fire-test)
   )
+;; gridfire.crown-fire-test ends here

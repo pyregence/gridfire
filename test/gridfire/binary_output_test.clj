@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.binary-output-test][gridfire.binary-output-test]]
 (ns gridfire.binary-output-test
   (:require [clojure.test                :refer [deftest is use-fixtures]]
             [gridfire.utils.test         :as utils]
@@ -49,3 +50,4 @@
     (is (dfn/equals (nth matrices 2) (nth result 2)))
 
     (is (dfn/equals (nth matrices 3) (nth result 3)))))
+;; gridfire.binary-output-test ends here

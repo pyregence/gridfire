@@ -1,49 +1,29 @@
+;; [[file:../../org/GridFire.org::gridfire.fuel-models-test][gridfire.fuel-models-test]]
 (ns gridfire.fuel-models-test
-  (:require [clojure.test                :refer [deftest testing is run-tests]]
-            [gridfire.behaveplus-results :refer [behaveplus5-surface-fire-values-dry-no-wind-no-slope
-                                                 behaveplus5-surface-fire-values-mid-no-wind-no-slope
-                                                 sb40-fuel-models
-                                                 test-fuel-moisture
-                                                 within]]
-            [gridfire.fuel-models        :refer [build-fuel-model
-                                                 moisturize]]))
+  (:require [clojure.test         :refer [deftest is testing]]
+            [gridfire.fuel-models :as f-opt]))
 
-;; Checks live fuel moisture of extinction and dynamic fuel loading for the S&B40 fuel models under fully cured conditions
-(deftest ^:unit moisturize-test-dry
-  (doseq [fm-number sb40-fuel-models]
-    (let [gridfire-fuel-model-dry   (build-fuel-model fm-number)
-          gridfire-fuel-model-wet   (moisturize gridfire-fuel-model-dry (test-fuel-moisture :dry))
-          gridfire-M_x-live         (* 100 (-> gridfire-fuel-model-wet :M_x :live :herbaceous))
-          gridfire-fraction-cured   (if (pos? (-> gridfire-fuel-model-dry :w_o :live :herbaceous))
-                                      (* 100 (/ (-> gridfire-fuel-model-wet :w_o :dead :herbaceous)
-                                                (-> gridfire-fuel-model-dry :w_o :live :herbaceous)))
-                                      0)
-          behaveplus-outputs        (-> (:name gridfire-fuel-model-dry)
-                                        (behaveplus5-surface-fire-values-dry-no-wind-no-slope))
-          behaveplus-M_x-live       (behaveplus-outputs 4)
-          behaveplus-fraction-cured (behaveplus-outputs 6)]
-      (is (within gridfire-M_x-live behaveplus-M_x-live 6)) ;; all are within 1% except TU2 at -6%
-      (is (within gridfire-fraction-cured behaveplus-fraction-cured 0.1)))))
+(defn- classical-model-numbers
+  []
+  (keys f-opt/fuel-models))
 
-;; Checks live fuel moisture of extinction and dynamic fuel loading for the S&B40 fuel models under 50% cured conditions
-(deftest ^:unit moisturize-test-mid
-  (doseq [num sb40-fuel-models]
-    (let [gridfire-fuel-model-dry   (build-fuel-model num)
-          gridfire-fuel-model-wet   (moisturize gridfire-fuel-model-dry (test-fuel-moisture :mid))
-          gridfire-M_x-live         (* 100 (-> gridfire-fuel-model-wet :M_x :live :herbaceous))
-          gridfire-fraction-cured   (if (pos? (-> gridfire-fuel-model-dry :w_o :live :herbaceous))
-                                      (* 100 (/ (-> gridfire-fuel-model-wet :w_o :dead :herbaceous)
-                                                (-> gridfire-fuel-model-dry :w_o :live :herbaceous)))
-                                      0)
-          behaveplus-outputs        (-> (:name gridfire-fuel-model-dry)
-                                        (behaveplus5-surface-fire-values-mid-no-wind-no-slope))
-          behaveplus-M_x-live       (behaveplus-outputs 4)
-          behaveplus-fraction-cured (behaveplus-outputs 6)]
-      (is (within gridfire-M_x-live behaveplus-M_x-live 6)) ;; all are within 1% except TU2 at -6%
-      (is (within gridfire-fraction-cured behaveplus-fraction-cured 0.1)))))
+(defn- WUI-model-numbers
+  []
+  (keys f-opt/WUI-model-number->original))
 
-;; TODO: Add moisturize-test-wet
+(defn- all-model-numbers
+  []
+  (keys f-opt/fuel-models-precomputed))
 
-(comment
-  (run-tests)
-  )
+(deftest ^:unit fuel-number-predicates-test
+  (testing "The WUI fuel models"
+    (testing "are all burnable."
+      (is (every? f-opt/is-burnable-fuel-model-number? (WUI-model-numbers))))
+
+    (testing "all support dynamic fuel loading."
+      (is (every? f-opt/is-dynamic-fuel-model-number? (WUI-model-numbers)))))
+
+  (testing "Magic numbers:"
+    (is (= 204 (apply max (classical-model-numbers))))
+    (is (= 303 (apply max (all-model-numbers))))))
+;; gridfire.fuel-models-test ends here

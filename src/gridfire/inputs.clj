@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.inputs][gridfire.inputs]]
 (ns gridfire.inputs
   (:require [clojure.data.csv        :as csv]
             [clojure.java.io         :as io]
@@ -400,3 +401,4 @@
                             (let [{:keys [start end]} inputs]
                               (constantly {:burn-period-start (or start "00:00")
                                            :burn-period-end   (or end "24:00")})))))))))
+;; gridfire.inputs ends here

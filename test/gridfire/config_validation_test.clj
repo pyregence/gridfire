@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.config-validation-test][gridfire.config-validation-test]]
 (ns gridfire.config-validation-test
   (:require [clojure.spec.alpha   :as s]
             [clojure.test         :refer [deftest is]]
@@ -50,4 +51,4 @@
                 :source    "weather.ws WHERE rid=1"
                 :cell-size 10.0}]
     (is (s/valid? ::spec/weather config))))
-
+;; gridfire.config-validation-test ends here

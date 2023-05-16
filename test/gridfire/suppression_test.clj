@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.suppression-test][gridfire.suppression-test]]
 (ns gridfire.suppression-test
   (:require
    [clojure.test :refer [are deftest testing is]]
@@ -72,3 +73,4 @@
               ['(5.0 4.0 3.0) 4.0] 6
               ['(4.0 3.0 2.0) 5.0] 6}
              (#'gridfire.suppression/compute-contiguous-slices num-cells-to-suppress avg-dsr-data))))))
+;; gridfire.suppression-test ends here

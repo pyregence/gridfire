@@ -1,3 +1,4 @@
+;; [[file:../../../../org/GridFire.org::gridfire.utils.files.tar][gridfire.utils.files.tar]]
 (ns gridfire.utils.files.tar
   (:require [clojure.java.io :as io])
   (:import (org.apache.commons.compress.compressors.gzip GzipCompressorInputStream)
@@ -30,3 +31,4 @@
        ;; WARNING sometimes thrown for no apparent reason... (Val, 26 Sep 2022)
        (catch EOFException _eofex
          ())))))
+;; gridfire.utils.files.tar ends here

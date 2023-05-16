@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.utils.flow][gridfire.utils.flow]]
 (ns gridfire.utils.flow)
 
 (defn- log2
@@ -183,3 +184,4 @@
           0))))
 
   *e)
+;; gridfire.utils.flow ends here

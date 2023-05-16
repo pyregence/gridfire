@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.spec.output-test][gridfire.spec.output-test]]
 (ns gridfire.spec.output-test
   (:require [clojure.spec.alpha   :as s]
             [clojure.test         :refer [deftest is]]
@@ -29,3 +30,4 @@
                 :fire-line-intensity 10
                 :burn-history        10}]
     (is (s/valid? ::config/output-layers config))))
+;; gridfire.spec.output-test ends here

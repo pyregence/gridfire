@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.fetch.grid-of-rasters][gridfire.fetch.grid-of-rasters]]
 (ns gridfire.fetch.grid-of-rasters
   (:require [clojure.spec.alpha :as s]
             [tech.v3.datatype   :as d]
@@ -220,3 +221,4 @@
                                  :skewx
                                  :skewy
                                  :numbands]))))
+;; gridfire.fetch.grid-of-rasters ends here

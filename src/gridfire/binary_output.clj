@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.binary-output][gridfire.binary-output]]
 (ns gridfire.binary-output
   (:require [clojure.java.io :as io]
             [gridfire.common :refer [non-zero-indices non-zero-count]]
@@ -124,3 +125,4 @@
 
 ;; toa_test.bin was created with:
 ;; (write-matrix-as-binary [[0 1 2] [3 0 4] [5 6 0]] "toa_test.bin")
+;; gridfire.binary-output ends here

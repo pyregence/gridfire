@@ -1,3 +1,4 @@
+;; [[file:../../../org/GridFire.org::gridfire.spec.common][gridfire.spec.common]]
 (ns gridfire.spec.common
   (:require [clojure.java.io                      :as io]
             [clojure.spec.alpha                   :as s]
@@ -147,3 +148,4 @@
   (let [keyseq (map (comp keyword name) ks)]
     `(s/and (s/keys :opt-un ~ks)
             #(some % '~keyseq))))
+;; gridfire.spec.common ends here

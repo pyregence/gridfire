@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.elliptical][gridfire.elliptical]]
 (ns gridfire.elliptical
   "Computations based on the Elliptical Wavelets model.")
 
@@ -31,3 +32,4 @@
           (Math/sqrt (+ (- 1.0 (* E E))
                         (* E*cos-ang E*cos-ang))))
        (+ 1.0 E))))
+;; gridfire.elliptical ends here

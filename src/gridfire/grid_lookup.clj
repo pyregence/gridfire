@@ -1,3 +1,4 @@
+;; [[file:../../org/GridFire.org::gridfire.grid-lookup][gridfire.grid-lookup]]
 (ns gridfire.grid-lookup
   "Utils for efficiently resolving values at [b i j] coordinates in a grid.
 
@@ -230,3 +231,4 @@
    (double-at (mgetter-double m) i j))
   (^double [m ^long b ^long i ^long j]
    (double-at (mgetter-double m) b i j)))
+;; gridfire.grid-lookup ends here
