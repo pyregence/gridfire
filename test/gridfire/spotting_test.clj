@@ -189,23 +189,27 @@
                                                             "Each upper bound is indeed no smaller than the end result."))))))))))))
 
 (deftest ^:unit test-spot-ignition-time
+  (testing (str `spotting/fb-z-max)
+    (is (= spotting/fb-z-max (spotting/albini-t-max 0.003))
+        "was chosen by computed the maximum height with a 3mm firebrand."))
+
   (testing "Calculating t-max from Albini (1976)."
     (are [result args] (within? result (apply spotting/albini-t-max args) 0.1)
          ; Time to max height (min) [Flame length (m)]
-         183.3                      [1.0]
-         19.9                       [5.0]
-         8.5                        [10.0]
-         2.7                        [30.0]
-         1.28                       [84.0]))
+         2.640                      [1.0]
+         0.629                      [5.0]
+         0.374                      [10.0]
+         0.204                      [30.0]
+         0.159                      [84.0]))
 
   (testing "Calculating time to spot ignition using Perryman."
     (are [result args] (within? result (apply spotting/spot-ignition-time args) 0.1)
-         ; Ignition time (m) [Global clock time (m) Flame length (m)]
-         386.6               [0 1.0]
-         59.8                [0 5.0]
-         37.0                [0 10.0]
-         25.5                [0 30.0]
-         22.56               [0 84.0])))
+         ; Ignition time (min) [Global clock time (min) Flame length (m)]
+         25.28                 [0 1.0]
+         21.26                 [0 5.0]
+         20.75                 [0 10.0]
+         20.41                 [0 30.0]
+         20.32                 [0 84.0])))
 
 (deftest ^:unit test-spot-ignition?
   (testing "Spot ignition probability exceeds a random number generator."

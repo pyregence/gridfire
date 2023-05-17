@@ -4588,8 +4588,9 @@ From the above moments, $\mu_X$ and $\sigma_X$ can be obtained using the propert
 
 (defn lognormal-sigma-from-moments
   ^double [^double mean ^double variance]
-  (Math/log (+ 1.0
-               (/ variance mean))))
+  (Math/sqrt (Math/log (+ 1.0
+                          (/ variance
+                             (Math/pow mean 2))))))
 
 (defn resolve-lognormal-params
   [spotting-config ^double fire-line-intensity ^double wind-speed-20ft]
@@ -5137,9 +5138,11 @@ the firebrands are i.i.d causes of ignition
 Therefore, GridFire will simply draw an independent Bernoulli trial for each
 firebrand rather than apply the above formula.
 
-The first formula simply says that  a per-firebrand probability that decays exponentially with distance
+The first formula simply says that the per-firebrand probability decays exponentially with distance
 (i.e. adding $1/\lambda_s$ to the distance divides the probability by $e$,
 or equivalently $l \mapsto P(I)_l$ has derivative $\lambda_s P(I)_l$).
+Yet another way to say this is that, if $\lambda_s = \text{0.005 m}^{-1}$,
+then each added meter decreases $P(I)_l$ by 5%.
 
 #+name: firebrand-ignition-probability
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting.clj :padline no :no-expand :comments link
@@ -5206,14 +5209,59 @@ or equivalently $l \mapsto P(I)_l$ has derivative $\lambda_s P(I)_l$).
 A firebrand will cause an unburned cell to transition to a burned state if the
 cell receives at least one firebrand and the cell's probability of ignition as
 calculated by the above equations is greater than a randomly generated uniform number.
+
+*** Time to spot ignition
+
 Once a cell has been determined to ignite then the time until ignition is
 calculated. The time until ignition is a sum of three time intervals: the amount
 of time required for the firebrand to reach its maximum vertical height $t_v$,
 the amount of time required for the firebrand to descend from the maximum
 vertical height to the forest floor $t_g$, and the amount of time required for a
 spot fire to ignite and build up to the steady-state $t_I$. Perryman assumes $t_v$
-and $t_g$ to be equal and used the formula from Albini (1979) to calculate it.
-$t_I$ is also assumed to be 20 min as used in McAlpine and Wakimoto (1991).
+and $t_g$ to be equal and used the formula from \citep{Albini1979spot} to calculate it.
+$t_I$ is also assumed to be 20 min as used in \citep{McAlpine1991}.
+
+By \citep{Albini1979spot}, the time $t_v$ for a firebrand to reach height $z$ when the flame length is $z_F$ is given by:
+
+\begin{align*}
+t_v &= \frac{2 z_F}{w_F} \left(1.2 + \frac{a}{3} \left[ \left(\frac{b + (z/z_F)}{a}\right)^\frac{3}{2} - 1 \right] \right) & \\
+w_F &= 2.3 \text{ m/s} \sqrt{\frac{z_F}{1 \text{ m}}} & \\
+a   &= 5.963 & \\
+b   &=  a - 1.4 & \\
+\end{align*}
+
+In the notation of \citep{Albini1979spot}, we would have $t_v = \frac{2 z_F}{w_F}(t_T - t_o)$.
+
+\citep{Albini1979spot} also provides a formula - (D44) - for the maximum height $z_\text{max}$ that a firebrand can reach while still glowing
+when it hits the ground, as a function of the firebrand diameter $D$ in a cylinder model:
+
+\begin{align*}
+z_\text{max} = D \times 0.39 \times 10^5
+\end{align*}
+
+To estimate firebrand travel time, GridFire makes the assumption that each firebrand will reach $z_\text{max}$,
+where $z_\text{max}$ is computed for $D = 3\text{mm}$, yielding $z_\text{max} = 117 \text{m}$.
+
+To make the above formulas more tangible, observe that when the flame length is small enough that $z_F \ll z_\text{max}$, the above formulas simplify into the following approximation:
+
+\begin{align*}
+t_v \underset{z_F \ll z_\text{max}}{\approx} \frac{2}{3 \sqrt{a}} \frac{\sqrt{z_\text{max} \times 1 \text{m}}}{2.3 \text{m/s}}\frac{z_\text{max}}{z_F}
+\end{align*}
+
+Plugging in GridFire's choice of $z_\text{max} = 117 \text{m}$ yields:
+
+\begin{align*}
+t_v \underset{z_F \ll z_\text{max}}{\approx} 1.28 \text{s} \times \frac{117 \text{m}}{z_F}
+\end{align*}
+
+In other words, in the limit of small-enough flame lengths, the firebrand is assumed to elevate
+at a constant vertical speed $(z_F/1.28 \text{s})$ which is proportional to the flame length, until it reaches $z_\text{max} = 117 \text{m}$.
+For example, if the flame length is 1.17m (100x smaller than $z_\text{max}$), $t_v$ is about 128s.
+
+REVIEW We see that $t_v$ will only be a few seconds for high flamelengths,
+and a few minutes for small ones, amounting to insignificant contributions compared to the $t_I = 20 \text{min}$ term,
+which will dominate the time to ignition. Given that $t_I$ is only a ballpark guess,
+this questions the relevance of computing $t_v$ at all.
 
 #+name: firebrands-time-of-ignition
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting.clj :padline no :no-expand :comments link
@@ -5222,8 +5270,17 @@ $t_I$ is also assumed to be 20 min as used in McAlpine and Wakimoto (1991).
   (let [random-number (my-rand-range rand-gen 0 1)]
     (>= spot-ignition-probability random-number)))
 
+(defn albini-firebrand-maximum-height
+  ^double [^double firebrand-diameter]
+  (* 0.39e5 firebrand-diameter))
+
+(def ^:const fb-z-max
+  "Maximum altitude of firebrands, in meters.
+  Derived for (D44) in (Albini1979spot)."
+  117.0)
+
 (defn albini-t-max
-  "Returns the time of spot ignition using (Albini 1979) in minutes given:
+  "Returns the time of spot ignition using (Albini1979spot) in minutes given:
    - Flame length: (m) [z_F]
 
    a = 5.963                                                     (D33)
@@ -5233,31 +5290,36 @@ $t_I$ is also assumed to be 20 min as used in McAlpine and Wakimoto (1991).
    w_F = 2.3 * (z_F)^0.5                                         (A58)
    t_o = t_c / (2 * z_F / w_F)
    z =  0.39 * D * 10^5
-   t_T = t_o + 1.2 + (a / 3) * ( ( (b + (z/z_F) )/a )^3/2 - 1 )  (D43)"
+   travel time = t_1 + t_2 + t_3 = 1.2 + (a / 3) * ( ( (b + (z/z_F) )/a )^3/2 - 1 ), see (D43)"
   ^double
   [^double flame-length]
-  (let [a     5.963                            ; constant from (D33)
-        b     4.563                            ; constant from (D34)
-        z-max 117.0                            ; max height given particle diameter of 0.003m
-        w_F   (* 2.3 (Math/sqrt flame-length)) ; upward axial velocity at flame tip
-        t_0   (/ w_F (* 2.0 flame-length))]    ; period of steady burning of tree crowns (t_c, min) normalized by 2*z_F / w_F
-    (-> z-max
-        (/ flame-length)
-        (+ b)
-        (/ a)
-        (Math/pow 1.5)
-        (- 1.0)
-        (* (/ a 3.0))
-        (+ 1.2)
-        (+ t_0))))
+  (let [z_F            flame-length                         ; m
+        ;; TODO use FastMath
+        w_F            (* 2.3 (Math/sqrt flame-length))     ; m/s
+        charact-t      (-> (* 2
+                              (/ z_F w_F))                  ; s
+                           (convert/sec->min))
+        ;; The following dimensionless factor is equal to t_T-t_o, with t_T defined by (D43) in Albini1979spot.
+        t1+2+3         (+ 1.2
+                          (let [a 5.963                     ; dimensionless constant from (D33)
+                                b 4.563                     ; dimensionless constant from (D34)
+                                z fb-z-max]
+                            (* (/ a 3)
+                               (- (-> (/ (+ b
+                                            (/ z z_F))
+                                         a)
+                                      ;; TODO use FastMath
+                                      (Math/pow 1.5))
+                                  1))))
+        tv             (* charact-t t1+2+3)]
+    tv))
 
 (defn spot-ignition-time
   "Returns the time of spot ignition using (Albini 1979) and (Perryman 2012) in minutes given:
    - Global clock: (min)
    - Flame length: (m)
 
-   t_spot = clock + (2 * t_max) + t_ss"
-  ^double
+   t_spot = clock + (2 * t_max) + t_ss"^double
   [^double burn-time ^double flame-length]
   (let [t-steady-state 20.0] ; period of building up to steady state from ignition (min)
     (-> (albini-t-max flame-length)
@@ -5266,11 +5328,14 @@ $t_I$ is also assumed to be 20 min as used in McAlpine and Wakimoto (1991).
         (+ t-steady-state))))
 #+end_src
 
+
+
 Once the locations, ignition probabilities, and time of ignition have been
 calculated for each of the firebrands a sequence of key value pairs are
-returned, to be processed in `gridfire.cli` (FIXME wat?). The key is [x y] location of the
+returned, to be processed in `gridfire.fire-spread`. The key is [x y] location of the
 firebrand and the value [t p] where t is the time of ignition and p is the
-ignition probability (FIXME that is, the highly confusing notion of probability in the sense of 'simulation pessimism', not the probability of ignition computed above).
+non-conditional ignition probability (warning: defining and interpreting this probability is tricky, see source code.
+This is not the probability computed above.)
 
 #+name: spread-firebrands
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting.clj :padline no :no-expand :comments link
@@ -5351,7 +5416,7 @@ ignition probability (FIXME that is, the highly confusing notion of probability 
                          fine-fuel-moisture   (if get-fuel-moisture-dead-1hr
                                                 (grid-lookup/double-at get-fuel-moisture-dead-1hr band x y)
                                                 (calc-fuel-moisture
-                                                 (grid-lookup/double-at get-relative-humidity band i j)
+                                                 (grid-lookup/double-at get-relative-humidity band x y)
                                                  temperature :dead :1hr))
                          ignition-probability (schroeder-ign-prob (convert/F->C (double temperature)) fine-fuel-moisture)
                          decay-constant       (double (:decay-constant spotting))
@@ -16108,7 +16173,7 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
 ;; or by using the :vsampling CLI alias.
 (defn is-enabled?
   []
-  (= "true" (System/getProperty "gridfire.utils.vsampling.enabled")))
+  (= "true" (System/getProperty "gridfire.utils.vsampling.enabled")) true)
 
 (def ^:dynamic *current-point-id* nil)
 
@@ -16146,7 +16211,7 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
 (defn keep-hash-bucket
   "Convenience function for selecting m out of N point-ids based on its hash."
   [point-id ^long m ^long N]
-  (when (-> (hash point-id) (mod N) (< m))
+  (when (-> (hash point-id) (mod N) (long) (< m))
     point-id))
 
 (defmacro record

@@ -266,8 +266,17 @@
   (let [random-number (my-rand-range rand-gen 0 1)]
     (>= spot-ignition-probability random-number)))
 
+(defn albini-firebrand-maximum-height
+  ^double [^double firebrand-diameter]
+  (* 0.39e5 firebrand-diameter))
+
+(def ^:const fb-z-max
+  "Maximum altitude of firebrands, in meters.
+  Derived for (D44) in (Albini1979spot)."
+  117.0)
+
 (defn albini-t-max
-  "Returns the time of spot ignition using (Albini 1979) in minutes given:
+  "Returns the time of spot ignition using (Albini1979spot) in minutes given:
    - Flame length: (m) [z_F]
 
    a = 5.963                                                     (D33)
@@ -277,31 +286,35 @@
    w_F = 2.3 * (z_F)^0.5                                         (A58)
    t_o = t_c / (2 * z_F / w_F)
    z =  0.39 * D * 10^5
-   t_T = t_o + 1.2 + (a / 3) * ( ( (b + (z/z_F) )/a )^3/2 - 1 )  (D43)"
+   travel time = t_1 + t_2 + t_3 = 1.2 + (a / 3) * ( ( (b + (z/z_F) )/a )^3/2 - 1 ), see (D43)"
   ^double
   [^double flame-length]
-  (let [a     5.963                                ; constant from (D33)
-        b     4.563                                ; constant from (D34)
-        z-max 117.0                                ; max height given particle diameter of 0.003m
-        w_F   (* 2.3 (FastMath/sqrt flame-length)) ; upward axial velocity at flame tip
-        t_0   (/ w_F (* 2.0 flame-length))]        ; period of steady burning of tree crowns (t_c, min) normalized by 2*z_F / w_F
-    (-> z-max
-        (/ flame-length)
-        (+ b)
-        (/ a)
-        (FastMath/pow 1.5)
-        (- 1.0)
-        (* (/ a 3.0))
-        (+ 1.2)
-        (+ t_0))))
+  (let [z_F            flame-length                         ; m
+        w_F            (* 2.3 (FastMath/sqrt flame-length)) ; m/s
+        charact-t      (-> (* 2
+                              (/ z_F w_F))                  ; s
+                           (convert/sec->min))
+        ;; The following dimensionless factor is equal to t_T-t_o, with t_T defined by (D43) in Albini1979spot.
+        t1+2+3         (+ 1.2
+                          (let [a 5.963                     ; dimensionless constant from (D33)
+                                b 4.563                     ; dimensionless constant from (D34)
+                                z fb-z-max]
+                            (* (/ a 3)
+                               (- (-> (/ (+ b
+                                            (/ z z_F))
+                                         a)
+                                      ;; TODO use FastMath
+                                      (FastMath/pow 1.5))
+                                  1))))
+        tv             (* charact-t t1+2+3)]
+    tv))
 
 (defn spot-ignition-time
   "Returns the time of spot ignition using (Albini 1979) and (Perryman 2012) in minutes given:
    - Global clock: (min)
    - Flame length: (m)
 
-   t_spot = clock + (2 * t_max) + t_ss"
-  ^double
+   t_spot = clock + (2 * t_max) + t_ss"^double
   [^double burn-time ^double flame-length]
   (let [t-steady-state 20.0] ; period of building up to steady state from ignition (min)
     (-> (albini-t-max flame-length)

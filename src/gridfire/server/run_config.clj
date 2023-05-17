@@ -46,7 +46,7 @@
       (mfd/success! completion-dfr
                     ;; This map might get enriched in the future. (Val, 11 Jan 2023)
                     {}))
-    (catch Exception err
+    (catch Throwable err
       (mfd/error! completion-dfr err))))
 
 (defn start-run-config-handler!

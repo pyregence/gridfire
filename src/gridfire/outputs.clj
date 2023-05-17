@@ -17,6 +17,16 @@
     (str/join "_" $)
     (str $ ext)))
 
+(defn resolve-writing-parallelism
+  []
+  (or (some-> (System/getProperty "gridfire_outputs_parallelism") ; INTRO JVM property for limiting the number of threads dedicated to writing outputs files.
+              ;; This is useful because writing outputs is prone to consume a lot of memory, thus causing OutOfMemoryException.
+              ;; The method for setting the above property depends on how you run GridFire - here are some examples:
+              ;; clojure -J-Dgridfire_outputs_parallelism=43 -M --main gridfire.cli ...,
+              ;; java -jar my-gridfire-uber.jar -Dgridfire_outputs_parallelism=43 ...
+              (Long/parseLong 10))
+      (.availableProcessors (Runtime/getRuntime))))
+
 (defonce ^:private outputs-writing-exectr*
   (delay
     ;; This is expensive to create, hence the (defonce ...) and (delay ...) combination.
@@ -25,7 +35,7 @@
           ;; Benchmarks on 4 cores have shown an only-2x performance enhancement,
           ;; so there might be some contention at play here,
           ;; and the optimal parallelism might be even lower.
-          writing-parallelism (.availableProcessors (Runtime/getRuntime))]
+          writing-parallelism (resolve-writing-parallelism)]
       (gf-async/executor-with-n-named-threads
         "gridfire-outputs-writing"
         writing-parallelism
