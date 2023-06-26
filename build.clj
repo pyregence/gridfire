@@ -1,23 +1,21 @@
 ;; [[file:org/GridFire.org::build][build]]
 (ns build
-  (:require [clojure.tools.build.api :as b])
-  (:import java.util.Date))
+  (:require [clojure.string          :as str]
+            [clojure.tools.build.api :as b]))
 
-(defn get-calendar-branch-version []
-  (let [today  (Date.)
+(defn get-calendar-commit-version []
+  (let [date   (b/git-process {:git-args "show -s --format=%cs HEAD"})
         commit (b/git-process {:git-args "rev-parse --short HEAD"})]
-    (format "%d.%d.%d-%s"
-            (+ 1900 (.getYear today))
-            (+ 1 (.getMonth today))
-            (.getDate today)
-            commit)))
+    (-> date
+        (str/replace "-" ".")
+        (str "-" commit))))
 
 (def build-folder "target")
 (def jar-content (str build-folder "/classes"))
 (def basis (b/create-basis {:project "deps.edn"}))
 
 (def app-name "gridfire")
-(def version (get-calendar-branch-version))
+(def version (get-calendar-commit-version))
 (def uberjar-file-name (format "%s/%s-%s.jar" build-folder app-name version))
 
 (defn clean [_]
