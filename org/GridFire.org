@@ -3425,17 +3425,19 @@ In brief, simulation Mmtrices get mutated and the sets of burn vectors and ignit
        (.invokePrim ~cnbv-sym ~bvs-acc ~i ~j ~burn-probability))))
 
 (defn- identify-spot-ignition-events
-  [new-clock spot-ignitions]
-  (loop [to-process   spot-ignitions
-         ignite-later (transient {})
-         ignite-now   (transient {})]
-    (if (seq to-process)
-      (let [[cell spot-info] (first to-process)
-            [t _]            spot-info]
-        (if (>= ^double new-clock ^double t)
-          (recur (rest to-process) ignite-later (assoc! ignite-now cell spot-info))
-          (recur (rest to-process) (assoc! ignite-later cell spot-info) ignite-now)))
-      [(persistent! ignite-later) (persistent! ignite-now)])))
+  [^double new-clock spot-ignitions]
+  (let [ignite-now-list (ArrayList.)
+        ignite-later    (->> spot-ignitions
+                             (reduce-kv (fn [ign-later cell spot-info]
+                                          (let [[t _] spot-info]
+                                            (if (>= new-clock ^double t)
+                                              (do
+                                                (.add ignite-now-list [cell spot-info])
+                                                (dissoc! ign-later cell))
+                                              ign-later)))
+                                        (transient spot-ignitions))
+                             (persistent!))]
+    [ignite-later (into {} ignite-now-list)]))
 
 (defn- merge-spot-ignitions [a b]
   (reduce (fn [acc [cell spot-info]]
@@ -3488,7 +3490,7 @@ In brief, simulation Mmtrices get mutated and the sets of burn vectors and ignit
                                       (let [[i j] k
                                             [_ p] v]
                                         (>= (grid-lookup/double-at fire-spread-getter (long i) (long j)) (double p))))
-        pruned-spot-ignite-later    (into {} (remove ignited? spot-ignite-later)) ; TODO move to identify-spot-ignition
+        pruned-spot-ignite-later    (into {} (remove ignited?) spot-ignite-later) ; TODO move to identify-spot-ignition
         pruned-spot-ignite-now      (filterv #(not (ignited? %)) spot-ignite-now) ; TODO move to identify-spot-ignition
         create-new-bvs!             (create-new-burn-vectors!-pfn num-rows num-cols cell-size get-elevation
                                                                   travel-lines-matrix fire-spread-matrix
@@ -4479,42 +4481,34 @@ these deltas by using trigonometric functions.
 
 #+name: convert-deltas
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting.clj :padline no :no-expand :comments link
-(defn hypotenuse ^double
-  [x y]
-  (Math/sqrt (+ (Math/pow x 2) (Math/pow y 2))))
+(defn delta->grid-dx
+  "Computes the grid-aligned x coordinate of the delta vector, given the wind-aligned [ΔX ΔY] coordinates."
+  ^double [^double cos-w ^double sin-w ^double delta-x ^double delta-y]
+  ;; NOTATION: |w>, |wp>, |gx>, |gy> represent unit vectors,
+  ;; respectively in the downwind, wind-perpendicular, grid x, grid y directions.
+  ;; Note that the firebrand trajectory vector is |Δ> = (ΔX.|w> + ΔY.|wp>),
+  ;; such that <gx|Δ> = (ΔX.<gx|w> + ΔY.<gx|wp>)
+  (let [<gx|w>  sin-w
+        <gx|wp> cos-w]
+    (+ (* delta-x <gx|w>)
+       (* delta-y <gx|wp>))))
 
-(defn deltas-wind->coord
-  "Converts deltas from the torched tree in the wind direction to deltas
-  in the coordinate plane"
-  [deltas ^double wind-direction]
-  ;; IMPROVEMENT re-implement using sin, cos and dot-products, cleaner and faster. (Val, 16 Mar 2023)
-  (mapv (fn [[d-paral d-perp]]
-          (let [d-paral (double d-paral)
-                d-perp  (double d-perp)
-                H       (hypotenuse d-paral d-perp)
-                t1      wind-direction
-                t2      (convert/rad->deg (Math/atan (/ d-perp d-paral)))
-                t3      (+ t1 t2)]
-            [(* H (Math/sin (convert/deg->rad t3)))
-             (* -1 H (Math/cos (convert/deg->rad t3)))]))
-        deltas))
+(defn delta->grid-dy
+  "Computes the grid-aligned y coordinate of the delta vector, given the wind-aligned [ΔX ΔY] coordinates.
 
-(defn firebrands
-  "Returns a sequence of cells [i,j] that firebrands land in.
-   Note: matrix index [i,j] refers to [row, column]. Therefore, we need to flip
-   [row,column] to get to [x,y] coordinates."
-  [deltas wind-towards-direction cell ^double cell-size]
-  (let [step         (/ cell-size 2)
-        [y x]        (mapv #(+ step (* ^double % cell-size)) cell)
-        x            (double x)
-        y            (double y)
-        coord-deltas (deltas-wind->coord deltas wind-towards-direction)]
-    (mapv (fn [[dx dy]]
-            (let [dx (double dx)
-                  dy (double dy)]
-              [(long (Math/floor (/ (+ dy y) cell-size)))
-               (long (Math/floor (/ (+ dx x) cell-size)))]))
-          coord-deltas)))
+  Returns a signed distance (same unit as ΔX and ΔY)."
+  ^double [^double cos-w ^double sin-w ^double delta-x ^double delta-y]
+  ;; Note that the firebrand trajectory vector is |Δ> = (ΔX.|w> + ΔY.|wp>),
+  ;; such that <gy|Δ> = (ΔX.<gy|w> + ΔY.<gy|wp>)
+  (let [<gy|w>  (- cos-w)
+        <gy|wp> sin-w]
+    (+ (* delta-x <gy|w>)
+       (* delta-y <gy|wp>))))
+
+(defn distance->n-cells
+  "Converts a delta expressed as a signed distance to one expressed as a number of grid cells."
+  ^long [^double cell-size ^double d]
+  (FastMath/round (/ d cell-size)))
 #+end_src
 
 
@@ -4559,7 +4553,8 @@ From the above moments, $\mu_X$ and $\sigma_X$ can be obtained using the propert
 #+name: resolve-spotting-lognormal-elmfire
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting/elmfire.clj :padline no :no-expand :comments link
 (ns gridfire.spotting.elmfire
-  "Resolution of spotting parameters as done in ELMFIRE.")
+  "Resolution of spotting parameters as done in ELMFIRE."
+  (:import (org.apache.commons.math3.util FastMath)))
 
 (defn resolve-exp-delta-x
   "Computes the expected value E[ΔX] of the downwind spotting distance ΔX (in meters), as a function of:
@@ -4570,9 +4565,10 @@ From the above moments, $\mu_X$ and $\sigma_X$ can be obtained using the propert
   (let [a        (-> spotting-config :mean-distance (double))
         flin-exp (-> spotting-config :flin-exp (double))
         ws-exp   (-> spotting-config :ws-exp (double))]
+    ;; IMPROVEMENT remove config-reading overhead by partial-izing (Val, 20 Mar 2023)
     (* a
-       (* (Math/pow fire-line-intensity flin-exp)
-          (Math/pow wind-speed-20ft ws-exp)))))
+       (* (FastMath/pow fire-line-intensity flin-exp)
+          (FastMath/pow wind-speed-20ft ws-exp)))))
 
 (defn resolve-var-delta-x
   "Computes the variance Var[ΔX] (in m^2) of the downwind spotting distance ΔX, as a function of:
@@ -4584,15 +4580,15 @@ From the above moments, $\mu_X$ and $\sigma_X$ can be obtained using the propert
 
 (defn lognormal-mu-from-moments
   ^double [^double mean ^double variance]
-  (let [m2 (Math/pow mean 2)]
-    (Math/log (/ m2
-                 (Math/sqrt (+ m2 variance))))))
+  (let [m2 (FastMath/pow mean 2)]
+    (FastMath/log (/ m2
+                     (FastMath/sqrt (+ m2 variance))))))
 
 (defn lognormal-sigma-from-moments
   ^double [^double mean ^double variance]
-  (Math/sqrt (Math/log (+ 1.0
-                          (/ variance
-                             (Math/pow mean 2))))))
+  (FastMath/sqrt (FastMath/log (+ 1.0
+                                  (/ variance
+                                     (FastMath/pow mean 2))))))
 
 (defn resolve-lognormal-params
   [spotting-config ^double fire-line-intensity ^double wind-speed-20ft]
@@ -4904,7 +4900,8 @@ then transforming by affine and exponential functions:
             [vvvvalvalval.supdate.api     :as supd])
   (:import (java.util Random)
            (org.apache.commons.math3.distribution PoissonDistribution)
-           (org.apache.commons.math3.random RandomGenerator JDKRandomGenerator)))
+           (org.apache.commons.math3.random RandomGenerator JDKRandomGenerator)
+           (org.apache.commons.math3.util FastMath)))
 (set! *unchecked-math* :warn-on-boxed)
 
 ;;-----------------------------------------------------------------------------
@@ -4915,25 +4912,24 @@ then transforming by affine and exponential functions:
   "Returns sample from normal/gaussian distribution given mu and sd."
   ^double
   [^Random rand-gen ^double mu ^double sd]
-  (.nextGaussian rand-gen)
   (+ mu (* sd (.nextGaussian rand-gen))))
 
 (defn- sample-lognormal
   "Returns sample from log-normal distribution given mu and sd."
   ^double
   [^Random rand-gen ^double mu ^double sd]
-  (Math/exp (sample-normal rand-gen mu sd)))
+  (FastMath/exp (sample-normal rand-gen mu sd)))
 
 (defn deltax-expected-value
   ^double [^double mu-x ^double sigma-x]
-  (convert/m->ft (Math/exp (+ mu-x
-                              (/ (Math/pow sigma-x 2)
-                                 2.0)))))
+  (convert/m->ft (FastMath/exp (+ mu-x
+                                  (/ (FastMath/pow sigma-x (int 2))
+                                     2.0)))))
 
 (defn deltax-coefficient-of-variation
   ^double [^double sigma-x]
-  (Math/sqrt (- (Math/exp (Math/pow sigma-x 2))
-                1)))
+  (FastMath/sqrt (- (FastMath/exp (FastMath/pow sigma-x (int 2)))
+                    1)))
 
 ;; NOTE might be turned into a multimethod.
 (defn resolve-lognormal-params
@@ -4954,13 +4950,13 @@ then transforming by affine and exponential functions:
   (* (convert/m->ft 1.0)
      0.92
      (/ 0.47
-        (Math/pow 0.88 2))))
+        (FastMath/pow 0.88 2))))
 
 (defn himoto-resolve-default-sigma-y-from-lognormal-params
   ^double [^double mu-x ^double sigma-x]
-  (let [es2h (Math/exp (/ (Math/pow sigma-x 2)
-                          2))
-        avg-deltax-m (* (Math/exp mu-x) es2h)]
+  (let [es2h         (FastMath/exp (/ (FastMath/pow sigma-x 2)
+                                      2))
+        avg-deltax-m (* (FastMath/exp mu-x) es2h)]
     (* (double sigma-y-scalar-ft)
        avg-deltax-m
        (+ es2h 1.0)
@@ -5011,10 +5007,12 @@ then transforming by affine and exponential functions:
         ws20ft            (convert/mph->mps wind-speed-20ft)
         sample-delta-x-fn (delta-x-sampler spotting-config fl-intensity ws20ft)
         sample-delta-y-fn (delta-y-sampler spotting-config fl-intensity ws20ft)]
-    (vec (repeatedly num-firebrands
-                     (fn sample-delta-tuple []
-                       [(sample-delta-x-fn rand-gen)
-                        (sample-delta-y-fn rand-gen)])))))
+    (->> (range num-firebrands)
+         ;; NOTE it turns out that clojure.core/repeatedly is slow (lazy seq overhead), (Val, 19 Mar 2023)
+         ;; so we're re-implementing a fast vector-returning version of it.
+         (mapv (fn sample-delta-tuple [_i]
+                 [(sample-delta-x-fn rand-gen)
+                  (sample-delta-y-fn rand-gen)])))))
 #+end_src
 
 *** Spotting Probability and Number of Firebrands
@@ -5160,13 +5158,13 @@ then each added meter decreases $P(I)_l$ by 5%.
         M   fine-fuel-moisture
 
         ;; heat required to reach ignition temperature
-        Q_a (+ 144.512 (* -0.266 T_o) (* -0.00058 (Math/pow T_o 2.0)))
+        Q_a (+ 144.512 (* -0.266 T_o) (* -0.00058 (FastMath/pow T_o 2)))
 
         ;; heat required to raise moisture to reach boiling point
         Q_b (* -1.0 T_o M)
 
         ;; Heat of desorption
-        Q_c (* 18.54 (- 1.0 (Math/exp (* -15.1 M))))
+        Q_c (* 18.54 (- 1.0 (FastMath/exp (* -15.1 M))))
 
         ;; Heat required to vaporize moisture
         Q_d (* 640.0 M)]
@@ -5184,28 +5182,70 @@ then each added meter decreases $P(I)_l$ by 5%.
   (let [Q_ig (heat-of-preignition temperature fine-fuel-moisture)
         X    (/ (- 400.0 Q_ig) 10.0)]
     (-> X
-        (Math/pow 4.3)
+        (FastMath/pow 4.3)
         (* 0.000048)
         (/ 50.0)
-        (Math/min 1.0)
-        (Math/max 0.0))))
+        (FastMath/min 1.0)
+        (FastMath/max 0.0))))
 
 (defn- one-minus ^double [^double x] (- 1.0 x))
 
-(defn spot-ignition-probability
+(defmacro spot-ignition-probability*
   "Returns the probability of spot fire ignition (Perryman 2012) given:
    - Schroeder's probability of ignition [P(I)] (0-1)
    - Decay constant [lambda] (m^-1)
    - Distance from the torched cell [d] (meters)
 
-   P(Spot Ignition) = P(I) * exp(-lambda * d)"
+   P(Spot Ignition) = P(I) * exp(-lambda * d).
+
+   For performance, syntactic abstraction is used to allow early termination of the calculation,
+   through the use of upper bounds on the result probability. Concretely, this is done
+   by injecting additional arguments into `yield-expr`, which must be a list.
+   `yield-expr` will receive either 1 argument-the final probability-
+   or it will receive 2 arguments-an upper bound and an expression for continuing the computation."
+  [yield-expr decay-constant spotting-distance ignition-probability]
+  `(let [distance-penalty# (-> ~decay-constant
+                               (* -1.0)
+                               (* ~spotting-distance)
+                               (FastMath/exp))]
+     (~@yield-expr distance-penalty#
+      (let [pi# ~ignition-probability]
+        (~@yield-expr (* pi# distance-penalty#))))))
+
+
+(defmacro yield-lazy-sequence
+  [& args]
+  (case (count args)
+    1 (let [[arg0] args]
+        `(lazy-seq [~arg0]))
+    2 (let [[upper-bound next-steps] args]
+        `(cons ~upper-bound (lazy-seq ~next-steps)))))
+
+(defmacro yield-successful-prob
+  "(successful-prob rand01) is to be used as the `yield-expr` in `spot-ignition-probability*`
+  when you want to obtain the probability only if it is > rand01, and return nil otherwise."
+  [rand01 & args]
+  (case (count args)
+    1 (let [[arg0] args]
+        `(let [p# ~arg0]
+           (when (< ~rand01 p#)
+             p#)))
+    2 (let [[upper-bound next-steps] args]
+        `(when (< ~rand01 ~upper-bound)
+           ~next-steps))))
+
+(defmacro yield-final-result
+  [& args]
+  (case (count args)
+    1 (let [[arg0] args]
+        arg0)
+    2 (let [[_upper-bound next-steps] args]
+        next-steps)))
+
+(defn spot-ignition-probability
   ^double
   [^double ignition-probability ^double decay-constant ^double spotting-distance]
-  (-> decay-constant
-      (* -1.0)
-      (* spotting-distance)
-      (Math/exp)
-      (* ignition-probability)))
+  (spot-ignition-probability* (yield-final-result) decay-constant spotting-distance ignition-probability))
 #+end_src
 
 A firebrand will cause an unburned cell to transition to a burned state if the
@@ -5296,8 +5336,7 @@ this questions the relevance of computing $t_v$ at all.
   ^double
   [^double flame-length]
   (let [z_F            flame-length                         ; m
-        ;; TODO use FastMath
-        w_F            (* 2.3 (Math/sqrt flame-length))     ; m/s
+        w_F            (* 2.3 (FastMath/sqrt flame-length)) ; m/s
         charact-t      (-> (* 2
                               (/ z_F w_F))                  ; s
                            (convert/sec->min))
@@ -5311,7 +5350,7 @@ this questions the relevance of computing $t_v$ at all.
                                             (/ z z_F))
                                          a)
                                       ;; TODO use FastMath
-                                      (Math/pow 1.5))
+                                      (FastMath/pow 1.5))
                                   1))))
         tv             (* charact-t t1+2+3)]
     tv))
@@ -5341,99 +5380,112 @@ This is not the probability computed above.)
 
 #+name: spread-firebrands
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/spotting.clj :padline no :no-expand :comments link
-(defn- update-firebrand-counts!
-  [inputs firebrand-count-matrix fire-spread-matrix source firebrands]
+
+(defn- update-firebrand-count!-fn
+  [inputs firebrand-count-matrix fire-spread-matrix i0 j0]
   (let [num-rows                (:num-rows inputs)
         num-cols                (:num-cols inputs)
         get-fuel-model          (:get-fuel-model inputs)
-        [i j]                   source
-        source-burn-probability (grid-lookup/mget-double-at fire-spread-matrix (long i) (long j))]
-    (doseq [[y x] firebrands]
+        source-burn-probability (grid-lookup/mget-double-at fire-spread-matrix (long i0) (long j0))]
+    (fn inc-target-cell! [i1 j1]
       ;; FIXME REVIEW Why this check? Why would we not count firebrands in non-burnable cells, e.g. urban areas?
       (when (burnable-cell? get-fuel-model
                             fire-spread-matrix
                             source-burn-probability
                             num-rows
                             num-cols
-                            y
-                            x)
-        (->> (grid-lookup/mget-double-at firebrand-count-matrix y x)
+                            i1
+                            j1)
+        (->> (grid-lookup/mget-double-at firebrand-count-matrix i1 j1)
              (long)
              (inc)
-             (t/mset! firebrand-count-matrix y x))))))
+             (t/mset! firebrand-count-matrix i1 j1))))))
 
 ;; FIXME: Drop cell = [i j]
 (defn spread-firebrands
-  "Returns a sequence of [[x y] [t p]] key value pairs where
-  key: [x y] locations of the cell
+  "Returns a sequence of [[i1 j1] [t p]] key value pairs where
+  key: [i1 j1] grid coordinates of the target cell
   val: [t p] where:
-  t: time of ignition
+  t: time to ignition
   p: ignition-probability.
 
   Also mutates :firebrand-count-matrix to update the counts."
   [inputs matrices i j]
-  (let [num-rows                   (:num-rows inputs)
-        num-cols                   (:num-cols inputs)
-        cell-size                  (:cell-size inputs)
-        rand-gen                   (:rand-gen inputs)
-        spotting                   (:spotting inputs)
-        get-elevation              (:get-elevation inputs)
-        get-fuel-model             (:get-fuel-model inputs)
-        get-temperature            (:get-temperature inputs)
-        get-relative-humidity      (:get-relative-humidity inputs)
-        get-wind-speed-20ft        (:get-wind-speed-20ft inputs)
-        get-wind-from-direction    (:get-wind-from-direction inputs)
-        get-fuel-moisture-dead-1hr (:get-fuel-moisture-dead-1hr inputs)
-        firebrand-count-matrix     (:firebrand-count-matrix matrices)
-        fire-spread-matrix         (:fire-spread-matrix matrices)
-        fire-line-intensity-matrix (:fire-line-intensity-matrix matrices)
-        flame-length-matrix        (:flame-length-matrix matrices)
-        fire-type-matrix           (:fire-type-matrix matrices)
-        burn-time-matrix           (:burn-time-matrix matrices)
-        burn-time                  (grid-lookup/mget-double-at burn-time-matrix i j)
+  (let [cell                       [i j]
         i                          (long i)
         j                          (long j)
-        cell                       [i j]
+        fire-line-intensity-matrix (:fire-line-intensity-matrix matrices)
+        fire-type-matrix           (:fire-type-matrix matrices)
         fire-line-intensity        (grid-lookup/mget-double-at fire-line-intensity-matrix i j)
         crown-fire?                (-> fire-type-matrix (grid-lookup/mget-double-at i j) (double) (> 1.0))]
     (when (spot-fire? inputs crown-fire? cell fire-line-intensity)
-      (let [rng                     (JDKRandomGenerator. (.nextInt rand-gen))
-            band                    (long (/ burn-time 60.0))
-            ws                      (grid-lookup/double-at get-wind-speed-20ft band i j)
-            wd                      (grid-lookup/double-at get-wind-from-direction band i j)
-            num-fbs                 (sample-number-of-firebrands spotting rng)
-            deltas                  (sample-wind-dir-deltas inputs fire-line-intensity ws num-fbs)
-            wind-to-direction       (mod (+ 180 wd) 360)
-            firebrands              (firebrands deltas wind-to-direction cell cell-size)
-            source-burn-probability (grid-lookup/mget-double-at fire-spread-matrix i j)
-            terrain-dist-fn         (terrain-distance-fn get-elevation num-rows num-cols cell-size)]
-        (update-firebrand-counts! inputs firebrand-count-matrix fire-spread-matrix cell firebrands)
-        (->> (for [[x y] firebrands]
-               (let [x (long x)
-                     y (long y)]
-                 (when (and
-                        (in-bounds-optimal? num-rows num-cols x y)
-                        (burnable-fuel-model? (grid-lookup/double-at get-fuel-model x y)))
-                   (let [temperature          (grid-lookup/double-at get-temperature band x y)
-                         fine-fuel-moisture   (if get-fuel-moisture-dead-1hr
-                                                (grid-lookup/double-at get-fuel-moisture-dead-1hr band x y)
-                                                (calc-fuel-moisture
-                                                 (grid-lookup/double-at get-relative-humidity band x y)
-                                                 temperature :dead :1hr))
-                         ignition-probability (schroeder-ign-prob (convert/F->C (double temperature)) fine-fuel-moisture)
-                         decay-constant       (double (:decay-constant spotting))
-                         spotting-distance    (convert/ft->m (terrain-distance-invoke terrain-dist-fn i j x y))
-                         spot-ignition-p      (spot-ignition-probability ignition-probability
-                                                                         decay-constant
-                                                                         spotting-distance)
-                         burn-probability     (* spot-ignition-p source-burn-probability)]
-                     (when (and (>= burn-probability 0.1)   ; TODO parametrize 0.1 in gridfire.edn
-                                (> (double burn-probability) (grid-lookup/mget-double-at fire-spread-matrix x y))
-                                (spot-ignition? rand-gen spot-ignition-p))
-                       (let [t (spot-ignition-time burn-time
-                                                   (convert/ft->m (grid-lookup/mget-double-at flame-length-matrix i j)))]
-                         [[x y] [t burn-probability]]))))))
-             (remove nil?))))))
+      (let [rand-gen                (:rand-gen inputs)
+            spotting                (:spotting inputs)
+            rng                     (JDKRandomGenerator. (.nextInt ^Random rand-gen))
+            num-fbs                 (sample-number-of-firebrands spotting rng)]
+        (when-not (zero? num-fbs)
+          (->> (range num-fbs)
+               ;; NOTE it turns out that clojure.core/repeatedly is slow (lazy seq overhead), (Val, 19 Mar 2023)
+               ;; so we're re-implementing a fast vector-returning version of it.
+               (into []
+                     (keep (let [burn-time-matrix           (:burn-time-matrix matrices)
+                                 burn-time                  (grid-lookup/mget-double-at burn-time-matrix i j)
+                                 band                       (long (/ burn-time 60.0))
+                                 cell-size                  (:cell-size inputs)
+                                 get-wind-speed-20ft        (:get-wind-speed-20ft inputs)
+                                 get-wind-from-direction    (:get-wind-from-direction inputs)
+                                 firebrand-count-matrix     (:firebrand-count-matrix matrices)
+                                 fire-spread-matrix         (:fire-spread-matrix matrices)
+                                 rand-gen                   (:rand-gen inputs)
+                                 fl-intensity               (convert/Btu-ft-s->kW-m fire-line-intensity)
+                                 wd                         (grid-lookup/double-at get-wind-from-direction band i j)
+                                 wind-to-direction          (convert/deg->rad (mod (+ 180 wd) 360))
+                                 cos-w                      (FastMath/cos wind-to-direction)
+                                 sin-w                      (FastMath/sin wind-to-direction)
+                                 ws                         (grid-lookup/double-at get-wind-speed-20ft band i j)
+                                 ws20ft                     (convert/mph->mps ws)
+                                 sample-delta-x-fn          (delta-x-sampler spotting fl-intensity ws20ft)
+                                 sample-delta-y-fn          (delta-y-sampler spotting fl-intensity ws20ft)
+                                 decay-constant             (double (:decay-constant spotting))
+                                 num-rows                   (:num-rows inputs)
+                                 num-cols                   (:num-cols inputs)
+                                 get-fuel-model             (:get-fuel-model inputs)
+                                 get-temperature            (:get-temperature inputs)
+                                 get-relative-humidity      (:get-relative-humidity inputs)
+                                 get-fuel-moisture-dead-1hr (:get-fuel-moisture-dead-1hr inputs)
+                                 source-burn-probability    (grid-lookup/mget-double-at fire-spread-matrix i j)
+                                 flame-length-matrix        (:flame-length-matrix matrices)
+                                 origin-flame-length        (convert/ft->m (grid-lookup/mget-double-at flame-length-matrix i j))
+                                 update-firebrand-count!    (update-firebrand-count!-fn inputs firebrand-count-matrix fire-spread-matrix i j)]
+                             (fn resolve-spotting-ignition! [_k]
+                               (let [delta-x (sample-delta-x-fn rand-gen)
+                                     delta-y (sample-delta-y-fn rand-gen)
+                                     grid-dx (delta->grid-dx cos-w sin-w delta-x delta-y)
+                                     grid-dy (delta->grid-dy cos-w sin-w delta-x delta-y)
+                                     i1      (+ i (distance->n-cells cell-size grid-dy))
+                                     j1      (+ j (distance->n-cells cell-size grid-dx))]
+                                 (update-firebrand-count! i1 j1)
+                                 (when (and
+                                        (in-bounds-optimal? num-rows num-cols i1 j1)
+                                        (burnable-fuel-model? (grid-lookup/double-at get-fuel-model i1 j1)))
+                                   (let [spotting-distance    (convert/ft->m (FastMath/hypot grid-dx grid-dy))
+                                         rand01               (my-rand-range rand-gen 0 1)]
+                                     (when-some [spot-ignition-p (spot-ignition-probability* (yield-successful-prob rand01)
+                                                                                             decay-constant
+                                                                                             spotting-distance
+                                                                                             ;; NOTE that the following (costly) expression will only be evaluated a small fraction of the time. (Val, 21 Mar 2023)
+                                                                                             (let [temperature        (grid-lookup/double-at get-temperature band i1 j1)
+                                                                                                   fine-fuel-moisture (if get-fuel-moisture-dead-1hr
+                                                                                                                        (grid-lookup/double-at get-fuel-moisture-dead-1hr band i1 j1)
+                                                                                                                        (calc-fuel-moisture
+                                                                                                                         (grid-lookup/double-at get-relative-humidity band i1 j1)
+                                                                                                                         temperature :dead :1hr))]
+                                                                                               (schroeder-ign-prob (convert/F->C (double temperature)) fine-fuel-moisture)))]
+                                       (let [burn-probability (* (double spot-ignition-p) source-burn-probability)]
+                                         (when (and (>= burn-probability 0.1) ; TODO parametrize 0.1 in gridfire.edn
+                                                    (> (double burn-probability) (grid-lookup/mget-double-at fire-spread-matrix i1 j1)))
+                                           (let [t (spot-ignition-time burn-time origin-flame-length)]
+                                             [[i1 j1] [t burn-probability]])))))))))))))))))
 #+end_src
 
 *** Sampling of parameters
@@ -6387,7 +6439,7 @@ or false:
 
 (def program-banner
   (str "gridfire: Launch fire spread simulations via config files or in server mode.\n"
-       "Copyright © 2014-2022 Spatial Informatics Group, LLC.\n"))
+       "Copyright © 2014-2023 Spatial Informatics Group, LLC.\n"))
 
 (defn run-config-files!
   [args]
@@ -6644,10 +6696,10 @@ for calling a running server:
     (try
       (let [success-data @completion-dfr]
         (into {:gridfire.run-config/succeeded true} success-data))
-      (catch Exception err
+      (catch Throwable err
         (let [err-map (or (try
                             (Throwable->map err)
-                            (catch Exception _parsing-err nil))
+                            (catch Throwable _parsing-err nil))
                           {:message (str "(FAILED Throwable->map) " (ex-message err))})]
           {:gridfire.run-config/succeeded  false
            :gridfire.run-config/error-data err-map})))))
@@ -6665,7 +6717,7 @@ for calling a running server:
   (map (fn edn-encode-safe [res]
          (try
            (pr-str res)
-           (catch Exception err
+           (catch Throwable err
              (pr-str (tagged-literal 'gridfire.server.sync/failed-printing-result
                                      {::ex-class-name (.getName (class err))
                                       ::ex-message    (ex-message err)})))))))
@@ -6813,7 +6865,7 @@ for calling a running server:
       (mfd/success! completion-dfr
                     ;; This map might get enriched in the future. (Val, 11 Jan 2023)
                     {}))
-    (catch Exception err
+    (catch Throwable err
       (mfd/error! completion-dfr err))))
 
 (defn start-run-config-handler!
@@ -9725,9 +9777,9 @@ FIXME isn't this deprecated?
    :int64))
 
 (defn process-output-layers-timestepped
-  [{:keys [simulation-id] :as config}
+  [{:keys [output-geotiffs? output-pngs?] :as config}
    {:keys [global-clock burn-time-matrix] :as fire-spread-results}
-   name layer timestep envelope]
+   name layer timestep envelope simulation-id]
   (let [global-clock (double global-clock)
         output-times (range 0 (inc global-clock) timestep)]
     (->> output-times
@@ -9743,8 +9795,10 @@ FIXME isn't this deprecated?
                (mfd/chain
                  (fn [filtered-matrix]
                    (mfd/zip
-                     (outputs/output-geotiff config filtered-matrix name envelope simulation-id output-time)
-                     (outputs/output-png config filtered-matrix name envelope simulation-id output-time))))
+                    (when output-geotiffs?
+                      (outputs/output-geotiff config filtered-matrix name envelope simulation-id output-time))
+                    (when output-pngs?
+                      (outputs/output-png config filtered-matrix name envelope simulation-id output-time)))))
                (gf-async/nil-when-completed))))
          (gf-async/nil-when-all-completed))))
 
@@ -9780,7 +9834,8 @@ FIXME isn't this deprecated?
                                                     name
                                                     layer
                                                     timestep
-                                                    envelope)
+                                                    envelope
+                                                    simulation-id)
                  (when-some [matrix0 (or (get fire-spread-results layer)
                                          (if is-optional?
                                            nil
@@ -14897,6 +14952,16 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
     (str/join "_" $)
     (str $ ext)))
 
+(defn resolve-writing-parallelism
+  []
+  (or (some-> (System/getProperty "gridfire_outputs_parallelism") ; INTRO JVM property for limiting the number of threads dedicated to writing outputs files.
+              ;; This is useful because writing outputs is prone to consume a lot of memory, thus causing OutOfMemoryException.
+              ;; The method for setting the above property depends on how you run GridFire - here are some examples:
+              ;; clojure -J-Dgridfire_outputs_parallelism=43 -M --main gridfire.cli ...,
+              ;; java -jar my-gridfire-uber.jar -Dgridfire_outputs_parallelism=43 ...
+              (Long/parseLong 10))
+      (.availableProcessors (Runtime/getRuntime))))
+
 (defonce ^:private outputs-writing-exectr*
   (delay
     ;; This is expensive to create, hence the (defonce ...) and (delay ...) combination.
@@ -14905,7 +14970,7 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
           ;; Benchmarks on 4 cores have shown an only-2x performance enhancement,
           ;; so there might be some contention at play here,
           ;; and the optimal parallelism might be even lower.
-          writing-parallelism (.availableProcessors (Runtime/getRuntime))]
+          writing-parallelism (resolve-writing-parallelism)]
       (gf-async/executor-with-n-named-threads
         "gridfire-outputs-writing"
         writing-parallelism
@@ -16051,7 +16116,7 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
                                       (try
                                         (mfd/success! d
                                                       (f x))
-                                        (catch Exception err
+                                        (catch Throwable err
                                           (mfd/error! d err)))
                                       d))
                                =tasks=)
@@ -16175,7 +16240,7 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
 ;; or by using the :vsampling CLI alias.
 (defn is-enabled?
   []
-  (= "true" (System/getProperty "gridfire.utils.vsampling.enabled")) true)
+  (= "true" (System/getProperty "gridfire.utils.vsampling.enabled")))
 
 (def ^:dynamic *current-point-id* nil)
 
@@ -16213,7 +16278,7 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
 (defn keep-hash-bucket
   "Convenience function for selecting m out of N point-ids based on its hash."
   [point-id ^long m ^long N]
-  (when (-> (hash point-id) (mod N) (long) (< m))
+  (when (-> (hash point-id) (mod N) (< m))
     point-id))
 
 (defmacro record
@@ -21184,7 +21249,7 @@ clojure -M:run-server -c server.edn
 (defmacro nil-on-error
   [& body]
   (let [_ (gensym)]
-    `(try ~@body (catch Exception ~_ nil))))
+    `(try ~@body (catch Throwable ~_ nil))))
 
 (defn non-empty-string?
   [x]
