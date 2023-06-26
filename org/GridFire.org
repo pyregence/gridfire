@@ -11868,10 +11868,25 @@ FIXME how about we lift this up to the Crowning section?
 (defn- within? [^double a ^double b ^double epsilon]
   (> epsilon (Math/abs (- a b))))
 
+(defn deltas-wind->coord
+  "Converts deltas from the torched tree in the wind direction to deltas
+  in the coordinate plane"
+  [deltas ^double wind-towards-direction]
+  (let [w-rad (c/deg->rad wind-towards-direction)
+        cos-w (Math/cos w-rad)
+        sin-w (Math/sin w-rad)]
+    (mapv (fn [[delta-x delta-y]]
+            (let [delta-x (double delta-x)
+                  delta-y (double delta-y)
+                  grid-dx (spotting/delta->grid-dx cos-w sin-w delta-x delta-y)
+                  grid-dy (spotting/delta->grid-dy cos-w sin-w delta-x delta-y)]
+              [grid-dx grid-dy]))
+          deltas)))
+
 (deftest ^:unit deltas-axis-test
   (testing "Simple 1-unit parallel to wind."
     (are [result args] (let [[dx-res dy-res] result
-                             [dx dy]         (first (apply spotting/deltas-wind->coord args))]
+                             [dx dy]         (first (apply deltas-wind->coord args))]
                          (and (within? dx-res dx 0.01) (within? dy-res dy 0.01)))
          [0.0     -1.0]   [[[1 0]] 0]     ;; North
          [0.707   -0.707] [[[1 0]] 45]    ;; NE
@@ -11885,7 +11900,7 @@ FIXME how about we lift this up to the Crowning section?
 
   (testing "1 unit parallel, 1 unit perpindicular to wind direction."
     (are [result args] (let [[dx-res dy-res] result
-                             [dx dy]         (first (apply spotting/deltas-wind->coord args))]
+                             [dx dy]         (first (apply deltas-wind->coord args))]
                          (and (within? dx-res dx 0.01) (within? dy-res dy 0.01)))
          [1.0    -1.0]   [[[1 1]] 0]      ;; North
          [1.414  0.0]    [[[1 1]] 45]     ;; NE
@@ -11897,6 +11912,26 @@ FIXME how about we lift this up to the Crowning section?
          [0.0    -1.414] [[[1 1]] 315]    ;; NW
          [1.0    -1.0]   [[[1 1]] 360]))) ;; North
 
+(defn hypotenuse
+  ^double [^double x ^double y]
+  (Math/sqrt (+ (* x x) (* y y))))
+
+(defn firebrands
+  "Returns a sequence of cells [i,j] that firebrands land in.
+   Note: matrix index [i,j] refers to [row, column]. Therefore, we need to flip
+   [row,column] to get to [x,y] coordinates."
+  [deltas wind-towards-direction cell ^double cell-size]
+  (let [[i0 j0]      cell
+        coord-deltas (deltas-wind->coord deltas wind-towards-direction)]
+    (mapv (fn [[grid-dx grid-dy]]
+            (let [grid-dx (double grid-dx)
+                  grid-dy (double grid-dy)
+                  i1      (+ i0 (spotting/distance->n-cells cell-size grid-dy))
+                  j1      (+ j0 (spotting/distance->n-cells cell-size grid-dx))
+                  H       (hypotenuse grid-dx grid-dy)]
+              [i1 j1 H]))
+          coord-deltas)))
+
 (deftest ^:unit firebrand-test
   (testing "Convert deltas to (i,j) cell in matrix."
     ; NOTE: matrix index [i,j] refers to [row, column]. Therefore, we need to flip
@@ -11905,7 +11940,7 @@ FIXME how about we lift this up to the Crowning section?
           cell      [8 12]]
       (are [result args] (let [[i-res j-res] result
                                [delta wd]    args
-                               [i j]         (first (spotting/firebrands [delta] wd cell cell-size))]
+                               [i j]         (first (firebrands [delta] wd cell cell-size))]
                            (and (= i-res i) (= j-res j)))
            [8   12]  [[1.0  0.0]  0]    ;; Same origin
            [7   12]  [[10.0 0.0]  0]    ;; North
@@ -11972,43 +12007,54 @@ FIXME how about we lift this up to the Crowning section?
 
 (deftest ^:unit test-spot-ignition-probability
   (testing "Using Perryman (2012)."
-    (let [lambda 0.005]
-      (are [result args] (within? result (apply spotting/spot-ignition-probability args) 0.001)
-           ; Probability (0-1) [ignition-probability (0-1) decay-constant spotting-distance (m)]
-
-           ; Increasing Schroeder Ignition Probability
-           0.121               [0.2 lambda 100]
-           0.242               [0.4 lambda 100]
-           0.363               [0.6 lambda 100]
-           0.485               [0.8 lambda 100]
-           0.606               [1.0 lambda 100]
-
-           ; Increasing Firebrands Count
-           0.303               [0.5 lambda 100]
-
-           ; Increasing Distance
-           0.303               [0.5 lambda 100]
-           0.183               [0.5 lambda 200]
-           0.0                 [0.5 lambda 2000]))))
+    (let [lambda (/ 1.0 200.0)]
+      (->> [;; Increasing Schroeder Ignition Probability
+            [0.121 [0.2 lambda 100]]
+            [0.242 [0.4 lambda 100]]
+            [0.363 [0.6 lambda 100]]
+            [0.485 [0.8 lambda 100]]
+            [0.606 [1.0 lambda 100]]
+            ;; ; Increasing Distance
+            [0.303 [0.5 lambda 100]]
+            [0.183 [0.5 lambda 200]]
+            [0.0   [0.5 lambda 2000]]]
+           (every? (fn [[expected-prob [schr-ign-prob decay-constant spotting-distance]]]
+                     (let [ps              (spotting/spot-ignition-probability* (spotting/yield-lazy-sequence)
+                                                                                (double decay-constant)
+                                                                                (double spotting-distance)
+                                                                                (double schr-ign-prob))
+                           spot-ignition-p (double (last ps))
+                           upper-bounds    (butlast ps)]
+                       (and (is (within? expected-prob spot-ignition-p 0.001)
+                                "Ultimately, the correct probability of spot ignition is computed.")
+                            (is (= spot-ignition-p (spotting/spot-ignition-probability schr-ign-prob decay-constant spotting-distance))
+                                (str `spotting/spot-ignition-probability " computes the same end result directly, without upper bounds."))
+                            (->> upper-bounds (every? (fn [^double upper-bound]
+                                                        (is (>= upper-bound spot-ignition-p)
+                                                            "Each upper bound is indeed no smaller than the end result."))))))))))))
 
 (deftest ^:unit test-spot-ignition-time
+  (testing (str `spotting/fb-z-max)
+    (is (= spotting/fb-z-max (spotting/albini-t-max 0.003))
+        "was chosen by computed the maximum height with a 3mm firebrand."))
+
   (testing "Calculating t-max from Albini (1976)."
     (are [result args] (within? result (apply spotting/albini-t-max args) 0.1)
          ; Time to max height (min) [Flame length (m)]
-         183.3                      [1.0]
-         19.9                       [5.0]
-         8.5                        [10.0]
-         2.7                        [30.0]
-         1.28                       [84.0]))
+         2.640                      [1.0]
+         0.629                      [5.0]
+         0.374                      [10.0]
+         0.204                      [30.0]
+         0.159                      [84.0]))
 
   (testing "Calculating time to spot ignition using Perryman."
     (are [result args] (within? result (apply spotting/spot-ignition-time args) 0.1)
-         ; Ignition time (m) [Global clock time (m) Flame length (m)]
-         386.6               [0 1.0]
-         59.8                [0 5.0]
-         37.0                [0 10.0]
-         25.5                [0 30.0]
-         22.56               [0 84.0])))
+         ; Ignition time (min) [Global clock time (min) Flame length (m)]
+         25.28                 [0 1.0]
+         21.26                 [0 5.0]
+         20.75                 [0 10.0]
+         20.41                 [0 30.0]
+         20.32                 [0 84.0])))
 
 (deftest ^:unit test-spot-ignition?
   (testing "Spot ignition probability exceeds a random number generator."
