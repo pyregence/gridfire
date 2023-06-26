@@ -28,6 +28,8 @@ from *org/GridFire.org*.
 - David S. Saah, Ph.D.
 - Max Moritz, Ph.D.
 - Kenneth Cheung
+- RJ Sheperd
+- Valentin Waeselynck
 
 ** Emails
 
@@ -35,10 +37,12 @@ from *org/GridFire.org*.
 - dsaah@sig-gis.com
 - mmoritz@sig-gis.com
 - kcheung@sig-gis.com
+- rsheperd@sig-gis.com
+- vwaeselynck@sig-gis.com
 
 * License
 
-Copyright © 2014-2022 Spatial Informatics Group, LLC.
+Copyright © 2014-2023 Spatial Informatics Group, LLC.
 
 GridFire is distributed by Spatial Informatics Group, LLC. under the
 terms of the Eclipse Public License version 2.0 (EPLv2). See
