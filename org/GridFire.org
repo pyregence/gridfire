@@ -1,6 +1,6 @@
 #+TITLE: The GridFire Fire Behavior Model
-#+AUTHOR: Gary W. Johnson, Ph.D., David Saah, Ph.D., Max Moritz, Ph.D., Kenneth Cheung
-#+DATE: Copyright © 2014-2022 Spatial Informatics Group, LLC
+#+AUTHOR: Gary W. Johnson, David Saah, Max Moritz, Kenneth Cheung, RJ Sheperd, Valentin Waeselynck
+#+DATE: Copyright © 2014-2023 Spatial Informatics Group, LLC
 #+OPTIONS: ^:{} toc:nil h:3
 #+LATEX_CLASS: article
 #+LATEX_CLASS_OPTIONS: [11pt]
