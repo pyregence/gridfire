@@ -27,7 +27,7 @@
 
 (def program-banner
   (str "gridfire: Launch fire spread simulations via config files or in server mode.\n"
-       "Copyright © 2014-2022 Spatial Informatics Group, LLC.\n"))
+       "Copyright © 2014-2023 Spatial Informatics Group, LLC.\n"))
 
 (defn run-config-files!
   [args]
