@@ -390,15 +390,16 @@
     inputs))
 
 (defn add-burn-period-samples
-  [{:keys [ignition-start-timestamps] :as inputs}]
-  (let [from-sunrise-sunset? (some? (:burn-period-frac inputs))]
-    (-> inputs
-        (assoc :burn-period-samples
-               (->> ignition-start-timestamps
-                    (mapv (if from-sunrise-sunset?
-                            (fn [ignition-start-timestamp]
-                              (burnp/from-sunrise-sunset inputs ignition-start-timestamp))
-                            (let [{:keys [start end]} inputs]
-                              (constantly {:burn-period-start (or start "00:00")
-                                           :burn-period-end   (or end "24:00")})))))))))
+  [{:keys [ignition-start-timestamps burn-period burn-period-frac] :as inputs}]
+  (let [burn-period-start    (get burn-period :start "00:00")
+        burn-period-end      (get burn-period :end   "24:00")
+        from-sunrise-sunset? (some? burn-period-frac)]
+    (assoc inputs
+           :burn-period-samples
+           (->> ignition-start-timestamps
+                (mapv (if from-sunrise-sunset?
+                        (fn [ignition-start-timestamp]
+                          (burnp/from-sunrise-sunset inputs ignition-start-timestamp))
+                        (constantly {:burn-period-start burn-period-start
+                                     :burn-period-end   burn-period-end})))))))
 ;; gridfire.inputs ends here
