@@ -31,6 +31,11 @@
 
 (defn layer-snapshot [burn-time-matrix layer-matrix ^double t]
   (d/clone
+   ;; NOTE currently, this step is extremely CPU-intensive. (Val, 29 Sep 2023)
+   ;; In typical Pyrecast situations, the actual simulation takes 20x less CPU time
+   ;; than the timestepped processing, which wastes a lot of work: the CPU is mostly
+   ;; busy shoving NODATA values from one place to another. This happens in the ForkJoin
+   ;; thread pools that tech.v3.datatype uses to execute the emap function.
    (d/emap (fn [^double layer-value ^double burn-time]
              (if (and (not (neg? burn-time)) (<= burn-time t))
                layer-value
@@ -76,17 +81,14 @@
              (->
                (outputs/exec-in-outputs-writing-pool
                  (fn []
-                   (let [matrix (if (= name "burn_history")
-                                  (to-color-map-values layer output-time)
-                                  (fire-spread-results layer))]
-                     (layer-snapshot burn-time-matrix matrix output-time))))
-               (mfd/chain
-                 (fn [filtered-matrix]
-                   (mfd/zip
-                    (when output-geotiffs?
-                      (outputs/output-geotiff config filtered-matrix name envelope simulation-id output-time))
-                    (when output-pngs?
-                      (outputs/output-png config filtered-matrix name envelope simulation-id output-time)))))
+                   (let [matrix          (if (= name "burn_history")
+                                           (to-color-map-values layer output-time)
+                                           (fire-spread-results layer))
+                         filtered-matrix (layer-snapshot burn-time-matrix matrix output-time)]
+                     (when output-geotiffs?
+                       (outputs/output-geotiff-sync config filtered-matrix name envelope simulation-id output-time))
+                     (when output-pngs?
+                       (outputs/output-png-sync config filtered-matrix name simulation-id output-time)))))
                (gf-async/nil-when-completed))))
          (gf-async/nil-when-all-completed))))
 
@@ -135,14 +137,13 @@
                               ;; TODO that check will never be true, (Val, 03 Nov 2022)
                               ;; since we are comparing a Keyword to a String,
                               ;; but I suspect we've been relying on that bug until now.
-                              (cond-> (= layer "burn_history") (to-color-map-values global-clock)))))
-                       (mfd/chain
-                        (fn [matrix]
-                          (mfd/zip
-                           (when output-geotiffs?
-                             (outputs/output-geotiff config matrix name envelope simulation-id))
-                           (when output-pngs?
-                             (outputs/output-png config matrix name envelope simulation-id)))))
+                              (cond-> (= layer "burn_history") (to-color-map-values global-clock))
+                              (as-> matrix
+                                    (do
+                                      (when output-geotiffs?
+                                        (outputs/output-geotiff-sync config matrix name envelope simulation-id nil))
+                                      (when output-pngs?
+                                        (outputs/output-png-sync config matrix name simulation-id nil)))))))
                        (gf-async/nil-when-completed)))))))
          (gf-async/nil-when-all-completed))))
 
