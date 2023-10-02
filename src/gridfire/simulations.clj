@@ -81,14 +81,14 @@
              (->
                (outputs/exec-in-outputs-writing-pool
                  (fn []
-                   (let [matrix          (if (= name "burn_history")
-                                           (to-color-map-values layer output-time)
-                                           (fire-spread-results layer))
-                         filtered-matrix (layer-snapshot burn-time-matrix matrix output-time)]
+                   (let [matrix           (if (= name "burn_history")
+                                            (to-color-map-values layer output-time)
+                                            (fire-spread-results layer))
+                         *filtered-matrix (delay (layer-snapshot burn-time-matrix matrix output-time))]
                      (when output-geotiffs?
-                       (outputs/output-geotiff-sync config filtered-matrix name envelope simulation-id output-time))
+                       (outputs/output-geotiff-sync config (deref *filtered-matrix) name envelope simulation-id output-time))
                      (when output-pngs?
-                       (outputs/output-png-sync config filtered-matrix name simulation-id output-time)))))
+                       (outputs/output-png-sync config (deref *filtered-matrix) name simulation-id output-time)))))
                (gf-async/nil-when-completed))))
          (gf-async/nil-when-all-completed))))
 
