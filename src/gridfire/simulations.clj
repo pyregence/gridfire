@@ -29,20 +29,89 @@
      ;; comment out the following expr and reload the code, using #_
      (System/getProperty "gridfire.simulations.log-performance-metrics")))
 
-(defn layer-snapshot [burn-time-matrix layer-matrix ^double t]
-  (d/clone
-   ;; NOTE currently, this step is extremely CPU-intensive. (Val, 29 Sep 2023)
-   ;; In typical Pyrecast situations, the actual simulation takes 20x less CPU time
-   ;; than the timestepped processing, which wastes a lot of work: the CPU is mostly
-   ;; busy shoving NODATA values from one place to another. This happens in the ForkJoin
-   ;; thread pools that tech.v3.datatype uses to execute the emap function.
-   (d/emap (fn [^double layer-value ^double burn-time]
-             (if (and (not (neg? burn-time)) (<= burn-time t))
-               layer-value
-               0.0))
-           :float64
-           layer-matrix
-           burn-time-matrix)))
+(defn- layer-snapshot-lazy
+  "Like layer-snapshot, but returns a lazy value instead of a materialized tensor."
+  [burn-time-matrix layer-matrix ^double t]
+  ;; Performance note: because of how tech.v3.datatype works,
+  ;; realizing this (d/emap ...) will cause CPU-intensive parallel computations in the ForkJoinPool.
+  (d/emap (fn [^double layer-value ^double burn-time]
+            (if (and (not (neg? burn-time)) (<= burn-time t))
+              layer-value
+              0.0))
+          :float32
+          layer-matrix
+          burn-time-matrix))
+
+(defn layer-snapshot
+  "Computes a snapshot of fire spread from `layer-matrix` after simulation time `t`.
+
+  Returns a new matrix with 0.0 where fire hasn't spread yet at time `t`."
+  [burn-time-matrix layer-matrix ^double t]
+  (d/clone (layer-snapshot-lazy burn-time-matrix layer-matrix t)))
+
+(defn- is-null-row?
+  "Find if a raster row of is only filled with null values - that is, unreached by simulated fire spread."
+  [burn-time-matrix ^long ncols ^long row-idx]
+  (let [mgetter-double (grid-lookup/mgetter-double burn-time-matrix)]
+    (loop [j (long 0)]
+      (if (= j ncols)
+        true
+        (let [v (grid-lookup/double-at mgetter-double row-idx j)]
+          (if (neg? v)
+            (recur (inc j))
+            false))))))
+
+(defn- nonnull-rows-range
+  "Resolves a range of rows outside of which
+  the burn-time matrix is null (unreached by the fire).
+
+  Returns a [row-index-start row-index-end] pair;
+  row-index-start is inclusive,
+  row-index-end is exclusive."
+  [burn-time-matrix]
+  (let [[nrows ncols] (d/shape burn-time-matrix)
+        nrows           (long nrows)
+        ncols           (long ncols)
+        row-index-start (-> (->> (range nrows)
+                                 (take-while (fn [row-idx] (is-null-row? burn-time-matrix ncols row-idx)))
+                                 (last))
+                            (or -1)
+                            (long)
+                            (inc))
+        row-index-end   (-> (->> (range (dec nrows) -1 -1)
+                                 (take-while (fn [row-idx] (is-null-row? burn-time-matrix ncols row-idx)))
+                                 (last))
+                            (or nrows)
+                            (long))]
+    [row-index-start row-index-end]))
+
+(defn layer-snapshot-float2darr
+  "Like layer-snapshot, but directly returns a float[][] array,
+  enabling more efficient execution when outputting GeoTiffs."
+  ^"[[F" [burn-time-matrix layer-matrix ^double t]
+  ;; NOTE even with this optimization, producing the timestepped snapshots can be very slow,
+  ;; using the vast majority (say, 90%) of the CPU time for 1-week simulations.
+  (let [[nrows ncols]   (d/shape burn-time-matrix)
+        nrows           (long nrows)
+        ncols           (long ncols)
+        ;; PERFORMANCE IMPROVEMENT this could be computed fewer times than once for each [layer-matrix t]. (Val, 02 Oct 2023)
+        ;; It could also use an initial guess for row-index-start / row-index-end.
+        [row-index-start
+         row-index-end] (nonnull-rows-range burn-time-matrix)
+        row-index-start (long row-index-start)
+        row-index-end   (long row-index-end)
+        null-row        (float-array ncols 0.0)]
+    (into-array
+     ;; Performance note: applying (layer-snapshot-lazy ...) to a subset of the rows saves CPU,
+     ;; while (repeat ... null-row) reduces memory consumption and transfer.
+     ;; Directly returning float arrays makes it faster to output GeoTiffs via Magellan.
+     (concat (repeat row-index-start null-row)
+             (->> (layer-snapshot-lazy (t/select burn-time-matrix (range row-index-start row-index-end))
+                                       (t/select layer-matrix (range row-index-start row-index-end))
+                                       t)
+                  (t/rows)
+                  (mapv d/->float-array))
+             (repeat (- nrows row-index-end) null-row)))))
 
 (defn previous-active-perimeter?
   [[i j :as here] matrix]
@@ -86,7 +155,8 @@
                                             (fire-spread-results layer))
                          *filtered-matrix (delay (layer-snapshot burn-time-matrix matrix output-time))]
                      (when output-geotiffs?
-                       (outputs/output-geotiff-sync config (deref *filtered-matrix) name envelope simulation-id output-time))
+                       (let [float2darr (layer-snapshot-float2darr burn-time-matrix matrix output-time)]
+                         (outputs/output-geotiff-from-float2darr config float2darr name envelope simulation-id output-time)))
                      (when output-pngs?
                        (outputs/output-png-sync config (deref *filtered-matrix) name simulation-id output-time)))))
                (gf-async/nil-when-completed))))
@@ -573,6 +643,7 @@
 
 (defn run-simulation!
   [^long i inputs]
+  (println (new java.util.Date))
   (tufte/profile
    {:id :run-simulation}
    (let [simulation-inputs  (prepare-simulation-inputs i inputs)

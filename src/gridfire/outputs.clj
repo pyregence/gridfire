@@ -4,7 +4,7 @@
             [clojure.java.io      :as io]
             [clojure.string       :as str]
             [gridfire.utils.async :as gf-async]
-            [magellan.core        :refer [matrix-to-raster write-raster]]
+            [magellan.core        :refer [float-2d-array-to-raster matrix-to-raster write-raster]]
             [manifold.deferred    :as mfd]
             [matrix-viz.core      :refer [save-matrix-as-png]]
             [tech.v3.datatype     :as d]))
@@ -107,6 +107,20 @@
                                    output-time
                                    ".tif")]
     (-> (matrix-to-raster name matrix envelope)
+        (write-raster (if output-directory
+                        (str/join "/" [output-directory file-name])
+                        file-name)))))
+
+(defn output-geotiff-from-float2darr
+  [{:keys [output-directory outfile-suffix] :as _config}
+   ^"[[F" float2darr
+   name envelope simulation-id output-time]
+  (let [file-name (output-filename name
+                                   outfile-suffix
+                                   (str simulation-id)
+                                   output-time
+                                   ".tif")]
+    (-> (float-2d-array-to-raster name float2darr envelope)
         (write-raster (if output-directory
                         (str/join "/" [output-directory file-name])
                         file-name)))))
