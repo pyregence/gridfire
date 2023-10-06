@@ -149,7 +149,7 @@
                         matrix
                         (if output-directory
                           (str/join "/" [output-directory file-name])
-                          (file-name)))))
+                          file-name))))
 
 (defn output-png
   ([config matrix name envelope]
@@ -184,17 +184,15 @@
                                (double (/ burn-count simulations)))]
       (if (int? timestep)
         (let [timestep (long timestep)]
-          (->> (map-indexed vector burn-count-matrix)
-               (mapv
-                (fn [[band matrix]]
-                  (->
-                   (exec-in-outputs-writing-pool
-                    (fn []
-                      (let [output-time        (* (long band) timestep)
-                            probability-matrix (d/clone (d/emap div-by-simulations nil matrix))]
-                        (output-geotiff-sync outputs probability-matrix output-name envelope nil output-time)
-                        (when output-pngs?
-                          (output-png-sync outputs probability-matrix output-name nil output-time))))))))
+          (->> burn-count-matrix
+               (map-indexed (fn [band matrix]
+                              (exec-in-outputs-writing-pool
+                               (fn []
+                                 (let [output-time        (* (long band) timestep)
+                                       probability-matrix (d/clone (d/emap div-by-simulations nil matrix))]
+                                   (output-geotiff-sync outputs probability-matrix output-name envelope nil output-time)
+                                   (when output-pngs?
+                                     (output-png-sync outputs probability-matrix output-name nil output-time)))))))
                (gf-async/nil-when-all-completed)))
         (->
          (exec-in-outputs-writing-pool

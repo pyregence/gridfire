@@ -3,6 +3,7 @@
   (:require [gridfire.grid-lookup        :as grid-lookup]
             [gridfire.simulations        :as simulations]
             [clojure.test                :refer [deftest is testing]]
+            [tech.v3.datatype            :as d]
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.tensor              :as t])
   (:import java.util.Random))
@@ -39,7 +40,15 @@
                       (->> (simulations/layer-snapshot-float2darr example-burn-time-matrix
                                                                   example-flame-length-matrix
                                                                   2.0)
-                           (float2darr->matrix)))))))
+                           (float2darr->matrix)))))
+    (testing "still works when all rows are null"
+      (is (dfn/equals (->> (simulations/layer-snapshot-float2darr (-> (t/const-tensor -1.0 (d/shape example-flame-length-matrix))
+                                                                      (grid-lookup/ensure-flat-jvm-tensor)
+                                                                      (grid-lookup/add-double-getter))
+                                                                  example-flame-length-matrix
+                                                                  2.0)
+                           (float2darr->matrix))
+                      (t/const-tensor 0.0 (d/shape example-flame-length-matrix)))))))
 
 (defn- identical-matrix [band width height value]
   (t/->tensor
