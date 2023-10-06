@@ -29,15 +29,92 @@
      ;; comment out the following expr and reload the code, using #_
      (System/getProperty "gridfire.simulations.log-performance-metrics")))
 
-(defn layer-snapshot [burn-time-matrix layer-matrix ^double t]
-  (d/clone
-   (d/emap (fn [^double layer-value ^double burn-time]
-             (if (and (not (neg? burn-time)) (<= burn-time t))
-               layer-value
-               0.0))
-           :float64
-           layer-matrix
-           burn-time-matrix)))
+(defn- layer-snapshot-lazy
+  "Like layer-snapshot, but returns a lazy value instead of a materialized tensor."
+  [burn-time-matrix layer-matrix ^double t]
+  ;; Performance note: because of how tech.v3.datatype works,
+  ;; realizing this (d/emap ...) will cause CPU-intensive parallel computations in the ForkJoinPool.
+  (d/emap (fn [^double layer-value ^double burn-time]
+            (if (and (not (neg? burn-time)) (<= burn-time t))
+              layer-value
+              0.0))
+          :float32
+          layer-matrix
+          burn-time-matrix))
+
+(defn layer-snapshot
+  "Computes a snapshot of fire spread from `layer-matrix` after simulation time `t`.
+
+  Returns a new matrix with 0.0 where fire hasn't spread yet at time `t`."
+  [burn-time-matrix layer-matrix ^double t]
+  (d/clone (layer-snapshot-lazy burn-time-matrix layer-matrix t)))
+
+(defn- is-null-row?
+  "Find if a raster row is only filled with null values - that is, unreached by simulated fire spread."
+  [burn-time-matrix ^long ncols ^long row-idx]
+  (let [mgetter-double (grid-lookup/mgetter-double burn-time-matrix)]
+    (loop [j (long 0)]
+      (if (= j ncols)
+        true
+        (let [v (grid-lookup/double-at mgetter-double row-idx j)]
+          (if (neg? v)
+            (recur (inc j))
+            false))))))
+
+(defn- nonnull-rows-range
+  "Resolves a range of rows outside of which
+  the burn-time matrix is null (unreached by the fire).
+
+  Returns a [row-index-start row-index-end] pair;
+  row-index-start is inclusive,
+  row-index-end is exclusive.
+
+  [0 0] is returned when all rows are null."
+  [burn-time-matrix]
+  (let [[nrows ncols]   (d/shape burn-time-matrix)
+        nrows           (long nrows)
+        ncols           (long ncols)
+        row-index-start (-> (->> (range nrows)
+                                 (drop-while (fn [row-idx] (is-null-row? burn-time-matrix ncols row-idx)))
+                                 (first))
+                            (or 0)
+                            (long))
+        row-index-end   (-> (->> (range (dec nrows) -1 -1)
+                                 (drop-while (fn [row-idx] (is-null-row? burn-time-matrix ncols row-idx)))
+                                 (first))
+                            (or -1) ; happens only when all rows are null.
+                            (long)
+                            (inc))]
+    [row-index-start row-index-end]))
+
+(defn layer-snapshot-float2darr
+  "Like layer-snapshot, but directly returns a float[][] array,
+  enabling more efficient execution when outputting GeoTiffs."
+  ^"[[F" [burn-time-matrix layer-matrix ^double t]
+  ;; NOTE even with this optimization, producing the timestepped snapshots can be very slow,
+  ;; using the vast majority (say, 90%) of the CPU time for 1-week simulations.
+  (let [[nrows ncols]   (d/shape burn-time-matrix)
+        nrows           (long nrows)
+        ncols           (long ncols)
+        ;; PERFORMANCE IMPROVEMENT this could be computed fewer times than once for each [layer-matrix t]. (Val, 02 Oct 2023)
+        ;; It could also use an initial guess for row-index-start / row-index-end.
+        [row-index-start
+         row-index-end] (nonnull-rows-range burn-time-matrix)
+        row-index-start (long row-index-start)
+        row-index-end   (long row-index-end)
+        null-row        (float-array ncols 0.0)]
+    (into-array
+     ;; Performance note: applying (layer-snapshot-lazy ...) to a subset of the rows saves CPU,
+     ;; while (repeat ... null-row) reduces memory consumption and transfer.
+     ;; Directly returning float arrays makes it faster to output GeoTiffs via Magellan.
+     (concat (repeat row-index-start null-row)
+             (when (< row-index-start row-index-end)
+               (->> (layer-snapshot-lazy (t/select burn-time-matrix (range row-index-start row-index-end))
+                                         (t/select layer-matrix (range row-index-start row-index-end))
+                                         t)
+                    (t/rows)
+                    (mapv d/->float-array)))
+             (repeat (- nrows row-index-end) null-row)))))
 
 (defn previous-active-perimeter?
   [[i j :as here] matrix]
@@ -79,14 +156,12 @@
                    (let [matrix (if (= name "burn_history")
                                   (to-color-map-values layer output-time)
                                   (fire-spread-results layer))]
-                     (layer-snapshot burn-time-matrix matrix output-time))))
-               (mfd/chain
-                 (fn [filtered-matrix]
-                   (mfd/zip
-                    (when output-geotiffs?
-                      (outputs/output-geotiff config filtered-matrix name envelope simulation-id output-time))
-                    (when output-pngs?
-                      (outputs/output-png config filtered-matrix name envelope simulation-id output-time)))))
+                     (when output-geotiffs?
+                       (let [float2darr (layer-snapshot-float2darr burn-time-matrix matrix output-time)]
+                         (outputs/output-geotiff-from-float2darr config float2darr name envelope simulation-id output-time)))
+                     (when output-pngs?
+                       (let [filtered-matrix (layer-snapshot burn-time-matrix matrix output-time)]
+                         (outputs/output-png-sync config filtered-matrix name simulation-id output-time))))))
                (gf-async/nil-when-completed))))
          (gf-async/nil-when-all-completed))))
 
@@ -132,17 +207,14 @@
                    (-> (outputs/exec-in-outputs-writing-pool
                         (fn []
                           (-> matrix0
-                              ;; TODO that check will never be true, (Val, 03 Nov 2022)
-                              ;; since we are comparing a Keyword to a String,
-                              ;; but I suspect we've been relying on that bug until now.
-                              (cond-> (= layer "burn_history") (to-color-map-values global-clock)))))
-                       (mfd/chain
-                        (fn [matrix]
-                          (mfd/zip
-                           (when output-geotiffs?
-                             (outputs/output-geotiff config matrix name envelope simulation-id))
-                           (when output-pngs?
-                             (outputs/output-png config matrix name envelope simulation-id)))))
+                              (cond-> (= name "burn_history") (to-color-map-values global-clock))
+                              (as-> matrix
+                                    (do
+                                      (when output-geotiffs?
+                                        (let [float2darr (layer-snapshot-float2darr matrix matrix global-clock)]
+                                          (outputs/output-geotiff-from-float2darr config float2darr name envelope simulation-id nil)))
+                                      (when output-pngs?
+                                        (outputs/output-png-sync config matrix name simulation-id nil)))))))
                        (gf-async/nil-when-completed)))))))
          (gf-async/nil-when-all-completed))))
 

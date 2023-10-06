@@ -4,7 +4,7 @@
             [clojure.java.io      :as io]
             [clojure.string       :as str]
             [gridfire.utils.async :as gf-async]
-            [magellan.core        :refer [matrix-to-raster write-raster]]
+            [magellan.core        :refer [float-2d-array-to-raster matrix-to-raster write-raster]]
             [manifold.deferred    :as mfd]
             [matrix-viz.core      :refer [save-matrix-as-png]]
             [tech.v3.datatype     :as d]))
@@ -98,6 +98,33 @@
       ;; When it doubt: call (exec-in-outputs-writing-pool ...) again inside your callback.
       (mfd/onto (outputs-writing-executor)))))
 
+(defn output-geotiff-sync
+  [{:keys [output-directory outfile-suffix] :as _config}
+   matrix name envelope simulation-id output-time]
+  (let [file-name (output-filename name
+                                   outfile-suffix
+                                   (str simulation-id)
+                                   output-time
+                                   ".tif")]
+    (-> (matrix-to-raster name matrix envelope)
+        (write-raster (if output-directory
+                        (str/join "/" [output-directory file-name])
+                        file-name)))))
+
+(defn output-geotiff-from-float2darr
+  [{:keys [output-directory outfile-suffix] :as _config}
+   ^"[[F" float2darr
+   name envelope simulation-id output-time]
+  (let [file-name (output-filename name
+                                   outfile-suffix
+                                   (str simulation-id)
+                                   output-time
+                                   ".tif")]
+    (-> (float-2d-array-to-raster name float2darr envelope)
+        (write-raster (if output-directory
+                        (str/join "/" [output-directory file-name])
+                        file-name)))))
+
 (defn output-geotiff
   ([config matrix name envelope]
    (output-geotiff config matrix name envelope nil nil))
@@ -105,19 +132,24 @@
   ([config matrix name envelope simulation-id]
    (output-geotiff config matrix name envelope simulation-id nil))
 
-  ([{:keys [output-directory outfile-suffix] :as config}
-    matrix name envelope simulation-id output-time]
+  ([config matrix name envelope simulation-id output-time]
    (exec-in-outputs-writing-pool
      (fn []
-       (let [file-name (output-filename name
-                                        outfile-suffix
-                                        (str simulation-id)
-                                        output-time
-                                        ".tif")]
-         (-> (matrix-to-raster name matrix envelope)
-             (write-raster (if output-directory
-                             (str/join "/" [output-directory file-name])
-                             file-name))))))))
+       (output-geotiff-sync config matrix name envelope simulation-id output-time)))))
+
+(defn output-png-sync
+  [{:keys [output-directory outfile-suffix]}
+   matrix name simulation-id output-time]
+  (let [file-name (output-filename name
+                                   outfile-suffix
+                                   (str simulation-id)
+                                   output-time
+                                   ".png")]
+    (save-matrix-as-png :color 4 -1.0
+                        matrix
+                        (if output-directory
+                          (str/join "/" [output-directory file-name])
+                          file-name))))
 
 (defn output-png
   ([config matrix name envelope]
@@ -126,20 +158,10 @@
   ([config matrix name envelope simulation-id]
    (output-png config matrix name envelope simulation-id nil))
 
-  ([{:keys [output-directory outfile-suffix]}
-    matrix name envelope simulation-id output-time]
+  ([config matrix name _envelope simulation-id output-time]
    (exec-in-outputs-writing-pool
      (fn []
-       (let [file-name (output-filename name
-                                        outfile-suffix
-                                        (str simulation-id)
-                                        output-time
-                                        ".png")]
-         (save-matrix-as-png :color 4 -1.0
-                             matrix
-                             (if output-directory
-                               (str/join "/" [output-directory file-name])
-                               (file-name))))))))
+       (output-png-sync config matrix name simulation-id output-time)))))
 
 (defn write-landfire-layers!
   [{:keys [output-landfire-inputs? outfile-suffix landfire-rasters envelope]}]
@@ -162,32 +184,23 @@
                                (double (/ burn-count simulations)))]
       (if (int? timestep)
         (let [timestep (long timestep)]
-          (->> (map-indexed vector burn-count-matrix)
-               (mapv
-                (fn [[band matrix]]
-                  (->
-                   (exec-in-outputs-writing-pool
-                    (fn []
-                      (let [output-time        (* (long band) timestep)
-                            probability-matrix (d/clone (d/emap div-by-simulations nil matrix))]
-                        [output-time probability-matrix])))
-                   (mfd/chain
-                    (fn [[output-time probability-matrix]]
-                      (mfd/zip
-                       (output-geotiff outputs probability-matrix output-name envelope nil output-time)
-                       (when output-pngs?
-                         (output-png outputs probability-matrix output-name envelope nil output-time))))))))
+          (->> burn-count-matrix
+               (map-indexed (fn [band matrix]
+                              (exec-in-outputs-writing-pool
+                               (fn []
+                                 (let [output-time        (* (long band) timestep)
+                                       probability-matrix (d/clone (d/emap div-by-simulations nil matrix))]
+                                   (output-geotiff-sync outputs probability-matrix output-name envelope nil output-time)
+                                   (when output-pngs?
+                                     (output-png-sync outputs probability-matrix output-name nil output-time)))))))
                (gf-async/nil-when-all-completed)))
         (->
          (exec-in-outputs-writing-pool
           (fn []
-            (d/clone (d/emap div-by-simulations nil burn-count-matrix))))
-         (mfd/chain
-          (fn [probability-matrix]
-            (mfd/zip
-             (output-geotiff outputs probability-matrix output-name envelope)
-             (when output-pngs?
-               (output-png outputs probability-matrix output-name envelope)))))
+            (let [probability-matrix (d/clone (d/emap div-by-simulations nil burn-count-matrix))]
+              (output-geotiff-sync outputs probability-matrix output-name envelope nil nil)
+              (when output-pngs?
+                (output-png-sync outputs probability-matrix output-name nil nil)))))
          (gf-async/nil-when-completed))))))
 
 (defn write-flame-length-sum-layer!
