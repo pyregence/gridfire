@@ -1245,7 +1245,7 @@
            :fire-type-matrix                fire-type-matrix
            :flame-length-matrix             (:flame-length-matrix matrices)
            :directional-flame-length-matrix (:directional-flame-length-matrix matrices)
-           :spot-matrix                     (:spot-matrix matrices)
+           :spot-matrix                     (:spot-matrix matrices) ; FIXME: unused (should return firebrand-count-matrix instead)
            :spread-rate-matrix              (:spread-rate-matrix matrices)
            :surface-fire-count              (->> fire-type-matrix
                                                  (d/emap #(if (= ^double % 1.0) 1 0) :int64)
@@ -1496,6 +1496,7 @@
       :y-magnitude-sum-matrix          (when compute-directional-values? (t/new-tensor shape :datatype :float32))})))
 
 ;; TODO: Move this step into run-simulations to avoid running it in every thread
+;; FIXME: Possible Bug: Does this ignite all of the perimeter cells of the burn scar instead of only the active ones according to phi.tif?
 (defn- get-perimeter-cells
   [inputs]
   (let [num-rows                    (:num-rows inputs)
