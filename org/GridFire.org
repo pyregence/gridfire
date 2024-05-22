@@ -765,7 +765,7 @@ encoded fuel model definitions into human-readable representations of
 the fuel model properties.
 
 #+name: fuel-model-constructor-functions
-#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models.clj :no-expand :comments link
+#+begin_src clojure :results silent :exports code :tangle ../src/gridfire/fuel_models_old.clj :no-expand :comments link
 (defn build-fuel-model
   [fuel-model-number]
   (let [[name delta ^double M_x-dead ^double h
@@ -1451,7 +1451,7 @@ typically configured by fuel number
 
 (defn add-eccentricity
   [spread-properties ^double ellipse-adjustment-factor]
-  (let [effective-wind-speed (:effective-wind-speed spread-properties)
+  (let [effective-wind-speed (:effective-wind-speed spread-properties) ; ft/min
         length-width-ratio   (+ 1.0 (-> 0.002840909
                                         (* ^double effective-wind-speed)
                                         (* ellipse-adjustment-factor)))
@@ -1461,8 +1461,7 @@ typically configured by fuel number
 
 (defn smallest-angle-between
   "Computes the absolute difference between two angles as an angle between 0° and 180°.
-
-  The return angle has the same cosine as (- theta1 theta2), but may have an opposite sine."
+  The return angle has the same cosine as (- theta1 theta2) but may have an opposite sine."
   ^double [^double theta1 ^double theta2]
   (let [angle (Math/abs (- theta1 theta2))]
     (if (> angle 180.0)
@@ -1792,7 +1791,8 @@ surface fire line intensity in Btu/ft/s.
 
 #+name: crown-fire-line-intensity
 #+begin_src clojure :results silent :exports code :tangle ../src/gridfire/crown_fire.clj :no-expand :comments link
-;; heat of combustion is h from the fuel models (generally 8000 Btu/lb)
+;; heat_of_combustion is h from the fuel models (generally 8000 Btu/lb)
+;; NOTE: ELMFIRE hard-codes heat_of_combustion to 18000 kJ/kg = 7738.6 Btu/lb
 (defn crown-fire-line-intensity
   "Returns the crown fire line intensity in Btu/ft*s OR kW/m, given:
    - crown spread rate (ft/min OR m/min)
@@ -1810,25 +1810,6 @@ surface fire line intensity in Btu/ft/s.
       (* canopy-height-difference)
       (* heat-of-combustion)
       (/ 60.0)))
-
-;; FIXME: unused
-(defn crown-fire-line-intensity-elmfire
-  "Returns the crown fire line intensity in kW/m, given:
-   - surface-fire-line-intensity (kW/m)
-   - crown-spread-rate (ft/min)
-   - crown-bulk-density (kg/m^3)
-   - canopy height difference (canopy height - canopy base height) (m)
-   - heat of combustion (kJ/kg) <-- Set to a constant of 18,000 kJ/kg.
-
-   kW/m + (m/min * kg/m^3 * m * kJ/kg)/60 = kW/m + (kJ/m*min)/60 = kW/m + kJ/m*s = kW/m + kW/m = kW/m"
-  ^double
-  [^double surface-fire-line-intensity ^double crown-spread-rate ^double crown-bulk-density ^double canopy-height-difference]
-  (+ surface-fire-line-intensity
-     (crown-fire-line-intensity
-       (convert/ft->m crown-spread-rate) ;; m/min
-       crown-bulk-density
-       canopy-height-difference
-       18000.0))) ;; kJ/kg
 #+end_src
 
 As with surface fire spread, the wind speed (this time the 20-ft wind
@@ -1903,8 +1884,6 @@ elliptical or circular respectively.\citep{Peterson2009}
 
 This concludes our discussion of the crown fire behavior formulas used
 in GridFire.
-
-FIXME document estimation of directional spread.
 
 ** Fire Spread on a Raster Grid
 
@@ -2720,7 +2699,6 @@ pseudo-code lays out the steps taken in this procedure:
 
 This concludes our description of GridFire's raster-based fire spread
 algorithm.
-
 
 *** FIXME new explanation
 
@@ -4512,7 +4490,6 @@ these deltas by using trigonometric functions.
   (FastMath/round (/ d cell-size)))
 #+end_src
 
-
 *** ELMFIRE-like resolution of log-normal parameters
 
 We now need to define the functions $\mu_X(\Phi)$ and $\sigma_X(\Phi)$.
@@ -5112,7 +5089,6 @@ The use of a Poisson distribution can help make the behavior robust to changes i
 That being said, note that *:num-firebrands* and/or the spotting probabilities will need to be adjusted if you change the simulation resolution,
 the essential invariant being the average number of firebrands per unit area.
 What's more, it may be sensible to set the spotting probability to 1 and compensate with a low Poisson mean.
-
 
 *** Spot Ignition Model
 
@@ -6888,8 +6864,6 @@ for calling a running server:
     (->RunConfigHandler queue (fn halt [] (reset! *keep-handling false)))))
 #+end_src
 
-
-
 * Configuration File
 
 The configuration file for GridFire's command line interface is a text
@@ -8397,9 +8371,6 @@ FIXME isn't this deprecated?
    30000 41423 100))
 #+end_src
 
-
-
-
 * Appendix: Implementation Code
 
 ** GridFire Configuration Format
@@ -9435,8 +9406,6 @@ FIXME isn't this deprecated?
                        :herbaceous 0.10}}]
     (is (s/valid? ::config/fuel-moisture config))))
 #+end_src
-
-
 
 ** Core Algorithm
 
@@ -12454,13 +12423,6 @@ FIXME how about we lift this up to the Crowning section?
    :SB4 [176.5   5246    23.1    316       10.1  3.5 ]})
 #+end_src
 
-
-
-
-
-
-
-
 *** Burn Period
 
 As an approximation of reduced fire activity during the night,
@@ -12970,10 +12932,6 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
 #_(test/run-tests)
 #+end_src
 
-
-
-
-
 *** Ad hoc Data Structures
 
 **** gridfire.structs.rfwo
@@ -13066,8 +13024,6 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
   IDoubleGetter
   (double-getter [_this] grid-lookup-double-getter))
 #+end_src
-
-
 
 ** Inputs Resolution
 
@@ -15046,8 +15002,6 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
               "the correction has been applied."))))))
 #+end_src
 
-
-
 ** Emitting Outputs
 
 *** gridfire.outputs
@@ -15626,7 +15580,6 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
     (is (dfn/equals (nth matrices 3) (nth result 3)))))
 #+end_src
 
-
 ** Helpers for General Programming
 
 *** gridfire.conversion
@@ -15924,7 +15877,6 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
       (fn ^double [^double x] (* x multiplier))
       nil)))
 #+end_src
-
 
 *** gridfire.simple-sockets
 
@@ -16259,7 +16211,6 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
            (apply mfd/zip)))))
 #+end_src
 
-
 ** Helpers for GridFire development
 
 **** gridfire.utils.test
@@ -16357,7 +16308,6 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
                        x))
                    data)))
 #+end_src
-
 
 *** Debugging and monitoring
 
@@ -16467,7 +16417,6 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
 
   *e)
 #+end_src
-
 
 *** Performance optimization
 
@@ -16632,9 +16581,6 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
 ;; $ clojure -J-Dclojure.compiler.direct-linking=true -M:perf-testing -m gridfire.lab.benchmarks benchmark test/gridfire/lab/benchmarks/rhino-input-deck/gridfire.edn
 ;; $ clojure -J-Dclojure.compiler.direct-linking=true -J-Djdk.attach.allowAttachSelf=true -M:perf-testing -m gridfire.lab.benchmarks profile test/gridfire/lab/benchmarks/rhino-input-deck/gridfire.edn
 #+end_src
-
-
-
 
 **** Benchmarking notes
 
@@ -16872,8 +16818,6 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
           (inputs->output-raster options)))
     (System/exit 0)))
 #+end_src
-
-
 
 ** Scientific Analyses
 
@@ -20065,7 +20009,6 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
   *e)
 #+end_src
 
-
 ** Data Structures and Algorithmic Helpers
 
 *** gridfire.grid-lookup
@@ -20658,7 +20601,6 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
   (envelope-lower-corner-lat+lon (:envelope inputs)))
 #+end_src
 
-
 *** gridfire.utils.geo-test
 
 #+name: gridfire.utils.geo-test
@@ -20680,7 +20622,6 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
                (resolve-simulation-lat+lon inputs))
             "returns an USA-typical [lat lon] pair.")))))
 #+end_src
-
 
 ** Code for Application-Specific Deployments of GridFire
 
@@ -20820,9 +20761,6 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
          (->>  "nm-johnson_20210617_203600_001"
                (re-find ignition-time-regex)))))
 #+end_src
-
-
-
 
 *** PyreCast Server Interface
 
@@ -21415,8 +21353,6 @@ clojure -M:run-server -c server.edn
   (throw (ex-info msg {})))
 #+end_src
 
-
-
 ** Build script
 
 *** build
@@ -21475,9 +21411,7 @@ clojure -M:run-server -c server.edn
   (println (format "Uberjar file created: \"%s\"" uberjar-file-name)))
 #+end_src
 
-
 * FIXME: Unfiled Namespaces
-
 
 *** gridfire-unmerged.scale-assessment
 
@@ -22519,9 +22453,6 @@ clojure -M:run-server -c server.edn
 ;;                                                  [tile (sort (distinct (filter pos? (t/tensor->buffer error-fm))))])))))))
 #+end_src
 
-
-
-
 *** gridfire.build-test-db
 
 #+name: gridfire.build-test-db
@@ -22589,6 +22520,3 @@ clojure -M:run-server -c server.edn
   (build-everything true)
   (shutdown-agents))
 #+end_src
-
-
-
