@@ -15684,17 +15684,35 @@ The 2nd method consists of resolving the Burn Period through astronomy computati
   [^double mph]
   (* mph 1.609344))
 
+(defn km-hr->mph
+  "Convert kilometers per hour to miles per hour."
+  ^double
+  [^double km-hr]
+  (* km-hr 0.621371192237334))
+
+(defn mps->fpm
+  "Convert meters per second to feet per minute."
+  ^double
+  [^double mps]
+  (* mps 196.86))
+
+(defn fpm->mps
+  "Convert feet per minute to meters per second."
+  ^double
+  [^double fpm]
+  (/ fpm 196.86))
+
 (defn mph->fpm
   "Convert miles per hour to feet per minute."
   ^double
   [^double mph]
   (* mph 88.0))
 
-(defn km-hr->mph
-  "Convert kilometers per hour to miles per hour."
+(defn fpm->mph
+  "Convert feet per minute to miles per hour."
   ^double
-  [^double km-hr]
-  (* km-hr 0.621371192237334))
+  [^double fpm]
+  (/ fpm 88.0))
 
 (defn wind-speed-20ft->wind-speed-10m
   "Convert wind speed at 20ft to wind speed at 10m."
