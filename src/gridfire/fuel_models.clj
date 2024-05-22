@@ -215,7 +215,6 @@
   [^long fm-number]
   (or (and (< 100 fm-number) (< fm-number 110))
       (and (< 210 fm-number) (< fm-number 220))))
-
 ;; fuel-model-definitions ends here
 
 ;; [[file:../../org/GridFire.org::fuel-category-and-size-class-functions][fuel-category-and-size-class-functions]]

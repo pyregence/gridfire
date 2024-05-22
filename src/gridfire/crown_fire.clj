@@ -96,7 +96,8 @@
 ;; cruz-crown-fire-spread ends here
 
 ;; [[file:../../org/GridFire.org::crown-fire-line-intensity][crown-fire-line-intensity]]
-;; heat of combustion is h from the fuel models (generally 8000 Btu/lb)
+;; heat_of_combustion is h from the fuel models (generally 8000 Btu/lb)
+;; NOTE: ELMFIRE hard-codes heat_of_combustion to 18000 kJ/kg = 7738.6 Btu/lb
 (defn crown-fire-line-intensity
   "Returns the crown fire line intensity in Btu/ft*s OR kW/m, given:
    - crown spread rate (ft/min OR m/min)
@@ -114,25 +115,6 @@
       (* canopy-height-difference)
       (* heat-of-combustion)
       (/ 60.0)))
-
-;; FIXME: unused
-(defn crown-fire-line-intensity-elmfire
-  "Returns the crown fire line intensity in kW/m, given:
-   - surface-fire-line-intensity (kW/m)
-   - crown-spread-rate (ft/min)
-   - crown-bulk-density (kg/m^3)
-   - canopy height difference (canopy height - canopy base height) (m)
-   - heat of combustion (kJ/kg) <-- Set to a constant of 18,000 kJ/kg.
-
-   kW/m + (m/min * kg/m^3 * m * kJ/kg)/60 = kW/m + (kJ/m*min)/60 = kW/m + kJ/m*s = kW/m + kW/m = kW/m"
-  ^double
-  [^double surface-fire-line-intensity ^double crown-spread-rate ^double crown-bulk-density ^double canopy-height-difference]
-  (+ surface-fire-line-intensity
-     (crown-fire-line-intensity
-       (convert/ft->m crown-spread-rate) ;; m/min
-       crown-bulk-density
-       canopy-height-difference
-       18000.0))) ;; kJ/kg
 ;; crown-fire-line-intensity ends here
 
 ;; [[file:../../org/GridFire.org::crown-eccentricity][crown-eccentricity]]

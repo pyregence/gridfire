@@ -300,7 +300,7 @@
 
 (defn add-eccentricity
   [spread-properties ^double ellipse-adjustment-factor]
-  (let [effective-wind-speed (:effective-wind-speed spread-properties)
+  (let [effective-wind-speed (:effective-wind-speed spread-properties) ; ft/min
         length-width-ratio   (+ 1.0 (-> 0.002840909
                                         (* ^double effective-wind-speed)
                                         (* ellipse-adjustment-factor)))
@@ -310,8 +310,7 @@
 
 (defn smallest-angle-between
   "Computes the absolute difference between two angles as an angle between 0° and 180°.
-
-  The return angle has the same cosine as (- theta1 theta2), but may have an opposite sine."
+  The return angle has the same cosine as (- theta1 theta2) but may have an opposite sine."
   ^double [^double theta1 ^double theta2]
   (let [angle (Math/abs (- theta1 theta2))]
     (if (> angle 180.0)
